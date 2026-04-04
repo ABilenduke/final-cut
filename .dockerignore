@@ -1,0 +1,40 @@
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea
+.fleet
+.vscode
+.zed
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Logs
+logs
+*.log
+
+# Node
+node_modules
+
+# Git
+.git
+.gitignore
+
+# Docker
+.dockerignore
+docker-compose*.yml
+
+# Documentation
+docs
+README.md
+
+# SSL certificates
+nginx/certs/*.pem
+nginx/certs/*.key
+
+# Claude
+.claude
