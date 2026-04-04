@@ -4,8 +4,6 @@ use App\Enums\GiftCardStatus;
 use App\Models\GiftCard;
 use Illuminate\Support\Str;
 
-uses(Tests\TestCase::class, Illuminate\Foundation\Testing\RefreshDatabase::class);
-
 it('creates a gift card with UUID primary key', function () {
     $card = GiftCard::factory()->create();
     expect($card->id)->toBeString();

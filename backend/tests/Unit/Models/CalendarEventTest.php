@@ -4,8 +4,6 @@ use App\Enums\CalendarEventType;
 use App\Models\CalendarEvent;
 use Illuminate\Support\Str;
 
-uses(Tests\TestCase::class, Illuminate\Foundation\Testing\RefreshDatabase::class);
-
 it('creates a calendar event with UUID primary key', function () {
     $event = CalendarEvent::factory()->create();
     expect($event->id)->toBeString();

@@ -1,7 +1,25 @@
 <?php
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
+
+/*
+|--------------------------------------------------------------------------
+| Safety Check: Ensure tests run against the test database
+|--------------------------------------------------------------------------
+*/
+
+uses()->beforeEach(function () {
+    $current = DB::connection()->getDatabaseName();
+
+    if ($current !== 'final_cut_test') {
+        throw new RuntimeException(
+            "Refusing to run tests against database \"{$current}\". Expected \"final_cut_test\". "
+            . 'Check phpunit.xml DB_DATABASE or your .env.testing configuration.'
+        );
+    }
+})->in('Feature', 'Unit');
 
 /*
 |--------------------------------------------------------------------------
@@ -15,8 +33,8 @@ use Tests\TestCase;
 */
 
 pest()->extend(TestCase::class)
- // ->use(RefreshDatabase::class)
-    ->in('Feature');
+    ->use(RefreshDatabase::class)
+    ->in('Feature', 'Unit');
 
 /*
 |--------------------------------------------------------------------------

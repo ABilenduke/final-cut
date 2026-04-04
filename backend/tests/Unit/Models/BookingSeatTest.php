@@ -6,8 +6,6 @@ use App\Models\Seat;
 use App\Models\Showtime;
 use Illuminate\Support\Str;
 
-uses(Tests\TestCase::class, Illuminate\Foundation\Testing\RefreshDatabase::class);
-
 it('creates a booking seat with UUID primary key', function () {
     $bs = BookingSeat::factory()->create();
     expect($bs->id)->toBeString();

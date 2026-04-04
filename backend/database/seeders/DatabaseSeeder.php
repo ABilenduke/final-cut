@@ -14,16 +14,20 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // Test user
-        User::create([
-            'name' => 'Test User',
-            'email' => 'test@finalcut.test',
-            'password' => Hash::make('password'),
-            'email_verified_at' => now(),
-            'loyalty_tier' => LoyaltyTier::Premier,
-            'loyalty_points' => 500,
-            'premier_expiry' => now()->addYear(),
-        ]);
+        // Test user — only in local/testing environments
+        if (app()->environment('local', 'testing')) {
+            User::firstOrCreate(
+                ['email' => 'test@finalcut.test'],
+                [
+                    'name' => 'Test User',
+                    'password' => Hash::make('password'),
+                    'email_verified_at' => now(),
+                    'loyalty_tier' => LoyaltyTier::Premier,
+                    'loyalty_points' => 500,
+                    'premier_expiry' => now()->addYear(),
+                ],
+            );
+        }
 
         // Additional users
         User::factory(10)->create();

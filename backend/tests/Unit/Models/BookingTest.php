@@ -7,8 +7,6 @@ use App\Models\Showtime;
 use App\Models\User;
 use Illuminate\Support\Str;
 
-uses(Tests\TestCase::class, Illuminate\Foundation\Testing\RefreshDatabase::class);
-
 it('creates a booking with UUID primary key', function () {
     $booking = Booking::factory()->create();
     expect($booking->id)->toBeString();

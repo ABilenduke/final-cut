@@ -13,7 +13,7 @@ class AuditoriumFactory extends Factory
     public function definition(): array
     {
         return [
-            'name' => fake()->unique()->randomElement(['Screen 1', 'Screen 2', 'Screen 3', 'IMAX', 'Screen 4', 'Dolby']),
+            'name' => 'Screen ' . fake()->unique()->numberBetween(1, 10000),
             'total_seats' => fake()->numberBetween(50, 300),
         ];
     }

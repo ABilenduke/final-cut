@@ -5,8 +5,6 @@ use App\Models\Auditorium;
 use App\Models\Seat;
 use Illuminate\Support\Str;
 
-uses(Tests\TestCase::class, Illuminate\Foundation\Testing\RefreshDatabase::class);
-
 it('creates a seat with UUID primary key', function () {
     $seat = Seat::factory()->create();
     expect($seat->id)->toBeString();

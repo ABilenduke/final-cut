@@ -5,8 +5,6 @@ use App\Enums\RentalEventType;
 use App\Models\RentalInquiry;
 use Illuminate\Support\Str;
 
-uses(Tests\TestCase::class, Illuminate\Foundation\Testing\RefreshDatabase::class);
-
 it('creates a rental inquiry with UUID primary key', function () {
     $inquiry = RentalInquiry::factory()->create();
     expect($inquiry->id)->toBeString();

@@ -2,8 +2,6 @@
 
 use Illuminate\Support\Str;
 
-uses(Tests\TestCase::class, Illuminate\Foundation\Testing\RefreshDatabase::class);
-
 it('creates a user with UUID primary key', function () {
     $user = \App\Models\User::factory()->create();
     expect($user->id)->toBeString();

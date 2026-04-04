@@ -4,8 +4,6 @@ use App\Enums\MenuCategory;
 use App\Models\MenuItem;
 use Illuminate\Support\Str;
 
-uses(Tests\TestCase::class, Illuminate\Foundation\Testing\RefreshDatabase::class);
-
 it('creates a menu item with UUID primary key', function () {
     $item = MenuItem::factory()->create();
     expect($item->id)->toBeString();

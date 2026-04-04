@@ -4,8 +4,6 @@ use App\Models\Booking;
 use App\Models\BookingFoodItem;
 use Illuminate\Support\Str;
 
-uses(Tests\TestCase::class, Illuminate\Foundation\Testing\RefreshDatabase::class);
-
 it('creates a booking food item with UUID primary key', function () {
     $item = BookingFoodItem::factory()->create();
     expect($item->id)->toBeString();

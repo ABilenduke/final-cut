@@ -4,8 +4,6 @@ use App\Enums\MovieStatus;
 use App\Models\Movie;
 use Illuminate\Support\Str;
 
-uses(Tests\TestCase::class, Illuminate\Foundation\Testing\RefreshDatabase::class);
-
 it('creates a movie with TMDB integer primary key', function () {
     $movie = Movie::factory()->create(['id' => 12345]);
     expect($movie->id)->toBe(12345);

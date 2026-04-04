@@ -5,8 +5,6 @@ use App\Models\Movie;
 use App\Models\Showtime;
 use Illuminate\Support\Str;
 
-uses(Tests\TestCase::class, Illuminate\Foundation\Testing\RefreshDatabase::class);
-
 it('creates a showtime with UUID primary key', function () {
     $showtime = Showtime::factory()->create();
     expect($showtime->id)->toBeString();
