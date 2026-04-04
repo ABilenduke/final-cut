@@ -271,6 +271,80 @@ test('enrichMovie returns false when tmdb_id is null', function () {
     Http::assertNothingSent();
 });
 
+test('fetchEnrichmentData marks result as partial when credits fail', function () {
+    Http::fake([
+        'api.themoviedb.org/3/movie/550' => Http::response(tmdbMovieDetail(), 200),
+        'api.themoviedb.org/3/movie/550/credits*' => Http::response([], 500),
+        'api.themoviedb.org/3/movie/550/videos*' => Http::response(tmdbVideos(), 200),
+    ]);
+
+    Cache::flush();
+
+    $service = app(TmdbService::class);
+    $result = $service->fetchEnrichmentData(550);
+
+    expect($result)->not->toBeNull()
+        ->and($result['_partial'])->toBeTrue()
+        ->and($result['cast'])->toBeEmpty()
+        ->and($result['trailerKey'])->toBe('trailer456');
+});
+
+test('fetchEnrichmentData does not cache partial results', function () {
+    Http::fake([
+        'api.themoviedb.org/3/movie/550' => Http::response(tmdbMovieDetail(), 200),
+        'api.themoviedb.org/3/movie/550/credits*' => Http::response([], 500),
+        'api.themoviedb.org/3/movie/550/videos*' => Http::response(tmdbVideos(), 200),
+    ]);
+
+    Cache::flush();
+
+    $service = app(TmdbService::class);
+
+    // First call — partial result, should NOT be cached
+    $service->fetchEnrichmentData(550);
+    $firstCallCount = count(Http::recorded());
+
+    // Second call — should hit TMDB again since partial results aren't cached
+    $service->fetchEnrichmentData(550);
+
+    expect(count(Http::recorded()))->toBeGreaterThan($firstCallCount);
+});
+
+test('enrichMovie preserves cast and trailer on partial TMDB failure', function () {
+    Http::fake([
+        'api.themoviedb.org/3/movie/550' => Http::response(tmdbMovieDetail(), 200),
+        'api.themoviedb.org/3/movie/550/credits*' => Http::response([], 500),
+        'api.themoviedb.org/3/movie/550/videos*' => Http::response(tmdbVideos(), 200),
+    ]);
+
+    Cache::flush();
+
+    $existingCast = [['id' => 1, 'name' => 'Existing Actor', 'character' => 'Hero', 'profileUrl' => null]];
+
+    $movie = Movie::factory()->create([
+        'tmdb_id' => 550,
+        'tagline' => 'Old tagline',
+        'cast' => $existingCast,
+        'trailer_key' => 'existing-trailer',
+        'tmdb_enriched_at' => now()->subDay(),
+    ]);
+
+    $service = app(TmdbService::class);
+    $result = $service->enrichMovie($movie);
+
+    expect($result)->toBeTrue();
+
+    $movie->refresh();
+    // Detail fields should update (tagline comes from detail endpoint which succeeded)
+    expect($movie->tagline)->toBe('Mischief. Mayhem. Soap.')
+        // Cast and trailer should be preserved from existing data
+        ->and($movie->cast)->toHaveCount(1)
+        ->and($movie->cast[0]['name'])->toBe('Existing Actor')
+        ->and($movie->trailer_key)->toBe('existing-trailer')
+        // tmdb_enriched_at should NOT be updated on partial enrichment
+        ->and($movie->tmdb_enriched_at->toDateString())->toBe(now()->subDay()->toDateString());
+});
+
 test('enrichMovie preserves local data when TMDB is unavailable', function () {
     Http::fake([
         'api.themoviedb.org/3/movie/999' => Http::response([], 500),

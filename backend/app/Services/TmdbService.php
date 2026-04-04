@@ -47,12 +47,20 @@ class TmdbService
             return null;
         }
 
-        $credits = $this->get("/movie/{$tmdbId}/credits") ?? ['cast' => [], 'crew' => []];
-        $videos = $this->get("/movie/{$tmdbId}/videos") ?? ['results' => []];
+        $credits = $this->get("/movie/{$tmdbId}/credits");
+        $videos = $this->get("/movie/{$tmdbId}/videos");
+        $partial = $credits === null || $videos === null;
 
-        $data = $this->tmdbToMovie($detail, $credits, $videos);
+        if ($partial) {
+            Log::info('TMDB partial enrichment for movie', ['tmdb_id' => $tmdbId, 'credits' => $credits !== null, 'videos' => $videos !== null]);
+        }
 
-        Cache::put($cacheKey, $data, 86400);
+        $data = $this->tmdbToMovie($detail, $credits ?? ['cast' => [], 'crew' => []], $videos ?? ['results' => []]);
+        $data['_partial'] = $partial;
+
+        if (! $partial) {
+            Cache::put($cacheKey, $data, 86400);
+        }
 
         return $data;
     }
@@ -74,7 +82,9 @@ class TmdbService
             return false;
         }
 
-        $movie->update(array_filter([
+        $partial = $data['_partial'] ?? false;
+
+        $fields = [
             'tagline' => $data['tagline'] ?: $movie->tagline,
             'synopsis' => $data['synopsis'] ?: $movie->synopsis,
             'runtime' => $data['runtime'] ?: $movie->runtime,
@@ -82,10 +92,19 @@ class TmdbService
             'genres' => $data['genres'] ?: $movie->genres,
             'poster_url' => $data['posterUrl'] ?: $movie->poster_url,
             'backdrop_url' => $data['backdropUrl'] ?: $movie->backdrop_url,
-            'trailer_key' => $data['trailerKey'] ?? $movie->trailer_key,
-            'cast' => $data['cast'] ?? $movie->cast,
-            'tmdb_enriched_at' => now(),
-        ], fn ($value) => $value !== null));
+        ];
+
+        if (! $partial) {
+            $fields['trailer_key'] = $data['trailerKey'] ?? $movie->trailer_key;
+            $fields['cast'] = ! empty($data['cast']) ? $data['cast'] : $movie->cast;
+            $fields['tmdb_enriched_at'] = now();
+        } else {
+            // Partial: preserve existing cast/trailer, don't update timestamp so retry happens sooner
+            $fields['trailer_key'] = $movie->trailer_key;
+            $fields['cast'] = $movie->cast;
+        }
+
+        $movie->update(array_filter($fields, fn ($value) => $value !== null));
 
         return true;
     }
