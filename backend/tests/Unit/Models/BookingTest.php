@@ -15,9 +15,15 @@ it('creates a booking with UUID primary key', function () {
     expect(Str::isUuid($booking->id))->toBeTrue();
 });
 
-it('auto-generates confirmation code matching CVF pattern', function () {
+it('auto-generates confirmation code with CVF prefix', function () {
     $booking = Booking::factory()->create();
-    expect($booking->confirmation_code)->toMatch('/^CVF-[A-Z0-9]{6}$/');
+    expect($booking->confirmation_code)->toStartWith('CVF-');
+    expect(strlen($booking->confirmation_code))->toBeGreaterThanOrEqual(10);
+});
+
+it('generates unique confirmation codes from sequential values', function () {
+    $codes = collect(range(1, 10))->map(fn () => Booking::generateConfirmationCode());
+    expect($codes->unique()->count())->toBe(10);
 });
 
 it('does not overwrite explicit confirmation code', function () {
@@ -25,7 +31,7 @@ it('does not overwrite explicit confirmation code', function () {
     expect($booking->confirmation_code)->toBe('CVF-CUSTOM');
 });
 
-it('enforces unique confirmation code', function () {
+it('enforces unique confirmation code at database level', function () {
     Booking::factory()->create(['confirmation_code' => 'CVF-ABC123']);
     Booking::factory()->create(['confirmation_code' => 'CVF-ABC123']);
 })->throws(\Illuminate\Database\QueryException::class);

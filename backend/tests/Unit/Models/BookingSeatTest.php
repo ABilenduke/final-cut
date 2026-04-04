@@ -1,6 +1,5 @@
 <?php
 
-use App\Models\Auditorium;
 use App\Models\Booking;
 use App\Models\BookingSeat;
 use App\Models\Seat;
@@ -27,9 +26,8 @@ it('belongs to a seat', function () {
 
 it('enforces unique (showtime_id, seat_id) constraint', function () {
     $showtime = Showtime::factory()->create();
-    $auditorium = Auditorium::factory()->create();
     $seat = Seat::factory()->create([
-        'auditorium_id' => $auditorium->id,
+        'auditorium_id' => $showtime->auditorium_id,
         'row' => 'A',
         'number' => 1,
         'label' => 'A1',

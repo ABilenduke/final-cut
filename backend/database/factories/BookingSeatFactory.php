@@ -15,10 +15,14 @@ class BookingSeatFactory extends Factory
 
     public function definition(): array
     {
+        $showtime = Showtime::factory()->create();
+        $booking = Booking::factory()->create(['showtime_id' => $showtime->id]);
+        $seat = Seat::factory()->create(['auditorium_id' => $showtime->auditorium_id]);
+
         return [
-            'booking_id' => Booking::factory(),
-            'showtime_id' => Showtime::factory(),
-            'seat_id' => Seat::factory(),
+            'booking_id' => $booking->id,
+            'showtime_id' => $showtime->id,
+            'seat_id' => $seat->id,
             'section' => fake()->randomElement(['Standard', 'Premium', 'Accessible']),
             'price' => 1200,
         ];

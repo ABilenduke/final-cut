@@ -153,8 +153,6 @@
 
 ---
 
----
-
 # Progress Journal — Plan 02: Database Schema
 
 ## Steps 1-8: Models, Migrations, Factories, Enums, Tests
