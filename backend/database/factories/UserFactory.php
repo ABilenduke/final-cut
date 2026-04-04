@@ -30,6 +30,13 @@ class UserFactory extends Factory
             'email_verified_at' => now(),
             'password' => static::$password ??= Hash::make('password'),
             'remember_token' => Str::random(10),
+            'phone' => fake()->optional()->phoneNumber(),
+            'date_of_birth' => fake()->optional()->date(),
+            'avatar_url' => null,
+            'loyalty_points' => 0,
+            'loyalty_tier' => 'member',
+            'premier_expiry' => null,
+            'stripe_customer_id' => null,
         ];
     }
 
