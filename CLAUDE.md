@@ -85,6 +85,38 @@ This project follows **spec-driven development** with **test-driven development 
 3. **Implement to pass** — Write the minimum code to make tests pass
 4. **Refactor** — Clean up while keeping tests green
 
+### Progress Tracking
+
+When executing any implementation plan, maintain a **progress journal** at `docs/PROGRESS.md`. This file is checked into the repo and persists across sessions.
+
+**Format per step:**
+
+```markdown
+## Step N: [Step Name]
+**Status:** 🔲 Not Started | 🟡 In Progress | ✅ Complete | ⛔ Blocked
+**Started:** YYYY-MM-DD
+**Completed:** —
+
+### Work Done
+- [date] Description of what was implemented
+
+### Decisions
+- [date] Decision made and why
+
+### Blockers
+- [date] Blocker description → resolution
+
+### Files Changed
+- `path/to/file.ext` — what changed
+```
+
+**Rules:**
+
+- Create `docs/PROGRESS.md` at the start of plan execution if it doesn't exist
+- Update the journal as work progresses — don't batch updates at the end
+- Log decisions and blockers in real time so future sessions have full context
+- Mark steps complete only after verification passes
+
 ### Testing Requirements
 
 - **Backend**: All tests **must** use [Pest](https://pestphp.com/) (not raw PHPUnit). Run with `composer test` inside the backend container. Uses `RefreshDatabase` trait for isolation against `final_cut_test`. See @docs/plans/backend/08-testing-and-seeding.md.

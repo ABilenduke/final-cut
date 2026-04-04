@@ -4,6 +4,8 @@ Every component in the system, organized by tier. Global primitives know nothing
 
 All components use Vue 3 Composition API with `<script setup lang="ts">` and `<style scoped>`. Styling uses CSS custom properties from the design system — no Tailwind, no component library.
 
+**Accessibility baseline:** All components follow `DESIGN_SYSTEM_STRUCTURE.md` § 7 — double-ring gold focus indicators, 3rem touch targets below `screen-md`, standard ARIA patterns (`for`/`id` label pairing, `aria-invalid`, `aria-describedby`, `aria-required`). Only component-specific deviations are listed below.
+
 ---
 
 ## Tier 1: Global Primitives
@@ -29,37 +31,13 @@ Located in `app/components/ui/`. Auto-imported globally by Nuxt. These are the d
 | `type` | `'button' \| 'submit' \| 'reset'` | No | `'button'` | Native button type |
 | `href` | `string` | No | — | Renders as `<NuxtLink>` instead of `<button>` |
 
-**Slots:**
+**Slots:** `default` (label), `icon-left`, `icon-right`.
 
-| Name | Description |
-| ---- | ----------- |
-| `default` | Button label content |
-| `icon-left` | Icon before label |
-| `icon-right` | Icon after label |
+**Events:** `click` (`MouseEvent`) — not emitted when disabled or loading.
 
-**Events:**
+**Variants:** Primary: `primary-container` bg, `secondary` text, `0.125rem` radius. Secondary: `surface-container-high` bg, `on-surface` text. Tertiary: transparent, `secondary` text, animated underline from center on hover.
 
-| Name | Payload | Description |
-| ---- | ------- | ----------- |
-| `click` | `MouseEvent` | Emitted on click (not emitted when disabled or loading) |
-
-**Design Tokens:**
-
-- Primary: `background: var(--primary-container)` (#550000), `color: var(--secondary)` (#DAC769), `border-radius: 0.125rem`
-- Secondary: `background: var(--surface-container-high)` (#2a2a2a), `color: var(--on-surface)` (#E5E2E1)
-- Tertiary: `background: transparent`, `color: var(--secondary)` (#DAC769), animated underline extends from center on hover
-- Hover: `duration-micro` (100ms), `ease-standard`
-- Active press: `transform: scale(0.98)`, `duration-micro`
-- Focus: double-ring glow (`var(--secondary)` outer ring)
-- Floating shadow on primary: `box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6)`
-
-**Accessibility:**
-
-- Small variant (2.25rem) gated behind `@media (pointer: fine)` — never renders on touch devices
-- Minimum touch target: 3rem (48px) on all devices below `screen-md`
-- `aria-disabled="true"` when disabled (not just the `disabled` attribute — ensures screen reader announcement)
-- `aria-busy="true"` when loading
-- Loading spinner is `aria-hidden="true"` with `aria-label="Loading"` on the button
+**Accessibility:** `aria-disabled="true"` when disabled. `aria-busy="true"` when loading. Loading spinner is `aria-hidden="true"`.
 
 ---
 
@@ -73,38 +51,15 @@ Located in `app/components/ui/`. Auto-imported globally by Nuxt. These are the d
 
 | Name | Type | Required | Default | Description |
 | ---- | ---- | -------- | ------- | ----------- |
-| `variant` | `'low' \| 'default' \| 'high'` | No | `'default'` | Surface tier: low (#1c1b1b), default (#201f1f), high (#2a2a2a) |
+| `variant` | `'low' \| 'default' \| 'high'` | No | `'default'` | Surface tier: low, default, high |
 | `interactive` | `boolean` | No | `false` | Enables hover lift and cursor pointer |
 | `href` | `string` | No | — | Makes entire card a clickable link via `<NuxtLink>` |
 
-**Slots:**
+**Slots:** `default` (body), `header`, `footer`.
 
-| Name | Description |
-| ---- | ----------- |
-| `default` | Card body content |
-| `header` | Optional header area |
-| `footer` | Optional footer area |
+**Events:** `click` (`MouseEvent`) — when interactive.
 
-**Events:**
-
-| Name | Payload | Description |
-| ---- | ------- | ----------- |
-| `click` | `MouseEvent` | Emitted when interactive card is clicked |
-
-**Design Tokens:**
-
-- Background: surface tier per variant
-- Edge catch: `outline_variant` (#57423E) at 15% opacity — decorative only, not accessible boundary
-- Border radius: 0.25rem (default card radius)
-- Hover lift (interactive): `transform: translateY(-0.125rem)`, `duration-standard` (250ms), `ease-standard`
-- No divider lines between sections — use spacing or surface shifts
-- Internal padding: `var(--space-md)` (1rem)
-
-**Accessibility:**
-
-- When `href` is set: rendered as `<NuxtLink>`, receives focus ring
-- When `interactive` without `href`: receives `tabindex="0"` and `role="button"`
-- Focus: double-ring glow on entire card
+**Behavior:** Decorative edge catch via `outline-variant` at 15% opacity. Radius: 0.25rem. Hover lift when interactive: `translateY(-0.125rem)`. Internal padding: `space-md`. When `interactive` without `href`: receives `tabindex="0"` and `role="button"`.
 
 ---
 
@@ -127,31 +82,11 @@ Located in `app/components/ui/`. Auto-imported globally by Nuxt. These are the d
 | `required` | `boolean` | No | `false` | Marks as required |
 | `size` | `'sm' \| 'default'` | No | `'default'` | Height: sm (2.25rem, pointer-fine only), default (3rem) |
 
-**Events:**
+**Events:** `update:modelValue`, `focus` (`FocusEvent`), `blur` (`FocusEvent`).
 
-| Name | Payload | Description |
-| ---- | ------- | ----------- |
-| `update:modelValue` | `string \| number` | v-model update |
-| `focus` | `FocusEvent` | Input focused |
-| `blur` | `FocusEvent` | Input blurred |
+**Behavior:** Underline-only (no border on top/left/right). Unfocused: `outline` color. Focused: `secondary` color with gold outer glow. Label: `label-md`, `tertiary`, Newsreader. Value: `body-md`, `on-surface`. Error: `label-md`, `primary`.
 
-**Design Tokens:**
-
-- Underline (unfocused): `border-bottom: 0.0625rem solid var(--outline)` (#A58B86)
-- Underline (focused): `border-bottom-color: var(--secondary)` (#DAC769) with subtle gold outer glow (glassmorphism)
-- Label: `var(--type-label-md)`, `color: var(--tertiary)` (#CCC6B6), Newsreader
-- Value text: `var(--type-body-md)`, `color: var(--on-surface)` (#E5E2E1), Newsreader
-- Error text: `var(--type-label-md)`, `color: var(--primary)` (#FFB4A8)
-- Transition: `duration-standard` (250ms), `ease-standard`
-- No border on top/left/right — underline only per design system
-
-**Accessibility:**
-
-- Label associated via `for`/`id` pairing
-- `aria-invalid="true"` when error is set
-- `aria-describedby` pointing to error message element
-- `aria-required="true"` when required
-- Focus indicator is the gold underline + glow (no additional ring needed per design system spec)
+**Accessibility:** Focus indicator is the gold underline + glow (no additional ring needed per design system spec).
 
 ---
 
@@ -175,9 +110,7 @@ Located in `app/components/ui/`. Auto-imported globally by Nuxt. These are the d
 
 **Events:** Same as CvInput (`update:modelValue`, `focus`, `blur`).
 
-**Design Tokens:** Same underline and focus styling as CvInput.
-
-**Accessibility:** Same pattern as CvInput.
+**Behavior:** Same underline and focus styling as CvInput.
 
 ---
 
@@ -201,12 +134,7 @@ Located in `app/components/ui/`. Auto-imported globally by Nuxt. These are the d
 
 **Events:** `update:modelValue`.
 
-**Design Tokens:** Same underline styling as CvInput. Dropdown panel uses `surface_container_high` (#2a2a2a), `z-dropdown` (300).
-
-**Accessibility:**
-
-- Uses native `<select>` for maximum screen reader compatibility, styled with underline treatment
-- `aria-invalid`, `aria-describedby`, `aria-required` as with CvInput
+**Behavior:** Same underline styling as CvInput. Uses native `<select>` for maximum screen reader compatibility. Dropdown panel: `surface-container-high`, `z-dropdown`.
 
 ---
 
@@ -225,39 +153,13 @@ Located in `app/components/ui/`. Auto-imported globally by Nuxt. These are the d
 | `size` | `'sm' \| 'default' \| 'lg'` | No | `'default'` | Max-width: sm (25rem), default (35rem), lg (50rem) |
 | `closeable` | `boolean` | No | `true` | Shows close button, enables Escape to close |
 
-**Slots:**
+**Slots:** `default` (body), `footer` (action buttons).
 
-| Name | Description |
-| ---- | ----------- |
-| `default` | Modal body content |
-| `footer` | Optional action buttons area |
+**Events:** `update:modelValue` (`boolean`), `close`.
 
-**Events:**
+**Behavior:** Glassmorphism backdrop at `z-modal-backdrop`. Content panel: `surface-container-high` at `z-modal`. Header height: 3.5rem. Radius: 0.125rem. Rendered via `<Teleport to="body">`.
 
-| Name | Payload | Description |
-| ---- | ------- | ----------- |
-| `update:modelValue` | `boolean` | v-model update on close |
-| `close` | — | Emitted when modal closes (Escape, backdrop click, close button) |
-
-**Design Tokens:**
-
-- Backdrop: `surface_variant` at 60% opacity + `backdrop-filter: blur(20px)`, `z-modal-backdrop` (400)
-- Content panel: `surface_container_high` (#2a2a2a), `z-modal` (500)
-- Shadow: `box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6)`
-- Header height: 3.5rem
-- Border radius: 0.125rem
-- Enter: `opacity` + `transform: scale(0.95→1)`, `duration-emphasis` (400ms), `ease-enter`
-- Exit: `opacity` + `transform: scale(1→0.95)`, `duration-emphasis`, `ease-exit`
-- Rendered via `<Teleport to="body">`
-
-**Accessibility:**
-
-- `role="dialog"`, `aria-modal="true"`, `aria-labelledby` pointing to title
-- Focus trap: Tab cycles within modal, Shift+Tab reverse cycles
-- On open: focus moves to first focusable element
-- On close: focus returns to trigger element
-- Background content receives `inert` attribute
-- Escape closes modal (when `closeable` is true)
+**Accessibility:** `role="dialog"`, `aria-modal="true"`, `aria-labelledby` pointing to title. Focus trap with wrap. On open: focus to first focusable element. On close: focus returns to trigger. Background receives `inert`.
 
 ---
 
@@ -275,29 +177,13 @@ Located in `app/components/ui/`. Auto-imported globally by Nuxt. These are the d
 | `open` | `boolean` | No | `false` | Initial open state |
 | `id` | `string` | Yes | — | Unique ID for ARIA relationships |
 
-**Slots:**
+**Slots:** `default` (collapsible body content).
 
-| Name | Description |
-| ---- | ----------- |
-| `default` | Collapsible body content |
+**Events:** `toggle` (`boolean`).
 
-**Events:**
+**Behavior:** Header: `on-surface`, Newsreader `body-lg`. Expand/collapse via `grid-template-rows: 0fr → 1fr`. No divider lines — spacing separates items (`space-sm`).
 
-| Name | Payload | Description |
-| ---- | ------- | ----------- |
-| `toggle` | `boolean` | Emitted with new open state |
-
-**Design Tokens:**
-
-- Header: `color: var(--on-surface)`, Newsreader `body-lg`
-- Expand/collapse: `grid-template-rows: 0fr → 1fr` animation, `duration-emphasis` (400ms), `ease-standard`
-- No divider lines — spacing separates accordion items (`var(--space-sm)`)
-
-**Accessibility:**
-
-- Header is a `<button>` with `aria-expanded`, `aria-controls` pointing to content panel ID
-- Content panel has `role="region"`, `aria-labelledby` pointing to header button
-- Enter/Space toggles open/close
+**Accessibility:** Header is a `<button>` with `aria-expanded`, `aria-controls`. Content panel: `role="region"`, `aria-labelledby`.
 
 ---
 
@@ -314,25 +200,9 @@ Located in `app/components/ui/`. Auto-imported globally by Nuxt. These are the d
 | `variant` | `'default' \| 'accent' \| 'warning'` | No | `'default'` | Color treatment |
 | `size` | `'sm' \| 'default'` | No | `'default'` | sm uses label-sm, default uses label-md |
 
-**Slots:**
+**Slots:** `default` (badge text).
 
-| Name | Description |
-| ---- | ----------- |
-| `default` | Badge text content |
-
-**Design Tokens:**
-
-- Default: `background: var(--surface-container-high)`, `color: var(--tertiary)`
-- Accent: `background: var(--primary-container)`, `color: var(--primary)`
-- Warning: `background: var(--secondary-container)`, `color: var(--on-surface)` (not secondary text — contrast remediation per design system audit)
-- Padding: `var(--space-xs)` horizontal, `var(--space-2xs)` vertical
-- Border radius: 0.125rem
-- Font: Newsreader, `label-md` or `label-sm`
-
-**Accessibility:**
-
-- Purely visual — no interactive behavior
-- If conveying status, parent context must make the meaning clear to screen readers
+**Variants:** Default: `surface-container-high` bg, `tertiary` text. Accent: `primary-container` bg, `primary` text. Warning: `secondary-container` bg, `on-surface` text (contrast remediation). Padding: `space-xs` horizontal, `space-2xs` vertical. Radius: 0.125rem.
 
 ---
 
@@ -351,17 +221,9 @@ Located in `app/components/ui/`. Auto-imported globally by Nuxt. These are the d
 | `height` | `string` | No | `'1rem'` | CSS height (ignored for card/image which use aspect ratio) |
 | `lines` | `number` | No | `1` | Number of text lines (text variant only) |
 
-**Design Tokens:**
+**Behavior:** `surface-container-low` bg. Shimmer gradient sweep, 1500ms infinite. Radius: 0.125rem (text/card), 50% (circle). Reduced motion: solid fill, no shimmer.
 
-- Background: `var(--surface-container-low)` (#1c1b1b)
-- Shimmer: gradient sweep, 1500ms infinite, `ease-linear`
-- Border radius: 0.125rem (text/card), 50% (circle)
-- Reduced motion: solid fill, no shimmer
-
-**Accessibility:**
-
-- Container has `aria-busy="true"`
-- Screen readers announce "Loading" on the containing region
+**Accessibility:** Container has `aria-busy="true"`.
 
 ---
 
@@ -379,27 +241,11 @@ Located in `app/components/ui/`. Auto-imported globally by Nuxt. These are the d
 | `type` | `'info' \| 'success' \| 'error'` | No | `'info'` | Visual treatment |
 | `duration` | `number` | No | `5000` | Auto-dismiss time in ms (0 for persistent) |
 
-**Events:**
+**Events:** `dismiss`.
 
-| Name | Payload | Description |
-| ---- | ------- | ----------- |
-| `dismiss` | — | Emitted when toast is dismissed |
+**Behavior:** `surface-container-high` bg, `on-surface` text. Success: left border `secondary`. Error: left border `primary-container`. At `z-toast`. Slides up from bottom on enter, down on exit.
 
-**Design Tokens:**
-
-- Background: `var(--surface-container-high)` (#2a2a2a)
-- Text: `var(--on-surface)` (#E5E2E1)
-- Success accent: left border `var(--secondary)` (#DAC769)
-- Error accent: left border `var(--primary-container)` (#550000)
-- z-index: `var(--z-toast)` (600)
-- Enter: `translateY(100%→0)` + opacity, `duration-standard`, `ease-enter`
-- Exit: `translateY(0→100%)` + opacity, `duration-standard`, `ease-exit`
-
-**Accessibility:**
-
-- `role="status"`, `aria-live="polite"` for info/success
-- `role="alert"`, `aria-live="assertive"` for errors
-- Dismiss button has `aria-label="Dismiss notification"`
+**Accessibility:** Info/success: `role="status"`, `aria-live="polite"`. Errors: `role="alert"`, `aria-live="assertive"`. Dismiss button: `aria-label="Dismiss notification"`.
 
 ---
 
@@ -417,10 +263,7 @@ Located in `app/components/ui/`. Auto-imported globally by Nuxt. These are the d
 | `size` | `'sm' \| 'md' \| 'lg' \| 'xl'` | No | `'md'` | sm (1rem), md (1.5rem), lg (3rem), xl (4rem) |
 | `label` | `string` | No | — | Accessible label (when icon is meaningful) |
 
-**Accessibility:**
-
-- When `label` is provided: `role="img"`, `aria-label` set
-- When no `label`: `aria-hidden="true"` (decorative)
+**Accessibility:** With `label`: `role="img"`, `aria-label`. Without: `aria-hidden="true"`.
 
 ---
 
@@ -436,31 +279,13 @@ Located in `app/components/layout/`. These form the persistent site shell.
 
 **Purpose:** Fixed top navigation bar.
 
-**Props:** None — reads auth state from `useAuth()` composable.
+**Props:** None — reads auth state from `useAuth()`.
 
-**Slots:** None.
+**Structure:** Logo (links to `/`), primary nav (Movies, What's On, Food & Drink, Events, Gift Cards), auth controls (Sign In or avatar dropdown). Mobile: hamburger menu below `screen-md`.
 
-**Structure:**
+**Behavior:** Height: 4rem, fixed. Background: `surface-container`. At `z-sticky`. Nav links: `on-surface`, Newsreader `body-md`. Active link: `secondary` underline. Logo: Noto Serif, `headline-sm`.
 
-- Logo (links to `/`)
-- Primary navigation: Movies, What's On, Food & Drink, Events, Gift Cards
-- Auth controls: "Sign In" link (guest) or user avatar dropdown (authenticated)
-- Mobile: hamburger menu toggle below `screen-md`
-
-**Design Tokens:**
-
-- Height: 4rem (64px), fixed at all breakpoints
-- Background: `var(--surface-container)` (#201f1f)
-- z-index: `var(--z-sticky)` (200)
-- Nav links: `var(--on-surface)` (#E5E2E1), Newsreader `body-md`
-- Active link: `var(--secondary)` (#DAC769) underline
-- Logo: Noto Serif, `headline-sm`
-
-**Accessibility:**
-
-- `<header role="banner">` containing `<nav role="navigation" aria-label="Primary">`
-- Mobile menu: `aria-expanded` on toggle, focus trap when open
-- Skip nav link precedes header in DOM
+**Accessibility:** `<header role="banner">` with `<nav aria-label="Primary">`. Mobile menu: `aria-expanded` on toggle, focus trap when open.
 
 ---
 
@@ -472,24 +297,11 @@ Located in `app/components/layout/`. These form the persistent site shell.
 
 **Props:** None.
 
-**Structure:**
+**Structure:** Secondary nav (Contact, FAQ, Accessibility, Careers, Private Screenings), social links, legal (copyright, terms, privacy), theater address and phone.
 
-- Secondary nav links: Contact, FAQ, Accessibility, Careers, Private Screenings
-- Social media links
-- Legal: copyright, terms, privacy policy
-- Theater address and phone
+**Behavior:** Background: `surface-container-lowest`. Min height: 15rem. Text: `tertiary`, `body-sm`. Links: `on-surface`, gold underline on hover.
 
-**Design Tokens:**
-
-- Background: `var(--surface-container-lowest)` (#0e0e0e)
-- Min height: 15rem (240px)
-- Text: `var(--tertiary)` (#CCC6B6), `body-sm`
-- Links: `var(--on-surface)` (#E5E2E1), gold underline on hover
-
-**Accessibility:**
-
-- `<footer role="contentinfo">`
-- Social links have `aria-label` describing destination
+**Accessibility:** `<footer role="contentinfo">`. Social links have `aria-label` describing destination.
 
 ---
 
@@ -505,22 +317,9 @@ Located in `app/components/layout/`. These form the persistent site shell.
 | ---- | ---- | -------- | ------- | ----------- |
 | `items` | `Array<{ text: string; href?: string }>` | Yes | — | Ticker content items |
 
-**Design Tokens:**
+**Behavior:** Height: 2rem. Background: `surface-container`. Text: `label-sm`, Newsreader. Scroll speed: 2.5rem/second (configurable via `--ticker-speed`). At `z-ticker`.
 
-- Height: 2rem (32px)
-- Background: `var(--surface-container)` (#201f1f)
-- Text: `label-sm`, Newsreader
-- Scroll speed: 2.5rem/second (configurable via `--ticker-speed`)
-- z-index: `var(--z-ticker)` (201)
-- Animation: `ease-linear`, continuous
-
-**Accessibility:**
-
-- Visual scrolling content: `aria-hidden="true"`
-- Static screen reader alternative: `<div class="sr-only">` with full text
-- Pause/play button: only interactive element, `aria-label="Pause ticker"` / `"Play ticker"`, `aria-pressed`
-- `<aside aria-label="Now showing updates" aria-live="off">`
-- Reduced motion: stops scrolling, displays content statically
+**Accessibility:** Scrolling content: `aria-hidden="true"`. Static `sr-only` alternative for screen readers. Pause/play button: `aria-label="Pause ticker"` / `"Play ticker"`, `aria-pressed`. `<aside aria-label="Now showing updates" aria-live="off">`. Reduced motion: stops scrolling, displays content statically.
 
 ---
 
@@ -532,21 +331,11 @@ Located in `app/components/layout/`. These form the persistent site shell.
 
 **Props:** None — reads current route for active state.
 
-**Structure:** 5 items maximum: Home, Movies, What's On, Account, More (hamburger).
+**Structure:** 5 items maximum: Home, Movies, What's On, Account, More.
 
-**Design Tokens:**
+**Behavior:** Height: `calc(3.5rem + env(safe-area-inset-bottom))`. Background: `surface-container`. At `z-sticky`. Active: `secondary`. Inactive: `tertiary`.
 
-- Height: `calc(3.5rem + env(safe-area-inset-bottom, 0px))`
-- Background: `var(--surface-container)` (#201f1f)
-- z-index: `var(--z-sticky)` (200)
-- Active icon: `var(--secondary)` (#DAC769)
-- Inactive icon: `var(--tertiary)` (#CCC6B6)
-
-**Accessibility:**
-
-- `<nav role="navigation" aria-label="Mobile navigation">`
-- Each item has `aria-label` and `aria-current="page"` when active
-- Items meet 3rem minimum touch target
+**Accessibility:** `<nav aria-label="Mobile navigation">`. `aria-current="page"` when active.
 
 ---
 
@@ -556,19 +345,7 @@ Located in `app/components/layout/`. These form the persistent site shell.
 
 **Purpose:** Hidden skip navigation link, visible on keyboard focus.
 
-**Design Tokens:**
-
-- z-index: `var(--z-skip-nav)` (900)
-- Background: `var(--primary-container)` (#550000)
-- Text: `var(--secondary)` (#DAC769)
-- Hidden via `transform: translateY(-100%)`, revealed on `:focus-visible`
-- Transition: `duration-standard`, `ease-standard`
-
-**Accessibility:**
-
-- First focusable element in DOM
-- Links to `#main-content`
-- `focus-visible` override: no additional ring — the element itself is the indicator
+**Behavior:** At `z-skip-nav` (900). Background: `primary-container`, text: `secondary`. Hidden via `translateY(-100%)`, revealed on `:focus-visible`. Links to `#main-content`.
 
 ---
 
@@ -584,17 +361,9 @@ Located in `app/components/layout/`. These form the persistent site shell.
 | ---- | ---- | -------- | ------- | ----------- |
 | `items` | `Array<{ label: string; href: string; icon: string }>` | Yes | — | Nav items |
 
-**Design Tokens:**
+**Behavior:** Desktop: 15rem rail. Tablet: 4rem icon-only rail. Mobile: collapses to MobileNav bottom bar. Active item: `secondary` left edge accent (vertical gradient).
 
-- Desktop (above `screen-lg`): 15rem rail width
-- Tablet (`screen-md` to `screen-lg`): 4rem icon-only rail
-- Mobile (below `screen-md`): collapses to MobileNav bottom bar
-- Active item: `var(--secondary)` (#DAC769) left edge accent (vertical gradient, per "no divider" rule)
-
-**Accessibility:**
-
-- `<nav role="navigation" aria-label="Account">`
-- `aria-current="page"` on active item
+**Accessibility:** `<nav aria-label="Account">`. `aria-current="page"` on active item.
 
 ---
 
@@ -617,21 +386,9 @@ Located in `app/components/movie/`.
 | `movie` | `Movie` | Yes | — | Movie data object |
 | `showShowtimes` | `boolean` | No | `true` | Show next showtime pills (false for coming soon) |
 
-**Slots:** None.
+**Structure:** Composes CvCard. Poster (2:3, `object-fit: cover`, `object-position: top center`), title (`headline-sm`, Noto Serif), MovieRatingBadge, genre badges, showtime pills or "Notify Me" CTA. Links to `/movies/:slug`.
 
-**Structure:** Composes CvCard. Poster image (2:3 aspect ratio), title (headline-sm, Noto Serif), MovieRatingBadge, genre badges, showtime pills or "Notify Me" CTA. Links to `/movies/:slug`.
-
-**Design Tokens:**
-
-- Poster: `aspect-ratio: 2/3`, `object-fit: cover`, `object-position: top center`
-- Title: `headline-sm`, Noto Serif, `var(--on-surface)`
-- Card padding: `var(--space-md)`
-
-**Accessibility:**
-
-- Entire card is a link to movie detail
-- `alt="[Movie Title] poster"` on poster image
-- Showtime pills are `<time datetime="...">` elements
+**Accessibility:** Entire card is a link. `alt="[Movie Title] poster"`. Showtime pills are `<time datetime="...">`.
 
 ---
 
@@ -647,18 +404,9 @@ Located in `app/components/movie/`.
 | ---- | ---- | -------- | ------- | ----------- |
 | `movie` | `Movie` | Yes | — | Movie data (backdrop, title, tagline) |
 
-**Design Tokens:**
+**Behavior:** Wide Frame composition. Vignette bloom gradient: `primary-container` to `surface-container-lowest`. Title: `display-lg`, Noto Serif, `on-surface`. Tagline: `body-lg`, Newsreader, `tertiary`. Hero reveal: `duration-cinematic`, `ease-enter`.
 
-- Uses Wide Frame composition (full viewport width)
-- Backdrop image with vignette bloom gradient: radial gradient from `primary_container` (#550000) to `surface_container_lowest` (#0e0e0e)
-- Title: `display-lg`, Noto Serif, `var(--on-surface)`
-- Tagline: `body-lg`, Newsreader, `var(--tertiary)`
-- Hero reveal animation: `duration-cinematic` (700ms), `ease-enter`
-
-**Accessibility:**
-
-- Backdrop image: `aria-hidden="true"`, empty `alt=""` (decorative — title and tagline carry the content)
-- Reduced motion: no reveal animation, content visible immediately
+**Accessibility:** Backdrop: `aria-hidden="true"`, empty `alt=""`. Reduced motion: no reveal animation.
 
 ---
 
@@ -690,16 +438,9 @@ Located in `app/components/movie/`.
 | ---- | ---- | -------- | ------- | ----------- |
 | `cast` | `Array<{ name: string; character: string; profileUrl: string }>` | Yes | — | Cast members from TMDB |
 
-**Design Tokens:**
+**Behavior:** Avatar: 3rem, circular crop. Name: `label-lg`, `on-surface`. Character: `label-md`, `tertiary`.
 
-- Avatar: 3rem (48px), circular crop (avatar exception to radius rule)
-- Name: `label-lg`, `var(--on-surface)`
-- Character: `label-md`, `var(--tertiary)`
-
-**Accessibility:**
-
-- `alt="[Actor name]"` on profile photos
-- Scrollable container: accessible via arrow keys or touch
+**Accessibility:** `alt="[Actor name]"` on profile photos. Scrollable via arrow keys or touch.
 
 ---
 
@@ -716,15 +457,9 @@ Located in `app/components/movie/`.
 | `trailerKey` | `string` | Yes | — | YouTube video ID from TMDB |
 | `title` | `string` | Yes | — | Movie title for accessible label |
 
-**Design Tokens:**
+**Behavior:** 16:9 aspect ratio. Radius: 0.125rem.
 
-- Aspect ratio: 16:9
-- Border radius: 0.125rem
-
-**Accessibility:**
-
-- `<iframe title="[Movie Title] trailer">`
-- `loading="lazy"`
+**Accessibility:** `<iframe title="[Movie Title] trailer">`, `loading="lazy"`.
 
 ---
 
@@ -740,7 +475,7 @@ Located in `app/components/movie/`.
 | ---- | ---- | -------- | ------- | ----------- |
 | `rating` | `number` | Yes | — | Rating out of 10 |
 
-**Design Tokens:** Composes CvBadge with accent variant. Displays score formatted to one decimal.
+**Behavior:** Composes CvBadge with accent variant. Score formatted to one decimal.
 
 ---
 
@@ -759,17 +494,9 @@ Located in `app/components/movie/`.
 
 **Structure:** Date tabs (horizontally scrollable, today highlighted), time slot buttons below selected date. Each time slot links to `/purchase/:showtimeId`.
 
-**Design Tokens:**
+**Behavior:** Active date tab: `primary-container` bg, `primary` text. Time slots: CvButton tertiary. Spacing: `space-sm`.
 
-- Active date tab: `var(--primary-container)` background, `var(--primary)` text
-- Time slot buttons: CvButton tertiary variant
-- Spacing: `var(--space-sm)` between time slots
-
-**Accessibility:**
-
-- Date tabs: `role="tablist"`, each tab has `role="tab"`, `aria-selected`
-- Time slots: `<time datetime="...">` with `aria-label` including full date and time
-- Keyboard: arrow keys navigate dates, Tab moves to time slots
+**Accessibility:** Date tabs: `role="tablist"`, each `role="tab"`, `aria-selected`. Time slots: `<time datetime="...">` with full date/time `aria-label`. Arrow keys navigate dates, Tab moves to time slots.
 
 ---
 
@@ -793,33 +520,13 @@ Located in `app/components/booking/`.
 | `seats` | `Array<Seat>` | Yes | — | Current seat data with availability status |
 | `selectedSeatIds` | `Array<string>` | Yes | — | Currently selected seat IDs |
 
-**Events:**
+**Events:** `seat-toggled` (`{ seatId: string; selected: boolean }`).
 
-| Name | Payload | Description |
-| ---- | ------- | ----------- |
-| `seat-toggled` | `{ seatId: string; selected: boolean }` | Emitted when a seat is selected/deselected |
+**Structure:** Two-column wrapper: pinned row labels (left) + scrollable seat matrix (right). AuditoriumScreenBar above the grid.
 
-**Structure:**
+**Behavior:** Desktop cells: 2.5rem, gap 0.25rem. Mobile: 3rem, gap 0.25rem. Row labels: pinned left, `label-md`, `tertiary`. Horizontal scroll on mobile with `scroll-snap-type: x proximity`. Seat visual states defined in `DESIGN_SYSTEM_STRUCTURE.md` § 2.6.
 
-Two-column wrapper: pinned row labels (left) + scrollable seat matrix (right). Screen indicator bar (AuditoriumScreenBar) above the grid.
-
-**Design Tokens:**
-
-- Desktop cells: 2.5rem (40px), gap 0.25rem
-- Mobile cells (below `screen-md`): 3rem (48px), gap 0.25rem
-- Seat visual states (server `status` + client `selectedSeatIds`): available (#2a2a2a), selected (client-only — #550000 + check icon in #FFB4A8), taken (#1c1b1b at 0.4 opacity), held (#1c1b1b at 0.4 opacity, non-interactive), accessible (#2a2a2a + wheelchair icon in #DAC769), premium (#2a2a2a + #675900 bottom edge)
-- Row labels: pinned left, `label-md`, `var(--tertiary)`
-- Horizontal scroll on mobile with `scroll-snap-type: x proximity`
-
-**Accessibility:**
-
-- `role="grid"`, `aria-label="Theater seating chart, [Screen Name]"`
-- Each row: `role="row"`, `aria-label="Row [letter]"`
-- Each seat: `role="gridcell"`, `aria-label="Seat [ID], [status]. [Section]. [Price tier]."`
-- Selected: `aria-selected="true"`
-- Taken: `aria-disabled="true"`
-- Keyboard: roving tabindex — arrow keys move between seats, Enter/Space toggles selection, Home/End for first/last in row, Escape deselects all, Tab exits grid
-- Screen reader announcements on selection: "Seat [ID] selected. [N] seats selected, [price] total."
+**Accessibility:** `role="grid"`, `aria-label="Theater seating chart, [Screen Name]"`. Each row: `role="row"`. Each seat: `role="gridcell"` with descriptive `aria-label`. Selected: `aria-selected="true"`. Taken: `aria-disabled="true"`. Roving tabindex keyboard navigation — see `DESIGN_SYSTEM_STRUCTURE.md` § 7. Screen reader announcements on selection: "Seat [ID] selected. [N] seats selected, [price] total."
 
 ---
 
@@ -837,16 +544,9 @@ Two-column wrapper: pinned row labels (left) + scrollable seat matrix (right). S
 | `selected` | `boolean` | Yes | — | Whether this seat is currently selected |
 | `focused` | `boolean` | Yes | — | Whether this seat has roving tabindex focus |
 
-**Events:**
+**Events:** `toggle`.
 
-| Name | Payload | Description |
-| ---- | ------- | ----------- |
-| `toggle` | — | Seat was clicked/activated |
-
-**Design Tokens:**
-
-- Selection animation: background-color change + `transform: scale(1→1.05→1)`, `duration-standard`, `ease-emphasis`
-- Focus: 0.125rem inset `var(--secondary)` outline
+**Behavior:** Selection animation: color change + `scale(1→1.05→1)`, `duration-standard`, `ease-emphasis`. Focus: 0.125rem inset `secondary` outline.
 
 ---
 
@@ -854,7 +554,7 @@ Two-column wrapper: pinned row labels (left) + scrollable seat matrix (right). S
 
 **File:** `app/components/booking/PurchaseStepIndicator.vue`
 
-**Purpose:** Horizontal step indicator rendered in the `purchase` layout. Shows three labeled steps with clickable navigation to completed steps.
+**Purpose:** Horizontal step indicator rendered in the `purchase` layout.
 
 **Props:**
 
@@ -862,22 +562,13 @@ Two-column wrapper: pinned row labels (left) + scrollable seat matrix (right). S
 | ---- | ---- | -------- | ------- | ----------- |
 | `currentStep` | `1 \| 2 \| 3` | Yes | — | Active step |
 | `completedSteps` | `Array<number>` | Yes | — | Steps the user has completed |
-| `navigableSteps` | `Array<number>` | No | Same as `completedSteps` | Steps the user can click to navigate to. On the confirmation page, pass `[]` to render all steps as completed but non-clickable (transaction is final) |
+| `navigableSteps` | `Array<number>` | No | Same as `completedSteps` | Steps the user can click to navigate to. Pass `[]` on confirmation page |
 
-**Events:**
+**Events:** `navigate` (`number`).
 
-| Name | Payload | Description |
-| ---- | ------- | ----------- |
-| `navigate` | `number` | User clicked a completed step to navigate back |
+**Behavior:** Completed/active: `secondary` with gold underline. Future: `outline-variant`. Connector: `outline-variant` at 15% opacity. Font: `label-lg`, Newsreader.
 
-**Design Tokens:**
-
-- Completed/active step label: `var(--secondary)` (#DAC769) with gold underline
-- Future step label: `var(--outline-variant)` (#57423E)
-- Step connector line: `var(--outline-variant)` at 15% opacity
-- Font: `var(--type-label-lg)` using Newsreader
-
-**Accessibility:** Uses `nav` with `aria-label="Purchase steps"`. Each step is an `<a>` (navigable), `<span>` (completed but locked), or `<span aria-disabled="true">` (future). Current step marked with `aria-current="step"`. On confirmation page, all steps render as non-interactive `<span>` elements since `navigableSteps` is `[]`.
+**Accessibility:** `<nav aria-label="Purchase steps">`. Current: `aria-current="step"`. Navigable steps: `<a>`. Non-navigable: `<span>` (or `aria-disabled="true"` for future).
 
 ---
 
@@ -887,10 +578,7 @@ Two-column wrapper: pinned row labels (left) + scrollable seat matrix (right). S
 
 **Purpose:** Visual indicator of the movie screen position above the seat grid.
 
-**Design Tokens:**
-
-- Height: 0.25rem, width: 60% of grid, centered
-- Color: `var(--primary-container)` (#550000)
+**Behavior:** Height: 0.25rem, width: 60% of grid, centered. Color: `primary-container`.
 
 **Accessibility:** `aria-hidden="true"` (decorative).
 
@@ -938,12 +626,7 @@ Two-column wrapper: pinned row labels (left) + scrollable seat matrix (right). S
 | `total` | `number` | Yes | — | Amount to charge |
 | `isAuthenticated` | `boolean` | Yes | — | Whether user is logged in |
 
-**Events:**
-
-| Name | Payload | Description |
-| ---- | ------- | ----------- |
-| `submit` | `{ paymentMethodId: string; email?: string }` | Payment info ready for server |
-| `error` | `string` | Payment error occurred |
+**Events:** `submit` (`{ paymentMethodId: string; email?: string }`), `error` (`string`).
 
 **Structure:** Stripe Elements card input, guest email field (if not authenticated), billing name, "Complete Purchase" CTA.
 
@@ -963,9 +646,9 @@ Two-column wrapper: pinned row labels (left) + scrollable seat matrix (right). S
 | ---- | ---- | -------- | ------- | ----------- |
 | `booking` | `Booking` | Yes | — | Completed booking data |
 
-**Structure:** Booking reference, movie/showtime details, seat numbers, food orders, total, QR code, "Add to Calendar" button (.ics), "Print Tickets" button.
+**Structure:** Booking reference, movie/showtime details, seat numbers, food orders, total, QR code, "Add to Calendar" (.ics), "Print Tickets".
 
-**Accessibility:** Optimized for print stylesheet. QR code has `alt="Booking QR code for [reference]"`.
+**Accessibility:** Optimized for print stylesheet. QR code: `alt="Booking QR code for [reference]"`.
 
 ---
 
@@ -982,11 +665,7 @@ Two-column wrapper: pinned row labels (left) + scrollable seat matrix (right). S
 | `menuItems` | `Array<MenuItem>` | Yes | — | Available menu items |
 | `selectedItems` | `Array<{ itemId: string; quantity: number }>` | Yes | — | Currently selected items |
 
-**Events:**
-
-| Name | Payload | Description |
-| ---- | ------- | ----------- |
-| `update` | `Array<{ itemId: string; quantity: number }>` | Items changed |
+**Events:** `update` (`Array<{ itemId: string; quantity: number }>`).
 
 **Structure:** Compact grid of menu items with quantity selectors. Category tabs for filtering.
 
@@ -1004,12 +683,7 @@ Two-column wrapper: pinned row labels (left) + scrollable seat matrix (right). S
 | ---- | ---- | -------- | ------- | ----------- |
 | `appliedCode` | `string \| null` | Yes | — | Currently applied code |
 
-**Events:**
-
-| Name | Payload | Description |
-| ---- | ------- | ----------- |
-| `apply` | `string` | Code submitted for validation |
-| `remove` | — | Applied code removed |
+**Events:** `apply` (`string`), `remove`.
 
 ---
 
@@ -1033,24 +707,11 @@ Located in `app/components/calendar/`.
 | `selectedDate` | `string` | Yes | — | ISO date string of selected day |
 | `view` | `'month' \| 'week' \| 'list'` | No | `'month'` | Display mode |
 
-**Events:**
+**Events:** `select-date` (`string`), `navigate` (`{ month: number; year: number }`).
 
-| Name | Payload | Description |
-| ---- | ------- | ----------- |
-| `select-date` | `string` | Date selected (ISO string) |
-| `navigate` | `{ month: number; year: number }` | Month/year changed |
+**Behavior:** Day cell: 3rem minimum at all breakpoints. Event dots color-coded by type (showtime: `tertiary`, special event: `secondary`, loyalty: `primary-container`).
 
-**Design Tokens:**
-
-- Day cell: 3rem (48px) minimum at all breakpoints
-- Event dots: color-coded by type (showtime: tertiary, special event: secondary, loyalty: primary-container)
-
-**Accessibility:**
-
-- `role="grid"`, `aria-labelledby` calendar heading
-- Roving tabindex: arrow keys for day navigation, Page Up/Down for month, Home/End for first/last day
-- Each cell: `aria-label="[Full date]. [N] events."`, `aria-selected` on current selection
-- Column headers: `role="columnheader"` with day names
+**Accessibility:** `role="grid"`, roving tabindex. Keyboard navigation per `DESIGN_SYSTEM_STRUCTURE.md` § 7. Each cell: `aria-label="[Full date]. [N] events."`, `aria-selected`. Column headers: `role="columnheader"`.
 
 ---
 
@@ -1100,15 +761,9 @@ Located in `app/components/calendar/`.
 | ---- | ---- | -------- | ------- | ----------- |
 | `activeView` | `'month' \| 'week' \| 'list'` | Yes | — | Current view mode |
 | `activeFilters` | `Array<string>` | Yes | — | Active event type filters |
-| `activeAccessibilityFilters` | `Array<AccessibilityTag>` | No | `[]` | Active accessibility filters (sensory_friendly, open_caption, audio_described) |
+| `activeAccessibilityFilters` | `Array<AccessibilityTag>` | No | `[]` | Active accessibility filters |
 
-**Events:**
-
-| Name | Payload | Description |
-| ---- | ------- | ----------- |
-| `view-change` | `string` | View mode changed |
-| `filter-change` | `Array<string>` | Event type filters updated |
-| `accessibility-filter-change` | `Array<AccessibilityTag>` | Accessibility filters updated |
+**Events:** `view-change` (`string`), `filter-change` (`Array<string>`), `accessibility-filter-change` (`Array<AccessibilityTag>`).
 
 ---
 
@@ -1194,11 +849,7 @@ Located in `app/components/account/`.
 | ---- | ---- | -------- | ------- | ----------- |
 | `profile` | `User` | Yes | — | Current user data |
 
-**Events:**
-
-| Name | Payload | Description |
-| ---- | ------- | ----------- |
-| `save` | `Partial<User>` | Updated profile fields |
+**Events:** `save` (`Partial<User>`).
 
 **Structure:** Avatar upload area, name (CvInput), email (CvInput), password change section (current, new, confirm). Save button (CvButton).
 
@@ -1233,13 +884,9 @@ Located in `app/components/content/`.
 
 **Purpose:** Contact inquiry form.
 
-**Props:** None — self-contained form.
+**Props:** None — self-contained.
 
-**Events:**
-
-| Name | Payload | Description |
-| ---- | ------- | ----------- |
-| `submit` | `{ name: string; email: string; subject: string; message: string }` | Form submitted |
+**Events:** `submit` (`{ name: string; email: string; subject: string; message: string }`).
 
 **Structure:** Name (CvInput), email (CvInput), subject (CvInput), message (CvTextarea), submit (CvButton).
 
@@ -1257,7 +904,7 @@ Located in `app/components/content/`.
 | ---- | ---- | -------- | ------- | ----------- |
 | `coordinates` | `{ lat: number; lng: number }` | Yes | — | Theater location |
 
-**Accessibility:** `<iframe title="Theater location map">` or static image with `alt` text describing location.
+**Accessibility:** `<iframe title="Theater location map">` or static image with `alt` text.
 
 ---
 
@@ -1273,7 +920,7 @@ Located in `app/components/content/`.
 | ---- | ---- | -------- | ------- | ----------- |
 | `item` | `MenuItem` | Yes | — | Menu item data |
 
-**Structure:** Image (4:3 aspect), name (headline-sm), description (body-sm), price, dietary badges (CvBadge — vegan, GF, contains nuts, etc.).
+**Structure:** Image (4:3 aspect), name (`headline-sm`), description (`body-sm`), price, dietary badges (CvBadge).
 
 ---
 
@@ -1290,13 +937,9 @@ Located in `app/components/content/`.
 | `categories` | `Array<string>` | Yes | — | Category names |
 | `active` | `string` | Yes | — | Currently selected category |
 
-**Events:**
+**Events:** `select` (`string`).
 
-| Name | Payload | Description |
-| ---- | ------- | ----------- |
-| `select` | `string` | Category selected |
-
-**Accessibility:** `role="tablist"`, each tab has `role="tab"`, `aria-selected`.
+**Accessibility:** `role="tablist"`, each tab `role="tab"`, `aria-selected`.
 
 ---
 
@@ -1308,11 +951,7 @@ Located in `app/components/content/`.
 
 **Props:** None — self-contained.
 
-**Events:**
-
-| Name | Payload | Description |
-| ---- | ------- | ----------- |
-| `purchase` | `{ amount: number; recipientEmail: string; recipientName: string; message: string }` | Purchase submitted |
+**Events:** `purchase` (`{ amount: number; recipientEmail: string; recipientName: string; message: string }`).
 
 **Structure:** Amount selector (preset buttons + custom input), recipient name, recipient email, personal message, purchase CTA.
 
@@ -1336,11 +975,7 @@ Located in `app/components/content/`.
 
 **Purpose:** Private screening/rental inquiry form.
 
-**Events:**
-
-| Name | Payload | Description |
-| ---- | ------- | ----------- |
-| `submit` | `RentalInquiry` | Inquiry submitted |
+**Events:** `submit` (`RentalInquiry`).
 
 **Structure:** Event type (CvSelect), date (CvInput type date), guest count (CvInput type number), name, email, message (CvTextarea), submit.
 
@@ -1358,7 +993,7 @@ Located in `app/components/content/`.
 | ---- | ---- | -------- | ------- | ----------- |
 | `package` | `{ name: string; description: string; startingPrice: number; features: Array<string> }` | Yes | — | Package data |
 
-**Structure:** CvCard with package name (headline-sm), description, feature list, starting price.
+**Structure:** CvCard with package name (`headline-sm`), description, feature list, starting price.
 
 ---
 
