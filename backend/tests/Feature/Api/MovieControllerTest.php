@@ -4,47 +4,8 @@ use App\Enums\MovieStatus;
 use App\Models\Auditorium;
 use App\Models\Movie;
 use App\Models\Showtime;
-use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Http;
 
 use function Pest\Laravel\getJson;
-
-// --- TMDB Response Helpers ---
-
-function fakeTmdbCredits(): array
-{
-    return [
-        'cast' => [
-            ['id' => 1, 'name' => 'Actor 1', 'character' => 'Hero', 'profile_path' => '/a1.jpg'],
-        ],
-        'crew' => [],
-    ];
-}
-
-function fakeTmdbVideos(): array
-{
-    return [
-        'results' => [
-            ['key' => 'yt123', 'type' => 'Trailer', 'site' => 'YouTube'],
-        ],
-    ];
-}
-
-function fakeTmdbMovie(int $id = 100001, string $title = 'Test Movie'): array
-{
-    return [
-        'id' => $id,
-        'title' => $title,
-        'tagline' => 'A test tagline',
-        'overview' => 'A test synopsis',
-        'runtime' => 120,
-        'vote_average' => 7.5,
-        'release_date' => '2026-01-15',
-        'genres' => [['id' => 28, 'name' => 'Action']],
-        'poster_path' => '/poster.jpg',
-        'backdrop_path' => '/backdrop.jpg',
-    ];
-}
 
 /*
 |--------------------------------------------------------------------------
@@ -116,23 +77,18 @@ test('GET /api/movies paginates results', function () {
 
 /*
 |--------------------------------------------------------------------------
-| GET /api/movies/{slug}
+| GET /api/movies/{slug} — Pure local data, no TMDB
 |--------------------------------------------------------------------------
 */
 
 test('GET /api/movies/{slug} returns movie detail for valid slug', function () {
-    Cache::flush();
-
     $movie = Movie::factory()->nowShowing()->create([
-        'id' => 100001,
         'slug' => 'test-movie',
         'title' => 'Test Movie',
-    ]);
-
-    Http::fake([
-        'api.themoviedb.org/3/movie/100001' => Http::response(fakeTmdbMovie(100001, 'Test Movie'), 200),
-        'api.themoviedb.org/3/movie/100001/credits*' => Http::response(fakeTmdbCredits(), 200),
-        'api.themoviedb.org/3/movie/100001/videos*' => Http::response(fakeTmdbVideos(), 200),
+        'cast' => [
+            ['id' => 1, 'name' => 'Actor 1', 'character' => 'Hero', 'profileUrl' => 'https://image.tmdb.org/t/p/w185/a1.jpg'],
+        ],
+        'trailer_key' => 'yt123',
     ]);
 
     getJson('/api/movies/test-movie')
@@ -141,9 +97,10 @@ test('GET /api/movies/{slug} returns movie detail for valid slug', function () {
             'data' => ['id', 'slug', 'title', 'tagline', 'synopsis', 'runtime', 'rating',
                 'releaseDate', 'genres', 'cast', 'posterUrl', 'backdropUrl', 'trailerKey', 'status'],
         ])
-        ->assertJsonPath('data.id', 100001)
+        ->assertJsonPath('data.id', $movie->id)
         ->assertJsonPath('data.title', 'Test Movie')
-        ->assertJsonPath('data.trailerKey', 'yt123');
+        ->assertJsonPath('data.trailerKey', 'yt123')
+        ->assertJsonCount(1, 'data.cast');
 });
 
 test('GET /api/movies/{slug} returns 404 for unknown slug', function () {
@@ -151,45 +108,33 @@ test('GET /api/movies/{slug} returns 404 for unknown slug', function () {
         ->assertNotFound();
 });
 
-test('GET /api/movies/{slug} returns cast limited to 12', function () {
-    Cache::flush();
-
-    $movie = Movie::factory()->create(['id' => 100002, 'slug' => 'cast-test']);
-
-    $bigCast = [];
-    for ($i = 1; $i <= 15; $i++) {
-        $bigCast[] = ['id' => $i, 'name' => "Actor {$i}", 'character' => "Char {$i}", 'profile_path' => "/a{$i}.jpg"];
-    }
-
-    Http::fake([
-        'api.themoviedb.org/3/movie/100002' => Http::response(fakeTmdbMovie(100002, 'Cast Test'), 200),
-        'api.themoviedb.org/3/movie/100002/credits*' => Http::response(['cast' => $bigCast, 'crew' => []], 200),
-        'api.themoviedb.org/3/movie/100002/videos*' => Http::response(['results' => []], 200),
+test('GET /api/movies/{slug} returns empty cast when cast is null', function () {
+    Movie::factory()->create([
+        'slug' => 'no-cast-movie',
+        'cast' => null,
     ]);
 
-    $response = getJson('/api/movies/cast-test')->assertOk();
-
-    expect($response->json('data.cast'))->toHaveCount(12);
+    getJson('/api/movies/no-cast-movie')
+        ->assertOk()
+        ->assertJsonPath('data.cast', []);
 });
 
-test('GET /api/movies/{slug} falls back to local data when TMDB fails', function () {
-    Cache::flush();
+test('GET /api/movies/{slug} returns movie with persisted cast data', function () {
+    $cast = [
+        ['id' => 1, 'name' => 'Alice', 'character' => 'Commander', 'profileUrl' => null],
+        ['id' => 2, 'name' => 'Bob', 'character' => 'Pilot', 'profileUrl' => null],
+    ];
 
     Movie::factory()->create([
-        'id' => 100003,
-        'slug' => 'fallback-movie',
-        'title' => 'Fallback Movie',
-        'poster_url' => 'https://local-poster.jpg',
+        'slug' => 'cast-movie',
+        'cast' => $cast,
     ]);
 
-    Http::fake([
-        'api.themoviedb.org/3/movie/100003' => Http::response([], 500),
-    ]);
+    $response = getJson('/api/movies/cast-movie')->assertOk();
 
-    getJson('/api/movies/fallback-movie')
-        ->assertOk()
-        ->assertJsonPath('data.title', 'Fallback Movie')
-        ->assertJsonPath('data.posterUrl', 'https://local-poster.jpg');
+    expect($response->json('data.cast'))->toHaveCount(2);
+    expect($response->json('data.cast.0.name'))->toBe('Alice');
+    expect($response->json('data.cast.1.character'))->toBe('Pilot');
 });
 
 /*
@@ -209,7 +154,7 @@ test('GET /api/movies/{slug}/showtimes returns showtimes for movie', function ()
         'end_time' => now()->setTime(21, 0),
     ]);
 
-    getJson('/api/movies/showtime-movie/showtimes?date=' . now()->toDateString())
+    getJson('/api/movies/showtime-movie/showtimes?date='.now()->toDateString())
         ->assertOk()
         ->assertJsonCount(1, 'data')
         ->assertJsonStructure([
@@ -240,11 +185,11 @@ test('GET /api/movies/{slug}/showtimes filters by date', function () {
         'end_time' => now()->addDay()->setTime(21, 0),
     ]);
 
-    getJson('/api/movies/date-filter/showtimes?date=' . now()->toDateString())
+    getJson('/api/movies/date-filter/showtimes?date='.now()->toDateString())
         ->assertOk()
         ->assertJsonCount(1, 'data');
 
-    getJson('/api/movies/date-filter/showtimes?date=' . now()->addDay()->toDateString())
+    getJson('/api/movies/date-filter/showtimes?date='.now()->addDay()->toDateString())
         ->assertOk()
         ->assertJsonCount(1, 'data');
 });

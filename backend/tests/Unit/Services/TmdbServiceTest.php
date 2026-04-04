@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Movie;
 use App\Services\TmdbService;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
@@ -51,24 +52,13 @@ function tmdbVideos(): array
     ];
 }
 
-function tmdbNowPlayingResponse(): array
-{
-    return [
-        'page' => 1,
-        'total_results' => 1,
-        'total_pages' => 1,
-        'results' => [tmdbMovieDetail()],
-    ];
-}
-
-// --- Tests ---
+// --- tmdbToMovie transformation tests ---
 
 test('tmdbToMovie transforms TMDB data correctly', function () {
     Http::fake(['*' => Http::response([], 200)]);
 
     $service = app(TmdbService::class);
 
-    // Use reflection to call private method
     $method = new ReflectionMethod($service, 'tmdbToMovie');
 
     $result = $method->invoke($service, tmdbMovieDetail(), tmdbCredits(), tmdbVideos());
@@ -149,51 +139,9 @@ test('tmdbToMovie handles missing data gracefully', function () {
         ->and($result['genres'])->toBeEmpty();
 });
 
-test('nowPlaying fetches from TMDB and returns transformed movies', function () {
-    Http::fake([
-        'api.themoviedb.org/3/movie/now_playing*' => Http::response(tmdbNowPlayingResponse(), 200),
-    ]);
+// --- fetchEnrichmentData tests ---
 
-    Cache::flush();
-
-    $service = app(TmdbService::class);
-    $result = $service->nowPlaying();
-
-    expect($result)
-        ->toHaveKey('movies')
-        ->toHaveKey('total')
-        ->toHaveKey('page')
-        ->and($result['movies'])->toHaveCount(1)
-        ->and($result['movies'][0]['title'])->toBe('Fight Club')
-        ->and($result['page'])->toBe(1);
-
-    Http::assertSent(function ($request) {
-        return str_contains($request->url(), 'movie/now_playing')
-            && str_contains($request->url(), 'page=1')
-            && str_contains($request->url(), 'region=US');
-    });
-});
-
-test('upcoming fetches from TMDB and returns transformed movies', function () {
-    Http::fake([
-        'api.themoviedb.org/3/movie/upcoming*' => Http::response(tmdbNowPlayingResponse(), 200),
-    ]);
-
-    Cache::flush();
-
-    $service = app(TmdbService::class);
-    $result = $service->upcoming();
-
-    expect($result)
-        ->toHaveKey('movies')
-        ->and($result['movies'])->toHaveCount(1);
-
-    Http::assertSent(function ($request) {
-        return str_contains($request->url(), 'movie/upcoming');
-    });
-});
-
-test('movieDetail fetches detail, credits, and videos from TMDB', function () {
+test('fetchEnrichmentData fetches detail, credits, and videos from TMDB', function () {
     Http::fake([
         'api.themoviedb.org/3/movie/550' => Http::response(tmdbMovieDetail(), 200),
         'api.themoviedb.org/3/movie/550/credits*' => Http::response(tmdbCredits(), 200),
@@ -203,7 +151,7 @@ test('movieDetail fetches detail, credits, and videos from TMDB', function () {
     Cache::flush();
 
     $service = app(TmdbService::class);
-    $result = $service->movieDetail(550);
+    $result = $service->fetchEnrichmentData(550);
 
     expect($result)
         ->not->toBeNull()
@@ -213,24 +161,7 @@ test('movieDetail fetches detail, credits, and videos from TMDB', function () {
         ->and($result['trailerKey'])->toBe('trailer456');
 });
 
-test('nowPlaying caches results for 30 minutes', function () {
-    Http::fake([
-        'api.themoviedb.org/3/movie/now_playing*' => Http::response(tmdbNowPlayingResponse(), 200),
-    ]);
-
-    Cache::flush();
-
-    $service = app(TmdbService::class);
-
-    // First call — hits TMDB
-    $service->nowPlaying();
-    // Second call — should use cache
-    $service->nowPlaying();
-
-    Http::assertSentCount(1);
-});
-
-test('movieDetail caches results for 1 hour', function () {
+test('fetchEnrichmentData caches results for 24 hours', function () {
     Http::fake([
         'api.themoviedb.org/3/movie/550' => Http::response(tmdbMovieDetail(), 200),
         'api.themoviedb.org/3/movie/550/credits*' => Http::response(tmdbCredits(), 200),
@@ -241,29 +172,16 @@ test('movieDetail caches results for 1 hour', function () {
 
     $service = app(TmdbService::class);
 
-    $service->movieDetail(550);
-    $service->movieDetail(550);
+    // First call — hits TMDB
+    $service->fetchEnrichmentData(550);
+    // Second call — should use cache
+    $service->fetchEnrichmentData(550);
 
     // 3 calls for first request (detail + credits + videos), 0 for second (cached)
     Http::assertSentCount(3);
 });
 
-test('nowPlaying returns empty when TMDB is unavailable', function () {
-    Http::fake([
-        'api.themoviedb.org/3/movie/now_playing*' => Http::response([], 500),
-    ]);
-
-    Cache::flush();
-
-    $service = app(TmdbService::class);
-    $result = $service->nowPlaying();
-
-    expect($result)
-        ->toHaveKey('movies')
-        ->and($result['movies'])->toBeEmpty();
-});
-
-test('movieDetail returns null when TMDB is unavailable', function () {
+test('fetchEnrichmentData returns null when TMDB is unavailable', function () {
     Http::fake([
         'api.themoviedb.org/3/movie/550' => Http::response([], 500),
     ]);
@@ -271,20 +189,109 @@ test('movieDetail returns null when TMDB is unavailable', function () {
     Cache::flush();
 
     $service = app(TmdbService::class);
-    $result = $service->movieDetail(550);
+    $result = $service->fetchEnrichmentData(550);
 
     expect($result)->toBeNull();
 });
 
-test('nowPlaying returns empty when no API key configured', function () {
+test('fetchEnrichmentData returns null when no API key configured', function () {
     config(['services.tmdb.api_key' => null]);
 
     Cache::flush();
 
-    $service = new TmdbService();
-    $result = $service->nowPlaying();
+    $service = new TmdbService;
+    $result = $service->fetchEnrichmentData(550);
 
-    expect($result['movies'])->toBeEmpty();
+    expect($result)->toBeNull();
 
     Http::assertNothingSent();
+});
+
+test('fetchEnrichmentData uses negative caching after failure', function () {
+    Http::fake([
+        'api.themoviedb.org/3/movie/550' => Http::response([], 500),
+    ]);
+
+    Cache::flush();
+
+    $service = app(TmdbService::class);
+
+    // First call — hits TMDB (with retries), fails, caches sentinel
+    $result1 = $service->fetchEnrichmentData(550);
+    expect($result1)->toBeNull();
+
+    $firstCallCount = count(Http::recorded());
+
+    // Second call — should return null from sentinel, no additional API calls
+    $result2 = $service->fetchEnrichmentData(550);
+    expect($result2)->toBeNull();
+
+    // No additional HTTP requests after the first call
+    expect(count(Http::recorded()))->toBe($firstCallCount);
+});
+
+// --- enrichMovie tests ---
+
+test('enrichMovie updates model fields from TMDB data', function () {
+    Http::fake([
+        'api.themoviedb.org/3/movie/550' => Http::response(tmdbMovieDetail(), 200),
+        'api.themoviedb.org/3/movie/550/credits*' => Http::response(tmdbCredits(), 200),
+        'api.themoviedb.org/3/movie/550/videos*' => Http::response(tmdbVideos(), 200),
+    ]);
+
+    Cache::flush();
+
+    $movie = Movie::factory()->create([
+        'tmdb_id' => 550,
+        'tagline' => 'Old tagline',
+        'cast' => null,
+        'tmdb_enriched_at' => null,
+    ]);
+
+    $service = app(TmdbService::class);
+    $result = $service->enrichMovie($movie);
+
+    expect($result)->toBeTrue();
+
+    $movie->refresh();
+    expect($movie->tagline)->toBe('Mischief. Mayhem. Soap.')
+        ->and($movie->cast)->toHaveCount(12)
+        ->and($movie->trailer_key)->toBe('trailer456')
+        ->and($movie->tmdb_enriched_at)->not->toBeNull();
+});
+
+test('enrichMovie returns false when tmdb_id is null', function () {
+    $movie = Movie::factory()->create(['tmdb_id' => null]);
+
+    $service = app(TmdbService::class);
+    $result = $service->enrichMovie($movie);
+
+    expect($result)->toBeFalse();
+
+    Http::assertNothingSent();
+});
+
+test('enrichMovie preserves local data when TMDB is unavailable', function () {
+    Http::fake([
+        'api.themoviedb.org/3/movie/999' => Http::response([], 500),
+    ]);
+
+    Cache::flush();
+
+    $movie = Movie::factory()->create([
+        'tmdb_id' => 999,
+        'tagline' => 'Original tagline',
+        'cast' => [['id' => 1, 'name' => 'Local Actor']],
+        'poster_url' => 'https://original-poster.jpg',
+    ]);
+
+    $service = app(TmdbService::class);
+    $result = $service->enrichMovie($movie);
+
+    expect($result)->toBeFalse();
+
+    $movie->refresh();
+    expect($movie->tagline)->toBe('Original tagline')
+        ->and($movie->cast)->toHaveCount(1)
+        ->and($movie->poster_url)->toBe('https://original-poster.jpg');
 });

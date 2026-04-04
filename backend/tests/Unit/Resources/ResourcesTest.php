@@ -24,7 +24,6 @@ use Illuminate\Http\Request;
 
 test('MovieResource transforms model to camelCase output', function () {
     $movie = Movie::factory()->nowShowing()->create([
-        'id' => 100001,
         'title' => 'Test Movie',
         'slug' => 'test-movie',
         'tagline' => 'A test tagline',
@@ -33,6 +32,7 @@ test('MovieResource transforms model to camelCase output', function () {
         'rating' => 7.5,
         'release_date' => '2026-01-15',
         'genres' => [['id' => 28, 'name' => 'Action']],
+        'cast' => [['id' => 1, 'name' => 'Actor 1', 'character' => 'Hero', 'profileUrl' => null]],
         'poster_url' => 'https://image.tmdb.org/t/p/w500/poster.jpg',
         'backdrop_url' => 'https://image.tmdb.org/t/p/w1280/backdrop.jpg',
         'trailer_key' => 'abc123',
@@ -41,7 +41,7 @@ test('MovieResource transforms model to camelCase output', function () {
     $resource = (new MovieResource($movie))->toArray(Request::create('/'));
 
     expect($resource)
-        ->toHaveKey('id', 100001)
+        ->toHaveKey('id', $movie->id)
         ->toHaveKey('slug', 'test-movie')
         ->toHaveKey('title', 'Test Movie')
         ->toHaveKey('tagline', 'A test tagline')
@@ -49,10 +49,14 @@ test('MovieResource transforms model to camelCase output', function () {
         ->toHaveKey('runtime', 120)
         ->toHaveKey('releaseDate', '2026-01-15')
         ->toHaveKey('genres')
+        ->toHaveKey('cast')
         ->toHaveKey('posterUrl', 'https://image.tmdb.org/t/p/w500/poster.jpg')
         ->toHaveKey('backdropUrl', 'https://image.tmdb.org/t/p/w1280/backdrop.jpg')
         ->toHaveKey('trailerKey', 'abc123')
         ->toHaveKey('status', MovieStatus::NowShowing);
+
+    expect($resource['cast'])->toHaveCount(1);
+    expect($resource['cast'][0]['name'])->toBe('Actor 1');
 });
 
 test('MovieResource includes cast and trailerKey', function () {

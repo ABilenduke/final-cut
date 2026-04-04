@@ -220,3 +220,41 @@ test('seat map handles large auditorium efficiently', function () {
     expect($seats->where('status', 'taken')->count())->toBe(50);
     expect($seats->where('status', 'available')->count())->toBe(250);
 });
+
+test('cancelled booking seat can be rebooked by another booking', function () {
+    $movie = Movie::factory()->create();
+    $auditorium = Auditorium::factory()->create(['total_seats' => 1]);
+
+    $seat = Seat::factory()->create(['auditorium_id' => $auditorium->id, 'row' => 'A', 'number' => 1, 'label' => 'A1']);
+
+    $showtime = Showtime::factory()->create([
+        'movie_id' => $movie->id,
+        'auditorium_id' => $auditorium->id,
+    ]);
+
+    // First booking — cancelled
+    $cancelledBooking = Booking::factory()->cancelled()->create([
+        'showtime_id' => $showtime->id,
+    ]);
+    BookingSeat::factory()->create([
+        'booking_id' => $cancelledBooking->id,
+        'showtime_id' => $showtime->id,
+        'seat_id' => $seat->id,
+    ]);
+
+    // Second booking — confirmed, same seat (should NOT violate constraint)
+    $confirmedBooking = Booking::factory()->create([
+        'showtime_id' => $showtime->id,
+        'status' => BookingStatus::Confirmed,
+    ]);
+    BookingSeat::factory()->create([
+        'booking_id' => $confirmedBooking->id,
+        'showtime_id' => $showtime->id,
+        'seat_id' => $seat->id,
+    ]);
+
+    $response = getJson("/api/showtimes/{$showtime->id}")->assertOk();
+
+    $seats = collect($response->json('data.seats'));
+    expect($seats->first()['status'])->toBe('taken');
+});

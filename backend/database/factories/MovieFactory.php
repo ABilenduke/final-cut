@@ -17,7 +17,7 @@ class MovieFactory extends Factory
         $title = fake()->unique()->sentence(3);
 
         return [
-            'id' => fake()->unique()->numberBetween(1000, 999999),
+            'tmdb_id' => fake()->unique()->numberBetween(1000, 999999),
             'slug' => Str::slug($title),
             'title' => $title,
             'tagline' => fake()->optional()->sentence(),
@@ -29,10 +29,16 @@ class MovieFactory extends Factory
                 ['id' => 28, 'name' => 'Action'],
                 ['id' => 12, 'name' => 'Adventure'],
             ],
+            'cast' => [
+                ['id' => 1, 'name' => fake()->name(), 'character' => fake()->name(), 'profileUrl' => 'https://image.tmdb.org/t/p/w185/placeholder.jpg'],
+                ['id' => 2, 'name' => fake()->name(), 'character' => fake()->name(), 'profileUrl' => 'https://image.tmdb.org/t/p/w185/placeholder.jpg'],
+                ['id' => 3, 'name' => fake()->name(), 'character' => fake()->name(), 'profileUrl' => 'https://image.tmdb.org/t/p/w185/placeholder.jpg'],
+            ],
             'poster_url' => 'https://image.tmdb.org/t/p/w500/example.jpg',
             'backdrop_url' => 'https://image.tmdb.org/t/p/w1280/example.jpg',
             'trailer_key' => fake()->optional()->regexify('[a-zA-Z0-9]{11}'),
             'status' => fake()->randomElement(MovieStatus::cases()),
+            'tmdb_enriched_at' => now(),
         ];
     }
 

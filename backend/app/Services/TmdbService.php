@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Movie;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -20,76 +21,73 @@ class TmdbService
         $this->apiKey = config('services.tmdb.api_key');
     }
 
-    public function nowPlaying(int $page = 1, string $region = 'US'): array
+    /**
+     * Fetch enrichment data from TMDB for a given movie ID.
+     * Returns transformed movie data array, or null on failure.
+     * Only called by the enrichment command — never in the request path.
+     */
+    public function fetchEnrichmentData(int $tmdbId): ?array
     {
-        $cacheKey = "tmdb.now_playing.{$page}.{$region}";
+        $failKey = "tmdb.fail.{$tmdbId}";
+        $cacheKey = "tmdb.movie.{$tmdbId}";
 
-        return Cache::remember($cacheKey, 1800, function () use ($page, $region) {
-            $response = $this->get('/movie/now_playing', [
-                'page' => $page,
-                'region' => $region,
-            ]);
+        if (Cache::get($failKey)) {
+            return null;
+        }
 
-            if ($response === null) {
-                return ['movies' => [], 'total' => 0, 'page' => $page];
-            }
+        if ($cached = Cache::get($cacheKey)) {
+            return $cached;
+        }
 
-            $movies = array_map(
-                fn (array $movie) => $this->tmdbToMovie($movie),
-                $response['results'] ?? []
-            );
+        $detail = $this->get("/movie/{$tmdbId}");
 
-            return [
-                'movies' => $movies,
-                'total' => $response['total_results'] ?? 0,
-                'page' => $response['page'] ?? $page,
-            ];
-        });
+        if ($detail === null) {
+            Cache::put($failKey, true, 300);
+
+            return null;
+        }
+
+        $credits = $this->get("/movie/{$tmdbId}/credits") ?? ['cast' => [], 'crew' => []];
+        $videos = $this->get("/movie/{$tmdbId}/videos") ?? ['results' => []];
+
+        $data = $this->tmdbToMovie($detail, $credits, $videos);
+
+        Cache::put($cacheKey, $data, 86400);
+
+        return $data;
     }
 
-    public function upcoming(int $page = 1, string $region = 'US'): array
+    /**
+     * Enrich a local movie with TMDB data.
+     * Only updates fields where TMDB returned non-empty values.
+     * Returns true if enrichment succeeded, false otherwise.
+     */
+    public function enrichMovie(Movie $movie): bool
     {
-        $cacheKey = "tmdb.upcoming.{$page}.{$region}";
+        if (! $movie->tmdb_id) {
+            return false;
+        }
 
-        return Cache::remember($cacheKey, 1800, function () use ($page, $region) {
-            $response = $this->get('/movie/upcoming', [
-                'page' => $page,
-                'region' => $region,
-            ]);
+        $data = $this->fetchEnrichmentData($movie->tmdb_id);
 
-            if ($response === null) {
-                return ['movies' => [], 'total' => 0, 'page' => $page];
-            }
+        if ($data === null) {
+            return false;
+        }
 
-            $movies = array_map(
-                fn (array $movie) => $this->tmdbToMovie($movie),
-                $response['results'] ?? []
-            );
+        $movie->update(array_filter([
+            'tagline' => $data['tagline'] ?: $movie->tagline,
+            'synopsis' => $data['synopsis'] ?: $movie->synopsis,
+            'runtime' => $data['runtime'] ?: $movie->runtime,
+            'rating' => $data['rating'] ?: $movie->rating,
+            'genres' => $data['genres'] ?: $movie->genres,
+            'poster_url' => $data['posterUrl'] ?: $movie->poster_url,
+            'backdrop_url' => $data['backdropUrl'] ?: $movie->backdrop_url,
+            'trailer_key' => $data['trailerKey'] ?? $movie->trailer_key,
+            'cast' => $data['cast'] ?? $movie->cast,
+            'tmdb_enriched_at' => now(),
+        ], fn ($value) => $value !== null));
 
-            return [
-                'movies' => $movies,
-                'total' => $response['total_results'] ?? 0,
-                'page' => $response['page'] ?? $page,
-            ];
-        });
-    }
-
-    public function movieDetail(int $id): ?array
-    {
-        $cacheKey = "tmdb.movie.{$id}";
-
-        return Cache::remember($cacheKey, 3600, function () use ($id) {
-            $detail = $this->get("/movie/{$id}");
-
-            if ($detail === null) {
-                return null;
-            }
-
-            $credits = $this->get("/movie/{$id}/credits") ?? ['cast' => [], 'crew' => []];
-            $videos = $this->get("/movie/{$id}/videos") ?? ['results' => []];
-
-            return $this->tmdbToMovie($detail, $credits, $videos);
-        });
+        return true;
     }
 
     private function get(string $endpoint, array $query = []): ?array
@@ -100,10 +98,13 @@ class TmdbService
 
         try {
             $response = Http::withToken($this->apiKey)
-                ->get($this->baseUrl . $endpoint, $query);
+                ->connectTimeout(3)
+                ->timeout(5)
+                ->retry(2, 500, throw: false)
+                ->get($this->baseUrl.$endpoint, $query);
 
             if ($response->failed()) {
-                Log::warning("TMDB API request failed", [
+                Log::warning('TMDB API request failed', [
                     'endpoint' => $endpoint,
                     'status' => $response->status(),
                 ]);
@@ -113,7 +114,7 @@ class TmdbService
 
             return $response->json();
         } catch (\Exception $e) {
-            Log::warning("TMDB API request exception", [
+            Log::warning('TMDB API request exception', [
                 'endpoint' => $endpoint,
                 'message' => $e->getMessage(),
             ]);
@@ -157,6 +158,6 @@ class TmdbService
             return null;
         }
 
-        return $this->imageBaseUrl . $size . $path;
+        return $this->imageBaseUrl.$size.$path;
     }
 }

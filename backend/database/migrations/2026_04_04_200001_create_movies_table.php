@@ -9,7 +9,8 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('movies', function (Blueprint $table) {
-            $table->unsignedBigInteger('id')->primary(); // TMDB ID, NOT auto-increment
+            $table->id();
+            $table->unsignedBigInteger('tmdb_id')->nullable()->unique();
             $table->string('slug')->unique();
             $table->string('title');
             $table->string('tagline')->nullable();
@@ -18,10 +19,12 @@ return new class extends Migration
             $table->decimal('rating', 3, 1)->nullable();
             $table->date('release_date')->nullable();
             $table->json('genres')->nullable();
+            $table->json('cast')->nullable();
             $table->string('poster_url')->nullable();
             $table->string('backdrop_url')->nullable();
             $table->string('trailer_key')->nullable();
             $table->string('status')->default('now_showing');
+            $table->timestamp('tmdb_enriched_at')->nullable();
             $table->timestamps();
 
             $table->index('status');

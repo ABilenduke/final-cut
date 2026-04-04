@@ -22,7 +22,7 @@ it('belongs to a seat', function () {
     expect($bs->seat)->toBeInstanceOf(Seat::class);
 });
 
-it('enforces unique (showtime_id, seat_id) constraint', function () {
+it('allows multiple booking_seats for the same showtime and seat', function () {
     $showtime = Showtime::factory()->create();
     $seat = Seat::factory()->create([
         'auditorium_id' => $showtime->auditorium_id,
@@ -31,15 +31,17 @@ it('enforces unique (showtime_id, seat_id) constraint', function () {
         'label' => 'A1',
     ]);
 
-    BookingSeat::factory()->create([
+    $bs1 = BookingSeat::factory()->create([
         'showtime_id' => $showtime->id,
         'seat_id' => $seat->id,
     ]);
-    BookingSeat::factory()->create([
+    $bs2 = BookingSeat::factory()->create([
         'showtime_id' => $showtime->id,
         'seat_id' => $seat->id,
     ]);
-})->throws(\Illuminate\Database\QueryException::class);
+
+    expect($bs1->id)->not->toBe($bs2->id);
+});
 
 it('stores price as integer (cents)', function () {
     $bs = BookingSeat::factory()->create(['price' => 1800]);

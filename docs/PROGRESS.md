@@ -335,3 +335,47 @@
 
 ### Files Changed
 - `backend/tests/Feature/Api/RouteStubsTest.php` — removed movie/showtime stubs
+
+---
+
+## Rework: Theatre-Owned Movie Catalog + Booking Seat Fix
+**Status:** ✅ Complete
+**Started:** 2026-04-04
+**Completed:** 2026-04-04
+
+### Work Done
+- [2026-04-04] **Movies migration**: changed from TMDB ID as PK (`unsignedBigInteger('id')->primary()`) to auto-increment (`id()`). Added `tmdb_id` (nullable unique), `cast` (json), `tmdb_enriched_at` (timestamp).
+- [2026-04-04] **Booking seats migration**: replaced `unique(['showtime_id', 'seat_id'])` with `index(['showtime_id', 'seat_id'])` — cancelled booking seats no longer block rebooking at DB level.
+- [2026-04-04] **Movie model**: removed `$incrementing = false` and `$keyType`, added new columns to fillable and casts.
+- [2026-04-04] **TmdbService rework**: removed `nowPlaying()`/`upcoming()` proxy methods. Renamed `movieDetail()` → `fetchEnrichmentData()`. Added connect timeout (3s), read timeout (5s), bounded retries (2x), negative caching (5-min sentinel). Added `enrichMovie(Movie)` method that updates local fields and preserves data on partial TMDB failure. Switched from `Cache::remember` to explicit get/put to handle null correctly.
+- [2026-04-04] **MovieController simplification**: removed `TmdbService` constructor dependency. `show()` now serves purely from local DB — no TMDB calls in the request path.
+- [2026-04-04] **EnrichMoviesCommand**: new `movies:enrich` artisan command with `--movie`, `--force`, `--stale-hours` options. 200ms rate-limit delay between API calls. Scheduled hourly.
+- [2026-04-04] **Factory/seeder updates**: removed explicit TMDB IDs, added `tmdb_id`, `cast`, `tmdb_enriched_at` fields.
+- [2026-04-04] **Test updates**: rewrote MovieTest (10 tests), TmdbServiceTest (13 tests), MovieControllerTest (15 tests), ResourcesTest, BookingSeatTest, ShowtimeControllerTest (+1 rebooking test). New EnrichMoviesCommandTest (6 tests).
+- [2026-04-04] **Plan doc updated**: `docs/plans/backend/03-movie-api.md` rewritten to reflect theatre-owned catalog architecture.
+
+### Decisions
+- [2026-04-04] Theatre owns its catalog — TMDB is enrichment only, never in the request path. Addresses adversarial review finding about TMDB brownouts hanging user requests.
+- [2026-04-04] Auto-increment PK with optional `tmdb_id` reference — decouples identity from external service.
+- [2026-04-04] Negative caching (5-min sentinel) prevents stampeding a down TMDB API — addresses adversarial review finding about cascading availability problems.
+- [2026-04-04] Booking seat unique constraint removed — addresses adversarial review finding about read/write model disagreement. Application-level locking to be implemented in the booking flow (Plan 04).
+- [2026-04-04] `Cache::remember` replaced with explicit get/put in `fetchEnrichmentData` — array cache driver doesn't reliably cache null values, causing re-execution of the closure.
+
+### Files Changed
+- `backend/database/migrations/2026_04_04_200001_create_movies_table.php` — auto-increment PK, new columns
+- `backend/database/migrations/2026_04_04_200010_create_booking_seats_table.php` — unique → index
+- `backend/app/Models/Movie.php` — removed non-incrementing, added new fields
+- `backend/app/Services/TmdbService.php` — enrichment-only rework
+- `backend/app/Http/Controllers/Api/MovieController.php` — removed TMDB dependency
+- `backend/app/Console/Commands/EnrichMoviesCommand.php` — new
+- `backend/routes/console.php` — hourly schedule
+- `backend/database/factories/MovieFactory.php` — auto-increment, new fields
+- `backend/database/seeders/MovieSeeder.php` — tmdb_id, cast, tmdb_enriched_at
+- `backend/tests/Unit/Models/MovieTest.php` — rewritten (10 tests)
+- `backend/tests/Unit/Models/BookingSeatTest.php` — updated constraint test
+- `backend/tests/Unit/Services/TmdbServiceTest.php` — rewritten (13 tests)
+- `backend/tests/Unit/Resources/ResourcesTest.php` — updated for dynamic IDs + cast
+- `backend/tests/Feature/Api/MovieControllerTest.php` — rewritten (15 tests, no TMDB)
+- `backend/tests/Feature/Api/ShowtimeControllerTest.php` — added rebooking test (9 tests)
+- `backend/tests/Feature/Console/EnrichMoviesCommandTest.php` — new (6 tests)
+- `docs/plans/backend/03-movie-api.md` — rewritten for theatre-owned architecture
