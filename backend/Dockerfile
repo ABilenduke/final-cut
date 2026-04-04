@@ -43,6 +43,10 @@ RUN apk upgrade --no-cache
 
 # Build deps (removed after ext install) vs runtime deps (kept)
 RUN apk add --no-cache --virtual .build-deps \
+    autoconf \
+    gcc \
+    g++ \
+    make \
     libpq-dev \
     icu-dev \
     libzip-dev \
