@@ -124,6 +124,7 @@ When executing any implementation plan, maintain a **progress journal** at `docs
 - **Frontend unit/component**: All tests **must** use [Vitest](https://vitest.dev/) with `@nuxt/test-utils`. Run with `npx vitest` inside the frontend container.
 - **Frontend E2E**: Playwright. Run with `make e2e` from host or `npx playwright test` inside the frontend container.
 - **No untested features** — Every new backend endpoint, service, or model behavior requires Pest tests. Every frontend component, composable, and user-facing flow requires Vitest and Playwright coverage.
+- **Zero failing tests** — The full test suite must pass before any work is considered complete. Never skip, ignore, or defer failing tests. If a change causes a test failure, fix it before moving on. Run `composer test` (backend) or the relevant test command after every meaningful change.
 
 ## Documentation
 
@@ -142,3 +143,4 @@ When executing any implementation plan, maintain a **progress journal** at `docs
 - NEVER create API routes without corresponding Pest tests.
 - NEVER hardcode a single location — all showtime, auditorium, seat, and menu queries must be location-scoped.
 - NEVER return raw TMDB responses to the frontend — always transform through `TmdbService`.
+- NEVER leave failing tests — if a change breaks a test, fix it immediately. No work is done until the full suite is green.

@@ -2,24 +2,44 @@
 
 namespace Database\Seeders;
 
+use App\Enums\LoyaltyTier;
 use App\Models\User;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Hash;
 
 class DatabaseSeeder extends Seeder
 {
-    use WithoutModelEvents;
-
     /**
      * Seed the application's database.
      */
     public function run(): void
     {
-        // User::factory(10)->create();
+        // Test user — only in local/testing environments
+        if (app()->environment('local', 'testing')) {
+            User::firstOrCreate(
+                ['email' => 'test@finalcut.test'],
+                [
+                    'name' => 'Test User',
+                    'password' => Hash::make('password'),
+                    'email_verified_at' => now(),
+                    'loyalty_tier' => LoyaltyTier::Premier,
+                    'loyalty_points' => 500,
+                    'premier_expiry' => now()->addYear(),
+                ],
+            );
+        }
 
-        User::factory()->create([
-            'name' => 'Test User',
-            'email' => 'test@example.com',
+        // Additional users
+        User::factory(10)->create();
+
+        // Domain seeders in dependency order
+        $this->call([
+            MovieSeeder::class,
+            AuditoriumSeeder::class,
+            ShowtimeSeeder::class,
+            CalendarEventSeeder::class,
+            MenuItemSeeder::class,
+            BookingSeeder::class,
         ]);
     }
 }

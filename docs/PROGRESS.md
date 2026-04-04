@@ -150,3 +150,79 @@
 - `backend/app/Http/Controllers/Api/RentalController.php` — store returns 501
 - `backend/app/Http/Controllers/Api/ContactController.php` — store returns 501
 - `backend/tests/Feature/Api/RouteStubsTest.php` — updated assertions, added XSRF-TOKEN test
+
+---
+
+# Progress Journal — Plan 02: Database Schema
+
+## Steps 1-8: Models, Migrations, Factories, Enums, Tests
+**Status:** ✅ Complete
+**Started:** 2026-04-04
+**Completed:** 2026-04-04
+
+### Work Done
+- [2026-04-04] Updated User model + migration to UUID PK, added profile columns (phone, date_of_birth, avatar_url, loyalty_points, loyalty_tier, premier_expiry, stripe_customer_id)
+- [2026-04-04] Updated personal_access_tokens migration (morphs → uuidMorphs), sessions table (foreignId → foreignUuid)
+- [2026-04-04] Created 10 PHP enums: LoyaltyTier, MovieStatus, SeatType, GiftCardStatus, CalendarEventType, MenuCategory, RentalEventType, InquiryStatus, BookingStatus, PaymentMethod
+- [2026-04-04] Created 11 new migrations for movies, auditoriums, seats, gift_cards, calendar_events, menu_items, rental_inquiries, showtimes, bookings, booking_seats, booking_food_items
+- [2026-04-04] Created 11 models: Movie, Auditorium, Seat, Showtime, Booking, BookingSeat, BookingFoodItem, GiftCard, CalendarEvent, MenuItem, RentalInquiry
+- [2026-04-04] Created 11 factories with state methods (nowShowing, comingSoon, premium, accessible, guest, cancelled, depleted, etc.)
+- [2026-04-04] Created 12 Pest test files with 72 model tests covering UUID PKs, enum casts, JSON casts, unique constraints, cascade deletes, relationships, confirmation code generation
+- [2026-04-04] Removed scaffold ExampleTest (tested non-existent web route GET /)
+
+### Decisions
+- [2026-04-04] User switched from integer to UUID PK — required by Booking.user_id FK type
+- [2026-04-04] BookingSeat given UUID id (not composite PK) — Eloquent doesn't handle composite PKs well; unique(showtime_id, seat_id) constraint still prevents double-booking
+- [2026-04-04] Enums stored as strings with PHP backed enum casts — avoids PostgreSQL-specific enum types, works with SQLite tests
+- [2026-04-04] BookingFoodItem.menu_item_id has no FK — denormalized name/price are source of truth for historical records
+- [2026-04-04] Added `$table = 'auditoriums'` to Auditorium model — Laravel pluralizes "auditorium" to "auditoria" (Latin)
+- [2026-04-04] Movie uses explicit `$table->foreign('movie_id')->references('id')->on('movies')` — can't use foreignId shorthand since Movie PK is unsignedBigInteger (not auto-increment)
+
+### Files Changed
+- Modified 2 existing migrations (users, personal_access_tokens)
+- Modified User model and UserFactory
+- Created 11 new migrations, 11 models, 10 enums, 11 factories, 12 test files
+
+---
+
+## Step 9: Database Seeders
+**Status:** ✅ Complete
+**Started:** 2026-04-04
+**Completed:** 2026-04-04
+
+### Work Done
+- [2026-04-04] Created MovieSeeder — 20 movies (12 now_showing, 8 coming_soon) with hardcoded realistic titles, fake TMDB IDs 100001-100020, genres, ratings, runtimes
+- [2026-04-04] Created AuditoriumSeeder — 3 auditoriums (Screen 1: 8x10=80, Screen 2: 12x14=168, IMAX: 15x20=300) with programmatic seat generation including standard/premium/accessible zones
+- [2026-04-04] Created ShowtimeSeeder — 50+ showtimes across 14 days for all now_showing movies, 2-3 per movie per day at realistic screen times
+- [2026-04-04] Created CalendarEventSeeder — 10 events mixing special_event, loyalty_exclusive, and private_screening_blackout types with accessibility tags
+- [2026-04-04] Created MenuItemSeeder — 21 items across all 5 categories (popcorn, drinks, snacks, combos, specials) with allergen and dietary info
+- [2026-04-04] Created BookingSeeder — 5 bookings for test user with 2-4 seats each and food items on first 3
+- [2026-04-04] Updated DatabaseSeeder to create test user (test@finalcut.test, Premier tier, 500 points) + 10 factory users, then call all 6 domain seeders in dependency order
+
+### Decisions
+- [2026-04-04] Used hardcoded movie data rather than faker for titles/genres to produce realistic-looking seed data
+- [2026-04-04] Accessible seats placed only on aisle positions (seats 1, 2, last-1, last) of the last row per auditorium
+- [2026-04-04] BookingSeeder filters seats by SeatType enum value rather than raw string comparison for type safety
+
+### Files Changed
+- `backend/database/seeders/DatabaseSeeder.php` — replaced with test user creation + seeder orchestration
+- `backend/database/seeders/MovieSeeder.php` — new
+- `backend/database/seeders/AuditoriumSeeder.php` — new
+- `backend/database/seeders/ShowtimeSeeder.php` — new
+- `backend/database/seeders/CalendarEventSeeder.php` — new
+- `backend/database/seeders/MenuItemSeeder.php` — new
+- `backend/database/seeders/BookingSeeder.php` — new
+
+---
+
+## Step 10: Verification
+**Status:** ✅ Complete
+**Started:** 2026-04-04
+**Completed:** 2026-04-04
+
+### Work Done
+- [2026-04-04] `php artisan migrate:fresh --seed` runs clean — 15 migrations, 6 seeders
+- [2026-04-04] `composer test` passes — 104 tests, 160 assertions, 0 failures
+- [2026-04-04] Fixed 3 test files missing `Tests\TestCase::class` in `uses()` (AuditoriumTest, SeatTest, UserTest)
+- [2026-04-04] Added `bookings()` HasMany relationship to Showtime model (omitted by parallel agent)
+- [2026-04-04] Removed scaffold `tests/Feature/ExampleTest.php` (tested non-existent GET / web route)
