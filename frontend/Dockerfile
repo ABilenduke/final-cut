@@ -1,5 +1,5 @@
 # ── Base ─────────────────────────────────────
-FROM denoland/deno:2.7.11-alpine AS base
+FROM denoland/deno:alpine-2.7.11 AS base
 WORKDIR /app
 COPY package.json deno.json deno.lock ./
 RUN deno install
