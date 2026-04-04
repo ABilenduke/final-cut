@@ -54,7 +54,7 @@ trust-cert:
 	@if [ ! -f nginx/certs/ca.pem ]; then echo "Error: No CA certificate found. Run 'make certs' first."; exit 1; fi
 	@if ! command -v powershell.exe > /dev/null 2>&1; then echo "Error: powershell.exe not found. This command requires WSL2."; exit 1; fi
 	@APP_DOMAIN=$$(grep '^APP_DOMAIN=' .env | cut -d '=' -f2); \
-		APP_DOMAIN=$${APP_DOMAIN:-andrewbilenduke.test}; \
+		APP_DOMAIN=$${APP_DOMAIN:-finalcut.test}; \
 		WIN_CERT_PATH=$$(wslpath -w "$$(pwd)/nginx/certs/ca.pem") && \
 		powershell.exe -Command "Start-Process powershell -Verb RunAs -ArgumentList '-Command Import-Certificate -FilePath \"$$WIN_CERT_PATH\" -CertStoreLocation Cert:\\LocalMachine\\Root'" && \
 		echo "CA certificate import requested (requires admin approval in Windows UAC dialog)" && \

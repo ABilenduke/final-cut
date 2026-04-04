@@ -16,7 +16,7 @@ PROJECT_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 if [ -f "$PROJECT_ROOT/.env" ]; then
     APP_DOMAIN=$(grep '^APP_DOMAIN=' "$PROJECT_ROOT/.env" | cut -d '=' -f2)
 fi
-APP_DOMAIN="${APP_DOMAIN:-andrewbilenduke.test}"
+APP_DOMAIN="${APP_DOMAIN:-finalcut.test}"
 
 CERT_DIR="$(cd "$(dirname "$0")" && pwd)"
 CA_KEY="$CERT_DIR/ca.key"
@@ -73,6 +73,9 @@ EXTENSIONS
 
 # Clean up intermediate files
 rm -f "$SERVER_CSR" "$CERT_DIR/ca.srl"
+
+# Stamp the domain so compose can detect stale certs on startup
+echo "$APP_DOMAIN" > "$CERT_DIR/.domain"
 
 echo ""
 echo "=== SSL Certificates Generated ==="

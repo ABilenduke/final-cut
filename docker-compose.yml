@@ -5,7 +5,28 @@ services:
     # Ensure banned-ips.conf exists before nginx reads the include.
     # Uses the default entrypoint (docker-entrypoint.sh) which handles
     # envsubst template processing for ${APP_DOMAIN}, then starts nginx.
-    command: ["/bin/sh", "-c", "mkdir -p /etc/nginx/snippets && touch /etc/nginx/banned/banned-ips.conf && /docker-entrypoint.sh nginx -g 'daemon off;'"]
+    command:
+      - /bin/sh
+      - -c
+      - |
+        mkdir -p /etc/nginx/snippets
+        touch /etc/nginx/banned/banned-ips.conf
+        if [ -f /etc/nginx/certs/.domain ]; then
+          CERT_DOMAIN=$$(cat /etc/nginx/certs/.domain)
+          if [ "$$CERT_DOMAIN" != "$$APP_DOMAIN" ]; then
+            echo ""
+            echo "ERROR: Certificate was generated for '$$CERT_DOMAIN' but APP_DOMAIN is '$$APP_DOMAIN'."
+            echo "Run 'make certs' to regenerate certificates for the new domain."
+            echo ""
+            exit 1
+          fi
+        elif [ -f /etc/nginx/certs/server.pem ]; then
+          echo ""
+          echo "WARNING: Certificates exist but have no domain marker."
+          echo "Run 'make certs' to regenerate and stamp the current domain."
+          echo ""
+        fi
+        /docker-entrypoint.sh nginx -g 'daemon off;'
     ports:
       - "80:80"
       - "443:443"
@@ -16,7 +37,7 @@ services:
       - nginx-logs:/var/log/nginx
       - nginx-deny:/etc/nginx/banned
     environment:
-      - APP_DOMAIN=${APP_DOMAIN:-andrewbilenduke.test}
+      - APP_DOMAIN=${APP_DOMAIN:-finalcut.test}
       - SSL_CERTIFICATE=${SSL_CERTIFICATE:-/etc/nginx/certs/server.pem}
       - SSL_CERTIFICATE_KEY=${SSL_CERTIFICATE_KEY:-/etc/nginx/certs/server.key}
       - NGINX_ENVSUBST_OUTPUT_DIR=/etc/nginx
