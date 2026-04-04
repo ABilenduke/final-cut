@@ -28,7 +28,8 @@ app/
 │   │                    MovieTrailerEmbed, MovieRatingBadge, ShowtimeSelector
 │   ├── booking/         AuditoriumGrid, AuditoriumSeat, AuditoriumLegend,
 │   │                    AuditoriumScreenBar, CartSummary, CheckoutForm,
-│   │                    BookingConfirmation, FoodPreOrderPanel, PromoCode
+│   │                    BookingConfirmation, FoodPreOrderPanel, PromoCode,
+│   │                    PurchaseStepIndicator
 │   ├── calendar/        CalendarGrid, CalendarDayCell, CalendarEventList,
 │   │                    CalendarFilters
 │   ├── account/         OrderHistoryList, LoyaltyPointsCard,
@@ -121,7 +122,7 @@ Extends the default layout with a persistent sidebar for account pages.
 
 Strips away distractions to focus on the booking and checkout process.
 
-- Header shows only the logo and a step indicator
+- Header shows only the logo, **PurchaseStepIndicator** (three clickable steps: Pick Your Seats → Add Food & Pay → You're In), and session timer display
 - **CartSummary** sidebar on desktop, bottom sheet on mobile
 - No footer
 - Used for all `/purchase/*` routes

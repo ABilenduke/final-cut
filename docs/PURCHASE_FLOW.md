@@ -11,16 +11,32 @@ Entry Points                    Purchase Flow                         Post-Purch
 ─────────────                   ─────────────                         ─────────────
                                 
 Movie Detail Page    ─┐
-  (ShowtimeSelector)  │
-                      ├──→  Seat Selection  ──→  Checkout  ──→  Confirmation
-Calendar / What's On ─┤      /purchase/          /purchase/       /purchase/
-  (event click)       │      :showtimeId         checkout         confirmation/
-                      │                                           :bookingId
+  (ShowtimeSelector)  │         ①                ②                ③
+                      ├──→  Pick Your Seats ──→ Add Food & Pay ──→ You're In
+Calendar / What's On ─┤      /purchase/          /purchase/         /purchase/
+  (event click)       │      :showtimeId         checkout           confirmation/
+                      │                                             :bookingId
 Direct URL           ─┘
   (shared link)
 ```
 
 Three pages, one linear flow. The user cannot skip steps — seat selection must happen before checkout, checkout before confirmation.
+
+### Step Indicator
+
+The `purchase` layout renders a `PurchaseStepIndicator` component at the top of every purchase page. It displays three labeled steps:
+
+1. **Pick Your Seats** — seat selection
+2. **Add Food & Pay** — checkout
+3. **You're In** — confirmation
+
+**Navigation behavior:**
+
+- **Completed steps** are clickable links. Clicking a completed step navigates back directly (e.g., from checkout back to seat selection) without losing cart state.
+- **Current step** is visually active — gold underline using the `secondary` (#DAC769) token.
+- **Future steps** are disabled and greyed using `outline_variant` (#57423E).
+- **Confirmation is final** — once the user reaches step 3, `navigableSteps` is set to `[]`. Steps 1 and 2 render as completed (checkmark) but non-clickable (the transaction is complete).
+- Cart state is preserved when navigating backward. If the user returns to seat selection from checkout, their existing selections remain intact.
 
 ---
 
@@ -40,7 +56,7 @@ Showtime links are shareable. `/purchase/:showtimeId` works as a standalone entr
 
 ---
 
-## 3. Step 1: Seat Selection (`/purchase/:showtimeId`)
+## 3. Step 1: Pick Your Seats (`/purchase/:showtimeId`)
 
 **Layout:** `purchase` (minimal nav — logo + step indicator, no footer)
 
@@ -94,7 +110,7 @@ Enforce a reasonable maximum (e.g., 10 seats per transaction) to prevent abuse. 
 
 ---
 
-## 4. Step 2: Checkout (`/purchase/checkout`)
+## 4. Step 2: Add Food & Pay (`/purchase/checkout`)
 
 **Layout:** `purchase`
 
@@ -106,7 +122,10 @@ Enforce a reasonable maximum (e.g., 10 seats per transaction) to prevent abuse. 
 
 1. **Order Summary** — movie title, date, time, screen. List of selected seats with section and price each. Subtotal.
 
-2. **Food & Drink Pre-Order (FoodPreOrderPanel)** — optional section. Compact grid of menu items from `/api/food-menu` with quantity selectors. Category tabs for filtering. Items added here update the cart total. User can skip this entirely.
+2. **Food & Drink Pre-Order (FoodPreOrderPanel)** — upsell moment designed to convert, not feel like a chore.
+   - **Collapsed default state:** teaser banner ("Add snacks to your order?") with 2–3 popular combo thumbnail images. Uses `surface_container_high` background to visually separate it as a distinct moment in the flow.
+   - **Expanded state:** "Most Popular" section at top (3–4 highlighted combos), followed by categorized menu grid from `/api/food-menu` with category tabs. Each item shows image, name, price, and one-tap "Add" button with quantity selector.
+   - Items added here update the cart total in real-time. User can skip this entirely — the panel collapses back down if dismissed.
 
 3. **Promo Code (PromoCode)** — text input + "Apply" button. On apply: validates code server-side, returns discount amount. Applied code shows with discount and "Remove" option.
 
@@ -122,7 +141,8 @@ Enforce a reasonable maximum (e.g., 10 seats per transaction) to prevent abuse. 
 | ------ | ----- | ------------- |
 | Email | Required (manual input) | Pre-filled from account |
 | Saved cards | Not available | Available via Stripe Customer |
-| Loyalty points | Not earned | Earned on purchase |
+| Loyalty points | Not earned (unless opt-in below) | Earned on purchase |
+| Loyalty opt-in | Checkbox: "Join [Theater] Rewards (free)" — does NOT create an account at checkout. Instead, after purchase, the confirmation email includes a "Claim your rewards" magic link. Clicking the link takes the user to `/auth/register` with their email pre-filled and the booking pre-associated. This proves email ownership before any account is created. Points from this purchase are retroactively awarded on registration. | N/A (already a member) |
 | Order history | Accessible via booking URL only | Appears in `/account/orders` |
 | Receipt | Sent to provided email | Sent to account email |
 
@@ -142,6 +162,7 @@ On "Complete Purchase" click:
      promoCode: string | null
      giftCardCode: string | null
      email: string | null          // Guest only
+     loyaltyOptIn: boolean         // Guest only — triggers magic-link claim email post-purchase
    }
 4. Server validates:
    a. Showtime exists and is in the future
@@ -176,7 +197,7 @@ On "Complete Purchase" click:
 
 ---
 
-## 5. Step 3: Confirmation (`/purchase/confirmation/:bookingId`)
+## 5. Step 3: You're In (`/purchase/confirmation/:bookingId`)
 
 **Layout:** `purchase` (minimal chrome) — optimized for both screen and print
 

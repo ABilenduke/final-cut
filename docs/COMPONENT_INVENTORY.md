@@ -850,6 +850,37 @@ Two-column wrapper: pinned row labels (left) + scrollable seat matrix (right). S
 
 ---
 
+### PurchaseStepIndicator
+
+**File:** `app/components/booking/PurchaseStepIndicator.vue`
+
+**Purpose:** Horizontal step indicator rendered in the `purchase` layout. Shows three labeled steps with clickable navigation to completed steps.
+
+**Props:**
+
+| Name | Type | Required | Default | Description |
+| ---- | ---- | -------- | ------- | ----------- |
+| `currentStep` | `1 \| 2 \| 3` | Yes | — | Active step |
+| `completedSteps` | `Array<number>` | Yes | — | Steps the user has completed |
+| `navigableSteps` | `Array<number>` | No | Same as `completedSteps` | Steps the user can click to navigate to. On the confirmation page, pass `[]` to render all steps as completed but non-clickable (transaction is final) |
+
+**Events:**
+
+| Name | Payload | Description |
+| ---- | ------- | ----------- |
+| `navigate` | `number` | User clicked a completed step to navigate back |
+
+**Design Tokens:**
+
+- Completed/active step label: `var(--secondary)` (#DAC769) with gold underline
+- Future step label: `var(--outline-variant)` (#57423E)
+- Step connector line: `var(--outline-variant)` at 15% opacity
+- Font: `var(--type-label-lg)` using Newsreader
+
+**Accessibility:** Uses `nav` with `aria-label="Purchase steps"`. Each step is an `<a>` (navigable), `<span>` (completed but locked), or `<span aria-disabled="true">` (future). Current step marked with `aria-current="step"`. On confirmation page, all steps render as non-interactive `<span>` elements since `navigableSteps` is `[]`.
+
+---
+
 ### AuditoriumScreenBar
 
 **File:** `app/components/booking/AuditoriumScreenBar.vue`
@@ -1069,13 +1100,15 @@ Located in `app/components/calendar/`.
 | ---- | ---- | -------- | ------- | ----------- |
 | `activeView` | `'month' \| 'week' \| 'list'` | Yes | — | Current view mode |
 | `activeFilters` | `Array<string>` | Yes | — | Active event type filters |
+| `activeAccessibilityFilters` | `Array<AccessibilityTag>` | No | `[]` | Active accessibility filters (sensory_friendly, open_caption, audio_described) |
 
 **Events:**
 
 | Name | Payload | Description |
 | ---- | ------- | ----------- |
 | `view-change` | `string` | View mode changed |
-| `filter-change` | `Array<string>` | Filters updated |
+| `filter-change` | `Array<string>` | Event type filters updated |
+| `accessibility-filter-change` | `Array<AccessibilityTag>` | Accessibility filters updated |
 
 ---
 
@@ -1112,8 +1145,8 @@ Located in `app/components/account/`.
 | Name | Type | Required | Default | Description |
 | ---- | ---- | -------- | ------- | ----------- |
 | `points` | `number` | Yes | — | Current points balance |
-| `tier` | `string` | Yes | — | Current loyalty tier |
-| `nextTierAt` | `number` | Yes | — | Points needed for next tier |
+| `tier` | `'member' \| 'premier'` | Yes | — | Current loyalty tier |
+| `premierExpiry` | `string \| null` | No | `null` | Premier tier expiry date (ISO). Null for member tier |
 
 ---
 

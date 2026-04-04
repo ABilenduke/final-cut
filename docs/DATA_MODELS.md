@@ -156,7 +156,10 @@ interface CalendarEvent {
   slug: string | null           // URL slug for special events
   ticketUrl: string | null      // Direct link to purchase/RSVP
   loyaltyOnly: boolean          // Visible to all but marked "Members Only"
+  accessibilityTags: AccessibilityTag[]  // Empty array if none apply
 }
+
+type AccessibilityTag = 'sensory_friendly' | 'open_caption' | 'audio_described'
 ```
 
 ### Menu Item
@@ -191,7 +194,8 @@ interface User {
   name: string
   avatarUrl: string | null
   loyaltyPoints: number
-  loyaltyTier: 'bronze' | 'silver' | 'gold' | 'platinum'
+  loyaltyTier: 'member' | 'premier'  // member = free (earns 1pt/$), premier = paid annual (10% food discount, birthday ticket, early seat access, exclusive events)
+  premierExpiry: string | null  // ISO date — null for member tier
   createdAt: string             // ISO datetime
 }
 
@@ -294,7 +298,7 @@ Returns showtime details with full seat map including current availability. This
 
 | Method | Path | Auth | Data Source | Request | Response |
 | ------ | ---- | ---- | ----------- | ------- | -------- |
-| GET | `/api/calendar/events` | Public | Local | `?month=M&year=Y&type=showtime\|special_event\|loyalty_exclusive` | `{ events: CalendarEvent[] }` |
+| GET | `/api/calendar/events` | Public | Local | `?month=M&year=Y&type=showtime\|special_event\|loyalty_exclusive&accessibility=sensory_friendly,open_caption` | `{ events: CalendarEvent[] }` |
 | GET | `/api/calendar/events/:slug` | Public | Local | — | `CalendarEvent` (full detail) |
 
 ### Food Menu
@@ -323,7 +327,7 @@ Session-based auth via `nuxt-auth-utils`. Sessions stored in encrypted HTTP-only
 | PATCH | `/api/account/profile` | Auth | Local | `Partial<UserProfile>` | `UserProfile` |
 | GET | `/api/account/orders` | Auth | Local | `?page=1&limit=10` | `{ orders: Booking[], total: number }` |
 | GET | `/api/account/bookings` | Auth | Local | `?upcoming=true` | `{ bookings: Booking[] }` |
-| GET | `/api/account/loyalty` | Auth | Local | — | `{ points, tier, nextTierAt, history[] }` |
+| GET | `/api/account/loyalty` | Auth | Local | — | `{ points, tier, premierExpiry?, history[] }` |
 | GET | `/api/account/payment-methods` | Auth | Stripe | — | `{ methods: PaymentMethod[] }` |
 | POST | `/api/account/payment-methods` | Auth | Stripe | Stripe SetupIntent flow | `{ method: PaymentMethod }` |
 | DELETE | `/api/account/payment-methods/:id` | Auth | Stripe | — | `{ success: true }` |

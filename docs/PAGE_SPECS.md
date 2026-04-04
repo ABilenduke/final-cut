@@ -33,15 +33,15 @@ Comprehensive specification for every page on the movie theatre website, grouped
 | Property     | Value                                                                           |
 | ------------ | ------------------------------------------------------------------------------- |
 | Layout       | `default`                                                                       |
-| Compositions | Wide Frame (hero), Ensemble (now showing grid, coming soon grid)                |
+| Compositions | Wide Frame (hero), Ensemble (now showing grid, what's on this week, coming soon grid) |
 | Auth         | Public                                                                          |
 
 **Sections (top to bottom)**
 
 1. **Hero** -- Featured now-showing film with backdrop image, title, tagline, and "Get Tickets" CTA.
-2. **Now Showing** -- Ensemble grid of movie cards displaying poster, title, rating badge, and next showtime.
-3. **Coming Soon** -- Ensemble grid of movie cards with a "Notify Me" action instead of a showtime.
-4. **What's On This Week** -- Compact event preview list for the current week.
+2. **Now Showing** -- Ensemble grid of movie cards displaying poster, title, rating badge, and next available showtime as a clickable time chip linking directly to `/purchase/:showtimeId`. The path from title → time → purchase should be a single click. This is the core funnel: what's playing → when → buy.
+3. **What's On This Week** -- Compact event preview list for the current week. Moved above Coming Soon to surface times for people who know *when* they want to go but not *what*.
+4. **Coming Soon** -- Ensemble grid of movie cards with a "Notify Me" action instead of a showtime.
 5. **Neural Ticker** -- Ambient showtimes and events ticker rendered in the layout header.
 
 **Components**
@@ -370,14 +370,14 @@ Comprehensive specification for every page on the movie theatre website, grouped
 
 **Sections (top to bottom)**
 
-1. Points balance display.
-2. Tier status and progress to next tier.
-3. Points history (earned and redeemed).
-4. Available rewards catalog.
+1. **Points balance** -- current points and value toward next $5 reward.
+2. **Tier status** -- Member or Premier badge. Member tier shows "Upgrade to Premier" CTA with perks summary (10% food discount, birthday ticket, early seat access, exclusive events). Premier tier shows renewal date and active perks.
+3. **Points history** -- earned and redeemed transactions.
+4. **Available rewards** -- redeemable rewards at current point balance.
 
 **Components**
 
-`LoyaltyPointsCard`, `CvCard`, `CvBadge`
+`LoyaltyPointsCard`, `CvCard`, `CvBadge`, `CvButton`
 
 **Data Requirements**
 
@@ -447,7 +447,7 @@ Comprehensive specification for every page on the movie theatre website, grouped
 
 ## Purchase Flow
 
-### `/purchase/:showtimeId` -- Seat Selection
+### `/purchase/:showtimeId` -- Pick Your Seats
 
 | Property     | Value                                              |
 | ------------ | -------------------------------------------------- |
@@ -478,7 +478,7 @@ Comprehensive specification for every page on the movie theatre website, grouped
 
 ---
 
-### `/purchase/checkout` -- Checkout
+### `/purchase/checkout` -- Add Food & Pay
 
 | Property     | Value                                                    |
 | ------------ | -------------------------------------------------------- |
@@ -506,7 +506,7 @@ Comprehensive specification for every page on the movie theatre website, grouped
 
 ---
 
-### `/purchase/confirmation/:bookingId` -- Booking Confirmation
+### `/purchase/confirmation/:bookingId` -- You're In
 
 | Property     | Value                                                              |
 | ------------ | ------------------------------------------------------------------ |
@@ -639,8 +639,8 @@ Comprehensive specification for every page on the movie theatre website, grouped
 
 **Sections (top to bottom)**
 
-1. **Calendar controls** -- Month, week, and list view toggle. Date navigation (previous/next). Event type filter checkboxes (showtimes, special events, loyalty exclusives).
-2. **Calendar grid** -- Month grid with event indicator dots color-coded by type.
+1. **Calendar controls** -- Month, week, and list view toggle. Date navigation (previous/next). Event type filter checkboxes (showtimes, special events, loyalty exclusives). Accessibility filter checkboxes in plain language: "Sensory Friendly", "Open Captions", "Audio Described". Filtered accessibility events display a visible `CvBadge` with the accessibility type. Multiple accessibility filters use comma-separated URL encoding: `?accessibility=sensory_friendly,open_caption`. This format is canonical across deep links, URL state, and the API.
+2. **Calendar grid** -- Month grid with event indicator dots color-coded by type. Accessibility events show an additional icon indicator.
 3. **Calendar event list** -- Events for the selected day, shown below or beside the grid.
 
 **Components**
@@ -660,15 +660,17 @@ Comprehensive specification for every page on the movie theatre website, grouped
 
 ### `/events` -- Special Events Listing
 
-| Property     | Value           |
-| ------------ | --------------- |
-| Layout       | `default`       |
-| Compositions | Ensemble grid   |
-| Auth         | Public          |
+| Property     | Value                                            |
+| ------------ | ------------------------------------------------ |
+| Layout       | `default`                                        |
+| Compositions | Wide Frame (featured), Ensemble (upcoming)       |
+| Auth         | Public                                           |
 
 **Sections (top to bottom)**
 
-1. Ensemble grid of event cards. Each shows event image, date, title, description preview, and "Learn More" link.
+1. **Featured Event** (Wide Frame) -- Hero-style spotlight for the next/most important event with full-bleed image, title, date, and CTA. Feels like a curated program, not a coupon book.
+2. **Upcoming Events** -- Asymmetric grid with one large card and 2–3 smaller cards to create visual hierarchy. Each shows event image, date, title, description preview, and "Learn More" link.
+3. **Past Events** (optional) -- Photo gallery of recent events to show the venue's personality and build social proof.
 
 **Components**
 
@@ -816,9 +818,9 @@ Comprehensive specification for every page on the movie theatre website, grouped
 1. Commitment statement.
 2. Assisted listening devices (how to request).
 3. Wheelchair seating (locations, companion seats).
-4. Open caption showtimes (schedule or link to calendar filtered).
-5. Audio description availability.
-6. Sensory-friendly screenings (schedule, what's different).
+4. Open caption showtimes — schedule summary with direct link to calendar pre-filtered: `/whats-on?accessibility=open_caption`.
+5. Audio description availability — link to calendar: `/whats-on?accessibility=audio_described`.
+6. Sensory-friendly screenings — what's different (lights up, sound down), schedule summary with direct link: `/whats-on?accessibility=sensory_friendly`.
 7. Service animal policy.
 8. Contact for accommodation requests.
 
