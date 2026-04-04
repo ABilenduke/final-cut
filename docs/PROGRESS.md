@@ -81,7 +81,7 @@
 
 ### Decisions
 - [2026-04-04] Included `POST /api/bookings/confirm` (for 3DS payment confirmation per PURCHASE_FLOW.md) — plan lists it in route stubs
-- [2026-04-04] All stubs return `successResponse([])` for consistent JSON envelope from day one
+- [2026-04-04] Read-only public stubs return `successResponse([])`. Auth, mutation, and account stubs were later changed to return `notImplementedResponse()` (501) — see Adversarial Review Fixes below
 
 ### Files Changed
 - `backend/routes/api.php` — all route definitions
