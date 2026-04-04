@@ -1,22 +1,22 @@
 # ── Base ─────────────────────────────────────
-FROM node:22-alpine AS base
+FROM denoland/deno:2.7.11-alpine AS base
 WORKDIR /app
-COPY package.json ./
-RUN npm install
+COPY package.json deno.json deno.lock ./
+RUN deno install
 COPY . .
 
 # ── Development ──────────────────────────────
 FROM base AS development
 EXPOSE 3000
-CMD ["npx", "nuxt", "dev", "--host", "0.0.0.0"]
+CMD ["deno", "task", "dev"]
 
 # ── Build ────────────────────────────────────
 FROM base AS build
-RUN npx nuxt build
+RUN deno task build
 
 # ── Production ───────────────────────────────
-FROM node:22-alpine AS production
+FROM denoland/deno:2.7.11-alpine AS production
 WORKDIR /app
 COPY --from=build /app/.output .output
 EXPOSE 3000
-CMD ["node", ".output/server/index.mjs"]
+CMD ["deno", "run", "--allow-net", "--allow-read", "--allow-env", ".output/server/index.mjs"]

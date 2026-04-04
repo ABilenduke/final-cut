@@ -1,0 +1,11 @@
+{
+  "tasks": {
+    "dev": "deno run -A npm:nuxt dev --host 0.0.0.0",
+    "build": "deno run -A npm:nuxt build",
+    "generate": "deno run -A npm:nuxt generate",
+    "preview": "deno run -A npm:nuxt preview",
+    "postinstall": "deno run -A npm:nuxt prepare",
+    "storybook": "storybook dev -p 6006 --host 0.0.0.0 --no-open"
+  },
+  "nodeModulesDir": "auto"
+}

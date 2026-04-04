@@ -14,7 +14,7 @@ services:
       target: development
     volumes:
       - ./frontend:/app
-      - frontend-node-modules:/app/node_modules
+      - frontend-deno-cache:/home/deno/.cache/deno
     environment:
       - NODE_ENV=development
     healthcheck:
@@ -30,13 +30,13 @@ services:
       target: development
     volumes:
       - ./frontend:/app
-      - storybook-node-modules:/app/node_modules
+      - storybook-deno-cache:/home/deno/.cache/deno
     environment:
       - NODE_ENV=development
       - STORYBOOK=true
     expose:
       - "6006"
-    command: ["./node_modules/.bin/storybook", "dev", "-p", "6006", "--host", "0.0.0.0", "--no-open"]
+    command: ["deno", "task", "storybook"]
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:6006/"]
       interval: 30s
@@ -66,7 +66,6 @@ services:
     working_dir: /app
     volumes:
       - ./frontend:/app
-      - frontend-node-modules:/app/node_modules
     depends_on:
       nginx:
         condition: service_healthy
@@ -77,5 +76,5 @@ services:
 
 volumes:
   backend-vendor:
-  frontend-node-modules:
-  storybook-node-modules:
+  frontend-deno-cache:
+  storybook-deno-cache:
