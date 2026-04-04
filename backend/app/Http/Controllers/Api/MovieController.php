@@ -14,7 +14,7 @@ class MovieController extends Controller
     public function index(Request $request): JsonResponse
     {
         $status = $request->input('status', 'now_showing');
-        $perPage = (int) $request->input('per_page', 20);
+        $perPage = min(max((int) $request->input('per_page', 20), 1), 100);
 
         $paginator = Movie::where('status', $status)
             ->orderBy('title')

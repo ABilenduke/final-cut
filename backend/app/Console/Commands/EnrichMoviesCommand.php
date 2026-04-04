@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Models\Movie;
 use App\Services\TmdbService;
 use Illuminate\Console\Command;
+use Illuminate\Database\Eloquent\Collection;
 
 class EnrichMoviesCommand extends Command
 {
@@ -18,6 +19,12 @@ class EnrichMoviesCommand extends Command
     public function handle(TmdbService $tmdb): int
     {
         $movies = $this->getMoviesToEnrich();
+
+        if ($movies === null) {
+            $this->error("Movie not found: {$this->option('movie')}");
+
+            return self::FAILURE;
+        }
 
         if ($movies->isEmpty()) {
             $this->info('No movies need enrichment.');
@@ -57,20 +64,18 @@ class EnrichMoviesCommand extends Command
     }
 
     /**
-     * @return \Illuminate\Database\Eloquent\Collection<int, Movie>
+     * @return Collection<int, Movie>|null
      */
-    private function getMoviesToEnrich(): \Illuminate\Database\Eloquent\Collection
+    private function getMoviesToEnrich(): ?Collection
     {
         if ($slug = $this->option('movie')) {
             $movie = Movie::where('slug', $slug)->first();
 
             if (! $movie) {
-                $this->error("Movie not found: {$slug}");
-
-                return Movie::query()->whereRaw('1 = 0')->get();
+                return null;
             }
 
-            return new \Illuminate\Database\Eloquent\Collection([$movie]);
+            return new Collection([$movie]);
         }
 
         $query = Movie::whereNotNull('tmdb_id');

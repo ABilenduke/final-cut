@@ -11,7 +11,9 @@ use Illuminate\Support\Str;
 class TmdbService
 {
     private string $baseUrl;
+
     private string $imageBaseUrl;
+
     private ?string $apiKey;
 
     public function __construct()
@@ -39,7 +41,9 @@ class TmdbService
             return $cached;
         }
 
-        $detail = $this->get("/movie/{$tmdbId}");
+        $detail = $this->get("/movie/{$tmdbId}", [
+            'append_to_response' => 'credits,videos',
+        ]);
 
         if ($detail === null) {
             Cache::put($failKey, true, 300);
@@ -47,8 +51,8 @@ class TmdbService
             return null;
         }
 
-        $credits = $this->get("/movie/{$tmdbId}/credits");
-        $videos = $this->get("/movie/{$tmdbId}/videos");
+        $credits = $detail['credits'] ?? null;
+        $videos = $detail['videos'] ?? null;
         $partial = $credits === null || $videos === null;
 
         if ($partial) {
@@ -95,7 +99,7 @@ class TmdbService
         ];
 
         if (! $partial) {
-            $fields['trailer_key'] = $data['trailerKey'] ?? $movie->trailer_key;
+            $fields['trailer_key'] = ! empty($data['trailerKey']) ? $data['trailerKey'] : $movie->trailer_key;
             $fields['cast'] = ! empty($data['cast']) ? $data['cast'] : $movie->cast;
             $fields['tmdb_enriched_at'] = now();
         } else {
