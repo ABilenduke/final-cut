@@ -1,0 +1,233 @@
+<?php
+
+use function Pest\Laravel\getJson;
+use function Pest\Laravel\postJson;
+use function Pest\Laravel\patchJson;
+use function Pest\Laravel\deleteJson;
+
+/*
+|--------------------------------------------------------------------------
+| Public Read-Only Routes — 200 with data envelope
+|--------------------------------------------------------------------------
+*/
+
+// Movies
+test('GET /api/movies returns 200', function () {
+    getJson('/api/movies')
+        ->assertOk()
+        ->assertJsonStructure(['data']);
+});
+
+test('GET /api/movies/{slug} returns 200', function () {
+    getJson('/api/movies/the-matrix')
+        ->assertOk()
+        ->assertJsonStructure(['data']);
+});
+
+test('GET /api/movies/{slug}/showtimes returns 200', function () {
+    getJson('/api/movies/the-matrix/showtimes')
+        ->assertOk()
+        ->assertJsonStructure(['data']);
+});
+
+// Showtimes
+test('GET /api/showtimes/{id} returns 200', function () {
+    getJson('/api/showtimes/1')
+        ->assertOk()
+        ->assertJsonStructure(['data']);
+});
+
+// Calendar
+test('GET /api/calendar/events returns 200', function () {
+    getJson('/api/calendar/events')
+        ->assertOk()
+        ->assertJsonStructure(['data']);
+});
+
+test('GET /api/calendar/events/{slug} returns 200', function () {
+    getJson('/api/calendar/events/opening-night')
+        ->assertOk()
+        ->assertJsonStructure(['data']);
+});
+
+// Food Menu
+test('GET /api/food-menu returns 200', function () {
+    getJson('/api/food-menu')
+        ->assertOk()
+        ->assertJsonStructure(['data']);
+});
+
+/*
+|--------------------------------------------------------------------------
+| Unimplemented Mutation/Auth Stubs — 501 Not Implemented
+|--------------------------------------------------------------------------
+|
+| These routes are scaffolded but not yet functional. They must return
+| 501 to prevent false-positive success semantics.
+|
+*/
+
+// Auth
+test('POST /api/auth/register returns 501', function () {
+    postJson('/api/auth/register')
+        ->assertStatus(501)
+        ->assertJson(['message' => 'Not implemented']);
+});
+
+test('POST /api/auth/login returns 501', function () {
+    postJson('/api/auth/login')
+        ->assertStatus(501)
+        ->assertJson(['message' => 'Not implemented']);
+});
+
+test('POST /api/auth/forgot-password returns 501', function () {
+    postJson('/api/auth/forgot-password')
+        ->assertStatus(501)
+        ->assertJson(['message' => 'Not implemented']);
+});
+
+// Bookings
+test('POST /api/bookings returns 501', function () {
+    postJson('/api/bookings')
+        ->assertStatus(501)
+        ->assertJson(['message' => 'Not implemented']);
+});
+
+test('GET /api/bookings/{id} returns 501', function () {
+    getJson('/api/bookings/1')
+        ->assertStatus(501)
+        ->assertJson(['message' => 'Not implemented']);
+});
+
+test('POST /api/bookings/confirm returns 501', function () {
+    postJson('/api/bookings/confirm')
+        ->assertStatus(501)
+        ->assertJson(['message' => 'Not implemented']);
+});
+
+// Gift Cards
+test('POST /api/gift-cards/purchase returns 501', function () {
+    postJson('/api/gift-cards/purchase')
+        ->assertStatus(501)
+        ->assertJson(['message' => 'Not implemented']);
+});
+
+test('GET /api/gift-cards/balance returns 501', function () {
+    getJson('/api/gift-cards/balance')
+        ->assertStatus(501)
+        ->assertJson(['message' => 'Not implemented']);
+});
+
+// Contact / Rentals
+test('POST /api/rentals/inquiry returns 501', function () {
+    postJson('/api/rentals/inquiry')
+        ->assertStatus(501)
+        ->assertJson(['message' => 'Not implemented']);
+});
+
+test('POST /api/contact returns 501', function () {
+    postJson('/api/contact')
+        ->assertStatus(501)
+        ->assertJson(['message' => 'Not implemented']);
+});
+
+/*
+|--------------------------------------------------------------------------
+| Protected Routes — 401 Unauthorized without auth
+|--------------------------------------------------------------------------
+*/
+
+test('POST /api/auth/logout returns 401 without auth', function () {
+    postJson('/api/auth/logout')->assertUnauthorized();
+});
+
+test('GET /api/auth/me returns 401 without auth', function () {
+    getJson('/api/auth/me')->assertUnauthorized();
+});
+
+test('GET /api/account/profile returns 401 without auth', function () {
+    getJson('/api/account/profile')->assertUnauthorized();
+});
+
+test('PATCH /api/account/profile returns 401 without auth', function () {
+    patchJson('/api/account/profile')->assertUnauthorized();
+});
+
+test('GET /api/account/orders returns 401 without auth', function () {
+    getJson('/api/account/orders')->assertUnauthorized();
+});
+
+test('GET /api/account/bookings returns 401 without auth', function () {
+    getJson('/api/account/bookings')->assertUnauthorized();
+});
+
+test('GET /api/account/loyalty returns 401 without auth', function () {
+    getJson('/api/account/loyalty')->assertUnauthorized();
+});
+
+test('GET /api/account/payment-methods returns 401 without auth', function () {
+    getJson('/api/account/payment-methods')->assertUnauthorized();
+});
+
+test('POST /api/account/payment-methods returns 401 without auth', function () {
+    postJson('/api/account/payment-methods')->assertUnauthorized();
+});
+
+test('DELETE /api/account/payment-methods/{id} returns 401 without auth', function () {
+    deleteJson('/api/account/payment-methods/1')->assertUnauthorized();
+});
+
+/*
+|--------------------------------------------------------------------------
+| Service Configuration
+|--------------------------------------------------------------------------
+*/
+
+test('TMDB config is accessible', function () {
+    expect(config('services.tmdb'))->toBeArray()
+        ->and(config('services.tmdb.base_url'))->toBe('https://api.themoviedb.org/3')
+        ->and(config('services.tmdb.image_base_url'))->toBe('https://image.tmdb.org/t/p/');
+});
+
+test('Stripe config is accessible', function () {
+    expect(config('services.stripe'))->toBeArray()
+        ->and(config('services.stripe'))->toHaveKeys(['secret', 'publishable']);
+});
+
+/*
+|--------------------------------------------------------------------------
+| CORS Configuration
+|--------------------------------------------------------------------------
+*/
+
+test('CORS preflight returns correct headers', function () {
+    $response = $this->options('/api/movies', [], [
+        'Origin' => 'https://finalcut.test',
+        'Access-Control-Request-Method' => 'GET',
+        'Access-Control-Request-Headers' => 'Content-Type',
+    ]);
+
+    $response->assertHeader('Access-Control-Allow-Origin', 'https://finalcut.test');
+    $response->assertHeader('Access-Control-Allow-Credentials', 'true');
+});
+
+test('CORS headers present on API responses', function () {
+    $response = $this->getJson('/api/movies', [
+        'Origin' => 'https://finalcut.test',
+    ]);
+
+    $response->assertHeader('Access-Control-Allow-Origin', 'https://finalcut.test');
+});
+
+test('CORS preflight allows X-XSRF-TOKEN header for Sanctum SPA auth', function () {
+    $response = $this->options('/api/auth/login', [], [
+        'Origin' => 'https://finalcut.test',
+        'Access-Control-Request-Method' => 'POST',
+        'Access-Control-Request-Headers' => 'Content-Type, X-XSRF-TOKEN',
+    ]);
+
+    $response->assertHeader('Access-Control-Allow-Origin', 'https://finalcut.test');
+    $response->assertHeader('Access-Control-Allow-Credentials', 'true');
+    $allowedHeaders = $response->headers->get('Access-Control-Allow-Headers');
+    expect(strtolower($allowedHeaders))->toContain('x-xsrf-token');
+});
