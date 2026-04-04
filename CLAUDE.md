@@ -6,15 +6,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Final Cut is a full-stack movie theatre web application with a Nuxt 4 frontend and Laravel 13 backend, orchestrated via Docker Compose. The domain is `finalcut.test`.
 
+Final Cut operates **two physical theater locations** (with potential for more) sharing unified user accounts and loyalty. Showtimes, auditoriums, seats, and food menus are **location-scoped**.
+
 ## Tech Stack
 
 - **Frontend**: Nuxt 4 (Vue 3, TypeScript), Tailwind CSS 4, Storybook, Playwright e2e tests
 - **Backend**: Laravel 13 (PHP 8.3), Pest testing framework
 - **Database**: PostgreSQL with TLS (database: `final_cut`, test db: `final_cut_test`)
 - **Cache/Sessions**: Redis with TLS
-- **Reverse Proxy**: Nginx with SSL certificates
-- **Security**: Fail2ban sidecar for rate limiting/IP banning
-- **Containers**: Docker Compose with dev/prod/local-prod configurations
+- **Infrastructure**: Docker Compose with Nginx reverse proxy, Fail2ban, TLS between all services
 
 ## Development Commands
 
@@ -55,39 +55,26 @@ npx nuxt dev             # Dev server (handled by Docker in dev mode)
 npx playwright test      # Run e2e tests (prefer `make e2e` from host)
 ```
 
-## Architecture
+## Environment
 
-### Docker Compose Layering
+Root `.env` holds Docker Compose variables (`APP_DOMAIN`, database/Redis credentials). Backend `.env` is standard Laravel. Copy from `.env.example` files. Certs are domain-stamped — regenerate with `make certs` if `APP_DOMAIN` changes.
 
-- `docker-compose.yml` — Base services: nginx, fail2ban, frontend, backend
-- `docker-compose.stack.yml` — Infrastructure: postgres, redis (included by override and local-prod)
-- `docker-compose.override.yml` — Dev overrides: volume mounts, storybook, playwright, development build targets
-- `docker-compose.prod.yml` — Production overrides (no local infra)
-- `docker-compose.local-prod.yml` — Production builds with local postgres/redis
+## Key Domain Concepts
 
-### Frontend (`frontend/`)
+See @docs/DATA_MODELS.md for full schema. Core entities: Movie (TMDB ID as PK, slug for URLs), Location, Auditorium (aka "Screen"), AuditoriumSection (Standard/Premium/Accessible pricing zones), Seat (row letter + number), Showtime (Movie + Auditorium, pricing in cents), Booking (human-readable confirmationCode like "CVF-A3X9K2"), User (loyaltyTier, loyaltyPoints), GiftCard.
 
-Nuxt 4 app using the `app/` directory convention. Storybook runs as a separate container sharing the same source via volume mounts.
+**Loyalty**: Two tiers — member (free, 1 pt/$1) and premier (paid annual, 10% food discount, birthday ticket, early seat access). Guest checkout offers post-purchase registration via magic link. See @docs/plans/backend/05-loyalty-system.md.
 
-### Backend (`backend/`)
-
-Standard Laravel structure: `app/Http`, `app/Models`, `app/Providers`. Uses PHP-FPM (port 9000) behind nginx. Backend has its own npm/Vite setup for asset compilation (separate from the Nuxt frontend).
-
-### Nginx
-
-Acts as reverse proxy routing to frontend (:3000), backend (:9000 via FastCGI), and storybook (:6006). Uses envsubst templates in `nginx/templates/` with `APP_DOMAIN` variable. Banned IPs managed via shared volume with fail2ban.
-
-### TLS Everywhere
-
-All inter-service communication uses TLS: nginx↔client, redis, postgres. Certificates are generated per-service in their respective `*/certs/` directories. Certs are domain-stamped — regenerate with `make certs` if `APP_DOMAIN` changes.
+**TMDB API**: Movie data fetched via `TmdbService`, cached (list 30 min, detail 1 hour, showtimes never). Movies stored locally with TMDB ID as PK; metadata merged with local showtimes at query time. See @docs/plans/backend/03-movie-api.md.
 
 ## Design Decisions
 
 - **Styling**: Use `rem` units (not `px`), except where technically required (borders, shadows, sub-pixel)
-- **CSS**: CSS custom properties for theming (no CSS-in-JS)
-- **API**: TMDB API for movie data
-- **Payments**: Stripe integration
+- **CSS**: CSS custom properties for theming (no CSS-in-JS). See @docs/DESIGN_SYSTEM.md for tokens, typography, and component specs
+- **Color tokens**: `#FFB4A8` (primary) is a **text-on-dark color only**. `#550000` (primary_container) is the **fill color** for buttons, active states, hero accents. Tokens use underscores in docs (`primary_container`) but hyphens in CSS (`--primary-container`)
+- **Payments**: Stripe integration via `StripeService`
 - **Auth**: nuxt-auth-utils
+- **Commits**: conventional commits (`feat:`, `fix:`, `docs:`, etc.)
 
 ## Development Methodology
 
@@ -100,18 +87,26 @@ This project follows **spec-driven development** with **test-driven development 
 
 ### Testing Requirements
 
-- **Backend**: All tests **must** use [Pest](https://pestphp.com/) (not raw PHPUnit). Run with `composer test` inside the backend container. See `docs/plans/backend/08-testing-and-seeding.md` for test structure and coverage expectations.
+- **Backend**: All tests **must** use [Pest](https://pestphp.com/) (not raw PHPUnit). Run with `composer test` inside the backend container. Uses `RefreshDatabase` trait for isolation against `final_cut_test`. See @docs/plans/backend/08-testing-and-seeding.md.
+- **Backend test helpers**: `AuthHelper` trait (`actingAsUser()`, `actingAsPremierUser()`, `actingAsGuest()`) and `StripeHelper` trait (`mockStripeSuccess()`, `mockStripeDeclined()`, `mockStripe3DS()`).
 - **Frontend unit/component**: All tests **must** use [Vitest](https://vitest.dev/) with `@nuxt/test-utils`. Run with `npx vitest` inside the frontend container.
-- **Frontend E2E**: E2E tests use Playwright. Run with `make e2e` from host or `npx playwright test` inside the frontend container.
-- **No untested features** — Every new backend endpoint, service, or model behavior requires corresponding Pest tests. Every frontend component, composable, and user-facing flow requires Vitest unit/component tests and Playwright E2E coverage.
+- **Frontend E2E**: Playwright. Run with `make e2e` from host or `npx playwright test` inside the frontend container.
+- **No untested features** — Every new backend endpoint, service, or model behavior requires Pest tests. Every frontend component, composable, and user-facing flow requires Vitest and Playwright coverage.
 
 ## Documentation
 
-Detailed design docs live in `docs/`:
-- `SITE_ARCHITECTURE.md` — Overall app structure and routing
-- `DATA_MODELS.md` — Database schema and relationships
-- `DESIGN_SYSTEM.md`, `DESIGN_SYSTEM_IMPLEMENTATION.md`, `DESIGN_SYSTEM_STRUCTURE.md` — Design tokens, components, patterns
-- `COMPONENT_INVENTORY.md` — UI component catalog
-- `PAGE_SPECS.md` — Page-level specifications
-- `PURCHASE_FLOW.md` — Ticket purchase flow
-- `STATE_MANAGEMENT.md` — Frontend state architecture
+- @docs/SITE_ARCHITECTURE.md — Overall app structure and routing
+- @docs/DATA_MODELS.md — Database schema and relationships
+- @docs/DESIGN_SYSTEM.md, @docs/DESIGN_SYSTEM_IMPLEMENTATION.md, @docs/DESIGN_SYSTEM_STRUCTURE.md — Design tokens, components, patterns
+- @docs/COMPONENT_INVENTORY.md — UI component catalog
+- @docs/PAGE_SPECS.md — Page-level specifications
+- @docs/PURCHASE_FLOW.md — Ticket purchase flow
+- @docs/STATE_MANAGEMENT.md — Frontend state architecture
+
+## Common Pitfalls
+
+- NEVER use `#FFB4A8` as a background/fill color — it is text-on-dark-maroon only. See @docs/DESIGN_SYSTEM.md Token Mapping.
+- NEVER use `px` for spacing/sizing — use `rem` exclusively (exception: borders, shadows, sub-pixel).
+- NEVER create API routes without corresponding Pest tests.
+- NEVER hardcode a single location — all showtime, auditorium, seat, and menu queries must be location-scoped.
+- NEVER return raw TMDB responses to the frontend — always transform through `TmdbService`.
