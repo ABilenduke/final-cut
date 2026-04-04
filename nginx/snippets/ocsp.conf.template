@@ -1,0 +1,24 @@
+# OCSP stapling — proves the certificate isn't revoked by fetching a
+# signed response from the CA and attaching it to the TLS handshake.
+#
+# This file is only mounted in production via docker-compose.prod.yml.
+#
+# Requirements:
+#   - A CA-signed certificate (will NOT work with self-signed certs)
+#   - ssl_trusted_certificate must point to the intermediate chain file
+#     only (chain.pem), NOT the fullchain. With Let's Encrypt / Certbot
+#     this is /etc/letsencrypt/live/<domain>/chain.pem.
+#
+# If using the certbot/certbot Docker image with the --nginx plugin,
+# Certbot will automatically set ssl_certificate and ssl_certificate_key
+# paths. This snippet only needs ssl_trusted_certificate pointed at the
+# chain file.
+#
+# This file is processed by envsubst via the nginx Docker entrypoint.
+# APP_DOMAIN is substituted automatically — no manual changes needed.
+
+ssl_stapling            on;
+ssl_stapling_verify     on;
+ssl_trusted_certificate /etc/letsencrypt/live/${APP_DOMAIN}/chain.pem;
+resolver                1.1.1.1 8.8.8.8 valid=300s;
+resolver_timeout        5s;

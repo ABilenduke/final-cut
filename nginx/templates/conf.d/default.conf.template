@@ -1,0 +1,221 @@
+map $http_upgrade $connection_upgrade {
+    default upgrade;
+    ''      close;
+}
+
+# ──────────────────────────────────────────────
+# HTTP → HTTPS redirect
+# ──────────────────────────────────────────────
+server {
+    listen 80;
+    server_name ${APP_DOMAIN};
+
+    # Let's Encrypt ACME challenge (used by certbot webroot plugin).
+    # In dev this directory won't exist — the location simply never matches.
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+# ──────────────────────────────────────────────
+# Main HTTPS — Frontend + API
+# ──────────────────────────────────────────────
+server {
+    listen 443 ssl;
+    http2 on;
+    server_name ${APP_DOMAIN};
+
+    # Use Docker's embedded DNS so upstreams resolve at request time,
+    # not at startup (prevents "host not found" when containers start concurrently).
+    resolver 127.0.0.11 valid=30s;
+    set $upstream_backend backend:9000;
+    set $upstream_frontend frontend:3000;
+
+    # ── SSL/TLS hardening ────────────────────
+    ssl_certificate     ${SSL_CERTIFICATE};
+    ssl_certificate_key ${SSL_CERTIFICATE_KEY};
+    ssl_protocols       TLSv1.2 TLSv1.3;
+    ssl_ciphers         ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305;
+    ssl_prefer_server_ciphers on;
+    ssl_session_cache   shared:SSL:10m;
+    ssl_session_timeout 10m;
+    ssl_session_tickets off;
+
+    # ── SSL snippets (OCSP stapling, etc.) ──
+    # In production, docker-compose.prod.yml mounts nginx/snippets/
+    # which includes ocsp.conf. In dev this directory is empty so
+    # the wildcard matches nothing and nginx starts cleanly.
+    include /etc/nginx/snippets/*.conf;
+
+    # ── Security headers ─────────────────────
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-XSS-Protection       "1; mode=block" always;
+    add_header Referrer-Policy        "strict-origin-when-cross-origin" always;
+    add_header Permissions-Policy     "camera=(), microphone=(), geolocation=()" always;
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+
+    # ── Content Security Policy (report-only) ─
+    # Using Report-Only so violations are logged (in browser console / report-uri)
+    # but NOT blocked. Switch to Content-Security-Policy once the policy is clean.
+    #
+    # TODO: Before production, replace 'unsafe-inline' in script-src with a
+    # nonce-based strategy. Nuxt 3 supports useHead() nonces — configure the
+    # Nuxt security module to generate per-request nonces and pass them here
+    # via $csp_nonce, e.g.: script-src 'self' 'nonce-$csp_nonce';
+    #
+    # Directive breakdown:
+    #   default-src 'self'           — fallback: only allow same-origin resources
+    #   script-src  'self' 'unsafe-inline' — JS from same origin + inline scripts
+    #                                        (required for Nuxt SSR hydration)
+    #   style-src   'self' 'unsafe-inline' — CSS from same origin + inline styles
+    #                                        (Nuxt injects scoped <style> blocks)
+    #   img-src     'self' data: blob:     — images from same origin, data URIs,
+    #                                        and blob URLs (Nuxt image handling)
+    #   font-src    'self'                 — fonts from same origin only
+    #   connect-src 'self' https://api.${APP_DOMAIN} — XHR/fetch to same origin
+    #                                        and the Laravel API subdomain
+    #   media-src   'self'                 — audio/video from same origin only
+    #   object-src  'none'                 — block <object>, <embed>, <applet>
+    #   base-uri    'self'                 — restrict <base> to same origin
+    #   form-action 'self'                 — forms can only submit to same origin
+    #   frame-ancestors 'self'             — only same origin can embed in iframe
+    #                                        (replaces X-Frame-Options)
+    #   upgrade-insecure-requests          — auto-upgrade http:// to https://
+    #                                        (only effective in enforcing mode;
+    #                                        add it back when switching from
+    #                                        Report-Only to Content-Security-Policy)
+    add_header Content-Security-Policy-Report-Only "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://api.${APP_DOMAIN}; media-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'" always;
+
+    # ── Fail2Ban banned IPs ───────────────────
+    # Written by the fail2ban sidecar via shared nginx-deny volume.
+    # Contains "deny <ip>;" directives. Safe to include when empty.
+    include /etc/nginx/banned/banned-ips.conf;
+
+    # ── Block dot-files (.env, .git, etc.) ───
+    # Use an explicit list instead of a blanket /\. pattern because Vite's
+    # dev-server URLs contain encoded paths like /.nuxt/ that NGINX
+    # normalises before location matching, causing false-positive 404s.
+    location ~ /\.(?:env|git|htaccess|htpasswd|svn|hg|DS_Store|docker) {
+        deny all;
+        return 404;
+    }
+
+    # ── Laravel API (FastCGI → PHP-FPM) ─────
+    location /api {
+        # Rate limit: 30 req/s with burst of 20
+        limit_req zone=api burst=20 nodelay;
+
+        # Restrict HTTP methods
+        limit_except GET HEAD POST PUT PATCH DELETE OPTIONS {
+            deny all;
+        }
+
+        fastcgi_pass $upstream_backend;
+        fastcgi_index index.php;
+        fastcgi_param SCRIPT_FILENAME /var/www/html/public/index.php;
+        fastcgi_param SCRIPT_NAME /index.php;
+        include fastcgi_params;
+        fastcgi_param HTTP_X_FORWARDED_PROTO $scheme;
+        fastcgi_param HTTP_X_FORWARDED_FOR   $proxy_add_x_forwarded_for;
+        fastcgi_param HTTP_X_REAL_IP         $remote_addr;
+        fastcgi_buffers 16 16k;
+        fastcgi_buffer_size 32k;
+
+        # Timeouts to prevent slow-loris style attacks
+        fastcgi_connect_timeout 60s;
+        fastcgi_send_timeout    60s;
+        fastcgi_read_timeout    60s;
+
+        # Strip stack-identifying headers
+        fastcgi_hide_header X-Powered-By;
+        fastcgi_hide_header X-Served-By;
+    }
+
+    # ── Auth endpoints (stricter rate limit) ─
+    location ~ ^/api/(login|register|forgot-password|reset-password) {
+        limit_req zone=auth burst=3 nodelay;
+
+        fastcgi_pass $upstream_backend;
+        fastcgi_index index.php;
+        fastcgi_param SCRIPT_FILENAME /var/www/html/public/index.php;
+        fastcgi_param SCRIPT_NAME /index.php;
+        include fastcgi_params;
+        fastcgi_param HTTP_X_FORWARDED_PROTO $scheme;
+        fastcgi_param HTTP_X_FORWARDED_FOR   $proxy_add_x_forwarded_for;
+        fastcgi_param HTTP_X_REAL_IP         $remote_addr;
+        fastcgi_buffers 16 16k;
+        fastcgi_buffer_size 32k;
+
+        # Strip stack-identifying headers
+        fastcgi_hide_header X-Powered-By;
+        fastcgi_hide_header X-Served-By;
+    }
+
+    # ── Nuxt Frontend (catch-all) ────────────
+    location / {
+        # Rate limit: 10 req/s with burst of 30
+        limit_req zone=general burst=30 nodelay;
+
+        proxy_pass http://$upstream_frontend;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # WebSocket support (Vite HMR)
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade    $http_upgrade;
+        proxy_set_header Connection $connection_upgrade;
+
+        # Strip stack-identifying headers
+        proxy_hide_header X-Powered-By;
+    }
+}
+
+# ──────────────────────────────────────────────
+# Storybook HTTPS (port 6006)
+# ──────────────────────────────────────────────
+server {
+    listen 6006 ssl;
+    http2 on;
+    server_name ${APP_DOMAIN};
+
+    ssl_certificate     ${SSL_CERTIFICATE};
+    ssl_certificate_key ${SSL_CERTIFICATE_KEY};
+    ssl_protocols       TLSv1.2 TLSv1.3;
+    ssl_ciphers         ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305;
+    ssl_prefer_server_ciphers on;
+    ssl_session_cache   shared:SSL:10m;
+    ssl_session_timeout 10m;
+    ssl_session_tickets off;
+
+    include /etc/nginx/snippets/*.conf;
+
+    add_header X-Frame-Options        "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+
+    resolver 127.0.0.11 valid=30s;
+    set $upstream_storybook storybook:6006;
+
+    include /etc/nginx/banned/banned-ips.conf;
+
+    location / {
+        proxy_pass http://$upstream_storybook;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # WebSocket support (Storybook HMR)
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade    $http_upgrade;
+        proxy_set_header Connection $connection_upgrade;
+
+        # Strip stack-identifying headers
+        proxy_hide_header X-Powered-By;
+    }
+}

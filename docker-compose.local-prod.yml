@@ -1,0 +1,14 @@
+# Local production overlay — use with:
+#   docker compose -f docker-compose.yml -f docker-compose.local-prod.yml -f docker-compose.stack.yml up -d
+#
+# Mirrors production build targets but uses self-signed certs (no certbot).
+# Includes the stack file for local postgres and redis.
+
+services:
+  frontend:
+    build:
+      target: production
+
+  backend:
+    build:
+      target: production

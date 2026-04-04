@@ -1,0 +1,45 @@
+services:
+  postgres:
+    build:
+      context: ./postgres
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./postgres/certs:/tls:ro
+    environment:
+      POSTGRES_DB: ${DB_DATABASE:-final_cut}
+      POSTGRES_USER: ${DB_USERNAME:-final_cut}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-secret}
+      POSTGRES_TEST_DB: ${DB_TEST_DATABASE:-final_cut_test}
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256 --auth-local=scram-sha-256"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+
+  redis:
+    build:
+      context: ./redis
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - redis-data:/data
+      - ./redis/certs:/tls:ro
+    environment:
+      REDIS_USERNAME: ${REDIS_USERNAME:-app}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-redissecret}
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli --tls --cacert /etc/redis/tls/ca.pem -a $$REDIS_PASSWORD --user $$REDIS_USERNAME ping | grep -q PONG"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
+  redis-data:

@@ -1,24 +1,25 @@
-# Nuxt dev/build outputs
-.output
-.data
-.nuxt
-.nitro
-.cache
-dist
+# OS files
+.DS_Store
+Thumbs.db
 
-# Node dependencies
-node_modules
+# IDE
+.idea
+.fleet
+.vscode
+.zed
+
+# Environment files
+.env
+.env.*
+!.env.example
 
 # Logs
 logs
 *.log
 
-# Misc
-.DS_Store
-.fleet
-.idea
+# Node (safety net)
+node_modules
 
-# Local env files
-.env
-.env.*
-!.env.example
+# SSL certificates (generated per-developer)
+nginx/certs/*.pem
+nginx/certs/*.key

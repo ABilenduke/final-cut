@@ -1,0 +1,122 @@
+services:
+  nginx:
+    image: nginx:alpine
+    container_name: nginx
+    # Ensure banned-ips.conf exists before nginx reads the include.
+    # Uses the default entrypoint (docker-entrypoint.sh) which handles
+    # envsubst template processing for ${APP_DOMAIN}, then starts nginx.
+    command: ["/bin/sh", "-c", "mkdir -p /etc/nginx/snippets && touch /etc/nginx/banned/banned-ips.conf && /docker-entrypoint.sh nginx -g 'daemon off;'"]
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/templates:/etc/nginx/templates:ro
+      - ./nginx/certs:/etc/nginx/certs:ro
+      - nginx-logs:/var/log/nginx
+      - nginx-deny:/etc/nginx/banned
+    environment:
+      - APP_DOMAIN=${APP_DOMAIN:-andrewbilenduke.test}
+      - SSL_CERTIFICATE=${SSL_CERTIFICATE:-/etc/nginx/certs/server.pem}
+      - SSL_CERTIFICATE_KEY=${SSL_CERTIFICATE_KEY:-/etc/nginx/certs/server.key}
+      - NGINX_ENVSUBST_OUTPUT_DIR=/etc/nginx
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qSO /dev/null http://127.0.0.1/ 2>&1 | grep -q 'HTTP/'"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    depends_on:
+      frontend:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ── Fail2Ban sidecar ───────────────────────
+  # Watches nginx access logs and bans abusive IPs by writing
+  # nginx "deny" directives to a shared volume.
+  #
+  # Check ban status:
+  #   docker compose exec fail2ban fail2ban-client status nginx-4xx
+  #   docker compose exec fail2ban fail2ban-client status nginx-auth
+  #
+  # Manually unban an IP:
+  #   docker compose exec fail2ban fail2ban-client set nginx-4xx unbanip <IP>
+  #   docker compose exec fail2ban fail2ban-client set nginx-auth unbanip <IP>
+  #
+  # View all currently banned IPs:
+  #   docker compose exec fail2ban fail2ban-client banned
+  fail2ban:
+    image: crazymax/fail2ban:latest
+    container_name: fail2ban
+    volumes:
+      - nginx-logs:/var/log/nginx:ro
+      - nginx-deny:/etc/fail2ban/nginx-deny
+      - ./fail2ban/jail.d:/etc/fail2ban/jail.d:ro
+      - ./fail2ban/filter.d:/etc/fail2ban/filter.d:ro
+      - ./fail2ban/action.d:/etc/fail2ban/action.d:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - fail2ban-data:/var/lib/fail2ban
+    environment:
+      - TZ=${TZ:-UTC}
+    healthcheck:
+      test: ["CMD", "fail2ban-client", "ping"]
+      interval: 60s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    depends_on:
+      nginx:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:3000/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./backend
+    volumes:
+      - ./redis/certs/ca.pem:/tls/redis/ca.pem:ro
+      - ./postgres/certs/ca.pem:/tls/postgres/ca.pem:ro
+    environment:
+      - APP_ENV=${APP_ENV:-production}
+      - APP_DEBUG=${APP_DEBUG:-false}
+      - DB_CONNECTION=${DB_CONNECTION:-pgsql}
+      - DB_HOST=${DB_HOST:-postgres}
+      - DB_PORT=${DB_PORT:-5432}
+      - DB_DATABASE=${DB_DATABASE:-final_cut}
+      - DB_USERNAME=${DB_USERNAME:-final_cut}
+      - DB_PASSWORD=${DB_PASSWORD:-secret}
+      - DB_TEST_DATABASE=${DB_TEST_DATABASE:-final_cut_test}
+      - DB_SSLMODE=${DB_SSLMODE:-verify-full}
+      - DB_SSLROOTCERT=${DB_SSLROOTCERT:-/tls/postgres/ca.pem}
+      - REDIS_HOST=${REDIS_HOST:-redis}
+      - REDIS_PORT=${REDIS_PORT:-6379}
+      - REDIS_USERNAME=${REDIS_USERNAME:-app}
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-redissecret}
+      - REDIS_SCHEME=${REDIS_SCHEME:-tls}
+      - REDIS_TLS_CA_CERT=/tls/redis/ca.pem
+    healthcheck:
+      test: ["CMD-SHELL", "php -r '$$c=@fsockopen(\"127.0.0.1\",9000);if(!$$c)exit(1);fclose($$c);'"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+
+volumes:
+  nginx-logs:
+  nginx-deny:
+  fail2ban-data:

@@ -1,0 +1,81 @@
+include:
+  - docker-compose.stack.yml
+
+services:
+  nginx:
+    ports:
+      - "6006:6006"
+    depends_on:
+      storybook:
+        condition: service_healthy
+
+  frontend:
+    build:
+      target: development
+    volumes:
+      - ./frontend:/app
+      - frontend-node-modules:/app/node_modules
+    environment:
+      - NODE_ENV=development
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:3000/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 120s
+
+  storybook:
+    build:
+      context: ./frontend
+      target: development
+    volumes:
+      - ./frontend:/app
+      - storybook-node-modules:/app/node_modules
+    environment:
+      - NODE_ENV=development
+      - STORYBOOK=true
+    expose:
+      - "6006"
+    command: ["./node_modules/.bin/storybook", "dev", "-p", "6006", "--host", "0.0.0.0", "--no-open"]
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:6006/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 120s
+    restart: unless-stopped
+
+  backend:
+    build:
+      target: development
+    volumes:
+      - ./backend:/var/www/html
+      - backend-vendor:/var/www/html/vendor
+    environment:
+      - APP_ENV=local
+      - APP_DEBUG=true
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  playwright:
+    image: mcr.microsoft.com/playwright:v1.58.0-noble
+    profiles: ["e2e"]
+    working_dir: /app
+    volumes:
+      - ./frontend:/app
+      - frontend-node-modules:/app/node_modules
+    depends_on:
+      nginx:
+        condition: service_healthy
+    environment:
+      - BASE_URL=https://nginx
+      - CI=true
+    command: ["npx", "playwright", "test"]
+
+volumes:
+  backend-vendor:
+  frontend-node-modules:
+  storybook-node-modules:

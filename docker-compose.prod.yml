@@ -1,0 +1,82 @@
+# Production overlay — use with:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# What this adds over the base config:
+#   - Let's Encrypt certificates (via certbot volume)
+#   - OCSP stapling (nginx/snippets/ocsp.conf mounted into nginx)
+#   - Production build targets
+#   - Certbot sidecar for automatic certificate renewal
+
+services:
+  nginx:
+    # In production, override the base command to add a background loop that
+    # watches for a reload signal from certbot after certificate renewal.
+    # Certbot writes /var/run/certbot-reload/reload via --deploy-hook;
+    # this loop picks it up, reloads nginx, and removes the signal file.
+    command:
+      - /bin/sh
+      - -c
+      - |
+        mkdir -p /etc/nginx/snippets /var/run/certbot-reload
+        touch /etc/nginx/banned/banned-ips.conf
+        # Background loop: watch for certbot reload signal
+        while :; do
+          if [ -f /var/run/certbot-reload/reload ]; then
+            nginx -s reload && rm -f /var/run/certbot-reload/reload
+          fi
+          sleep 60
+        done &
+        /docker-entrypoint.sh nginx -g 'daemon off;'
+    environment:
+      - SSL_CERTIFICATE=/etc/letsencrypt/live/${APP_DOMAIN}/fullchain.pem
+      - SSL_CERTIFICATE_KEY=/etc/letsencrypt/live/${APP_DOMAIN}/privkey.pem
+    volumes:
+      # Override self-signed certs with Let's Encrypt
+      - letsencrypt:/etc/letsencrypt:ro
+      - certbot-webroot:/var/www/certbot:ro
+      # Mount OCSP template into the envsubst templates dir so it gets
+      # processed with ${APP_DOMAIN} and output to /etc/nginx/snippets/.
+      # In dev this template is absent, so the snippets wildcard matches
+      # nothing and nginx starts without OCSP (which needs CA-signed certs).
+      - ./nginx/snippets/ocsp.conf.template:/etc/nginx/templates/snippets/ocsp.conf.template:ro
+      # Shared signal volume for certbot → nginx reload
+      - certbot-reload:/var/run/certbot-reload
+
+  # ── Certbot sidecar ────────────────────────
+  # Handles initial certificate issuance and automatic renewal.
+  # Renews every 12 hours (certbot checks internally, only acts if
+  # the cert is within 30 days of expiry).
+  #
+  # After a successful renewal, --deploy-hook writes a signal file that
+  # the nginx container picks up to reload with the new certificate.
+  #
+  # Initial certificate issuance (run once):
+  #   docker compose -f docker-compose.yml -f docker-compose.prod.yml \
+  #     run --rm certbot certonly --webroot -w /var/www/certbot \
+  #     -d ${APP_DOMAIN} -d api.${APP_DOMAIN} --agree-tos -m your@email.com
+  #
+  # The --nginx plugin can also be used but requires certbot to have
+  # write access to nginx config. The webroot method is simpler in Docker.
+  certbot:
+    image: certbot/certbot:latest
+    volumes:
+      - letsencrypt:/etc/letsencrypt
+      - certbot-webroot:/var/www/certbot
+      - certbot-reload:/var/run/certbot-reload
+    entrypoint: /bin/sh -c 'trap exit TERM; while :; do certbot renew --quiet --deploy-hook "touch /var/run/certbot-reload/reload"; sleep 12h & wait $${!}; done'
+    depends_on:
+      - nginx
+    restart: unless-stopped
+
+  frontend:
+    build:
+      target: production
+
+  backend:
+    build:
+      target: production
+
+volumes:
+  letsencrypt:
+  certbot-webroot:
+  certbot-reload:
