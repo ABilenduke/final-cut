@@ -1,0 +1,504 @@
+# Data Models & API Routes
+
+TypeScript interfaces for all data types, server API route inventory, and integration details for TMDB and Stripe.
+
+All types are defined in `app/types/` and auto-imported by Nuxt.
+
+---
+
+## 1. TypeScript Interfaces
+
+### Movie
+
+```typescript
+// app/types/movie.ts
+
+interface Movie {
+  id: number                    // TMDB movie ID
+  slug: string                  // URL-safe slug derived from title
+  title: string
+  tagline: string
+  synopsis: string              // TMDB "overview"
+  runtime: number               // Minutes
+  rating: number                // TMDB vote_average (0-10)
+  releaseDate: string           // ISO date
+  genres: Genre[]
+  cast: CastMember[]
+  posterUrl: string             // TMDB poster image URL
+  backdropUrl: string           // TMDB backdrop image URL
+  trailerKey: string | null     // YouTube video ID from TMDB videos
+  status: 'now_showing' | 'coming_soon'
+}
+
+interface Genre {
+  id: number
+  name: string
+}
+
+interface CastMember {
+  id: number
+  name: string
+  character: string
+  profileUrl: string | null     // TMDB profile image URL
+}
+```
+
+### Showtime
+
+```typescript
+// app/types/showtime.ts
+
+interface Showtime {
+  id: string                    // Unique showtime ID
+  movieId: number               // References Movie.id
+  movieSlug: string             // For URL construction
+  movieTitle: string            // Denormalized for display
+  screenId: string              // References Auditorium.id
+  screenName: string            // Denormalized (e.g., "Screen 1")
+  startTime: string             // ISO datetime
+  endTime: string               // ISO datetime
+  priceStandard: number         // Base price in cents
+  pricePremium: number          // Premium seat price in cents
+  priceAccessible: number       // Accessible seat price in cents
+}
+```
+
+### Auditorium
+
+```typescript
+// app/types/auditorium.ts
+
+interface Auditorium {
+  id: string
+  name: string                  // e.g., "Screen 1", "IMAX"
+  rows: AuditoriumRow[]
+  seatsPerRow: number           // Maximum seats in any row
+  totalSeats: number
+  sections: AuditoriumSection[]
+}
+
+interface AuditoriumRow {
+  label: string                 // e.g., "A", "B", "C"
+  seats: Seat[]
+  section: string               // References AuditoriumSection.name
+}
+
+interface AuditoriumSection {
+  name: string                  // e.g., "Standard", "Premium", "Accessible"
+  priceMultiplier: number       // Applied to showtime base price
+}
+
+interface Seat {
+  id: string                    // e.g., "A1", "B12"
+  row: string                   // Row label
+  number: number                // Seat number within row
+  status: 'available' | 'taken' | 'held'  // Server-side only. Client selection is tracked separately via selectedSeatIds set (see STATE_MANAGEMENT.md).
+  type: 'standard' | 'premium' | 'accessible'
+  price: number                 // Final price in cents (calculated from showtime + section)
+}
+```
+
+### Booking
+
+```typescript
+// app/types/booking.ts
+
+interface Booking {
+  id: string
+  confirmationCode: string      // Human-readable reference (e.g., "CVF-A3X9K2")
+  showtimeId: string
+  movieTitle: string            // Denormalized
+  moviePosterUrl: string        // Denormalized
+  screenName: string            // Denormalized
+  startTime: string             // ISO datetime
+  seats: BookingSeat[]
+  foodItems: BookingFoodItem[]
+  subtotal: number              // In cents
+  discount: number              // In cents (promo codes, gift cards)
+  total: number                 // In cents
+  paymentMethod: 'card' | 'gift_card' | 'mixed'
+  userId: string | null         // Null for guest checkout
+  guestEmail: string | null     // Set for guest checkout
+  status: 'confirmed' | 'cancelled' | 'refunded'
+  createdAt: string             // ISO datetime
+}
+
+interface BookingSeat {
+  seatId: string                // e.g., "A1"
+  section: string               // e.g., "Premium"
+  price: number                 // In cents
+}
+
+interface BookingFoodItem {
+  itemId: string
+  name: string
+  quantity: number
+  unitPrice: number             // In cents
+  totalPrice: number            // In cents
+}
+```
+
+### Calendar Event
+
+```typescript
+// app/types/calendar-event.ts
+
+interface CalendarEvent {
+  id: string
+  type: 'showtime' | 'special_event' | 'loyalty_exclusive' | 'private_screening_blackout'
+  title: string
+  date: string                  // ISO date
+  startTime: string             // ISO datetime
+  endTime: string | null        // ISO datetime (null for all-day)
+  description: string
+  movieSlug: string | null      // Only for showtime type
+  imageUrl: string | null       // Event image
+  slug: string | null           // URL slug for special events
+  ticketUrl: string | null      // Direct link to purchase/RSVP
+  loyaltyOnly: boolean          // Visible to all but marked "Members Only"
+}
+```
+
+### Menu Item
+
+```typescript
+// app/types/menu-item.ts
+
+interface MenuItem {
+  id: string
+  name: string
+  description: string
+  price: number                 // In cents
+  category: 'popcorn' | 'drinks' | 'snacks' | 'combos' | 'specials'
+  imageUrl: string
+  allergens: Allergen[]
+  dietary: DietaryTag[]
+  available: boolean            // Can be temporarily unavailable
+}
+
+type Allergen = 'nuts' | 'dairy' | 'gluten' | 'soy' | 'eggs' | 'shellfish'
+type DietaryTag = 'vegan' | 'vegetarian' | 'gluten_free'
+```
+
+### User
+
+```typescript
+// app/types/user.ts
+
+interface User {
+  id: string
+  email: string
+  name: string
+  avatarUrl: string | null
+  loyaltyPoints: number
+  loyaltyTier: 'bronze' | 'silver' | 'gold' | 'platinum'
+  createdAt: string             // ISO datetime
+}
+
+interface UserProfile extends User {
+  // Extended fields returned by profile endpoint
+  phone: string | null
+  dateOfBirth: string | null    // ISO date, for age-restricted content
+}
+```
+
+### Gift Card
+
+```typescript
+// app/types/gift-card.ts
+
+interface GiftCard {
+  id: string
+  code: string                  // Redemption code
+  initialBalance: number        // In cents
+  currentBalance: number        // In cents
+  recipientEmail: string
+  recipientName: string
+  senderName: string
+  message: string
+  purchasedAt: string           // ISO datetime
+  status: 'active' | 'depleted' | 'expired'
+}
+```
+
+### Rental Inquiry
+
+```typescript
+// app/types/rental-inquiry.ts
+
+interface RentalInquiry {
+  id: string
+  eventType: 'birthday' | 'corporate' | 'proposal' | 'custom'
+  preferredDate: string         // ISO date
+  guestCount: number
+  name: string
+  email: string
+  phone: string | null
+  message: string
+  status: 'pending' | 'contacted' | 'confirmed' | 'declined'
+  createdAt: string             // ISO datetime
+}
+```
+
+---
+
+## 2. Server API Route Inventory
+
+All routes are in `server/api/`. TMDB calls are proxied through server routes (BFF pattern). Local data starts as JSON fixtures in `server/data/` and can be swapped for a database later.
+
+### Movies
+
+| Method | Path | Auth | Data Source | Request | Response |
+| ------ | ---- | ---- | ----------- | ------- | -------- |
+| GET | `/api/movies` | Public | TMDB + Local | `?status=now_showing\|coming_soon&genre=id&page=1` | `{ movies: Movie[], total: number, page: number }` |
+| GET | `/api/movies/:slug` | Public | TMDB | — | `Movie` |
+| GET | `/api/movies/:slug/showtimes` | Public | Local | `?date=YYYY-MM-DD` | `{ showtimes: Showtime[] }` |
+
+**TMDB mapping for `/api/movies`:**
+- `status=now_showing` → TMDB `/movie/now_playing`
+- `status=coming_soon` → TMDB `/movie/upcoming`
+- Merge with local showtimes: match by TMDB movie ID
+
+**TMDB mapping for `/api/movies/:slug`:**
+- TMDB `/movie/{id}` for details
+- TMDB `/movie/{id}/credits` for cast
+- TMDB `/movie/{id}/videos` for trailer key (filter `type=Trailer`, `site=YouTube`)
+- Slug-to-ID mapping maintained in local lookup table
+
+### Showtimes
+
+| Method | Path | Auth | Data Source | Request | Response |
+| ------ | ---- | ---- | ----------- | ------- | -------- |
+| GET | `/api/showtimes/:id` | Public | Local | — | `Showtime & { auditorium: Auditorium, seats: Seat[] }` |
+
+Returns showtime details with full seat map including current availability. This is the entry point for the seat selection page.
+
+### Booking
+
+| Method | Path | Auth | Data Source | Request | Response |
+| ------ | ---- | ---- | ----------- | ------- | -------- |
+| POST | `/api/bookings` | Public | Local + Stripe | `{ showtimeId, seatIds[], foodItems[], paymentMethodId, email? }` | `{ booking: Booking }` |
+| GET | `/api/bookings/:id` | Public* | Local | — | `Booking` |
+
+*`GET /api/bookings/:id` is accessible by booking ID (acts as a secret URL). Authenticated users can also access via their order history.
+
+**POST `/api/bookings` flow:**
+1. Validate seat availability (re-check at purchase time)
+2. Calculate total (seats + food - discounts)
+3. Create Stripe PaymentIntent with calculated amount
+4. On payment confirmation: mark seats as taken, create booking record
+5. Return booking with confirmation code
+6. If seats taken since selection: return `409 Conflict` with which seats are unavailable
+
+### Calendar
+
+| Method | Path | Auth | Data Source | Request | Response |
+| ------ | ---- | ---- | ----------- | ------- | -------- |
+| GET | `/api/calendar/events` | Public | Local | `?month=M&year=Y&type=showtime\|special_event\|loyalty_exclusive` | `{ events: CalendarEvent[] }` |
+| GET | `/api/calendar/events/:slug` | Public | Local | — | `CalendarEvent` (full detail) |
+
+### Food Menu
+
+| Method | Path | Auth | Data Source | Request | Response |
+| ------ | ---- | ---- | ----------- | ------- | -------- |
+| GET | `/api/food-menu` | Public | Local | `?category=popcorn\|drinks\|...` | `{ items: MenuItem[] }` |
+
+### Auth
+
+| Method | Path | Auth | Data Source | Request | Response |
+| ------ | ---- | ---- | ----------- | ------- | -------- |
+| POST | `/api/auth/register` | Guest | Local | `{ name, email, password }` | `{ user: User }` + session cookie |
+| POST | `/api/auth/login` | Guest | Local | `{ email, password }` | `{ user: User }` + session cookie |
+| POST | `/api/auth/logout` | Auth | — | — | Clears session cookie |
+| GET | `/api/auth/me` | Auth | Local | — | `{ user: User }` |
+| POST | `/api/auth/forgot-password` | Guest | Local | `{ email }` | `{ success: true }` |
+
+Session-based auth via `nuxt-auth-utils`. Sessions stored in encrypted HTTP-only cookies. No JWT.
+
+### Account
+
+| Method | Path | Auth | Data Source | Request | Response |
+| ------ | ---- | ---- | ----------- | ------- | -------- |
+| GET | `/api/account/profile` | Auth | Local | — | `UserProfile` |
+| PATCH | `/api/account/profile` | Auth | Local | `Partial<UserProfile>` | `UserProfile` |
+| GET | `/api/account/orders` | Auth | Local | `?page=1&limit=10` | `{ orders: Booking[], total: number }` |
+| GET | `/api/account/bookings` | Auth | Local | `?upcoming=true` | `{ bookings: Booking[] }` |
+| GET | `/api/account/loyalty` | Auth | Local | — | `{ points, tier, nextTierAt, history[] }` |
+| GET | `/api/account/payment-methods` | Auth | Stripe | — | `{ methods: PaymentMethod[] }` |
+| POST | `/api/account/payment-methods` | Auth | Stripe | Stripe SetupIntent flow | `{ method: PaymentMethod }` |
+| DELETE | `/api/account/payment-methods/:id` | Auth | Stripe | — | `{ success: true }` |
+
+### Gift Cards
+
+| Method | Path | Auth | Data Source | Request | Response |
+| ------ | ---- | ---- | ----------- | ------- | -------- |
+| POST | `/api/gift-cards/purchase` | Public | Local + Stripe | `{ amount, recipientEmail, recipientName, senderName, message, paymentMethodId }` | `{ giftCard: GiftCard }` |
+| GET | `/api/gift-cards/balance` | Public | Local | `?code=XXXX` | `{ balance: number, status }` |
+
+### Rentals / Contact
+
+| Method | Path | Auth | Data Source | Request | Response |
+| ------ | ---- | ---- | ----------- | ------- | -------- |
+| POST | `/api/rentals/inquiry` | Public | Local | `RentalInquiry` fields | `{ success: true, inquiryId }` |
+| POST | `/api/contact` | Public | Local | `{ name, email, subject, message }` | `{ success: true }` |
+
+---
+
+## 3. TMDB Integration
+
+### API Configuration
+
+- **Base URL:** `https://api.themoviedb.org/3`
+- **Auth:** Bearer token via `NUXT_TMDB_API_KEY` runtime config
+- **Image base URL:** `https://image.tmdb.org/t/p/`
+- **Image sizes used:**
+  - Posters: `w500` (listings), `w780` (detail page)
+  - Backdrops: `w1280` (hero sections)
+  - Profiles: `w185` (cast list)
+
+### Endpoints Used
+
+| Our Route | TMDB Endpoint | Purpose |
+| --------- | ------------- | ------- |
+| `/api/movies?status=now_showing` | `/movie/now_playing?region=US&page=1` | Now showing list |
+| `/api/movies?status=coming_soon` | `/movie/upcoming?region=US&page=1` | Coming soon list |
+| `/api/movies/:slug` | `/movie/{id}` | Movie details |
+| `/api/movies/:slug` | `/movie/{id}/credits` | Cast list |
+| `/api/movies/:slug` | `/movie/{id}/videos` | Trailer YouTube key |
+| `/api/movies/:slug` | `/movie/{id}/images` | Additional images |
+
+### TMDB-to-Movie Type Mapping
+
+```typescript
+// server/utils/tmdb.ts — transform function
+
+function tmdbToMovie(tmdbMovie: TmdbMovieDetail, credits: TmdbCredits, videos: TmdbVideos): Movie {
+  return {
+    id: tmdbMovie.id,
+    slug: slugify(tmdbMovie.title),
+    title: tmdbMovie.title,
+    tagline: tmdbMovie.tagline,
+    synopsis: tmdbMovie.overview,
+    runtime: tmdbMovie.runtime,
+    rating: tmdbMovie.vote_average,
+    releaseDate: tmdbMovie.release_date,
+    genres: tmdbMovie.genres,
+    cast: credits.cast.slice(0, 12).map(c => ({
+      id: c.id,
+      name: c.name,
+      character: c.character,
+      profileUrl: c.profile_path
+        ? `https://image.tmdb.org/t/p/w185${c.profile_path}`
+        : null
+    })),
+    posterUrl: `https://image.tmdb.org/t/p/w500${tmdbMovie.poster_path}`,
+    backdropUrl: `https://image.tmdb.org/t/p/w1280${tmdbMovie.backdrop_path}`,
+    trailerKey: videos.results
+      .find(v => v.type === 'Trailer' && v.site === 'YouTube')?.key ?? null,
+    status: 'now_showing' // Set by calling route
+  }
+}
+```
+
+### Merging TMDB + Local Showtime Data
+
+The `/api/movies` route:
+1. Fetches TMDB movie list (now_playing or upcoming)
+2. Reads local showtime data from `server/data/showtimes.json`
+3. Matches by TMDB movie ID
+4. Returns merged response: TMDB metadata + next available showtime per movie
+
+Movies in TMDB that don't have local showtimes are still returned (they're playing at the theater but showtimes aren't yet scheduled). Movies with showtimes but not in TMDB's list are flagged for manual review.
+
+### Caching Strategy
+
+Server routes use Nuxt's `cachedEventHandler` to avoid hitting TMDB on every request:
+
+| Route | Cache Duration | Rationale |
+| ----- | -------------- | --------- |
+| `/api/movies` (list) | 30 minutes | Movie lists update daily |
+| `/api/movies/:slug` (detail) | 1 hour | Movie details rarely change |
+| `/api/movies/:slug/showtimes` | No cache | Showtime availability is near-real-time |
+
+```typescript
+// Example: server/api/movies/index.get.ts
+export default cachedEventHandler(async (event) => {
+  // ... fetch and merge
+}, { maxAge: 60 * 30 }) // 30 minutes
+```
+
+---
+
+## 4. Stripe Integration
+
+### Payment Flow: Ticket Purchase
+
+```
+1. Client: User completes seat selection and checkout form
+2. Client: Stripe.js creates a PaymentMethod from card details
+3. Client: POST /api/bookings with paymentMethodId + order details
+4. Server: Validates seat availability (final check)
+5. Server: Calculates total
+6. Server: Creates Stripe PaymentIntent with amount and paymentMethodId
+7. Server: Confirms PaymentIntent
+8. Server: On success → creates booking record, marks seats as taken
+9. Server: Returns Booking to client
+10. Client: Redirects to confirmation page
+```
+
+If payment requires 3D Secure:
+```
+7b. Server returns PaymentIntent with status "requires_action"
+8b. Client: Stripe.js handles 3DS modal
+9b. Client: On 3DS success, POST /api/bookings/confirm with paymentIntentId
+10b. Server: Confirms booking
+```
+
+### Payment Flow: Gift Card Purchase
+
+Same pattern as ticket purchase, but:
+- Creates a GiftCard record instead of a Booking
+- Amount is the gift card value
+- Sends email to recipient with gift card code
+
+### Saved Payment Methods
+
+Uses Stripe's SetupIntent flow:
+1. Client: POST `/api/account/payment-methods` → server creates SetupIntent
+2. Client: Stripe.js collects card via SetupIntent
+3. Client: On success, card is attached to Stripe Customer
+4. Server: Returns saved PaymentMethod details (brand, last4, expiry)
+
+### Stripe SDK Usage
+
+- **Client (`@stripe/stripe-js`):** Stripe Elements for card input, PaymentMethod creation, 3DS handling
+- **Server (`stripe` Node SDK):** PaymentIntent creation/confirmation, Customer management, SetupIntent creation, webhook handling
+
+### Webhook (Future)
+
+`POST /api/webhooks/stripe` — handles payment confirmation events for reliability. Not required for MVP (server-side confirmation is synchronous), but recommended for production to handle edge cases (network failures between payment and booking creation).
+
+---
+
+## 5. Local Mock Data
+
+During initial development, server routes return data from JSON fixtures:
+
+| File | Contents |
+| ---- | -------- |
+| `server/data/showtimes.json` | Showtime schedule for next 14 days |
+| `server/data/auditoriums.json` | Auditorium layouts (rows, seats, sections) |
+| `server/data/menu.json` | Food and drink items |
+| `server/data/events.json` | Special events and calendar entries |
+| `server/data/faq.json` | FAQ categories and items |
+
+These files serve as the contract for what the database schema will eventually need to support. The composable interfaces (`useMovies`, `useShowtimes`, etc.) remain identical regardless of whether data comes from JSON fixtures or a database.
+
+### Mock Data Toggle
+
+```typescript
+// server/utils/config.ts
+export const useMockData = process.env.MOCK_DATA === 'true'
+```
+
+When `MOCK_DATA=true`, TMDB calls are bypassed and movie data is also read from `server/data/movies.json`. This allows development without an API key.
