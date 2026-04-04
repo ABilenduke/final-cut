@@ -226,3 +226,111 @@
 - [2026-04-04] Fixed 3 test files missing `Tests\TestCase::class` in `uses()` (AuditoriumTest, SeatTest, UserTest)
 - [2026-04-04] Added `bookings()` HasMany relationship to Showtime model (omitted by parallel agent)
 - [2026-04-04] Removed scaffold `tests/Feature/ExampleTest.php` (tested non-existent GET / web route)
+
+---
+
+# Progress Journal — Plan 03: Movie & Showtime API
+
+## Task 1: TmdbService — HTTP Client & Transform
+**Status:** ✅ Complete
+**Started:** 2026-04-04
+**Completed:** 2026-04-04
+
+### Work Done
+- [2026-04-04] Created `TmdbService` with `nowPlaying()`, `upcoming()`, `movieDetail()` methods
+- [2026-04-04] Implemented `tmdbToMovie()` transform matching DATA_MODELS.md Section 3 (cast limit 12, YouTube trailer extraction, image size prefixes w500/w1280/w185)
+- [2026-04-04] Added caching: 30 min for lists, 1 hour for detail via `Cache::remember()`
+- [2026-04-04] Graceful degradation: returns empty/null when TMDB unavailable or no API key
+- [2026-04-04] 13 unit tests covering transform, caching, error handling
+
+### Decisions
+- [2026-04-04] Used `Http::withToken()` (Bearer auth) — matches TMDB v3 Read Access Token auth method
+- [2026-04-04] `tmdbToMovie` is private — only called internally, tested via reflection
+
+### Files Changed
+- `backend/app/Services/TmdbService.php` — new
+- `backend/tests/Unit/Services/TmdbServiceTest.php` — new (13 tests)
+
+---
+
+## Task 2: API Resources
+**Status:** ✅ Complete
+**Started:** 2026-04-04
+**Completed:** 2026-04-04
+
+### Work Done
+- [2026-04-04] Created `MovieResource`, `MovieListResource`, `ShowtimeResource`, `AuditoriumResource`, `SeatResource`
+- [2026-04-04] All resources output camelCase keys matching frontend TypeScript interfaces
+- [2026-04-04] `SeatResource` uses `computed_status` and `computed_price` attributes set by controller
+- [2026-04-04] `AuditoriumResource` groups seats by row and extracts unique sections
+- [2026-04-04] 8 unit tests covering all resource transformations
+
+### Decisions
+- [2026-04-04] `SeatResource` reads computed status/price from dynamically set model attributes rather than accepting constructor params — simpler integration with Eloquent collection patterns
+- [2026-04-04] `AuditoriumResource` sorts seats by `[row, number]` before grouping for consistent output
+
+### Files Changed
+- `backend/app/Http/Resources/MovieResource.php` — new
+- `backend/app/Http/Resources/MovieListResource.php` — new
+- `backend/app/Http/Resources/ShowtimeResource.php` — new
+- `backend/app/Http/Resources/AuditoriumResource.php` — new
+- `backend/app/Http/Resources/SeatResource.php` — new
+- `backend/tests/Unit/Resources/ResourcesTest.php` — new (8 tests)
+
+---
+
+## Task 3: MovieController Implementation
+**Status:** ✅ Complete
+**Started:** 2026-04-04
+**Completed:** 2026-04-04
+
+### Work Done
+- [2026-04-04] Implemented `GET /api/movies` — fetches from TMDB, returns camelCase array data with meta
+- [2026-04-04] Implemented `GET /api/movies/{slug}` — local slug lookup + TMDB enrichment for cast/trailer, falls back to local data when TMDB fails
+- [2026-04-04] Implemented `GET /api/movies/{slug}/showtimes` — date-filtered with today default, eager-loads movie + auditorium
+- [2026-04-04] 14 feature tests covering TMDB integration, fallback, date filtering, 404s
+
+### Decisions
+- [2026-04-04] Movie detail merges TMDB data onto the local Eloquent model (TMDB provides enriched cast/trailer, local model provides slug/status)
+
+### Known Issue — Movie List Source of Truth
+- [2026-04-04] `GET /api/movies` currently proxies TMDB now_playing/upcoming directly, returning every movie in US theaters. This is wrong — the local `movies` table is the source of truth for what this theater shows. The endpoint should query local movies by status, then optionally enrich with TMDB metadata. Needs fix before this endpoint is usable.
+
+### Files Changed
+- `backend/app/Http/Controllers/Api/MovieController.php` — implemented (was stub)
+- `backend/tests/Feature/Api/MovieControllerTest.php` — new (14 tests)
+
+---
+
+## Task 4: ShowtimeController — Seat Map with Availability
+**Status:** ✅ Complete
+**Started:** 2026-04-04
+**Completed:** 2026-04-04
+
+### Work Done
+- [2026-04-04] Implemented `GET /api/showtimes/{id}` — returns showtime + auditorium + full seat map with availability
+- [2026-04-04] Seat availability computed from BookingSeat records (confirmed bookings only)
+- [2026-04-04] Single query for taken seat IDs, then in-memory map — no N+1
+- [2026-04-04] 8 feature tests covering availability logic, cancelled bookings, cross-showtime isolation, pricing, and 300-seat performance
+
+### Decisions
+- [2026-04-04] Seat status is computed at query time, not stored — avoids state synchronization issues
+- [2026-04-04] Only `BookingStatus::Confirmed` bookings count as "taken" — cancelled/refunded seats remain available
+
+### Files Changed
+- `backend/app/Http/Controllers/Api/ShowtimeController.php` — implemented (was stub)
+- `backend/tests/Feature/Api/ShowtimeControllerTest.php` — new (8 tests)
+
+---
+
+## Task 5: Update Route Stub Tests
+**Status:** ✅ Complete
+**Started:** 2026-04-04
+**Completed:** 2026-04-04
+
+### Work Done
+- [2026-04-04] Removed 4 movie/showtime stub tests from RouteStubsTest (now covered by dedicated test files)
+- [2026-04-04] Full suite: 144 tests, 426 assertions, 0 failures
+
+### Files Changed
+- `backend/tests/Feature/Api/RouteStubsTest.php` — removed movie/showtime stubs

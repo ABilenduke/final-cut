@@ -11,31 +11,9 @@ use function Pest\Laravel\deleteJson;
 |--------------------------------------------------------------------------
 */
 
-// Movies
-test('GET /api/movies returns 200', function () {
-    getJson('/api/movies')
-        ->assertOk()
-        ->assertJsonStructure(['data']);
-});
-
-test('GET /api/movies/{slug} returns 200', function () {
-    getJson('/api/movies/the-matrix')
-        ->assertOk()
-        ->assertJsonStructure(['data']);
-});
-
-test('GET /api/movies/{slug}/showtimes returns 200', function () {
-    getJson('/api/movies/the-matrix/showtimes')
-        ->assertOk()
-        ->assertJsonStructure(['data']);
-});
-
-// Showtimes
-test('GET /api/showtimes/{id} returns 200', function () {
-    getJson('/api/showtimes/1')
-        ->assertOk()
-        ->assertJsonStructure(['data']);
-});
+// Movies & Showtimes — covered by dedicated test files:
+// - tests/Feature/Api/MovieControllerTest.php
+// - tests/Feature/Api/ShowtimeControllerTest.php
 
 // Calendar
 test('GET /api/calendar/events returns 200', function () {
