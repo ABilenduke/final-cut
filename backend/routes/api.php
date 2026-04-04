@@ -1,0 +1,61 @@
+<?php
+
+use App\Http\Controllers\Api\AccountController;
+use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\BookingController;
+use App\Http\Controllers\Api\CalendarEventController;
+use App\Http\Controllers\Api\ContactController;
+use App\Http\Controllers\Api\FoodMenuController;
+use App\Http\Controllers\Api\GiftCardController;
+use App\Http\Controllers\Api\MovieController;
+use App\Http\Controllers\Api\PaymentMethodController;
+use App\Http\Controllers\Api\RentalController;
+use App\Http\Controllers\Api\ShowtimeController;
+use Illuminate\Support\Facades\Route;
+
+// Movies
+Route::get('/movies', [MovieController::class, 'index']);
+Route::get('/movies/{slug}', [MovieController::class, 'show']);
+Route::get('/movies/{slug}/showtimes', [MovieController::class, 'showtimes']);
+
+// Showtimes
+Route::get('/showtimes/{id}', [ShowtimeController::class, 'show']);
+
+// Bookings
+Route::post('/bookings', [BookingController::class, 'store']);
+Route::get('/bookings/{id}', [BookingController::class, 'show']);
+Route::post('/bookings/confirm', [BookingController::class, 'confirm']);
+
+// Calendar
+Route::get('/calendar/events', [CalendarEventController::class, 'index']);
+Route::get('/calendar/events/{slug}', [CalendarEventController::class, 'show']);
+
+// Food Menu
+Route::get('/food-menu', [FoodMenuController::class, 'index']);
+
+// Auth
+Route::post('/auth/register', [AuthController::class, 'register']);
+Route::post('/auth/login', [AuthController::class, 'login']);
+Route::post('/auth/logout', [AuthController::class, 'logout'])->middleware('auth:sanctum');
+Route::get('/auth/me', [AuthController::class, 'me'])->middleware('auth:sanctum');
+Route::post('/auth/forgot-password', [AuthController::class, 'forgotPassword']);
+
+// Account (all auth-protected)
+Route::middleware('auth:sanctum')->prefix('account')->group(function () {
+    Route::get('/profile', [AccountController::class, 'profile']);
+    Route::patch('/profile', [AccountController::class, 'updateProfile']);
+    Route::get('/orders', [AccountController::class, 'orders']);
+    Route::get('/bookings', [AccountController::class, 'bookings']);
+    Route::get('/loyalty', [AccountController::class, 'loyalty']);
+    Route::get('/payment-methods', [PaymentMethodController::class, 'index']);
+    Route::post('/payment-methods', [PaymentMethodController::class, 'store']);
+    Route::delete('/payment-methods/{id}', [PaymentMethodController::class, 'destroy']);
+});
+
+// Gift Cards
+Route::post('/gift-cards/purchase', [GiftCardController::class, 'purchase']);
+Route::get('/gift-cards/balance', [GiftCardController::class, 'balance']);
+
+// Contact / Rentals
+Route::post('/rentals/inquiry', [RentalController::class, 'store']);
+Route::post('/contact', [ContactController::class, 'store']);
