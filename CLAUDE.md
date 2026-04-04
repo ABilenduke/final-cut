@@ -89,6 +89,22 @@ All inter-service communication uses TLS: nginx↔client, redis, postgres. Certi
 - **Payments**: Stripe integration
 - **Auth**: nuxt-auth-utils
 
+## Development Methodology
+
+This project follows **spec-driven development** with **test-driven development (TDD)**:
+
+1. **Spec first** — Review or write the relevant design doc / plan before writing implementation code
+2. **Tests first** — Write failing tests that codify the spec's requirements before implementing the feature
+3. **Implement to pass** — Write the minimum code to make tests pass
+4. **Refactor** — Clean up while keeping tests green
+
+### Testing Requirements
+
+- **Backend**: All tests **must** use [Pest](https://pestphp.com/) (not raw PHPUnit). Run with `composer test` inside the backend container. See `docs/plans/backend/08-testing-and-seeding.md` for test structure and coverage expectations.
+- **Frontend unit/component**: All tests **must** use [Vitest](https://vitest.dev/) with `@nuxt/test-utils`. Run with `npx vitest` inside the frontend container.
+- **Frontend E2E**: E2E tests use Playwright. Run with `make e2e` from host or `npx playwright test` inside the frontend container.
+- **No untested features** — Every new backend endpoint, service, or model behavior requires corresponding Pest tests. Every frontend component, composable, and user-facing flow requires Vitest unit/component tests and Playwright E2E coverage.
+
 ## Documentation
 
 Detailed design docs live in `docs/`:
