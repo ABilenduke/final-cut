@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Http\Resources\MovieListResource;
 use App\Http\Resources\MovieResource;
 use App\Http\Resources\ShowtimeResource;
 use App\Models\Movie;
@@ -16,25 +17,18 @@ class MovieController extends Controller
     public function index(Request $request): JsonResponse
     {
         $status = $request->input('status', 'now_showing');
-        $page = (int) $request->input('page', 1);
+        $perPage = (int) $request->input('per_page', 20);
 
-        $tmdbResult = match ($status) {
-            'coming_soon' => $this->tmdb->upcoming($page),
-            default => $this->tmdb->nowPlaying($page),
-        };
-
-        // TMDB data already arrives in the correct camelCase format from TmdbService
-        $movies = collect($tmdbResult['movies'])->map(function (array $movie) use ($status) {
-            $movie['status'] = $status;
-
-            return $movie;
-        })->values();
+        $paginator = Movie::where('status', $status)
+            ->orderBy('title')
+            ->paginate($perPage);
 
         return $this->successResponse(
-            $movies,
+            MovieListResource::collection($paginator->items()),
             [
-                'total' => $tmdbResult['total'] ?? 0,
-                'page' => $tmdbResult['page'] ?? 1,
+                'total' => $paginator->total(),
+                'page' => $paginator->currentPage(),
+                'per_page' => $paginator->perPage(),
             ]
         );
     }

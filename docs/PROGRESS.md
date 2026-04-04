@@ -293,8 +293,9 @@
 ### Decisions
 - [2026-04-04] Movie detail merges TMDB data onto the local Eloquent model (TMDB provides enriched cast/trailer, local model provides slug/status)
 
-### Known Issue — Movie List Source of Truth
-- [2026-04-04] `GET /api/movies` currently proxies TMDB now_playing/upcoming directly, returning every movie in US theaters. This is wrong — the local `movies` table is the source of truth for what this theater shows. The endpoint should query local movies by status, then optionally enrich with TMDB metadata. Needs fix before this endpoint is usable.
+### Known Issue — Movie List Source of Truth (RESOLVED)
+- [2026-04-04] `GET /api/movies` was proxying TMDB now_playing/upcoming directly, returning every movie in US theaters instead of only this theater's movies.
+- [2026-04-04] **Fixed**: endpoint now queries local `movies` table by status with pagination, uses `MovieListResource` for output. TMDB is only used for enrichment on detail pages, not for listing. Local DB is the source of truth for what this theater shows.
 
 ### Files Changed
 - `backend/app/Http/Controllers/Api/MovieController.php` — implemented (was stub)

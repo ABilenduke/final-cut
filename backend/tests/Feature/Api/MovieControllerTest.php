@@ -11,32 +11,6 @@ use function Pest\Laravel\getJson;
 
 // --- TMDB Response Helpers ---
 
-function fakeTmdbNowPlaying(array $movies = []): array
-{
-    return [
-        'page' => 1,
-        'total_results' => count($movies),
-        'total_pages' => 1,
-        'results' => $movies,
-    ];
-}
-
-function fakeTmdbMovie(int $id = 100001, string $title = 'Test Movie'): array
-{
-    return [
-        'id' => $id,
-        'title' => $title,
-        'tagline' => 'A test tagline',
-        'overview' => 'A test synopsis',
-        'runtime' => 120,
-        'vote_average' => 7.5,
-        'release_date' => '2026-01-15',
-        'genres' => [['id' => 28, 'name' => 'Action']],
-        'poster_path' => '/poster.jpg',
-        'backdrop_path' => '/backdrop.jpg',
-    ];
-}
-
 function fakeTmdbCredits(): array
 {
     return [
@@ -56,72 +30,59 @@ function fakeTmdbVideos(): array
     ];
 }
 
+function fakeTmdbMovie(int $id = 100001, string $title = 'Test Movie'): array
+{
+    return [
+        'id' => $id,
+        'title' => $title,
+        'tagline' => 'A test tagline',
+        'overview' => 'A test synopsis',
+        'runtime' => 120,
+        'vote_average' => 7.5,
+        'release_date' => '2026-01-15',
+        'genres' => [['id' => 28, 'name' => 'Action']],
+        'poster_path' => '/poster.jpg',
+        'backdrop_path' => '/backdrop.jpg',
+    ];
+}
+
 /*
 |--------------------------------------------------------------------------
-| GET /api/movies
+| GET /api/movies — Local DB is source of truth
 |--------------------------------------------------------------------------
 */
 
-test('GET /api/movies returns movie list from TMDB with status=now_showing', function () {
-    Cache::flush();
-
-    Http::fake([
-        'api.themoviedb.org/3/movie/now_playing*' => Http::response(
-            fakeTmdbNowPlaying([fakeTmdbMovie()]),
-            200
-        ),
-    ]);
+test('GET /api/movies returns local now_showing movies', function () {
+    Movie::factory()->nowShowing()->count(3)->create();
+    Movie::factory()->comingSoon()->count(2)->create();
 
     getJson('/api/movies?status=now_showing')
         ->assertOk()
         ->assertJsonStructure(['data', 'meta'])
         ->assertJsonPath('meta.page', 1)
-        ->assertJsonCount(1, 'data');
+        ->assertJsonCount(3, 'data');
 });
 
-test('GET /api/movies with status=coming_soon calls TMDB upcoming', function () {
-    Cache::flush();
-
-    Http::fake([
-        'api.themoviedb.org/3/movie/upcoming*' => Http::response(
-            fakeTmdbNowPlaying([fakeTmdbMovie()]),
-            200
-        ),
-    ]);
+test('GET /api/movies returns local coming_soon movies', function () {
+    Movie::factory()->nowShowing()->count(3)->create();
+    Movie::factory()->comingSoon()->count(2)->create();
 
     getJson('/api/movies?status=coming_soon')
         ->assertOk()
-        ->assertJsonCount(1, 'data');
-
-    Http::assertSent(fn ($req) => str_contains($req->url(), 'movie/upcoming'));
+        ->assertJsonCount(2, 'data');
 });
 
 test('GET /api/movies defaults to now_showing when no status param', function () {
-    Cache::flush();
-
-    Http::fake([
-        'api.themoviedb.org/3/movie/now_playing*' => Http::response(
-            fakeTmdbNowPlaying([fakeTmdbMovie()]),
-            200
-        ),
-    ]);
+    Movie::factory()->nowShowing()->count(2)->create();
+    Movie::factory()->comingSoon()->count(1)->create();
 
     getJson('/api/movies')
         ->assertOk()
-        ->assertJsonCount(1, 'data');
-
-    Http::assertSent(fn ($req) => str_contains($req->url(), 'movie/now_playing'));
+        ->assertJsonCount(2, 'data');
 });
 
 test('GET /api/movies returns correct JSON structure with meta', function () {
-    Cache::flush();
-
-    Http::fake([
-        'api.themoviedb.org/3/movie/now_playing*' => Http::response(
-            fakeTmdbNowPlaying([fakeTmdbMovie()]),
-            200
-        ),
-    ]);
+    Movie::factory()->nowShowing()->create();
 
     getJson('/api/movies')
         ->assertOk()
@@ -133,16 +94,24 @@ test('GET /api/movies returns correct JSON structure with meta', function () {
         ]);
 });
 
-test('GET /api/movies handles TMDB failure gracefully', function () {
-    Cache::flush();
+test('GET /api/movies returns empty when no movies match status', function () {
+    Movie::factory()->comingSoon()->create();
 
-    Http::fake([
-        'api.themoviedb.org/3/movie/now_playing*' => Http::response([], 500),
-    ]);
-
-    getJson('/api/movies')
+    getJson('/api/movies?status=now_showing')
         ->assertOk()
-        ->assertJsonPath('data', []);
+        ->assertJsonCount(0, 'data');
+});
+
+test('GET /api/movies paginates results', function () {
+    Movie::factory()->nowShowing()->count(25)->create();
+
+    $page1 = getJson('/api/movies?page=1&per_page=10')->assertOk();
+    expect($page1->json('data'))->toHaveCount(10);
+    expect($page1->json('meta.total'))->toBe(25);
+    expect($page1->json('meta.page'))->toBe(1);
+
+    $page3 = getJson('/api/movies?page=3&per_page=10')->assertOk();
+    expect($page3->json('data'))->toHaveCount(5);
 });
 
 /*
