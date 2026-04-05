@@ -21,12 +21,12 @@ class MenuItemFactory extends Factory
             'image_url' => null,
             'allergens' => [],
             'dietary' => [],
-            'available' => true,
+            'unavailable_at' => null,
         ];
     }
 
     public function unavailable(): static
     {
-        return $this->state(fn () => ['available' => false]);
+        return $this->state(fn () => ['unavailable_at' => now()]);
     }
 }
