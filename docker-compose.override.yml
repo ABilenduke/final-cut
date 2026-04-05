@@ -66,14 +66,18 @@ services:
     profiles: ["e2e"]
     working_dir: /app
     volumes:
-      - ./frontend:/app
+      - ./e2e:/app
     depends_on:
       nginx:
         condition: service_healthy
     environment:
       - BASE_URL=https://nginx
       - CI=true
-    command: ["npx", "playwright", "test"]
+      - NODE_TLS_REJECT_UNAUTHORIZED=0
+    command:
+      - sh
+      - -c
+      - npm install && npx playwright test
 
 volumes:
   backend-vendor:

@@ -82,7 +82,7 @@ jobs:
         if: ${{ !cancelled() }}
         with:
           name: playwright-report
-          path: frontend/playwright-report/
+          path: e2e/playwright-report/
           retention-days: 14
 
       - name: Print service logs on failure
