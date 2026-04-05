@@ -287,7 +287,7 @@
 ### Work Done
 - [2026-04-04] Implemented `GET /api/movies` — fetches from TMDB, returns camelCase array data with meta
 - [2026-04-04] Implemented `GET /api/movies/{slug}` — local slug lookup + TMDB enrichment for cast/trailer, falls back to local data when TMDB fails
-- [2026-04-04] Implemented `GET /api/movies/{slug}/showtimes` — date-filtered with today default, eager-loads movie + auditorium
+- [2026-04-04] Implemented `GET /api/locations/{location}/movies/{slug}/showtimes` — location-scoped, date-filtered with today default, eager-loads movie + auditorium
 - [2026-04-04] 14 feature tests covering TMDB integration, fallback, date filtering, 404s
 
 ### Decisions
@@ -309,7 +309,7 @@
 **Completed:** 2026-04-04
 
 ### Work Done
-- [2026-04-04] Implemented `GET /api/showtimes/{id}` — returns showtime + auditorium + full seat map with availability
+- [2026-04-04] Implemented `GET /api/locations/{location}/showtimes/{id}` — returns showtime + auditorium + full seat map with availability
 - [2026-04-04] Seat availability computed from BookingSeat records (confirmed bookings only)
 - [2026-04-04] Single query for taken seat IDs, then in-memory map — no N+1
 - [2026-04-04] 8 feature tests covering availability logic, cancelled bookings, cross-showtime isolation, pricing, and 300-seat performance

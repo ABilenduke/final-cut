@@ -83,9 +83,9 @@ Implement the movie and showtime API endpoints. The theatre owns its movie catal
   - Return: `{ data: Movie }` (includes persisted cast, trailer_key, all metadata)
   - No TMDB dependency — all data served from local columns
 
-  **`showtimes` — GET `/api/movies/{slug}/showtimes`:**
+  **`showtimes` — GET `/api/locations/{location}/movies/{slug}/showtimes`:**
   - Query params: `date` (YYYY-MM-DD, defaults to today)
-  - Fetch local showtimes for this movie, filtered by date
+  - Fetch local showtimes for this movie at the given location, filtered by date
   - Return: `{ data: Showtime[] }`
 
 - **Acceptance Criteria:**
@@ -107,7 +107,7 @@ Implement the movie and showtime API endpoints. The theatre owns its movie catal
   - `backend/app/Http/Resources/SeatResource.php`
   - `backend/app/Http/Resources/AuditoriumResource.php`
 - **Details:**
-  **`show` — GET `/api/showtimes/{id}`:**
+  **`show` — GET `/api/locations/{location}/showtimes/{id}`:**
   - Return showtime details + full auditorium layout + seat map with current availability
   - Seat availability determined by: seat has no confirmed booking for this showtime
   - Return: `{ data: { showtime, auditorium, seats } }`
@@ -163,8 +163,8 @@ Implement the movie and showtime API endpoints. The theatre owns its movie catal
 - **Pest Feature Tests:**
   - `GET /api/movies` — returns movie list, respects status filter, pagination
   - `GET /api/movies/{slug}` — returns movie detail with persisted cast, 404 for invalid slug, empty cast when null
-  - `GET /api/movies/{slug}/showtimes` — returns showtimes, date filter works
-  - `GET /api/showtimes/{id}` — returns seat map with correct availability
+  - `GET /api/locations/{location}/movies/{slug}/showtimes` — returns showtimes, date filter works
+  - `GET /api/locations/{location}/showtimes/{id}` — returns seat map with correct availability
   - Seat availability: confirmed bookings mark seats taken, cancelled bookings do not
   - Cancelled booking seats can be rebooked (no unique constraint violation)
   - `movies:enrich` command: stale enrichment, skip no tmdb_id, failure handling, --movie, --force

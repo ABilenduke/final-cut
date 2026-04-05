@@ -372,6 +372,64 @@ test('enrichMovie preserves cast and trailer on partial TMDB response', function
         ->and($movie->tmdb_enriched_at->toDateString())->toBe(now()->subDay()->toDateString());
 });
 
+test('fetchEnrichmentData returns null when TMDB response missing id', function () {
+    $response = tmdbCombinedResponse(tmdbCredits(), tmdbVideos());
+    unset($response['id']);
+
+    Http::fake([
+        'api.themoviedb.org/3/movie/550*' => Http::response($response, 200),
+    ]);
+
+    Cache::flush();
+
+    $service = app(TmdbService::class);
+    $result = $service->fetchEnrichmentData(550);
+
+    expect($result)->toBeNull();
+});
+
+test('fetchEnrichmentData returns null when TMDB response missing title', function () {
+    $response = tmdbCombinedResponse(tmdbCredits(), tmdbVideos());
+    unset($response['title']);
+
+    Http::fake([
+        'api.themoviedb.org/3/movie/550*' => Http::response($response, 200),
+    ]);
+
+    Cache::flush();
+
+    $service = app(TmdbService::class);
+    $result = $service->fetchEnrichmentData(550);
+
+    expect($result)->toBeNull();
+});
+
+test('enrichMovie does not update tmdb_enriched_at when TMDB response is malformed', function () {
+    $response = tmdbCombinedResponse(tmdbCredits(), tmdbVideos());
+    unset($response['id']);
+
+    Http::fake([
+        'api.themoviedb.org/3/movie/550*' => Http::response($response, 200),
+    ]);
+
+    Cache::flush();
+
+    $movie = Movie::factory()->create([
+        'tmdb_id' => 550,
+        'tagline' => 'Original tagline',
+        'tmdb_enriched_at' => null,
+    ]);
+
+    $service = app(TmdbService::class);
+    $result = $service->enrichMovie($movie);
+
+    expect($result)->toBeFalse();
+
+    $movie->refresh();
+    expect($movie->tmdb_enriched_at)->toBeNull()
+        ->and($movie->tagline)->toBe('Original tagline');
+});
+
 test('enrichMovie preserves local data when TMDB is unavailable', function () {
     Http::fake([
         'api.themoviedb.org/3/movie/999*' => Http::response([], 500),

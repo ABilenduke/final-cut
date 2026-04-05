@@ -25,7 +25,7 @@ class MovieResource extends JsonResource
             'posterUrl' => $this->poster_url,
             'backdropUrl' => $this->backdrop_url,
             'trailerKey' => $this->trailer_key,
-            'status' => $this->status,
+            'status' => $this->status->value,
         ];
     }
 }

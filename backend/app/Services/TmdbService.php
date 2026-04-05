@@ -46,7 +46,17 @@ class TmdbService
         ]);
 
         if ($detail === null) {
-            Cache::put($failKey, true, 300);
+            $this->cacheFailure($failKey);
+
+            return null;
+        }
+
+        if (empty($detail['id']) || empty($detail['title'])) {
+            Log::warning('TMDB returned invalid detail payload', [
+                'tmdb_id' => $tmdbId,
+                'detail_keys' => array_keys($detail),
+            ]);
+            $this->cacheFailure($failKey);
 
             return null;
         }
@@ -151,7 +161,7 @@ class TmdbService
         $cast = array_slice($credits['cast'] ?? [], 0, 12);
 
         $trailer = collect($videos['results'] ?? [])
-            ->first(fn (array $v) => $v['type'] === 'Trailer' && $v['site'] === 'YouTube');
+            ->first(fn (array $v) => ($v['type'] ?? '') === 'Trailer' && ($v['site'] ?? '') === 'YouTube');
 
         return [
             'id' => $detail['id'],
@@ -173,6 +183,11 @@ class TmdbService
             'backdropUrl' => $this->buildImageUrl('w1280', $detail['backdrop_path'] ?? null),
             'trailerKey' => $trailer['key'] ?? null,
         ];
+    }
+
+    private function cacheFailure(string $failKey): void
+    {
+        Cache::put($failKey, true, 300);
     }
 
     private function buildImageUrl(string $size, ?string $path): ?string

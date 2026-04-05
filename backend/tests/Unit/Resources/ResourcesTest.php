@@ -53,7 +53,7 @@ test('MovieResource transforms model to camelCase output', function () {
         ->toHaveKey('posterUrl', 'https://image.tmdb.org/t/p/w500/poster.jpg')
         ->toHaveKey('backdropUrl', 'https://image.tmdb.org/t/p/w1280/backdrop.jpg')
         ->toHaveKey('trailerKey', 'abc123')
-        ->toHaveKey('status', MovieStatus::NowShowing);
+        ->toHaveKey('status', MovieStatus::NowShowing->value);
 
     expect($resource['cast'])->toHaveCount(1);
     expect($resource['cast'][0]['name'])->toBe('Actor 1');

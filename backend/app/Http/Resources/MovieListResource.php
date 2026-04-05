@@ -19,7 +19,7 @@ class MovieListResource extends JsonResource
                 : $this->release_date,
             'genres' => $this->genres ?? [],
             'posterUrl' => $this->poster_url,
-            'status' => $this->status,
+            'status' => $this->status->value,
         ];
     }
 }
