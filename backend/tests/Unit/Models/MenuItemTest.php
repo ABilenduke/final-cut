@@ -126,7 +126,7 @@ it('excludes location-unavailable items from location scope', function () {
     MenuItem::factory()->forLocation($location)->create();
     MenuItem::factory()->forLocation($location, ['unavailable_at' => now()])->create();
 
-    expect($location->menuItems()->currentlyAvailable()->locationAvailable()->count())->toBe(1);
+    expect($location->menuItems()->currentlyAvailable()->wherePivotNull('unavailable_at')->count())->toBe(1);
 });
 
 it('location-scoped query hydrates pivot attributes for priceForLocation', function () {
@@ -134,7 +134,7 @@ it('location-scoped query hydrates pivot attributes for priceForLocation', funct
 
     MenuItem::factory()->forLocation($location, ['price_override' => 999])->create(['price' => 599]);
 
-    $item = $location->menuItems()->currentlyAvailable()->locationAvailable()->first();
+    $item = $location->menuItems()->currentlyAvailable()->wherePivotNull('unavailable_at')->first();
 
     expect($item->pivot)->not->toBeNull()
         ->and($item->pivot->price_override)->toBe(999)

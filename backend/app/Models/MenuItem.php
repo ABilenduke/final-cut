@@ -58,11 +58,6 @@ class MenuItem extends Model
         return $query->whereNull('menu_items.unavailable_at');
     }
 
-    public function scopeLocationAvailable(Builder $query): Builder
-    {
-        return $query->whereNull('location_menu_item.unavailable_at');
-    }
-
     public function scopeCurrentlyUnavailable(Builder $query): Builder
     {
         return $query->whereNotNull('menu_items.unavailable_at');

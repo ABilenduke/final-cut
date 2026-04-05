@@ -13,7 +13,7 @@ class FoodMenuController extends Controller
     {
         $query = $location->menuItems()
             ->currentlyAvailable()
-            ->locationAvailable()
+            ->wherePivotNull('unavailable_at')
             ->orderBy('menu_items.category')
             ->orderBy('menu_items.name');
 

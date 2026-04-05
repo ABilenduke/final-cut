@@ -58,7 +58,7 @@ class BookingController extends Controller
         foreach ($foodItemsInput as $item) {
             $menuItem = $location->menuItems()
                 ->currentlyAvailable()
-                ->locationAvailable()
+                ->wherePivotNull('unavailable_at')
                 ->find($item['itemId']);
 
             if (! $menuItem) {
