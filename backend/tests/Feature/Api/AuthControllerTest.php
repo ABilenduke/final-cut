@@ -77,13 +77,30 @@ test('register rejects missing required fields', function () {
 });
 
 test('register handles duplicate email race condition gracefully', function () {
-    // Simulate a race: user already exists in DB but validation passed
-    User::factory()->create(['email' => 'race@finalcut.test']);
+    // Simulate a race: validation passes (email is unique at check time),
+    // but another request inserts the same email before User::create() commits.
+    // We use a model event to sneak in a duplicate row after validation but
+    // before the INSERT, triggering a real UniqueConstraintViolationException.
+    $email = 'race@finalcut.test';
+    $inserted = false;
 
-    // Bypass FormRequest validation by inserting directly — this tests the controller catch
+    User::creating(function (User $user) use ($email, &$inserted) {
+        if (! $inserted && $user->email === $email) {
+            $inserted = true;
+            \Illuminate\Support\Facades\DB::table('users')->insert([
+                'id' => \Illuminate\Support\Str::uuid()->toString(),
+                'name' => 'Other Racer',
+                'email' => $email,
+                'password' => bcrypt('password123'),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
+    });
+
     $response = postJson('/api/auth/register', [
         'name' => 'Racer',
-        'email' => 'race@finalcut.test',
+        'email' => $email,
         'password' => 'password123',
         'password_confirmation' => 'password123',
     ]);
@@ -158,14 +175,21 @@ test('login regenerates session to prevent fixation', function () {
         'password' => 'password123',
     ]);
 
-    $initialSessionId = session()->getId();
+    // Establish a real session by hitting the CSRF cookie endpoint
+    $this->get('/sanctum/csrf-cookie')->assertNoContent();
 
-    postJson('/api/auth/login', [
+    // Capture the pre-login session cookie value
+    $preLoginSessionId = session()->getId();
+    expect($preLoginSessionId)->not->toBeEmpty();
+
+    $this->postJson('/api/auth/login', [
         'email' => 'john@finalcut.test',
         'password' => 'password123',
     ])->assertOk();
 
-    expect(session()->getId())->not->toBe($initialSessionId);
+    expect(session()->getId())
+        ->not->toBeEmpty()
+        ->not->toBe($preLoginSessionId);
 });
 
 /*

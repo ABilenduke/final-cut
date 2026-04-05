@@ -6,7 +6,7 @@ use App\Http\Requests\LoginRequest;
 use App\Http\Requests\RegisterRequest;
 use App\Http\Resources\UserResource;
 use App\Models\User;
-use Illuminate\Database\QueryException;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -20,14 +20,10 @@ class AuthController extends Controller
     {
         try {
             $user = User::create($request->validated());
-        } catch (QueryException $e) {
-            if ($e->errorInfo[1] == 7 || str_contains($e->getMessage(), 'unique')) {
-                throw ValidationException::withMessages([
-                    'email' => ['The email has already been taken.'],
-                ]);
-            }
-
-            throw $e;
+        } catch (UniqueConstraintViolationException) {
+            throw ValidationException::withMessages([
+                'email' => ['The email has already been taken.'],
+            ]);
         }
 
         $user->refresh();
