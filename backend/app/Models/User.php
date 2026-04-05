@@ -12,7 +12,13 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Carbon;
 
+/**
+ * @property LoyaltyTier $loyalty_tier
+ * @property Carbon|null $premier_expiry
+ * @property Carbon $created_at
+ */
 #[Fillable(['name', 'email', 'password', 'phone', 'date_of_birth', 'avatar_url', 'loyalty_points', 'loyalty_tier', 'premier_expiry', 'stripe_customer_id'])]
 #[Hidden(['password', 'remember_token', 'stripe_customer_id'])]
 class User extends Authenticatable

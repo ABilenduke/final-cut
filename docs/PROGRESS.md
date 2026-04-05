@@ -457,3 +457,55 @@
 ### Files Changed
 - `backend/app/Http/Controllers/Api/BookingController.php` — fixed total, gift card locking, loyalty points, promo normalization
 - `backend/tests/Feature/Api/BookingControllerTest.php` — added assertions and loyalty discount test
+
+---
+
+# Progress Journal — Plan 05: Authentication API
+
+## Tasks 0-7: Full Auth API Implementation
+**Status:** ✅ Complete
+**Started:** 2026-04-05
+**Completed:** 2026-04-05
+
+### Work Done
+- [2026-04-05] Added Mailpit service to `docker-compose.override.yml` for local email testing (web UI on port 8025, SMTP on 1025)
+- [2026-04-05] Switched session driver from `database` to `redis` to align with project architecture ("Cache/Sessions: Redis with TLS")
+- [2026-04-05] Configured Sanctum SPA auth: `SANCTUM_STATEFUL_DOMAINS=finalcut.test`, `SESSION_DOMAIN=finalcut.test`, `SESSION_SECURE_COOKIE=true`
+- [2026-04-05] Set `.env.testing` to use `SESSION_DRIVER=array`, `SANCTUM_STATEFUL_DOMAINS=localhost` for fast in-memory test sessions
+- [2026-04-05] Created `RegisterRequest` (name, email unique, password min:8 confirmed) and `LoginRequest` (email, password)
+- [2026-04-05] Created `UserResource` with explicit camelCase field selection (id, email, name, avatarUrl, loyaltyPoints, loyaltyTier, premierExpiry, createdAt) — resource is the primary security boundary, not `$hidden`
+- [2026-04-05] Added `frontend_url` to `config/app.php` from `FRONTEND_URL` env var
+- [2026-04-05] Configured `ResetPassword::createUrlUsing()` in `AppServiceProvider::boot()` to point reset links to `FRONTEND_URL/auth/reset-password?token=...&email=...`
+- [2026-04-05] Implemented 6 AuthController methods: register, login, logout, me, forgotPassword, resetPassword
+- [2026-04-05] Added `POST /api/auth/reset-password` route
+- [2026-04-05] 23 Pest feature tests: registration (7), login (4), logout (2), me (2), forgot-password (2), reset-password (4), SPA cookie flow (1), lifecycle (1)
+- [2026-04-05] Removed 5 auth stub tests from RouteStubsTest (3 mutation stubs + 2 protected route stubs)
+- [2026-04-05] Full suite: 263 tests, 772 assertions, 0 failures
+- [2026-04-05] Updated `SITE_ARCHITECTURE.md` and `STATE_MANAGEMENT.md` to clarify dual auth architecture (Sanctum + nuxt-auth-utils)
+
+### Decisions
+- [2026-04-05] **Session driver: Redis** — aligns with documented project architecture. Tests use `array` driver for speed and determinism.
+- [2026-04-05] **Single-origin architecture** — nginx serves both frontend (/) and API (/api/*) from `finalcut.test`. No subdomain sharing needed, so `SESSION_DOMAIN=finalcut.test` (no leading dot) and `same_site=lax` are unambiguously correct.
+- [2026-04-05] **Guard consistency** — `Auth::guard('web')` used explicitly in register, login, and logout for consistency with session-based Sanctum SPA auth.
+- [2026-04-05] **Session invalidation on password reset** — handled by Sanctum's `AuthenticateSession` middleware (password hash mismatch detection), which is driver-agnostic. No manual `DB::table('sessions')->delete()` or Redis key scanning needed. Remember tokens also rotated via `setRememberToken()`.
+- [2026-04-05] **`hasSession()` guard** — controller uses `$request->hasSession()` before session operations to avoid `RuntimeException: Session store not set on request` when Sanctum's stateful middleware isn't active (e.g., non-stateful API calls or certain test contexts).
+- [2026-04-05] **`$user->refresh()` after create** — needed because database defaults (loyalty_tier='member', loyalty_points=0) aren't reflected in the in-memory model after `User::create()`.
+- [2026-04-05] **Rate limiting at nginx** — auth endpoints already rate-limited at 5r/m per IP in `nginx/nginx.conf`. No additional application-level throttling needed.
+- [2026-04-05] **Frontend gaps deferred** — `/auth/reset-password` page spec and Vitest/Playwright auth coverage deferred to frontend Plan 09 (Auth & Account Domain).
+
+### Files Changed
+- `docker-compose.override.yml` — added Mailpit service
+- `backend/.env` — SESSION_DRIVER=redis, MAIL_* → Mailpit, SANCTUM_STATEFUL_DOMAINS, SESSION_DOMAIN, SESSION_SECURE_COOKIE, FRONTEND_URL
+- `backend/.env.example` — same updates
+- `backend/.env.testing` — SESSION_DRIVER=array, SANCTUM_STATEFUL_DOMAINS=localhost
+- `backend/config/app.php` — added `frontend_url` from env
+- `backend/app/Providers/AppServiceProvider.php` — ResetPassword URL customization
+- `backend/app/Http/Controllers/Api/AuthController.php` — implemented all 6 methods
+- `backend/app/Http/Requests/RegisterRequest.php` — new
+- `backend/app/Http/Requests/LoginRequest.php` — new
+- `backend/app/Http/Resources/UserResource.php` — new
+- `backend/routes/api.php` — added POST /api/auth/reset-password
+- `backend/tests/Feature/Api/AuthControllerTest.php` — new (23 tests)
+- `backend/tests/Feature/Api/RouteStubsTest.php` — removed 5 auth stubs
+- `docs/SITE_ARCHITECTURE.md` — clarified auth architecture
+- `docs/STATE_MANAGEMENT.md` — clarified auth persistence

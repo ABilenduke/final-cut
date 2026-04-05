@@ -14,6 +14,7 @@ Final Cut operates **two physical theater locations** (with potential for more) 
 - **Backend**: Laravel 13 (PHP 8.4), Pest testing framework
 - **Database**: PostgreSQL with TLS (database: `final_cut`, test db: `final_cut_test`)
 - **Cache/Sessions**: Redis with TLS
+- **Email (dev)**: Mailpit (SMTP capture for local email testing)
 - **Infrastructure**: Docker Compose with Nginx reverse proxy, Fail2ban, TLS between all services
 
 ## Development Commands
@@ -32,6 +33,15 @@ make fresh              # Reset database with fresh migrations + seeds
 make storybook          # Run Storybook inside its container
 make e2e                # Run Playwright e2e tests
 ```
+
+### Email (Mailpit)
+
+Dev environment includes [Mailpit](https://mailpit.axllent.org/) for capturing outbound email. All mail sent by the backend (password resets, booking confirmations, etc.) is caught by Mailpit instead of being delivered.
+
+- **Web UI**: http://localhost:8025 — browse and inspect captured emails
+- **SMTP**: `mailpit:1025` (from within Docker network) / `localhost:1025` (from host)
+
+Backend `.env` is pre-configured (`MAIL_HOST=mailpit`, `MAIL_PORT=1025`). No additional setup needed — `make up` starts Mailpit automatically.
 
 ### Production
 

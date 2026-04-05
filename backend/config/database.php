@@ -176,6 +176,26 @@ return [
             ] : [],
         ],
 
+        'session' => [
+            'url' => env('REDIS_URL'),
+            'scheme' => env('REDIS_SCHEME', 'tcp'),
+            'host' => env('REDIS_HOST', '127.0.0.1'),
+            'username' => env('REDIS_USERNAME'),
+            'password' => env('REDIS_PASSWORD'),
+            'port' => env('REDIS_PORT', '6379'),
+            'database' => env('REDIS_SESSION_DB', '2'),
+            'max_retries' => env('REDIS_MAX_RETRIES', 3),
+            'backoff_algorithm' => env('REDIS_BACKOFF_ALGORITHM', 'decorrelated_jitter'),
+            'backoff_base' => env('REDIS_BACKOFF_BASE', 100),
+            'backoff_cap' => env('REDIS_BACKOFF_CAP', 1000),
+            'context' => env('REDIS_SCHEME') === 'tls' ? [
+                'stream' => [
+                    'verify_peer' => true,
+                    'cafile' => env('REDIS_TLS_CA_CERT'),
+                ],
+            ] : [],
+        ],
+
         'cache' => [
             'url' => env('REDIS_URL'),
             'scheme' => env('REDIS_SCHEME', 'tcp'),

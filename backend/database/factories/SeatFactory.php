@@ -12,10 +12,13 @@ class SeatFactory extends Factory
 {
     protected $model = Seat::class;
 
+    private static int $sequence = 0;
+
     public function definition(): array
     {
-        $row = fake()->randomElement(range('A', 'J'));
-        $number = fake()->numberBetween(1, 15);
+        $index = self::$sequence++;
+        $row = chr(ord('A') + intdiv($index, 15) % 26);
+        $number = ($index % 15) + 1;
 
         return [
             'auditorium_id' => Auditorium::factory(),
