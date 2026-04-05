@@ -3,5 +3,20 @@
   "attribution": {
     "commit": "",
     "pr": ""
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -c \"import sys,json; d=json.load(sys.stdin); f=d.get('tool_input',{}).get('file_path','') or d.get('tool_response',{}).get('filePath',''); print(f)\" | { read -r f; if [[ \"$f\" == */backend/*.php ]]; then rel=\"${f#*backend/}\"; docker compose exec -T backend vendor/bin/pint \"$rel\" 2>/dev/null || true; fi; }",
+            "timeout": 30,
+            "statusMessage": "Running Laravel Pint..."
+          }
+        ]
+      }
+    ]
   }
 }

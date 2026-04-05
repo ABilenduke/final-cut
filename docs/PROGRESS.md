@@ -478,7 +478,7 @@
 - [2026-04-05] Configured `ResetPassword::createUrlUsing()` in `AppServiceProvider::boot()` to point reset links to `FRONTEND_URL/auth/reset-password?token=...&email=...`
 - [2026-04-05] Implemented 6 AuthController methods: register, login, logout, me, forgotPassword, resetPassword
 - [2026-04-05] Added `POST /api/auth/reset-password` route
-- [2026-04-05] 21 Pest feature tests: registration (6), login (4), logout (2), me (2), forgot-password (2), reset-password (3), SPA cookie flow (1), lifecycle (1)
+- [2026-04-05] 23 Pest feature tests: registration (7), login (4), logout (2), me (2), forgot-password (2), reset-password (4), SPA cookie flow (1), lifecycle (1)
 - [2026-04-05] Removed 5 auth stub tests from RouteStubsTest (3 mutation stubs + 2 protected route stubs)
 - [2026-04-05] Full suite: 263 tests, 772 assertions, 0 failures
 - [2026-04-05] Updated `SITE_ARCHITECTURE.md` and `STATE_MANAGEMENT.md` to clarify dual auth architecture (Sanctum + nuxt-auth-utils)
@@ -505,7 +505,7 @@
 - `backend/app/Http/Requests/LoginRequest.php` — new
 - `backend/app/Http/Resources/UserResource.php` — new
 - `backend/routes/api.php` — added POST /api/auth/reset-password
-- `backend/tests/Feature/Api/AuthControllerTest.php` — new (21 tests)
+- `backend/tests/Feature/Api/AuthControllerTest.php` — new (23 tests)
 - `backend/tests/Feature/Api/RouteStubsTest.php` — removed 5 auth stubs
 - `docs/SITE_ARCHITECTURE.md` — clarified auth architecture
 - `docs/STATE_MANAGEMENT.md` — clarified auth persistence

@@ -104,7 +104,7 @@ class AuthController extends Controller
         }
 
         return $this->errorResponse(
-            [['message' => __($status)]],
+            [['message' => 'Unable to reset password. Please request a new reset link.']],
             422
         );
     }
