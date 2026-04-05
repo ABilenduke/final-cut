@@ -12,6 +12,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
@@ -21,7 +22,7 @@ class AuthController extends Controller
             $user = User::create($request->validated());
         } catch (QueryException $e) {
             if ($e->errorInfo[1] == 7 || str_contains($e->getMessage(), 'unique')) {
-                throw \Illuminate\Validation\ValidationException::withMessages([
+                throw ValidationException::withMessages([
                     'email' => ['The email has already been taken.'],
                 ]);
             }
