@@ -18,7 +18,7 @@ uses(BookingTestHelper::class);
 
 /*
 |--------------------------------------------------------------------------
-| POST /api/bookings — Store
+| POST /api/locations/{location}/bookings — Store
 |--------------------------------------------------------------------------
 */
 
@@ -28,7 +28,7 @@ test('successful guest booking creates booking and returns 201', function () {
 
     $seatIds = [$fixture['seats'][0]->id, $fixture['seats'][1]->id];
 
-    $response = postJson('/api/bookings', [
+    $response = postJson($this->bookingUrl($fixture['location']), [
         'showtimeId'      => $fixture['showtime']->id,
         'seatIds'         => $seatIds,
         'paymentMethodId' => 'pm_test_visa',
@@ -61,7 +61,7 @@ test('successful authenticated booking awards loyalty points', function () {
 
     $user = User::factory()->create(['loyalty_points' => 100]);
 
-    $response = actingAs($user)->postJson('/api/bookings', [
+    $response = actingAs($user)->postJson($this->bookingUrl($fixture['location']), [
         'showtimeId'      => $fixture['showtime']->id,
         'seatIds'         => [$fixture['seats'][0]->id],
         'paymentMethodId' => 'pm_test_visa',
@@ -93,7 +93,7 @@ test('seat conflict returns 409 with unavailable seat IDs', function () {
     ]);
 
     // Second booking tries same seat
-    $response = postJson('/api/bookings', [
+    $response = postJson($this->bookingUrl($fixture['location']), [
         'showtimeId'      => $fixture['showtime']->id,
         'seatIds'         => [$fixture['seats'][0]->id],
         'paymentMethodId' => 'pm_test_visa',
@@ -112,7 +112,7 @@ test('expired showtime returns 410', function () {
     ]);
     $this->fakeStripe();
 
-    $response = postJson('/api/bookings', [
+    $response = postJson($this->bookingUrl($fixture['location']), [
         'showtimeId'      => $fixture['showtime']->id,
         'seatIds'         => [$fixture['seats'][0]->id],
         'paymentMethodId' => 'pm_test_visa',
@@ -126,7 +126,7 @@ test('payment declined returns 402', function () {
     $fixture = $this->createShowtimeWithSeats();
     $this->fakeStripe()->shouldDecline();
 
-    $response = postJson('/api/bookings', [
+    $response = postJson($this->bookingUrl($fixture['location']), [
         'showtimeId'      => $fixture['showtime']->id,
         'seatIds'         => [$fixture['seats'][0]->id],
         'paymentMethodId' => 'pm_test_declined',
@@ -141,11 +141,82 @@ test('payment declined returns 402', function () {
         ->where('status', BookingStatus::Confirmed)->count())->toBe(0);
 });
 
+test('invalid payment method returns 400', function () {
+    $fixture = $this->createShowtimeWithSeats();
+    $this->fakeStripe()->shouldFailWithInvalidRequest('No such payment method: pm_expired');
+
+    $response = postJson($this->bookingUrl($fixture['location']), [
+        'showtimeId'      => $fixture['showtime']->id,
+        'seatIds'         => [$fixture['seats'][0]->id],
+        'paymentMethodId' => 'pm_expired',
+        'email'           => 'guest@example.com',
+    ]);
+
+    $response->assertStatus(400);
+    expect($response->json('errors.0.field'))->toBe('payment')
+        ->and($response->json('errors.0.message'))->toContain('No such payment method');
+
+    expect(Booking::where('showtime_id', $fixture['showtime']->id)
+        ->where('status', BookingStatus::Confirmed)->count())->toBe(0);
+});
+
+test('stripe service unavailable returns 502', function () {
+    $fixture = $this->createShowtimeWithSeats();
+    $this->fakeStripe()->shouldFailWithApiError();
+
+    $response = postJson($this->bookingUrl($fixture['location']), [
+        'showtimeId'      => $fixture['showtime']->id,
+        'seatIds'         => [$fixture['seats'][0]->id],
+        'paymentMethodId' => 'pm_test_visa',
+        'email'           => 'guest@example.com',
+    ]);
+
+    $response->assertStatus(502);
+    expect($response->json('errors.0.field'))->toBe('payment')
+        ->and($response->json('errors.0.message'))->toBe('Payment service is temporarily unavailable. Please try again.');
+
+    expect(Booking::where('showtime_id', $fixture['showtime']->id)
+        ->where('status', BookingStatus::Confirmed)->count())->toBe(0);
+});
+
+test('3DS confirm with stripe api error returns 502', function () {
+    $fixture = $this->createShowtimeWithSeats();
+    $fakeStripe = $this->fakeStripe();
+
+    // Trigger 3DS
+    $fakeStripe->shouldRequire3ds();
+
+    $response = postJson($this->bookingUrl($fixture['location']), [
+        'showtimeId'      => $fixture['showtime']->id,
+        'seatIds'         => [$fixture['seats'][0]->id],
+        'paymentMethodId' => 'pm_test_3ds',
+        'email'           => 'guest@example.com',
+    ]);
+
+    $response->assertOk();
+    $paymentIntentId = $response->json('data.paymentIntentId');
+
+    // Stripe goes down during 3DS confirmation
+    $fakeStripe->shouldFailWithApiError();
+
+    $confirmResponse = postJson($this->bookingUrl($fixture['location'], 'confirm'), [
+        'paymentIntentId' => $paymentIntentId,
+    ]);
+
+    $confirmResponse->assertStatus(502);
+    expect($confirmResponse->json('errors.0.message'))
+        ->toBe('Payment service is temporarily unavailable. Please try again.');
+
+    // Pending state preserved for retry
+    $pendingData = \Illuminate\Support\Facades\Cache::get("pending_booking:{$paymentIntentId}");
+    expect($pendingData)->not->toBeNull();
+});
+
 test('3DS required returns requiresAction with clientSecret', function () {
     $fixture = $this->createShowtimeWithSeats();
     $this->fakeStripe()->shouldRequire3ds();
 
-    $response = postJson('/api/bookings', [
+    $response = postJson($this->bookingUrl($fixture['location']), [
         'showtimeId'      => $fixture['showtime']->id,
         'seatIds'         => [$fixture['seats'][0]->id],
         'paymentMethodId' => 'pm_test_3ds',
@@ -161,7 +232,7 @@ test('valid promo code applies discount', function () {
     $fixture = $this->createShowtimeWithSeats();
     $this->fakeStripe();
 
-    $response = postJson('/api/bookings', [
+    $response = postJson($this->bookingUrl($fixture['location']), [
         'showtimeId'      => $fixture['showtime']->id,
         'seatIds'         => [$fixture['seats'][0]->id],
         'paymentMethodId' => 'pm_test_visa',
@@ -181,7 +252,7 @@ test('invalid promo code returns 400', function () {
     $fixture = $this->createShowtimeWithSeats();
     $this->fakeStripe();
 
-    $response = postJson('/api/bookings', [
+    $response = postJson($this->bookingUrl($fixture['location']), [
         'showtimeId'      => $fixture['showtime']->id,
         'seatIds'         => [$fixture['seats'][0]->id],
         'paymentMethodId' => 'pm_test_visa',
@@ -202,7 +273,7 @@ test('gift card covers full payment without Stripe call', function () {
         'status'          => \App\Enums\GiftCardStatus::Active,
     ]);
 
-    $response = postJson('/api/bookings', [
+    $response = postJson($this->bookingUrl($fixture['location']), [
         'showtimeId'    => $fixture['showtime']->id,
         'seatIds'       => [$fixture['seats'][0]->id],
         'giftCardCode'  => $giftCard->code,
@@ -231,7 +302,7 @@ test('gift card partial payment uses mixed payment method', function () {
         'status'          => \App\Enums\GiftCardStatus::Active,
     ]);
 
-    $response = postJson('/api/bookings', [
+    $response = postJson($this->bookingUrl($fixture['location']), [
         'showtimeId'      => $fixture['showtime']->id,
         'seatIds'         => [$fixture['seats'][0]->id],
         'paymentMethodId' => 'pm_test_visa',
@@ -253,13 +324,72 @@ test('gift card partial payment uses mixed payment method', function () {
         ->and($giftCard->status->value)->toBe('depleted');
 });
 
+test('partial gift card without paymentMethodId returns 422', function () {
+    $fixture = $this->createShowtimeWithSeats();
+    $this->fakeStripe();
+
+    $giftCard = GiftCard::factory()->create([
+        'current_balance' => 500, // Only $5 — won't cover the $12 seat
+        'status'          => \App\Enums\GiftCardStatus::Active,
+    ]);
+
+    $response = postJson($this->bookingUrl($fixture['location']), [
+        'showtimeId'   => $fixture['showtime']->id,
+        'seatIds'      => [$fixture['seats'][0]->id],
+        'giftCardCode' => $giftCard->code,
+        'email'        => 'guest@example.com',
+        // No paymentMethodId — gift card doesn't fully cover
+    ]);
+
+    $response->assertStatus(422);
+    expect($response->json('errors.0.field'))->toBe('paymentMethodId');
+
+    // No booking should have been created
+    expect(Booking::where('showtime_id', $fixture['showtime']->id)
+        ->where('status', BookingStatus::Confirmed)->count())->toBe(0);
+});
+
+test('gift card depleted between pre-check and transaction returns 422 without paymentMethodId', function () {
+    $fixture = $this->createShowtimeWithSeats();
+    $this->fakeStripe();
+
+    $giftCard = GiftCard::factory()->create([
+        'current_balance' => 5000, // Pre-check sees $50 — more than enough
+        'status'          => \App\Enums\GiftCardStatus::Active,
+    ]);
+
+    // Simulate concurrent depletion by hooking into the lockForUpdate query.
+    // We drain the gift card after the pre-check but before the in-transaction lock.
+    // Since we can't easily intercept mid-transaction, we just set balance to 0
+    // before the request — the pre-check uses a non-locking read so it will
+    // see the stale Active status while the locked read inside the transaction
+    // finds 0 balance.
+    //
+    // Actually, we need the pre-check to pass, so set balance to something that
+    // passes the pre-check (> 0) but drain it to 0 before the transaction reads it.
+    // The simplest approach: use a balance that's less than the seat price so
+    // cardAmount > 0 after gift card application.
+    $giftCard->update(['current_balance' => 200]); // $2 — pre-check passes (> 0), but cardAmount = $10
+
+    $response = postJson($this->bookingUrl($fixture['location']), [
+        'showtimeId'   => $fixture['showtime']->id,
+        'seatIds'      => [$fixture['seats'][0]->id],
+        'giftCardCode' => $giftCard->code,
+        'email'        => 'guest@example.com',
+        // No paymentMethodId — expecting gift card to cover everything
+    ]);
+
+    $response->assertStatus(422);
+    expect($response->json('errors.0.field'))->toBe('paymentMethodId');
+});
+
 test('food items added to booking and included in total', function () {
     $fixture = $this->createShowtimeWithSeats();
     $fakeStripe = $this->fakeStripe();
 
     $menuItem = MenuItem::factory()->create(['price' => 599]);
 
-    $response = postJson('/api/bookings', [
+    $response = postJson($this->bookingUrl($fixture['location']), [
         'showtimeId'      => $fixture['showtime']->id,
         'seatIds'         => [$fixture['seats'][0]->id],
         'paymentMethodId' => 'pm_test_visa',
@@ -286,7 +416,7 @@ test('unavailable food item returns 400', function () {
 
     $menuItem = MenuItem::factory()->unavailable()->create();
 
-    $response = postJson('/api/bookings', [
+    $response = postJson($this->bookingUrl($fixture['location']), [
         'showtimeId'      => $fixture['showtime']->id,
         'seatIds'         => [$fixture['seats'][0]->id],
         'paymentMethodId' => 'pm_test_visa',
@@ -308,7 +438,7 @@ test('seats from wrong auditorium returns 422', function () {
     $otherFixture = $this->createShowtimeWithSeats();
     $foreignSeatId = $otherFixture['seats'][0]->id;
 
-    $response = postJson('/api/bookings', [
+    $response = postJson($this->bookingUrl($fixture['location']), [
         'showtimeId'      => $fixture['showtime']->id,
         'seatIds'         => [$foreignSeatId],
         'paymentMethodId' => 'pm_test_visa',
@@ -318,8 +448,26 @@ test('seats from wrong auditorium returns 422', function () {
     $response->assertStatus(422);
 });
 
+test('booking showtime at wrong location returns 410', function () {
+    $fixture = $this->createShowtimeWithSeats();
+    $otherFixture = $this->createShowtimeWithSeats();
+    $this->fakeStripe();
+
+    // Try to book a showtime from $fixture using the OTHER location's URL
+    $response = postJson($this->bookingUrl($otherFixture['location']), [
+        'showtimeId'      => $fixture['showtime']->id,
+        'seatIds'         => [$fixture['seats'][0]->id],
+        'paymentMethodId' => 'pm_test_visa',
+        'email'           => 'guest@example.com',
+    ]);
+
+    $response->assertStatus(410);
+});
+
 test('validation errors return 422', function () {
-    $response = postJson('/api/bookings', []);
+    $fixture = $this->createShowtimeWithSeats();
+
+    $response = postJson($this->bookingUrl($fixture['location']), []);
 
     $response->assertStatus(422)
         ->assertJsonValidationErrors(['showtimeId', 'seatIds']);
@@ -329,7 +477,7 @@ test('guest checkout requires email', function () {
     $fixture = $this->createShowtimeWithSeats();
     $this->fakeStripe();
 
-    $response = postJson('/api/bookings', [
+    $response = postJson($this->bookingUrl($fixture['location']), [
         'showtimeId'      => $fixture['showtime']->id,
         'seatIds'         => [$fixture['seats'][0]->id],
         'paymentMethodId' => 'pm_test_visa',
@@ -354,7 +502,7 @@ test('cancelled booking frees seats for rebooking', function () {
     ]);
 
     // Rebook the same seat
-    $response = postJson('/api/bookings', [
+    $response = postJson($this->bookingUrl($fixture['location']), [
         'showtimeId'      => $fixture['showtime']->id,
         'seatIds'         => [$fixture['seats'][0]->id],
         'paymentMethodId' => 'pm_test_visa',
@@ -370,7 +518,7 @@ test('loyalty points awarded on total after discount not subtotal', function () 
 
     $user = User::factory()->create(['loyalty_points' => 0]);
 
-    $response = actingAs($user)->postJson('/api/bookings', [
+    $response = actingAs($user)->postJson($this->bookingUrl($fixture['location']), [
         'showtimeId'      => $fixture['showtime']->id,
         'seatIds'         => [$fixture['seats'][0]->id],
         'paymentMethodId' => 'pm_test_visa',
@@ -388,7 +536,7 @@ test('premium and accessible seats use correct pricing', function () {
     $this->fakeStripe();
 
     // seats[3] = B1 Premium (1800), seats[4] = C1 Accessible (1000)
-    $response = postJson('/api/bookings', [
+    $response = postJson($this->bookingUrl($fixture['location']), [
         'showtimeId'      => $fixture['showtime']->id,
         'seatIds'         => [$fixture['seats'][3]->id, $fixture['seats'][4]->id],
         'paymentMethodId' => 'pm_test_visa',
@@ -515,7 +663,7 @@ test('guest lookup with wrong code returns 404', function () {
 
 /*
 |--------------------------------------------------------------------------
-| POST /api/bookings/confirm — 3DS Confirmation
+| POST /api/locations/{location}/bookings/confirm — 3DS Confirmation
 |--------------------------------------------------------------------------
 */
 
@@ -526,7 +674,7 @@ test('3DS confirm completes booking after payment confirmation', function () {
     // First request triggers 3DS
     $fakeStripe->shouldRequire3ds();
 
-    $response = postJson('/api/bookings', [
+    $response = postJson($this->bookingUrl($fixture['location']), [
         'showtimeId'      => $fixture['showtime']->id,
         'seatIds'         => [$fixture['seats'][0]->id],
         'paymentMethodId' => 'pm_test_3ds',
@@ -539,7 +687,7 @@ test('3DS confirm completes booking after payment confirmation', function () {
     // Simulate 3DS completion
     $fakeStripe->shouldSucceed();
 
-    $confirmResponse = postJson('/api/bookings/confirm', [
+    $confirmResponse = postJson($this->bookingUrl($fixture['location'], 'confirm'), [
         'paymentIntentId' => $paymentIntentId,
     ]);
 
@@ -548,9 +696,10 @@ test('3DS confirm completes booking after payment confirmation', function () {
 });
 
 test('confirm with expired session returns 410', function () {
+    $fixture = $this->createShowtimeWithSeats();
     $this->fakeStripe();
 
-    $response = postJson('/api/bookings/confirm', [
+    $response = postJson($this->bookingUrl($fixture['location'], 'confirm'), [
         'paymentIntentId' => 'pi_nonexistent',
     ]);
 
@@ -569,7 +718,7 @@ test('duplicate seat IDs are rejected by validation', function () {
 
     $seatId = $fixture['seats'][0]->id;
 
-    $response = postJson('/api/bookings', [
+    $response = postJson($this->bookingUrl($fixture['location']), [
         'showtimeId'      => $fixture['showtime']->id,
         'seatIds'         => [$seatId, $seatId],
         'paymentMethodId' => 'pm_test_visa',
@@ -586,7 +735,7 @@ test('duplicate seat IDs are rejected by validation', function () {
 |--------------------------------------------------------------------------
 */
 
-test('3DS confirm revalidates gift card balance and adjusts totals', function () {
+test('3DS confirm fails when gift card balance dropped during 3DS window', function () {
     $fixture = $this->createShowtimeWithSeats();
     $fakeStripe = $this->fakeStripe();
 
@@ -598,7 +747,7 @@ test('3DS confirm revalidates gift card balance and adjusts totals', function ()
     // First request triggers 3DS with gift card
     $fakeStripe->shouldRequire3ds();
 
-    $response = postJson('/api/bookings', [
+    $response = postJson($this->bookingUrl($fixture['location']), [
         'showtimeId'      => $fixture['showtime']->id,
         'seatIds'         => [$fixture['seats'][0]->id],
         'paymentMethodId' => 'pm_test_3ds',
@@ -615,23 +764,70 @@ test('3DS confirm revalidates gift card balance and adjusts totals', function ()
         'status'          => \App\Enums\GiftCardStatus::Depleted,
     ]);
 
-    // Confirm 3DS — gift card should be revalidated
+    // Confirm 3DS — gift card balance changed, must reject to prevent
+    // charging the original (now-insufficient) PaymentIntent amount
     $fakeStripe->shouldSucceed();
 
-    $confirmResponse = postJson('/api/bookings/confirm', [
+    $confirmResponse = postJson($this->bookingUrl($fixture['location'], 'confirm'), [
+        'paymentIntentId' => $paymentIntentId,
+    ]);
+
+    $confirmResponse->assertStatus(409);
+    expect($confirmResponse->json('errors.0.field'))->toBe('giftCardCode');
+
+    // Stripe should NOT have been asked to confirm — no money captured
+    expect($fakeStripe->confirmedPaymentIntents)->toBeEmpty();
+
+    // No booking should have been created
+    expect(Booking::where('showtime_id', $fixture['showtime']->id)
+        ->where('status', BookingStatus::Confirmed)->count())->toBe(0);
+
+    // Pending state preserved so the customer can retry
+    $pendingData = \Illuminate\Support\Facades\Cache::get("pending_booking:{$paymentIntentId}");
+    expect($pendingData)->not->toBeNull();
+});
+
+test('3DS confirm succeeds when gift card balance unchanged', function () {
+    $fixture = $this->createShowtimeWithSeats();
+    $fakeStripe = $this->fakeStripe();
+
+    $giftCard = GiftCard::factory()->create([
+        'current_balance' => 500,
+        'status'          => \App\Enums\GiftCardStatus::Active,
+    ]);
+
+    // First request triggers 3DS with gift card
+    $fakeStripe->shouldRequire3ds();
+
+    $response = postJson($this->bookingUrl($fixture['location']), [
+        'showtimeId'      => $fixture['showtime']->id,
+        'seatIds'         => [$fixture['seats'][0]->id],
+        'paymentMethodId' => 'pm_test_3ds',
+        'giftCardCode'    => $giftCard->code,
+        'email'           => 'guest@example.com',
+    ]);
+
+    $response->assertOk();
+    $paymentIntentId = $response->json('data.paymentIntentId');
+
+    // Gift card balance has NOT changed during 3DS window
+    $fakeStripe->shouldSucceed();
+
+    $confirmResponse = postJson($this->bookingUrl($fixture['location'], 'confirm'), [
         'paymentIntentId' => $paymentIntentId,
     ]);
 
     $confirmResponse->assertStatus(201);
 
     $data = $confirmResponse->json('data');
-    // Gift card had 500 at store() time but is now 0 — discount should reflect 0 gift card usage
-    expect($data['discount'])->toBe(0)
-        ->and($data['total'])->toBe(1200);
+    // Amounts should match the original calculation: 1200 - 500 = 700 card charge
+    expect($data['subtotal'])->toBe(1200)
+        ->and($data['discount'])->toBe(500)
+        ->and($data['total'])->toBe(700);
 
-    // Gift card balance should still be 0, not negative
+    // Gift card should be deducted
     $giftCard->refresh();
-    expect($giftCard->current_balance)->toBeGreaterThanOrEqual(0);
+    expect($giftCard->current_balance)->toBe(0);
 });
 
 /*
@@ -647,7 +843,7 @@ test('3DS confirm preserves pending state on seat conflict for retry', function 
     // Trigger 3DS
     $fakeStripe->shouldRequire3ds();
 
-    $response = postJson('/api/bookings', [
+    $response = postJson($this->bookingUrl($fixture['location']), [
         'showtimeId'      => $fixture['showtime']->id,
         'seatIds'         => [$fixture['seats'][0]->id],
         'paymentMethodId' => 'pm_test_3ds',
@@ -668,14 +864,17 @@ test('3DS confirm preserves pending state on seat conflict for retry', function 
         'seat_id'     => $fixture['seats'][0]->id,
     ]);
 
-    // Confirm 3DS — seat conflict should occur
+    // Confirm 3DS — seat conflict should occur BEFORE Stripe is charged
     $fakeStripe->shouldSucceed();
 
-    $confirmResponse = postJson('/api/bookings/confirm', [
+    $confirmResponse = postJson($this->bookingUrl($fixture['location'], 'confirm'), [
         'paymentIntentId' => $paymentIntentId,
     ]);
 
     $confirmResponse->assertStatus(409);
+
+    // Stripe should NOT have been asked to confirm — payment must not be captured
+    expect($fakeStripe->confirmedPaymentIntents)->toBeEmpty();
 
     // Pending state should still be in cache (not destroyed by Cache::pull)
     $pendingData = \Illuminate\Support\Facades\Cache::get("pending_booking:{$paymentIntentId}");

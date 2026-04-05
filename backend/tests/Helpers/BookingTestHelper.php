@@ -80,6 +80,14 @@ trait BookingTestHelper
     }
 
     /**
+     * Build a location-scoped booking URL.
+     */
+    public function bookingUrl(Location $location, string $path = ''): string
+    {
+        return "/api/locations/{$location->slug}/bookings" . ($path ? "/{$path}" : '');
+    }
+
+    /**
      * Binds a FakeStripeService into the container and returns it.
      */
     public function fakeStripe(): FakeStripeService

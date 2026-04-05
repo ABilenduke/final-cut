@@ -11,9 +11,19 @@ class StripeService
 
     public function __construct(?string $apiKey = null, ?StripeClient $client = null)
     {
+        if ($client) {
+            $this->client = $client;
+
+            return;
+        }
+
         $key = $apiKey ?? config('services.stripe.secret');
 
-        $this->client = $client ?? new StripeClient($key ?: 'sk_not_configured');
+        if (empty($key)) {
+            throw new \RuntimeException('Stripe API key is not configured. Set STRIPE_SECRET in your environment or services.stripe.secret in config.');
+        }
+
+        $this->client = new StripeClient($key);
     }
 
     /**

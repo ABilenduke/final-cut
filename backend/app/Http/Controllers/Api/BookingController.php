@@ -10,6 +10,7 @@ use App\Http\Resources\BookingResource;
 use App\Models\Booking;
 use App\Models\BookingFoodItem;
 use App\Models\GiftCard;
+use App\Models\Location;
 use App\Models\MenuItem;
 use App\Models\Showtime;
 use App\Models\User;
@@ -19,7 +20,9 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Stripe\Exception\ApiErrorException;
 use Stripe\Exception\CardException;
+use Stripe\Exception\InvalidRequestException;
 
 class BookingController extends Controller
 {
@@ -30,9 +33,10 @@ class BookingController extends Controller
         private readonly StripeService $stripeService,
     ) {}
 
-    public function store(CreateBookingRequest $request): JsonResponse
+    public function store(Location $location, CreateBookingRequest $request): JsonResponse
     {
-        $showtime = Showtime::find($request->input('showtimeId'));
+        $showtime = Showtime::whereHas('auditorium', fn ($q) => $q->where('location_id', $location->id))
+            ->find($request->input('showtimeId'));
 
         if (! $showtime || $showtime->start_time->isPast()) {
             return $this->errorResponse([['message' => 'This showtime has expired or does not exist.']], 410);
@@ -93,10 +97,11 @@ class BookingController extends Controller
         }
 
         return DB::transaction(function () use (
-            $showtime, $seatIds, $resolvedFoodItems, $foodTotal,
+            $location, $showtime, $seatIds, $resolvedFoodItems, $foodTotal,
             $promoConfig, $giftCardCode, $paymentMethodId, $request,
         ) {
             $showtime = Showtime::with('auditorium', 'movie')
+                ->whereHas('auditorium', fn ($q) => $q->where('location_id', $location->id))
                 ->lockForUpdate()
                 ->find($showtime->id);
 
@@ -138,6 +143,15 @@ class BookingController extends Controller
             $stripePaymentIntentId = null;
 
             if ($cardAmount > 0) {
+                if (! $paymentMethodId) {
+                    $booking->delete();
+
+                    return $this->errorResponse([[
+                        'field'   => 'paymentMethodId',
+                        'message' => 'A payment method is required when the gift card does not cover the full amount.',
+                    ]], 422);
+                }
+
                 try {
                     $paymentIntent = $this->stripeService->createPaymentIntent(
                         $cardAmount,
@@ -147,6 +161,7 @@ class BookingController extends Controller
 
                     if ($paymentIntent->status === 'requires_action') {
                         Cache::put("pending_booking:{$paymentIntent->id}", [
+                            'location_id'      => $location->id,
                             'showtime_id'      => $showtime->id,
                             'user_id'          => $request->user()?->id,
                             'guest_email'      => $request->user() ? null : $request->input('email'),
@@ -155,6 +170,7 @@ class BookingController extends Controller
                             'subtotal'         => $subtotal,
                             'discount'         => $discount,
                             'total'            => $total,
+                            'card_amount'      => $cardAmount,
                             'gift_card_id'     => $giftCard?->id,
                             'gift_card_amount' => $giftCardAmount,
                             'payment_method'   => $this->determinePaymentMethod($cardAmount, $giftCardAmount),
@@ -176,6 +192,16 @@ class BookingController extends Controller
                     $booking->delete();
 
                     return $this->errorResponse([['field' => 'payment', 'message' => $e->getMessage()]], 402);
+                } catch (InvalidRequestException $e) {
+                    $booking->delete();
+
+                    return $this->errorResponse([['field' => 'payment', 'message' => $e->getMessage()]], 400);
+                } catch (ApiErrorException $e) {
+                    $booking->delete();
+
+                    report($e);
+
+                    return $this->errorResponse([['field' => 'payment', 'message' => 'Payment service is temporarily unavailable. Please try again.']], 502);
                 }
             }
 
@@ -225,7 +251,7 @@ class BookingController extends Controller
         return $this->successResponse(new BookingResource($booking));
     }
 
-    public function confirm(Request $request): JsonResponse
+    public function confirm(Location $location, Request $request): JsonResponse
     {
         $request->validate([
             'paymentIntentId' => 'required|string',
@@ -239,42 +265,78 @@ class BookingController extends Controller
             return $this->errorResponse([['message' => 'Session expired. Please start over.']], 410);
         }
 
-        try {
-            $paymentIntent = $this->stripeService->confirmPaymentIntent($paymentIntentId);
-
-            if ($paymentIntent->status !== 'succeeded') {
-                return $this->errorResponse([['field' => 'payment', 'message' => 'Payment confirmation failed.']], 402);
-            }
-        } catch (CardException $e) {
-            return $this->errorResponse([['field' => 'payment', 'message' => $e->getMessage()]], 402);
-        }
-
-        $result = DB::transaction(function () use ($pendingData, $paymentIntentId) {
-            $showtime = Showtime::lockForUpdate()->find($pendingData['showtime_id']);
+        // Validate seats and confirm payment inside a single transaction so that
+        // Stripe is never charged when seats are no longer available.
+        $result = DB::transaction(function () use ($location, $pendingData, $paymentIntentId) {
+            $showtime = Showtime::whereHas('auditorium', fn ($q) => $q->where('location_id', $location->id))
+                ->lockForUpdate()
+                ->find($pendingData['showtime_id']);
 
             if (! $showtime) {
                 return $this->errorResponse([['message' => 'Showtime not found']], 404);
             }
 
-            // Revalidate gift card balance (may have changed during 3DS window)
+            // Validate seat availability BEFORE confirming payment.
+            // checkAvailability returns unavailable seat IDs; if any, bail out
+            // without touching Stripe — the uncaptured PI expires on its own.
+            $unavailable = $this->seatService->checkAvailability(
+                $showtime->id,
+                $pendingData['seat_ids'],
+            );
+
+            if (! empty($unavailable)) {
+                throw new \App\Exceptions\SeatConflictException($unavailable);
+            }
+
+            // Revalidate gift card balance BEFORE confirming payment.
+            // If the balance dropped during the 3DS window, the original
+            // PaymentIntent amount no longer covers the correct card portion.
+            // Rather than silently under- or over-charging, fail early so the
+            // customer can restart checkout with current pricing.
             $giftCard = null;
-            $giftCardAmount = 0;
+            $giftCardAmount = $pendingData['gift_card_amount'] ?? 0;
+            $originalCardAmount = $pendingData['card_amount'] ?? $pendingData['total'];
+
             if ($pendingData['gift_card_id'] ?? null) {
                 $giftCard = GiftCard::lockForUpdate()->find($pendingData['gift_card_id']);
 
-                if ($giftCard && $giftCard->current_balance > 0) {
-                    $giftCardAmount = min(
-                        $giftCard->current_balance,
-                        $pendingData['subtotal'] - ($pendingData['discount'] - ($pendingData['gift_card_amount'] ?? 0)),
-                    );
+                if ($giftCardAmount > 0) {
+                    $availableBalance = $giftCard?->current_balance ?? 0;
+
+                    if ($availableBalance < $giftCardAmount) {
+                        // Gift card can no longer cover the originally agreed amount.
+                        // The PaymentIntent was created for $originalCardAmount, but the
+                        // real card charge should now be higher. Reject and let the
+                        // customer restart. Don't confirm the PI — it expires on its own.
+                        return $this->errorResponse([[
+                            'field'   => 'giftCardCode',
+                            'message' => 'Gift card balance changed during payment. Please start over.',
+                        ]], 409);
+                    }
                 }
             }
 
-            // Recompute totals with current gift card balance
-            $promoDiscount = $pendingData['discount'] - ($pendingData['gift_card_amount'] ?? 0);
-            $discount = $promoDiscount + $giftCardAmount;
-            $total = $pendingData['subtotal'] - $discount;
-            $cardAmount = $pendingData['subtotal'] - $discount;
+            // Gift card still valid — safe to confirm the PaymentIntent.
+            try {
+                $paymentIntent = $this->stripeService->confirmPaymentIntent($paymentIntentId);
+
+                if ($paymentIntent->status !== 'succeeded') {
+                    return $this->errorResponse([['field' => 'payment', 'message' => 'Payment confirmation failed.']], 402);
+                }
+            } catch (CardException $e) {
+                return $this->errorResponse([['field' => 'payment', 'message' => $e->getMessage()]], 402);
+            } catch (InvalidRequestException $e) {
+                return $this->errorResponse([['field' => 'payment', 'message' => $e->getMessage()]], 400);
+            } catch (ApiErrorException $e) {
+                report($e);
+
+                return $this->errorResponse([['field' => 'payment', 'message' => 'Payment service is temporarily unavailable. Please try again.']], 502);
+            }
+
+            // Use the original amounts — they match the PaymentIntent.
+            $discount = $pendingData['discount'];
+            $total = $pendingData['total'];
+            $cardAmount = $originalCardAmount;
 
             $booking = new Booking;
             $booking->showtime_id = $pendingData['showtime_id'];
@@ -304,8 +366,12 @@ class BookingController extends Controller
             return $this->successResponse(new BookingResource($booking), status: 201);
         });
 
-        // Only forget cache after the transaction has committed successfully
-        Cache::forget($cacheKey);
+        // Only forget cache after a successful booking — error responses
+        // (gift card conflict, payment failure) must preserve the pending state
+        // so the customer can retry or restart.
+        if ($result->getStatusCode() === 201) {
+            Cache::forget($cacheKey);
+        }
 
         return $result;
     }

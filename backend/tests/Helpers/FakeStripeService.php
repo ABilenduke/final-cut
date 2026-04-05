@@ -8,6 +8,8 @@ class FakeStripeService extends StripeService
 {
     private string $behavior = 'succeed';
 
+    private string $failureMessage = '';
+
     public function __construct()
     {
         // Skip parent constructor — no Stripe client needed
@@ -40,6 +42,22 @@ class FakeStripeService extends StripeService
         return $this;
     }
 
+    public function shouldFailWithInvalidRequest(string $message = 'No such payment method: pm_expired'): static
+    {
+        $this->behavior = 'invalid_request';
+        $this->failureMessage = $message;
+
+        return $this;
+    }
+
+    public function shouldFailWithApiError(string $message = 'Stripe service unavailable'): static
+    {
+        $this->behavior = 'api_error';
+        $this->failureMessage = $message;
+
+        return $this;
+    }
+
     public function createPaymentIntent(int $amount, string $paymentMethodId, array $metadata = []): \Stripe\PaymentIntent
     {
         $this->createCallCount++;
@@ -59,6 +77,20 @@ class FakeStripeService extends StripeService
                 'card_declined',
                 'card_declined',
                 null,
+            );
+        }
+
+        if ($this->behavior === 'invalid_request') {
+            throw \Stripe\Exception\InvalidRequestException::factory(
+                $this->failureMessage,
+                400,
+            );
+        }
+
+        if ($this->behavior === 'api_error') {
+            throw \Stripe\Exception\ApiConnectionException::factory(
+                $this->failureMessage,
+                503,
             );
         }
 
@@ -82,6 +114,20 @@ class FakeStripeService extends StripeService
     public function confirmPaymentIntent(string $paymentIntentId): \Stripe\PaymentIntent
     {
         $this->confirmedPaymentIntents[] = ['paymentIntentId' => $paymentIntentId];
+
+        if ($this->behavior === 'invalid_request') {
+            throw \Stripe\Exception\InvalidRequestException::factory(
+                $this->failureMessage,
+                400,
+            );
+        }
+
+        if ($this->behavior === 'api_error') {
+            throw \Stripe\Exception\ApiConnectionException::factory(
+                $this->failureMessage,
+                503,
+            );
+        }
 
         return \Stripe\PaymentIntent::constructFrom([
             'id'     => $paymentIntentId,

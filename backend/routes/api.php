@@ -21,13 +21,13 @@ Route::get('/movies/{slug}', [MovieController::class, 'show']);
 Route::prefix('locations/{location}')->group(function () {
     Route::get('/movies/{slug}/showtimes', [MovieController::class, 'showtimes']);
     Route::get('/showtimes/{id}', [ShowtimeController::class, 'show']);
+    Route::post('/bookings', [BookingController::class, 'store']);
+    Route::post('/bookings/confirm', [BookingController::class, 'confirm']);
 });
 
-// Bookings
-Route::post('/bookings', [BookingController::class, 'store']);
+// Bookings (not location-scoped — looked up by booking ID or confirmation code)
 Route::get('/bookings/lookup', [BookingController::class, 'lookup']);
 Route::get('/bookings/{id}', [BookingController::class, 'show']);
-Route::post('/bookings/confirm', [BookingController::class, 'confirm']);
 
 // Calendar
 Route::get('/calendar/events', [CalendarEventController::class, 'index']);
