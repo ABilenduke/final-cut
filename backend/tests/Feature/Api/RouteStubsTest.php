@@ -64,24 +64,8 @@ test('POST /api/auth/forgot-password returns 501', function () {
         ->assertJson(['message' => 'Not implemented']);
 });
 
-// Bookings
-test('POST /api/bookings returns 501', function () {
-    postJson('/api/bookings')
-        ->assertStatus(501)
-        ->assertJson(['message' => 'Not implemented']);
-});
-
-test('GET /api/bookings/{id} returns 501', function () {
-    getJson('/api/bookings/1')
-        ->assertStatus(501)
-        ->assertJson(['message' => 'Not implemented']);
-});
-
-test('POST /api/bookings/confirm returns 501', function () {
-    postJson('/api/bookings/confirm')
-        ->assertStatus(501)
-        ->assertJson(['message' => 'Not implemented']);
-});
+// Bookings — covered by dedicated test file:
+// - tests/Feature/Api/BookingControllerTest.php
 
 // Gift Cards
 test('POST /api/gift-cards/purchase returns 501', function () {

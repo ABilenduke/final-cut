@@ -25,6 +25,7 @@ Route::prefix('locations/{location}')->group(function () {
 
 // Bookings
 Route::post('/bookings', [BookingController::class, 'store']);
+Route::get('/bookings/lookup', [BookingController::class, 'lookup']);
 Route::get('/bookings/{id}', [BookingController::class, 'show']);
 Route::post('/bookings/confirm', [BookingController::class, 'confirm']);
 

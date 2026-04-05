@@ -379,3 +379,81 @@
 - `backend/tests/Feature/Api/ShowtimeControllerTest.php` — added rebooking test (9 tests)
 - `backend/tests/Feature/Console/EnrichMoviesCommandTest.php` — new (6 tests)
 - `docs/plans/backend/03-movie-api.md` — rewritten for theatre-owned architecture
+
+---
+
+# Progress Journal — Plan 04: Booking & Payment API
+
+## Tasks 0-7: Full Booking API Implementation
+**Status:** ✅ Complete
+**Started:** 2026-04-05
+**Completed:** 2026-04-05
+
+### Work Done
+- [2026-04-05] Installed `stripe/stripe-php` v20
+- [2026-04-05] Created `SeatConflictException` with `unavailableSeatIds` array, registered in `bootstrap/app.php` as renderable 409 response
+- [2026-04-05] Created `StripeService` wrapping Stripe PHP SDK — `createPaymentIntent()` (create+confirm in one call), `confirmPaymentIntent()` (3DS completion). 9 unit tests.
+- [2026-04-05] Created `SeatAvailabilityService` — `checkAvailability()` (returns taken seat IDs, confirmed bookings only), `reserveSeats()` (validates auditorium ownership, checks availability, creates BookingSeat records with correct per-type pricing, returns total cost). 7 unit tests.
+- [2026-04-05] Created `CreateBookingRequest` with full validation rules (camelCase keys from frontend), guest email enforcement via `withValidator()`
+- [2026-04-05] Created `BookingResource` mapping to frontend TypeScript Booking interface (camelCase output, eager-loaded relations)
+- [2026-04-05] Created MVP promo code config (`config/promo_codes.php`) with SAVE10 (10% up to $20) and WELCOME5 ($5 off)
+- [2026-04-05] Implemented `BookingController::store` — full booking creation flow: validate → check showtime future → lock showtime → reserve seats → validate food → apply promo → apply gift card → process Stripe payment → create booking records → award loyalty points
+- [2026-04-05] Implemented `BookingController::show` — authenticated owner access only, 404 for non-owners (no info leakage)
+- [2026-04-05] Implemented `BookingController::lookup` — guest booking retrieval via `confirmation_code` + `email` query params
+- [2026-04-05] Implemented `BookingController::confirm` — 3DS completion flow: pull cached pending data, confirm PaymentIntent, create booking from scratch with fresh seat validation
+- [2026-04-05] Added `/api/bookings/lookup` route before `/{id}` route to prevent route collision
+- [2026-04-05] Created `FakeStripeService` (extends StripeService) with `shouldSucceed()`, `shouldRequire3ds()`, `shouldDecline()` fluent API
+- [2026-04-05] Created `BookingTestHelper` trait with `createShowtimeWithSeats()` and `fakeStripe()` helpers
+- [2026-04-05] 25 feature tests covering: guest/auth booking, seat conflict 409, expired showtime 410, payment declined 402, 3DS flow, promo codes, gift card full/partial payment, food items, auditorium validation, guest email requirement, cancelled booking rebooking, seat pricing, show/lookup/confirm endpoints
+- [2026-04-05] Updated `RouteStubsTest` — removed 3 booking stubs (now covered by dedicated tests)
+- [2026-04-05] Full suite: 213 tests, 606 assertions, 0 failures
+
+### Decisions
+- [2026-04-05] **Pessimistic locking via `Showtime::lockForUpdate()`** — serializes concurrent bookings per showtime. The `booking_seats(showtime_id, seat_id)` is an index (not unique constraint), so application-level locking is required. Trade-off: Stripe API call happens under DB lock (~200-500ms), acceptable for MVP traffic.
+- [2026-04-05] **3DS flow caches all creation data** — on `requires_action`, the provisional booking is deleted and all data is cached (15-min TTL keyed by paymentIntentId). The `confirm` endpoint creates the booking fresh with full seat re-validation, preventing seats stolen during the 3DS window.
+- [2026-04-05] **FakeStripeService extends StripeService** — required by PHP type system since `BookingController` type-hints `StripeService` in constructor. Overrides parent constructor to skip Stripe client creation.
+- [2026-04-05] **MVP promo codes via config array** — no database table yet. Supports percentage (with max cap) and fixed discount types.
+- [2026-04-05] **`total` field stores subtotal value** — matches the frontend Booking interface where `total` represents what the customer "pays" (before discounts are applied as separate line items). The `discount` field captures promo + gift card amounts.
+
+### Files Changed
+- `backend/composer.json` / `composer.lock` — added `stripe/stripe-php` v20
+- `backend/bootstrap/app.php` — registered SeatConflictException as 409
+- `backend/app/Exceptions/SeatConflictException.php` — new
+- `backend/app/Services/StripeService.php` — new
+- `backend/app/Services/SeatAvailabilityService.php` — new
+- `backend/app/Http/Requests/CreateBookingRequest.php` — new
+- `backend/app/Http/Resources/BookingResource.php` — new
+- `backend/config/promo_codes.php` — new
+- `backend/app/Http/Controllers/Api/BookingController.php` — implemented (was stub)
+- `backend/routes/api.php` — added /bookings/lookup route
+- `backend/tests/Helpers/FakeStripeService.php` — new
+- `backend/tests/Helpers/BookingTestHelper.php` — new
+- `backend/tests/Unit/Services/StripeServiceTest.php` — new (9 tests)
+- `backend/tests/Unit/Services/SeatAvailabilityServiceTest.php` — new (7 tests)
+- `backend/tests/Feature/Api/BookingControllerTest.php` — new (25 tests)
+- `backend/tests/Feature/Api/RouteStubsTest.php` — removed 3 booking stubs
+
+---
+
+## Code Review Fixes
+**Status:** ✅ Complete
+**Started:** 2026-04-05
+**Completed:** 2026-04-05
+
+### Work Done
+- [2026-04-05] **Fixed `total` field bug** — was set to `$subtotal`, now correctly set to `$subtotal - $discount`. Affected both `store()` and `confirm()` methods, plus cached 3DS pending data.
+- [2026-04-05] **Fixed gift card concurrency** — gift card now fetched with `lockForUpdate()` inside the transaction to prevent concurrent overdrawing. Pre-check outside transaction remains for fast validation.
+- [2026-04-05] **Fixed loyalty points base** — changed from `floor($subtotal / 100)` to `floor($total / 100)` so points are awarded on amount actually paid, not pre-discount subtotal.
+- [2026-04-05] **Added promo code case normalization** — `strtoupper()` applied to promo code input so "save10" works same as "SAVE10".
+- [2026-04-05] **Added loyalty points with discount test** — verifies points are calculated on total after discount.
+- [2026-04-05] **Added total field assertions** — promo code and gift card tests now verify the `total` field is correct.
+- [2026-04-05] Full suite: 214 tests, 610 assertions, 0 failures
+
+### Decisions
+- [2026-04-05] **Kept `booking_seats(showtime_id, seat_id)` as INDEX not UNIQUE** — intentional from Plan 03 rework. Cancelled bookings can coexist with new bookings for same seat. Pessimistic lock on showtime handles concurrency.
+- [2026-04-05] **3DS seat release accepted as MVP trade-off** — seats are unreserved during 3DS window (~30s). Confirm re-validates availability. Future: add `Pending` booking status to hold seats during 3DS.
+- [2026-04-05] **Extra Stripe methods (customer management) deferred** — those are for Plan 06 (Account API), not Plan 04.
+
+### Files Changed
+- `backend/app/Http/Controllers/Api/BookingController.php` — fixed total, gift card locking, loyalty points, promo normalization
+- `backend/tests/Feature/Api/BookingControllerTest.php` — added assertions and loyalty discount test
