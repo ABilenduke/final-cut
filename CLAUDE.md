@@ -11,7 +11,7 @@ Final Cut operates **two physical theater locations** (with potential for more) 
 ## Tech Stack
 
 - **Frontend**: Nuxt 4 (Vue 3, TypeScript), Tailwind CSS 4, Storybook, Playwright e2e tests
-- **Backend**: Laravel 13 (PHP 8.3), Pest testing framework
+- **Backend**: Laravel 13 (PHP 8.4), Pest testing framework
 - **Database**: PostgreSQL with TLS (database: `final_cut`, test db: `final_cut_test`)
 - **Cache/Sessions**: Redis with TLS
 - **Infrastructure**: Docker Compose with Nginx reverse proxy, Fail2ban, TLS between all services
