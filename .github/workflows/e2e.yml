@@ -64,17 +64,17 @@ jobs:
 
       - name: Build and start services
         run: |
-          docker compose -f docker-compose.yml -f docker-compose.ci.yml \
+          docker compose -f docker-compose.yml -f docker-compose.stack.yml -f docker-compose.ci.yml \
             up -d --build --wait
 
       - name: Run migrations and seed database
         run: |
-          docker compose -f docker-compose.yml -f docker-compose.ci.yml \
+          docker compose -f docker-compose.yml -f docker-compose.stack.yml -f docker-compose.ci.yml \
             exec -T backend php artisan migrate:fresh --seed
 
       - name: Run Playwright E2E tests
         run: |
-          docker compose -f docker-compose.yml -f docker-compose.ci.yml \
+          docker compose -f docker-compose.yml -f docker-compose.stack.yml -f docker-compose.ci.yml \
             run --rm playwright
 
       - name: Upload Playwright report
@@ -88,11 +88,11 @@ jobs:
       - name: Print service logs on failure
         if: failure()
         run: |
-          docker compose -f docker-compose.yml -f docker-compose.ci.yml \
+          docker compose -f docker-compose.yml -f docker-compose.stack.yml -f docker-compose.ci.yml \
             logs --tail=100
 
       - name: Tear down
         if: always()
         run: |
-          docker compose -f docker-compose.yml -f docker-compose.ci.yml \
+          docker compose -f docker-compose.yml -f docker-compose.stack.yml -f docker-compose.ci.yml \
             down -v
