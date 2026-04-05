@@ -28,12 +28,8 @@ test('GET /api/calendar/events/{slug} returns 200', function () {
         ->assertJsonStructure(['data']);
 });
 
-// Food Menu
-test('GET /api/food-menu returns 200', function () {
-    getJson('/api/food-menu')
-        ->assertOk()
-        ->assertJsonStructure(['data']);
-});
+// Food Menu — covered by dedicated test file:
+// - tests/Feature/Api/FoodMenuControllerTest.php
 
 /*
 |--------------------------------------------------------------------------

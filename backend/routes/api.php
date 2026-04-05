@@ -21,6 +21,7 @@ Route::get('/movies/{slug}', [MovieController::class, 'show']);
 Route::prefix('locations/{location}')->group(function () {
     Route::get('/movies/{slug}/showtimes', [MovieController::class, 'showtimes']);
     Route::get('/showtimes/{id}', [ShowtimeController::class, 'show']);
+    Route::get('/food-menu', [FoodMenuController::class, 'index']);
     Route::post('/bookings', [BookingController::class, 'store']);
     Route::post('/bookings/confirm', [BookingController::class, 'confirm']);
 });
@@ -32,9 +33,6 @@ Route::get('/bookings/{id}', [BookingController::class, 'show']);
 // Calendar
 Route::get('/calendar/events', [CalendarEventController::class, 'index']);
 Route::get('/calendar/events/{slug}', [CalendarEventController::class, 'show']);
-
-// Food Menu
-Route::get('/food-menu', [FoodMenuController::class, 'index']);
 
 // Auth
 Route::post('/auth/register', [AuthController::class, 'register']);

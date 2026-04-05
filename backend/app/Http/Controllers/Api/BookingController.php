@@ -11,7 +11,6 @@ use App\Models\Booking;
 use App\Models\BookingFoodItem;
 use App\Models\GiftCard;
 use App\Models\Location;
-use App\Models\MenuItem;
 use App\Models\Showtime;
 use App\Models\User;
 use App\Services\SeatAvailabilityService;
@@ -57,20 +56,24 @@ class BookingController extends Controller
         $resolvedFoodItems = [];
 
         foreach ($foodItemsInput as $item) {
-            $menuItem = MenuItem::currentlyAvailable()->find($item['itemId']);
+            $menuItem = $location->menuItems()
+                ->whereNull('menu_items.unavailable_at')
+                ->whereNull('location_menu_item.unavailable_at')
+                ->find($item['itemId']);
 
             if (! $menuItem) {
-                return $this->errorResponse([['field' => 'foodItems', 'message' => "Menu item {$item['itemId']} is unavailable."]], 400);
+                return $this->errorResponse([['field' => 'foodItems', 'message' => "Menu item {$item['itemId']} is unavailable at this location."]], 400);
             }
 
-            $itemTotal = $menuItem->price * $item['quantity'];
+            $resolvedPrice = $menuItem->pivot->price_override ?? $menuItem->price;
+            $itemTotal = $resolvedPrice * $item['quantity'];
             $foodTotal += $itemTotal;
 
             $resolvedFoodItems[] = [
                 'menu_item_id' => $menuItem->id,
                 'name'         => $menuItem->name,
                 'quantity'     => $item['quantity'],
-                'unit_price'   => $menuItem->price,
+                'unit_price'   => $resolvedPrice,
                 'total_price'  => $itemTotal,
             ];
         }

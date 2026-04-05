@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Enums\MenuCategory;
+use App\Models\Location;
 use App\Models\MenuItem;
 use Illuminate\Database\Seeder;
 
@@ -45,6 +46,49 @@ class MenuItemSeeder extends Seeder
 
         foreach ($items as $item) {
             MenuItem::create($item);
+        }
+
+        $this->attachToLocations();
+    }
+
+    private function attachToLocations(): void
+    {
+        $downtown = Location::where('slug', 'downtown')->first();
+        $eastside = Location::where('slug', 'eastside')->first();
+
+        if (! $downtown || ! $eastside) {
+            $this->command?->warn('MenuItemSeeder: locations not found — skipping pivot attachment. Run AuditoriumSeeder first.');
+
+            return;
+        }
+
+        $downtownExclusive = ['Premium Combo'];
+        $eastsideExclusive = ['Ice Cream Sundae'];
+
+        $eastsidePriceOverrides = [
+            'Small Popcorn'  => 699,
+            'Medium Popcorn' => 899,
+            'Large Popcorn'  => 1099,
+            'Craft Beer'     => 999,
+        ];
+
+        $allItems = MenuItem::all();
+
+        foreach ($allItems as $item) {
+            $isDowntownExclusive = in_array($item->name, $downtownExclusive);
+            $isEastsideExclusive = in_array($item->name, $eastsideExclusive);
+
+            if (! $isEastsideExclusive) {
+                $downtown->menuItems()->attach($item->id);
+            }
+
+            if (! $isDowntownExclusive) {
+                $pivotData = [];
+                if (isset($eastsidePriceOverrides[$item->name])) {
+                    $pivotData['price_override'] = $eastsidePriceOverrides[$item->name];
+                }
+                $eastside->menuItems()->attach($item->id, $pivotData);
+            }
         }
     }
 }

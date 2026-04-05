@@ -6,6 +6,7 @@ use App\Models\Booking;
 use App\Models\BookingFoodItem;
 use App\Models\BookingSeat;
 use App\Models\GiftCard;
+use App\Models\Location;
 use App\Models\MenuItem;
 use App\Models\User;
 use Tests\Helpers\BookingTestHelper;
@@ -391,7 +392,7 @@ test('food items added to booking and included in total', function () {
     $fixture = $this->createShowtimeWithSeats();
     $fakeStripe = $this->fakeStripe();
 
-    $menuItem = MenuItem::factory()->create(['price' => 599]);
+    $menuItem = MenuItem::factory()->forLocation($fixture['location'])->create(['price' => 599]);
 
     $response = postJson($this->bookingUrl($fixture['location']), [
         'showtimeId'      => $fixture['showtime']->id,
@@ -418,7 +419,7 @@ test('unavailable food item returns 400', function () {
     $fixture = $this->createShowtimeWithSeats();
     $this->fakeStripe();
 
-    $menuItem = MenuItem::factory()->unavailable()->create();
+    $menuItem = MenuItem::factory()->unavailable()->forLocation($fixture['location'])->create();
 
     $response = postJson($this->bookingUrl($fixture['location']), [
         'showtimeId'      => $fixture['showtime']->id,
@@ -432,6 +433,76 @@ test('unavailable food item returns 400', function () {
 
     $response->assertStatus(400);
     expect($response->json('errors.0.field'))->toBe('foodItems');
+});
+
+test('food item from different location returns 400', function () {
+    $fixture = $this->createShowtimeWithSeats();
+    $this->fakeStripe();
+
+    $otherLocation = Location::factory()->create();
+    $menuItem = MenuItem::factory()->forLocation($otherLocation)->create(['price' => 599]);
+
+    $response = postJson($this->bookingUrl($fixture['location']), [
+        'showtimeId'      => $fixture['showtime']->id,
+        'seatIds'         => [$fixture['seats'][0]->id],
+        'paymentMethodId' => 'pm_test_visa',
+        'email'           => 'guest@example.com',
+        'foodItems'       => [
+            ['itemId' => $menuItem->id, 'quantity' => 1],
+        ],
+    ]);
+
+    $response->assertStatus(400);
+    expect($response->json('errors.0.field'))->toBe('foodItems');
+});
+
+test('food item not attached to any location returns 400', function () {
+    $fixture = $this->createShowtimeWithSeats();
+    $this->fakeStripe();
+
+    $menuItem = MenuItem::factory()->create(['price' => 599]);
+
+    $response = postJson($this->bookingUrl($fixture['location']), [
+        'showtimeId'      => $fixture['showtime']->id,
+        'seatIds'         => [$fixture['seats'][0]->id],
+        'paymentMethodId' => 'pm_test_visa',
+        'email'           => 'guest@example.com',
+        'foodItems'       => [
+            ['itemId' => $menuItem->id, 'quantity' => 1],
+        ],
+    ]);
+
+    $response->assertStatus(400);
+    expect($response->json('errors.0.field'))->toBe('foodItems');
+});
+
+test('food item uses pivot price_override in booking total', function () {
+    $fixture = $this->createShowtimeWithSeats();
+    $fakeStripe = $this->fakeStripe();
+
+    $menuItem = MenuItem::factory()
+        ->forLocation($fixture['location'], ['price_override' => 999])
+        ->create(['price' => 599, 'category' => 'popcorn']);
+
+    $response = postJson($this->bookingUrl($fixture['location']), [
+        'showtimeId'      => $fixture['showtime']->id,
+        'seatIds'         => [$fixture['seats'][0]->id],
+        'paymentMethodId' => 'pm_test_visa',
+        'email'           => 'guest@example.com',
+        'foodItems'       => [
+            ['itemId' => $menuItem->id, 'quantity' => 1],
+        ],
+    ]);
+
+    $response->assertStatus(201);
+
+    $data = $response->json('data');
+    // Seat: 1200 (standard) + food: 999 (pivot override, not base 599)
+    expect($data['subtotal'])->toBe(2199)
+        ->and($data['foodItems'][0]['unitPrice'])->toBe(999)
+        ->and($data['foodItems'][0]['totalPrice'])->toBe(999);
+
+    expect($fakeStripe->createdPaymentIntents[0]['amount'])->toBe(2199);
 });
 
 test('seats from wrong auditorium returns 422', function () {
