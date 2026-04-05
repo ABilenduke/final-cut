@@ -105,7 +105,7 @@ class BookingController extends Controller
                 ->lockForUpdate()
                 ->find($showtime->id);
 
-            if (! $showtime) {
+            if (! $showtime || $showtime->start_time->isPast()) {
                 return $this->errorResponse([['message' => 'This showtime has expired or does not exist.']], 410);
             }
 
@@ -134,9 +134,16 @@ class BookingController extends Controller
                     ->where('status', GiftCardStatus::Active)
                     ->first();
 
-                if ($giftCard && $giftCard->current_balance > 0) {
-                    $giftCardAmount = min($giftCard->current_balance, $subtotal - $promoDiscount);
+                if (! $giftCard || $giftCard->current_balance <= 0) {
+                    $booking->delete();
+
+                    return $this->errorResponse([[
+                        'field'   => 'giftCardCode',
+                        'message' => 'Gift card is no longer valid or has been depleted.',
+                    ]], 409);
                 }
+
+                $giftCardAmount = min($giftCard->current_balance, $subtotal - $promoDiscount);
             }
 
             $cardAmount = $subtotal - $promoDiscount - $giftCardAmount;
@@ -276,8 +283,8 @@ class BookingController extends Controller
                 ->lockForUpdate()
                 ->find($pendingData['showtime_id']);
 
-            if (! $showtime) {
-                return $this->errorResponse([['message' => 'Showtime not found']], 404);
+            if (! $showtime || $showtime->start_time->isPast()) {
+                return $this->errorResponse([['message' => 'This showtime has expired or does not exist.']], 410);
             }
 
             // Validate seat availability BEFORE confirming payment.
@@ -302,21 +309,22 @@ class BookingController extends Controller
             $originalCardAmount = $pendingData['card_amount'] ?? $pendingData['total'];
 
             if ($pendingData['gift_card_id'] ?? null) {
-                $giftCard = GiftCard::lockForUpdate()->find($pendingData['gift_card_id']);
+                $giftCard = GiftCard::lockForUpdate()
+                    ->where('status', GiftCardStatus::Active)
+                    ->find($pendingData['gift_card_id']);
 
-                if ($giftCardAmount > 0) {
-                    $availableBalance = $giftCard?->current_balance ?? 0;
+                if (! $giftCard) {
+                    return $this->errorResponse([[
+                        'field'   => 'giftCardCode',
+                        'message' => 'Gift card is no longer valid. Please start over.',
+                    ]], 409);
+                }
 
-                    if ($availableBalance < $giftCardAmount) {
-                        // Gift card can no longer cover the originally agreed amount.
-                        // The PaymentIntent was created for $originalCardAmount, but the
-                        // real card charge should now be higher. Reject and let the
-                        // customer restart. Don't confirm the PI — it expires on its own.
-                        return $this->errorResponse([[
-                            'field'   => 'giftCardCode',
-                            'message' => 'Gift card balance changed during payment. Please start over.',
-                        ]], 409);
-                    }
+                if ($giftCardAmount > 0 && $giftCard->current_balance < $giftCardAmount) {
+                    return $this->errorResponse([[
+                        'field'   => 'giftCardCode',
+                        'message' => 'Gift card balance changed during payment. Please start over.',
+                    ]], 409);
                 }
             }
 

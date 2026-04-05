@@ -93,7 +93,7 @@ test('createPaymentIntent propagates CardException for declined cards', function
 
     $piService->shouldReceive('create')
         ->once()
-        ->andThrow(new CardException('Your card was declined.'));
+        ->andThrow(CardException::factory('Your card was declined.'));
 
     $service = new StripeService(client: $client);
 
@@ -106,7 +106,7 @@ test('createPaymentIntent propagates InvalidRequestException', function () {
 
     $piService->shouldReceive('create')
         ->once()
-        ->andThrow(new InvalidRequestException('No such payment_method: pm_invalid'));
+        ->andThrow(InvalidRequestException::factory('No such payment_method: pm_invalid'));
 
     $service = new StripeService(client: $client);
 
