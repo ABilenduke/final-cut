@@ -2,9 +2,11 @@
 
 use App\Models\User;
 use Illuminate\Auth\Notifications\ResetPassword;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Str;
 
 use function Pest\Laravel\actingAs;
 use function Pest\Laravel\getJson;
@@ -87,8 +89,8 @@ test('register handles duplicate email race condition gracefully', function () {
     User::creating(function (User $user) use ($email, &$inserted) {
         if (! $inserted && $user->email === $email) {
             $inserted = true;
-            \Illuminate\Support\Facades\DB::table('users')->insert([
-                'id' => \Illuminate\Support\Str::uuid()->toString(),
+            DB::table('users')->insert([
+                'id' => Str::uuid()->toString(),
                 'name' => 'Other Racer',
                 'email' => $email,
                 'password' => bcrypt('password123'),
