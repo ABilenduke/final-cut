@@ -189,7 +189,7 @@ export default defineNuxtConfig({
 | `@nuxt/content` | Blog and FAQ content | Markdown authoring with frontmatter, query API, zero infrastructure required |
 | `@stripe/stripe-js` | Client-side payments | PCI-compliant card collection via Stripe Elements without handling raw card data |
 | `stripe` | Server-side payments | PaymentIntent creation, webhook handling, customer management |
-| `nuxt-auth-utils` | Frontend SSR auth state | Stores user state in a sealed encrypted cookie for Nuxt SSR hydration. Complements Laravel Sanctum, which handles actual API authentication via session cookies. These are two complementary systems: Sanctum authenticates, nuxt-auth-utils hydrates. |
+| `nuxt-auth-utils` | Authentication | Session-based auth with encrypted cookies, OAuth-ready, minimal configuration |
 
 ---
 

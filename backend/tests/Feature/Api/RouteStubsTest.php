@@ -41,8 +41,24 @@ test('GET /api/calendar/events/{slug} returns 200', function () {
 |
 */
 
-// Auth — covered by dedicated test file:
-// - tests/Feature/Api/AuthControllerTest.php
+// Auth
+test('POST /api/auth/register returns 501', function () {
+    postJson('/api/auth/register')
+        ->assertStatus(501)
+        ->assertJson(['message' => 'Not implemented']);
+});
+
+test('POST /api/auth/login returns 501', function () {
+    postJson('/api/auth/login')
+        ->assertStatus(501)
+        ->assertJson(['message' => 'Not implemented']);
+});
+
+test('POST /api/auth/forgot-password returns 501', function () {
+    postJson('/api/auth/forgot-password')
+        ->assertStatus(501)
+        ->assertJson(['message' => 'Not implemented']);
+});
 
 // Bookings — covered by dedicated test file:
 // - tests/Feature/Api/BookingControllerTest.php
@@ -79,7 +95,13 @@ test('POST /api/contact returns 501', function () {
 |--------------------------------------------------------------------------
 */
 
-// Auth protected routes — covered by tests/Feature/Api/AuthControllerTest.php
+test('POST /api/auth/logout returns 401 without auth', function () {
+    postJson('/api/auth/logout')->assertUnauthorized();
+});
+
+test('GET /api/auth/me returns 401 without auth', function () {
+    getJson('/api/auth/me')->assertUnauthorized();
+});
 
 test('GET /api/account/profile returns 401 without auth', function () {
     getJson('/api/account/profile')->assertUnauthorized();
