@@ -20,7 +20,7 @@ class StripeService
         $key = $apiKey ?? config('services.stripe.secret');
 
         if (empty($key)) {
-            throw new \RuntimeException('Stripe API key is not configured. Set STRIPE_SECRET in your environment or services.stripe.secret in config.');
+            throw new \RuntimeException('Stripe API key is not configured. Set STRIPE_SECRET_KEY in your environment or services.stripe.secret in config.');
         }
 
         $this->client = new StripeClient($key);

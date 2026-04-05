@@ -16,6 +16,10 @@ use function Pest\Laravel\postJson;
 
 uses(BookingTestHelper::class);
 
+beforeEach(function () {
+    $this->fakeStripe();
+});
+
 /*
 |--------------------------------------------------------------------------
 | POST /api/locations/{location}/bookings — Store

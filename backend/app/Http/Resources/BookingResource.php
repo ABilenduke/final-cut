@@ -18,9 +18,10 @@ class BookingResource extends JsonResource
             'screenName'       => $this->showtime->auditorium->name,
             'startTime'        => $this->showtime->start_time->toIso8601String(),
             'seats'            => $this->seats->map(fn (mixed $s) => [
-                'seatId'  => $s->seat->label,
-                'section' => $s->section,
-                'price'   => $s->price,
+                'seatId'    => $s->seat_id,
+                'seatLabel' => $s->seat->label,
+                'section'   => $s->section,
+                'price'     => $s->price,
             ])->values(),
             'foodItems'        => $this->foodItems->map(fn (mixed $f) => [
                 'itemId'     => $f->menu_item_id,

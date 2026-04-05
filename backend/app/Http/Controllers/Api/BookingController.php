@@ -105,6 +105,10 @@ class BookingController extends Controller
                 ->lockForUpdate()
                 ->find($showtime->id);
 
+            if (! $showtime) {
+                return $this->errorResponse([['message' => 'This showtime has expired or does not exist.']], 410);
+            }
+
             // Create provisional booking (needed for seat reservation)
             $booking = new Booking;
             $booking->showtime_id = $showtime->id;
