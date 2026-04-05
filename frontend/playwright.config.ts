@@ -3,13 +3,19 @@ import { defineConfig } from '@playwright/test'
 export default defineConfig({
   testDir: './e2e',
   use: {
-    baseURL: 'http://localhost:3000',
+    baseURL: process.env.BASE_URL || 'http://localhost:3000',
+    // All environments use self-signed TLS certs (make certs)
+    ignoreHTTPSErrors: true,
   },
-  webServer: {
-    command: 'node .output/server/index.mjs',
-    url: 'http://localhost:3000',
-    reuseExistingServer: !process.env.CI,
-  },
+  ...(process.env.BASE_URL
+    ? {}
+    : {
+        webServer: {
+          command: 'node .output/server/index.mjs',
+          url: 'http://localhost:3000',
+          reuseExistingServer: !process.env.CI,
+        },
+      }),
   projects: [
     {
       name: 'chromium',
