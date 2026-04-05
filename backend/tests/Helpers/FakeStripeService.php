@@ -19,6 +19,8 @@ class FakeStripeService extends StripeService
 
     public array $confirmedPaymentIntents = [];
 
+    public array $refundedPaymentIntents = [];
+
     public int $createCallCount = 0;
 
     public function shouldSucceed(): static
@@ -133,6 +135,18 @@ class FakeStripeService extends StripeService
             'id'     => $paymentIntentId,
             'object' => 'payment_intent',
             'status' => 'succeeded',
+        ]);
+    }
+
+    public function refundPaymentIntent(string $paymentIntentId): \Stripe\Refund
+    {
+        $this->refundedPaymentIntents[] = ['paymentIntentId' => $paymentIntentId];
+
+        return \Stripe\Refund::constructFrom([
+            'id'                => 're_fake_xxx',
+            'object'            => 'refund',
+            'payment_intent'    => $paymentIntentId,
+            'status'            => 'succeeded',
         ]);
     }
 }

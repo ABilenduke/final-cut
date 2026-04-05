@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use Stripe\PaymentIntent;
+use Stripe\Refund;
 use Stripe\StripeClient;
 
 class StripeService
@@ -58,5 +59,20 @@ class StripeService
     public function confirmPaymentIntent(string $paymentIntentId): PaymentIntent
     {
         return $this->client->paymentIntents->confirm($paymentIntentId);
+    }
+
+    /**
+     * Issues a full refund for a captured PaymentIntent.
+     *
+     * Used as a compensating action when DB writes fail after payment has
+     * already been captured, preventing orphaned charges.
+     *
+     * @throws \Stripe\Exception\ApiErrorException
+     */
+    public function refundPaymentIntent(string $paymentIntentId): Refund
+    {
+        return $this->client->refunds->create([
+            'payment_intent' => $paymentIntentId,
+        ]);
     }
 }

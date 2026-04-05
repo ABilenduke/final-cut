@@ -219,15 +219,25 @@ class BookingController extends Controller
                 }
             }
 
-            $booking->update([
-                'subtotal'                 => $subtotal,
-                'discount'                 => $discount,
-                'total'                    => $total,
-                'payment_method'           => $this->determinePaymentMethod($cardAmount, $giftCardAmount),
-                'stripe_payment_intent_id' => $stripePaymentIntentId,
-            ]);
+            // Payment has been captured. If any subsequent DB write fails,
+            // issue a compensating refund so we don't orphan a charge.
+            try {
+                $booking->update([
+                    'subtotal'                 => $subtotal,
+                    'discount'                 => $discount,
+                    'total'                    => $total,
+                    'payment_method'           => $this->determinePaymentMethod($cardAmount, $giftCardAmount),
+                    'stripe_payment_intent_id' => $stripePaymentIntentId,
+                ]);
 
-            $this->finalizeBooking($booking, $resolvedFoodItems, $giftCard, $giftCardAmount, $request->user()?->id, $total);
+                $this->finalizeBooking($booking, $resolvedFoodItems, $giftCard, $giftCardAmount, $request->user()?->id, $total);
+            } catch (\Throwable $e) {
+                if ($stripePaymentIntentId) {
+                    $this->refundOrReport($stripePaymentIntentId);
+                }
+
+                throw $e;
+            }
 
             $booking->load(self::BOOKING_RELATIONS);
 
@@ -348,33 +358,40 @@ class BookingController extends Controller
                 return $this->errorResponse([['field' => 'payment', 'message' => 'Payment service is temporarily unavailable. Please try again.']], 502);
             }
 
-            // Use the original amounts — they match the PaymentIntent.
-            $discount = $pendingData['discount'];
-            $total = $pendingData['total'];
-            $cardAmount = $originalCardAmount;
+            // Payment has been captured. If any subsequent DB write fails,
+            // issue a compensating refund so we don't orphan a charge.
+            try {
+                $discount = $pendingData['discount'];
+                $total = $pendingData['total'];
+                $cardAmount = $originalCardAmount;
 
-            $booking = new Booking;
-            $booking->showtime_id = $pendingData['showtime_id'];
-            $booking->user_id = $pendingData['user_id'];
-            $booking->guest_email = $pendingData['guest_email'];
-            $booking->status = BookingStatus::Confirmed;
-            $booking->subtotal = $pendingData['subtotal'];
-            $booking->discount = $discount;
-            $booking->total = $total;
-            $booking->payment_method = $this->determinePaymentMethod($cardAmount, $giftCardAmount);
-            $booking->stripe_payment_intent_id = $paymentIntentId;
-            $booking->save();
+                $booking = new Booking;
+                $booking->showtime_id = $pendingData['showtime_id'];
+                $booking->user_id = $pendingData['user_id'];
+                $booking->guest_email = $pendingData['guest_email'];
+                $booking->status = BookingStatus::Confirmed;
+                $booking->subtotal = $pendingData['subtotal'];
+                $booking->discount = $discount;
+                $booking->total = $total;
+                $booking->payment_method = $this->determinePaymentMethod($cardAmount, $giftCardAmount);
+                $booking->stripe_payment_intent_id = $paymentIntentId;
+                $booking->save();
 
-            $this->seatService->reserveSeats($showtime, $pendingData['seat_ids'], $booking);
+                $this->seatService->reserveSeats($showtime, $pendingData['seat_ids'], $booking);
 
-            $this->finalizeBooking(
-                $booking,
-                $pendingData['food_items'],
-                $giftCard,
-                $giftCardAmount,
-                $pendingData['user_id'],
-                $total,
-            );
+                $this->finalizeBooking(
+                    $booking,
+                    $pendingData['food_items'],
+                    $giftCard,
+                    $giftCardAmount,
+                    $pendingData['user_id'],
+                    $total,
+                );
+            } catch (\Throwable $e) {
+                $this->refundOrReport($paymentIntentId);
+
+                throw $e;
+            }
 
             $booking->load(self::BOOKING_RELATIONS);
 
@@ -438,6 +455,20 @@ class BookingController extends Controller
         }
 
         return min($discount, $subtotal);
+    }
+
+    /**
+     * Attempt to refund a captured PaymentIntent as a compensating action.
+     * If the refund itself fails, report it so it can be resolved manually
+     * rather than swallowing the original exception.
+     */
+    private function refundOrReport(string $paymentIntentId): void
+    {
+        try {
+            $this->stripeService->refundPaymentIntent($paymentIntentId);
+        } catch (\Throwable $refundException) {
+            report($refundException);
+        }
     }
 
     private function determinePaymentMethod(int $cardAmount, int $giftCardAmount): PaymentMethod

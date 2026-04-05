@@ -4,7 +4,9 @@ use App\Services\StripeService;
 use Stripe\Exception\CardException;
 use Stripe\Exception\InvalidRequestException;
 use Stripe\PaymentIntent;
+use Stripe\Refund;
 use Stripe\Service\PaymentIntentService;
+use Stripe\Service\RefundService;
 use Stripe\StripeClient;
 
 function mockStripeClient(): array
@@ -138,6 +140,30 @@ test('confirmPaymentIntent returns PaymentIntent', function () {
 
     expect($result)->toBeInstanceOf(PaymentIntent::class)
         ->and($result->status)->toBe('succeeded');
+});
+
+test('refundPaymentIntent calls Stripe refunds create with correct payment intent ID', function () {
+    [$client, $piService] = mockStripeClient();
+
+    $refundService = Mockery::mock(RefundService::class);
+    $client->refunds = $refundService;
+
+    $refundService->shouldReceive('create')
+        ->once()
+        ->with(Mockery::on(fn (array $params) => $params['payment_intent'] === 'pi_test_abc123'))
+        ->andReturn(Refund::constructFrom([
+            'id'             => 're_test_xyz',
+            'object'         => 'refund',
+            'payment_intent' => 'pi_test_abc123',
+            'status'         => 'succeeded',
+        ]));
+
+    $service = new StripeService(client: $client);
+    $result = $service->refundPaymentIntent('pi_test_abc123');
+
+    expect($result)->toBeInstanceOf(Refund::class)
+        ->and($result->status)->toBe('succeeded')
+        ->and($result->payment_intent)->toBe('pi_test_abc123');
 });
 
 test('service reads stripe secret key from config when no key provided', function () {
