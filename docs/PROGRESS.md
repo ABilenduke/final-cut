@@ -226,3 +226,156 @@
 - [2026-04-04] Fixed 3 test files missing `Tests\TestCase::class` in `uses()` (AuditoriumTest, SeatTest, UserTest)
 - [2026-04-04] Added `bookings()` HasMany relationship to Showtime model (omitted by parallel agent)
 - [2026-04-04] Removed scaffold `tests/Feature/ExampleTest.php` (tested non-existent GET / web route)
+
+---
+
+# Progress Journal — Plan 03: Movie & Showtime API
+
+## Task 1: TmdbService — HTTP Client & Transform
+**Status:** ✅ Complete
+**Started:** 2026-04-04
+**Completed:** 2026-04-04
+
+### Work Done
+- [2026-04-04] Created `TmdbService` with `nowPlaying()`, `upcoming()`, `movieDetail()` methods
+- [2026-04-04] Implemented `tmdbToMovie()` transform matching DATA_MODELS.md Section 3 (cast limit 12, YouTube trailer extraction, image size prefixes w500/w1280/w185)
+- [2026-04-04] Added caching: 30 min for lists, 1 hour for detail via `Cache::remember()`
+- [2026-04-04] Graceful degradation: returns empty/null when TMDB unavailable or no API key
+- [2026-04-04] 13 unit tests covering transform, caching, error handling
+
+### Decisions
+- [2026-04-04] Used `Http::withToken()` (Bearer auth) — matches TMDB v3 Read Access Token auth method
+- [2026-04-04] `tmdbToMovie` is private — only called internally, tested via reflection
+
+### Files Changed
+- `backend/app/Services/TmdbService.php` — new
+- `backend/tests/Unit/Services/TmdbServiceTest.php` — new (13 tests)
+
+---
+
+## Task 2: API Resources
+**Status:** ✅ Complete
+**Started:** 2026-04-04
+**Completed:** 2026-04-04
+
+### Work Done
+- [2026-04-04] Created `MovieResource`, `MovieListResource`, `ShowtimeResource`, `AuditoriumResource`, `SeatResource`
+- [2026-04-04] All resources output camelCase keys matching frontend TypeScript interfaces
+- [2026-04-04] `SeatResource` uses `computed_status` and `computed_price` attributes set by controller
+- [2026-04-04] `AuditoriumResource` groups seats by row and extracts unique sections
+- [2026-04-04] 8 unit tests covering all resource transformations
+
+### Decisions
+- [2026-04-04] `SeatResource` reads computed status/price from dynamically set model attributes rather than accepting constructor params — simpler integration with Eloquent collection patterns
+- [2026-04-04] `AuditoriumResource` sorts seats by `[row, number]` before grouping for consistent output
+
+### Files Changed
+- `backend/app/Http/Resources/MovieResource.php` — new
+- `backend/app/Http/Resources/MovieListResource.php` — new
+- `backend/app/Http/Resources/ShowtimeResource.php` — new
+- `backend/app/Http/Resources/AuditoriumResource.php` — new
+- `backend/app/Http/Resources/SeatResource.php` — new
+- `backend/tests/Unit/Resources/ResourcesTest.php` — new (8 tests)
+
+---
+
+## Task 3: MovieController Implementation
+**Status:** ✅ Complete
+**Started:** 2026-04-04
+**Completed:** 2026-04-04
+
+### Work Done
+- [2026-04-04] Implemented `GET /api/movies` — fetches from TMDB, returns camelCase array data with meta
+- [2026-04-04] Implemented `GET /api/movies/{slug}` — local slug lookup + TMDB enrichment for cast/trailer, falls back to local data when TMDB fails
+- [2026-04-04] Implemented `GET /api/locations/{location}/movies/{slug}/showtimes` — location-scoped, date-filtered with today default, eager-loads movie + auditorium
+- [2026-04-04] 14 feature tests covering TMDB integration, fallback, date filtering, 404s
+
+### Decisions
+- [2026-04-04] Movie detail merges TMDB data onto the local Eloquent model (TMDB provides enriched cast/trailer, local model provides slug/status)
+
+### Known Issue — Movie List Source of Truth (RESOLVED)
+- [2026-04-04] `GET /api/movies` was proxying TMDB now_playing/upcoming directly, returning every movie in US theaters instead of only this theater's movies.
+- [2026-04-04] **Fixed**: endpoint now queries local `movies` table by status with pagination, uses `MovieListResource` for output. TMDB is only used for enrichment on detail pages, not for listing. Local DB is the source of truth for what this theater shows.
+
+### Files Changed
+- `backend/app/Http/Controllers/Api/MovieController.php` — implemented (was stub)
+- `backend/tests/Feature/Api/MovieControllerTest.php` — new (14 tests)
+
+---
+
+## Task 4: ShowtimeController — Seat Map with Availability
+**Status:** ✅ Complete
+**Started:** 2026-04-04
+**Completed:** 2026-04-04
+
+### Work Done
+- [2026-04-04] Implemented `GET /api/locations/{location}/showtimes/{id}` — returns showtime + auditorium + full seat map with availability
+- [2026-04-04] Seat availability computed from BookingSeat records (confirmed bookings only)
+- [2026-04-04] Single query for taken seat IDs, then in-memory map — no N+1
+- [2026-04-04] 8 feature tests covering availability logic, cancelled bookings, cross-showtime isolation, pricing, and 300-seat performance
+
+### Decisions
+- [2026-04-04] Seat status is computed at query time, not stored — avoids state synchronization issues
+- [2026-04-04] Only `BookingStatus::Confirmed` bookings count as "taken" — cancelled/refunded seats remain available
+
+### Files Changed
+- `backend/app/Http/Controllers/Api/ShowtimeController.php` — implemented (was stub)
+- `backend/tests/Feature/Api/ShowtimeControllerTest.php` — new (8 tests)
+
+---
+
+## Task 5: Update Route Stub Tests
+**Status:** ✅ Complete
+**Started:** 2026-04-04
+**Completed:** 2026-04-04
+
+### Work Done
+- [2026-04-04] Removed 4 movie/showtime stub tests from RouteStubsTest (now covered by dedicated test files)
+- [2026-04-04] Full suite: 144 tests, 426 assertions, 0 failures
+
+### Files Changed
+- `backend/tests/Feature/Api/RouteStubsTest.php` — removed movie/showtime stubs
+
+---
+
+## Rework: Theatre-Owned Movie Catalog + Booking Seat Fix
+**Status:** ✅ Complete
+**Started:** 2026-04-04
+**Completed:** 2026-04-04
+
+### Work Done
+- [2026-04-04] **Movies migration**: changed from TMDB ID as PK (`unsignedBigInteger('id')->primary()`) to auto-increment (`id()`). Added `tmdb_id` (nullable unique), `cast` (json), `tmdb_enriched_at` (timestamp).
+- [2026-04-04] **Booking seats migration**: replaced `unique(['showtime_id', 'seat_id'])` with `index(['showtime_id', 'seat_id'])` — cancelled booking seats no longer block rebooking at DB level.
+- [2026-04-04] **Movie model**: removed `$incrementing = false` and `$keyType`, added new columns to fillable and casts.
+- [2026-04-04] **TmdbService rework**: removed `nowPlaying()`/`upcoming()` proxy methods. Renamed `movieDetail()` → `fetchEnrichmentData()`. Added connect timeout (3s), read timeout (5s), bounded retries (2x), negative caching (5-min sentinel). Added `enrichMovie(Movie)` method that updates local fields and preserves data on partial TMDB failure. Switched from `Cache::remember` to explicit get/put to handle null correctly.
+- [2026-04-04] **MovieController simplification**: removed `TmdbService` constructor dependency. `show()` now serves purely from local DB — no TMDB calls in the request path.
+- [2026-04-04] **EnrichMoviesCommand**: new `movies:enrich` artisan command with `--movie`, `--force`, `--stale-hours` options. 200ms rate-limit delay between API calls. Scheduled hourly.
+- [2026-04-04] **Factory/seeder updates**: removed explicit TMDB IDs, added `tmdb_id`, `cast`, `tmdb_enriched_at` fields.
+- [2026-04-04] **Test updates**: rewrote MovieTest (10 tests), TmdbServiceTest (13 tests), MovieControllerTest (15 tests), ResourcesTest, BookingSeatTest, ShowtimeControllerTest (+1 rebooking test). New EnrichMoviesCommandTest (6 tests).
+- [2026-04-04] **Plan doc updated**: `docs/plans/backend/03-movie-api.md` rewritten to reflect theatre-owned catalog architecture.
+
+### Decisions
+- [2026-04-04] Theatre owns its catalog — TMDB is enrichment only, never in the request path. Addresses adversarial review finding about TMDB brownouts hanging user requests.
+- [2026-04-04] Auto-increment PK with optional `tmdb_id` reference — decouples identity from external service.
+- [2026-04-04] Negative caching (5-min sentinel) prevents stampeding a down TMDB API — addresses adversarial review finding about cascading availability problems.
+- [2026-04-04] Booking seat unique constraint removed — addresses adversarial review finding about read/write model disagreement. Application-level locking to be implemented in the booking flow (Plan 04).
+- [2026-04-04] `Cache::remember` replaced with explicit get/put in `fetchEnrichmentData` — array cache driver doesn't reliably cache null values, causing re-execution of the closure.
+
+### Files Changed
+- `backend/database/migrations/2026_04_04_200001_create_movies_table.php` — auto-increment PK, new columns
+- `backend/database/migrations/2026_04_04_200010_create_booking_seats_table.php` — unique → index
+- `backend/app/Models/Movie.php` — removed non-incrementing, added new fields
+- `backend/app/Services/TmdbService.php` — enrichment-only rework
+- `backend/app/Http/Controllers/Api/MovieController.php` — removed TMDB dependency
+- `backend/app/Console/Commands/EnrichMoviesCommand.php` — new
+- `backend/routes/console.php` — hourly schedule
+- `backend/database/factories/MovieFactory.php` — auto-increment, new fields
+- `backend/database/seeders/MovieSeeder.php` — tmdb_id, cast, tmdb_enriched_at
+- `backend/tests/Unit/Models/MovieTest.php` — rewritten (10 tests)
+- `backend/tests/Unit/Models/BookingSeatTest.php` — updated constraint test
+- `backend/tests/Unit/Services/TmdbServiceTest.php` — rewritten (13 tests)
+- `backend/tests/Unit/Resources/ResourcesTest.php` — updated for dynamic IDs + cast
+- `backend/tests/Feature/Api/MovieControllerTest.php` — rewritten (15 tests, no TMDB)
+- `backend/tests/Feature/Api/ShowtimeControllerTest.php` — added rebooking test (9 tests)
+- `backend/tests/Feature/Console/EnrichMoviesCommandTest.php` — new (6 tests)
+- `docs/plans/backend/03-movie-api.md` — rewritten for theatre-owned architecture

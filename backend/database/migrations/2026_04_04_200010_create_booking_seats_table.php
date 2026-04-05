@@ -17,7 +17,8 @@ return new class extends Migration
             $table->unsignedInteger('price');
             $table->timestamps();
 
-            $table->unique(['showtime_id', 'seat_id']);
+            $table->unique(['booking_id', 'seat_id']);
+            $table->index(['showtime_id', 'seat_id']);
         });
     }
 

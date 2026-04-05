@@ -17,7 +17,7 @@ return new class extends Migration
             $table->string('image_url')->nullable();
             $table->json('allergens')->nullable();
             $table->json('dietary')->nullable();
-            $table->boolean('available')->default(true);
+            $table->timestamp('unavailable_at')->nullable();
             $table->timestamps();
         });
     }

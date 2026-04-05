@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Enums\SeatType;
 use App\Models\Auditorium;
+use App\Models\Location;
 use App\Models\Seat;
 use Illuminate\Database\Seeder;
 
@@ -11,18 +12,36 @@ class AuditoriumSeeder extends Seeder
 {
     public function run(): void
     {
-        $layouts = [
-            ['name' => 'Screen 1', 'rows' => 8, 'seats_per_row' => 10, 'premium_rows' => ['D', 'E', 'F']],
-            ['name' => 'Screen 2', 'rows' => 12, 'seats_per_row' => 14, 'premium_rows' => ['E', 'F', 'G', 'H']],
-            ['name' => 'IMAX', 'rows' => 15, 'seats_per_row' => 20, 'premium_rows' => ['F', 'G', 'H', 'I', 'J']],
+        $downtown = Location::firstOrCreate(
+            ['slug' => 'downtown'],
+            ['name' => 'Downtown'],
+        );
+
+        $eastside = Location::firstOrCreate(
+            ['slug' => 'eastside'],
+            ['name' => 'Eastside'],
+        );
+
+        $locationLayouts = [
+            $downtown->id => [
+                ['name' => 'Screen 1', 'rows' => 8, 'seats_per_row' => 10, 'premium_rows' => ['D', 'E', 'F']],
+                ['name' => 'Screen 2', 'rows' => 12, 'seats_per_row' => 14, 'premium_rows' => ['E', 'F', 'G', 'H']],
+                ['name' => 'IMAX', 'rows' => 15, 'seats_per_row' => 20, 'premium_rows' => ['F', 'G', 'H', 'I', 'J']],
+            ],
+            $eastside->id => [
+                ['name' => 'Screen 1', 'rows' => 8, 'seats_per_row' => 10, 'premium_rows' => ['D', 'E', 'F']],
+                ['name' => 'Screen 2', 'rows' => 10, 'seats_per_row' => 12, 'premium_rows' => ['D', 'E', 'F']],
+            ],
         ];
 
-        foreach ($layouts as $layout) {
-            $totalSeats = $layout['rows'] * $layout['seats_per_row'];
-            $auditorium = Auditorium::create([
-                'name' => $layout['name'],
-                'total_seats' => $totalSeats,
-            ]);
+        foreach ($locationLayouts as $locationId => $layouts) {
+            foreach ($layouts as $layout) {
+                $totalSeats = $layout['rows'] * $layout['seats_per_row'];
+                $auditorium = Auditorium::create([
+                    'location_id' => $locationId,
+                    'name' => $layout['name'],
+                    'total_seats' => $totalSeats,
+                ]);
 
             $lastRowLetter = chr(ord('A') + $layout['rows'] - 1);
 
@@ -49,6 +68,7 @@ class AuditoriumSeeder extends Seeder
                         'type' => $type,
                     ]);
                 }
+            }
             }
         }
     }

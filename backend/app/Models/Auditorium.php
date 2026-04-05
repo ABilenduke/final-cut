@@ -7,15 +7,21 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['name', 'total_seats'])]
+#[Fillable(['location_id', 'name', 'total_seats'])]
 class Auditorium extends Model
 {
     /** @use HasFactory<AuditoriumFactory> */
     use HasFactory, HasUuids;
 
     protected $table = 'auditoriums';
+
+    public function location(): BelongsTo
+    {
+        return $this->belongsTo(Location::class);
+    }
 
     public function seats(): HasMany
     {
