@@ -2,113 +2,33 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Http\Requests\LoginRequest;
-use App\Http\Requests\RegisterRequest;
-use App\Http\Resources\UserResource;
-use App\Models\User;
-use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Password;
-use Illuminate\Support\Str;
 
 class AuthController extends Controller
 {
-    public function register(RegisterRequest $request): JsonResponse
+    public function register(Request $request): JsonResponse
     {
-        try {
-            $user = User::create($request->validated());
-        } catch (QueryException $e) {
-            if ($e->errorInfo[1] == 7 || str_contains($e->getMessage(), 'unique')) {
-                throw \Illuminate\Validation\ValidationException::withMessages([
-                    'email' => ['The email has already been taken.'],
-                ]);
-            }
-
-            throw $e;
-        }
-
-        $user->refresh();
-
-        Auth::guard('web')->login($user);
-
-        if ($request->hasSession()) {
-            $request->session()->regenerate();
-        }
-
-        return $this->successResponse(new UserResource($user), status: 201);
+        return $this->notImplementedResponse();
     }
 
-    public function login(LoginRequest $request): JsonResponse
+    public function login(Request $request): JsonResponse
     {
-        if (! Auth::guard('web')->attempt($request->validated())) {
-            return $this->errorResponse(
-                [['message' => 'Invalid credentials']],
-                401
-            );
-        }
-
-        if ($request->hasSession()) {
-            $request->session()->regenerate();
-        }
-
-        return $this->successResponse(new UserResource(Auth::guard('web')->user()));
+        return $this->notImplementedResponse();
     }
 
     public function logout(Request $request): JsonResponse
     {
-        Auth::guard('web')->logout();
-
-        if ($request->hasSession()) {
-            $request->session()->invalidate();
-            $request->session()->regenerateToken();
-        }
-
-        return $this->successResponse(['success' => true]);
+        return $this->notImplementedResponse();
     }
 
     public function me(Request $request): JsonResponse
     {
-        return $this->successResponse(new UserResource($request->user()));
+        return $this->notImplementedResponse();
     }
 
     public function forgotPassword(Request $request): JsonResponse
     {
-        $request->validate([
-            'email' => ['required', 'email'],
-        ]);
-
-        Password::sendResetLink($request->only('email'));
-
-        return $this->successResponse(['success' => true]);
-    }
-
-    public function resetPassword(Request $request): JsonResponse
-    {
-        $request->validate([
-            'token' => ['required', 'string'],
-            'email' => ['required', 'email'],
-            'password' => ['required', 'string', 'min:8', 'confirmed'],
-        ]);
-
-        $status = Password::reset(
-            $request->only('email', 'password', 'password_confirmation', 'token'),
-            function (User $user, string $password) {
-                $user->forceFill([
-                    'password' => $password,
-                    'remember_token' => Str::random(60),
-                ])->save();
-            }
-        );
-
-        if ($status === Password::PASSWORD_RESET) {
-            return $this->successResponse(['success' => true]);
-        }
-
-        return $this->errorResponse(
-            [['message' => __($status)]],
-            422
-        );
+        return $this->notImplementedResponse();
     }
 }

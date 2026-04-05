@@ -28,9 +28,7 @@ Global state is shared across components and persists across page navigations wi
 - `logout(): Promise<void>` — POST `/api/auth/logout`, clears user state + cookie
 - `fetchUser(): Promise<void>` — GET `/api/auth/me`, refreshes user state from server (called on app init to restore session)
 
-**Persistence:** Two complementary session mechanisms:
-- **Laravel Sanctum** (backend) — authenticates API requests via a session cookie. The session is stored in Redis server-side. Sanctum's `AuthenticateSession` middleware validates the password hash on each request, automatically invalidating sessions after password changes.
-- **nuxt-auth-utils** (frontend) — stores user state in a sealed encrypted HTTP-only cookie for Nuxt SSR hydration. This allows the server-side renderer to know the user is logged in without making an API call on every page load. The `user` ref in `useState` is hydrated from this cookie on SSR and revalidated on client init via `GET /api/auth/me`.
+**Persistence:** Session stored in encrypted HTTP-only cookie by `nuxt-auth-utils`. The `user` ref in `useState` is hydrated on SSR and revalidated on client init.
 
 **Usage:**
 ```typescript
