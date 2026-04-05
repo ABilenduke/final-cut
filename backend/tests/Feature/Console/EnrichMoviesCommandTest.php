@@ -4,6 +4,10 @@ use App\Models\Movie;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 
+beforeEach(function () {
+    config(['services.tmdb.api_key' => 'test-tmdb-api-key']);
+});
+
 function fakeTmdbCombinedResponse(int $id = 550, string $title = 'Fight Club'): array
 {
     return [

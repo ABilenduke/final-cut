@@ -7,7 +7,8 @@
     "dev": "nuxt dev",
     "generate": "nuxt generate",
     "preview": "nuxt preview",
-    "postinstall": "nuxt prepare"
+    "postinstall": "nuxt prepare",
+    "test": "vitest run"
   },
   "dependencies": {
     "nuxt": "^4.4.2",
@@ -15,8 +16,9 @@
     "vue-router": "^5.0.4"
   },
   "devDependencies": {
-    "storybook": "^8.6.0",
+    "@nuxt/test-utils": "^3.17.0",
     "@storybook/vue3-vite": "^8.6.0",
-    "@playwright/test": "1.58.0"
+    "storybook": "^8.6.0",
+    "vitest": "^3.2.0"
   }
 }

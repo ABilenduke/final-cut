@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Enums\BookingStatus;
 use App\Enums\GiftCardStatus;
 use App\Enums\PaymentMethod;
+use App\Exceptions\SeatConflictException;
 use App\Http\Requests\CreateBookingRequest;
 use App\Http\Resources\BookingResource;
 use App\Models\Booking;
@@ -71,10 +72,10 @@ class BookingController extends Controller
 
             $resolvedFoodItems[] = [
                 'menu_item_id' => $menuItem->id,
-                'name'         => $menuItem->name,
-                'quantity'     => $item['quantity'],
-                'unit_price'   => $resolvedPrice,
-                'total_price'  => $itemTotal,
+                'name' => $menuItem->name,
+                'quantity' => $item['quantity'],
+                'unit_price' => $resolvedPrice,
+                'total_price' => $itemTotal,
             ];
         }
 
@@ -141,7 +142,7 @@ class BookingController extends Controller
                     $booking->delete();
 
                     return $this->errorResponse([[
-                        'field'   => 'giftCardCode',
+                        'field' => 'giftCardCode',
                         'message' => 'Gift card is no longer valid or has been depleted.',
                     ]], 409);
                 }
@@ -161,7 +162,7 @@ class BookingController extends Controller
                     $booking->delete();
 
                     return $this->errorResponse([[
-                        'field'   => 'paymentMethodId',
+                        'field' => 'paymentMethodId',
                         'message' => 'A payment method is required when the gift card does not cover the full amount.',
                     ]], 422);
                 }
@@ -175,27 +176,27 @@ class BookingController extends Controller
 
                     if ($paymentIntent->status === 'requires_action') {
                         Cache::put("pending_booking:{$paymentIntent->id}", [
-                            'location_id'      => $location->id,
-                            'showtime_id'      => $showtime->id,
-                            'user_id'          => $request->user()?->id,
-                            'guest_email'      => $request->user() ? null : $request->input('email'),
-                            'seat_ids'         => $seatIds,
-                            'food_items'       => $resolvedFoodItems,
-                            'subtotal'         => $subtotal,
-                            'discount'         => $discount,
-                            'total'            => $total,
-                            'card_amount'      => $cardAmount,
-                            'gift_card_id'     => $giftCard?->id,
+                            'location_id' => $location->id,
+                            'showtime_id' => $showtime->id,
+                            'user_id' => $request->user()?->id,
+                            'guest_email' => $request->user() ? null : $request->input('email'),
+                            'seat_ids' => $seatIds,
+                            'food_items' => $resolvedFoodItems,
+                            'subtotal' => $subtotal,
+                            'discount' => $discount,
+                            'total' => $total,
+                            'card_amount' => $cardAmount,
+                            'gift_card_id' => $giftCard?->id,
                             'gift_card_amount' => $giftCardAmount,
-                            'payment_method'   => $this->determinePaymentMethod($cardAmount, $giftCardAmount),
+                            'payment_method' => $this->determinePaymentMethod($cardAmount, $giftCardAmount),
                         ], now()->addMinutes(15));
 
                         $booking->delete();
 
                         return response()->json([
                             'data' => [
-                                'requiresAction'  => true,
-                                'clientSecret'    => $paymentIntent->client_secret,
+                                'requiresAction' => true,
+                                'clientSecret' => $paymentIntent->client_secret,
                                 'paymentIntentId' => $paymentIntent->id,
                             ],
                         ]);
@@ -229,10 +230,10 @@ class BookingController extends Controller
             // issue a compensating refund so we don't orphan a charge.
             try {
                 $booking->update([
-                    'subtotal'                 => $subtotal,
-                    'discount'                 => $discount,
-                    'total'                    => $total,
-                    'payment_method'           => $this->determinePaymentMethod($cardAmount, $giftCardAmount),
+                    'subtotal' => $subtotal,
+                    'discount' => $discount,
+                    'total' => $total,
+                    'payment_method' => $this->determinePaymentMethod($cardAmount, $giftCardAmount),
                     'stripe_payment_intent_id' => $stripePaymentIntentId,
                 ]);
 
@@ -266,7 +267,7 @@ class BookingController extends Controller
     {
         $request->validate([
             'confirmation_code' => 'required|string',
-            'email'             => 'required|email',
+            'email' => 'required|email',
         ]);
 
         $booking = Booking::with(self::BOOKING_RELATIONS)
@@ -315,7 +316,7 @@ class BookingController extends Controller
             );
 
             if (! empty($unavailable)) {
-                throw new \App\Exceptions\SeatConflictException($unavailable);
+                throw new SeatConflictException($unavailable);
             }
 
             // Revalidate gift card balance BEFORE confirming payment.
@@ -334,14 +335,14 @@ class BookingController extends Controller
 
                 if (! $giftCard) {
                     return $this->errorResponse([[
-                        'field'   => 'giftCardCode',
+                        'field' => 'giftCardCode',
                         'message' => 'Gift card is no longer valid. Please start over.',
                     ]], 409);
                 }
 
                 if ($giftCardAmount > 0 && $giftCard->current_balance < $giftCardAmount) {
                     return $this->errorResponse([[
-                        'field'   => 'giftCardCode',
+                        'field' => 'giftCardCode',
                         'message' => 'Gift card balance changed during payment. Please start over.',
                     ]], 409);
                 }
@@ -433,7 +434,7 @@ class BookingController extends Controller
             $newBalance = $giftCard->current_balance - $deduction;
             $giftCard->update([
                 'current_balance' => max(0, $newBalance),
-                'status'          => $newBalance <= 0 ? GiftCardStatus::Depleted : GiftCardStatus::Active,
+                'status' => $newBalance <= 0 ? GiftCardStatus::Depleted : GiftCardStatus::Active,
             ]);
         }
 

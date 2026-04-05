@@ -13,7 +13,7 @@ class LocationFactory extends Factory
 
     public function definition(): array
     {
-        $name = fake()->unique()->city() . ' Cinema';
+        $name = fake()->unique()->city().' Cinema';
 
         return [
             'name' => $name,

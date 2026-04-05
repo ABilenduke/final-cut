@@ -43,32 +43,32 @@ class AuditoriumSeeder extends Seeder
                     'total_seats' => $totalSeats,
                 ]);
 
-            $lastRowLetter = chr(ord('A') + $layout['rows'] - 1);
+                $lastRowLetter = chr(ord('A') + $layout['rows'] - 1);
 
-            for ($r = 0; $r < $layout['rows']; $r++) {
-                $rowLetter = chr(ord('A') + $r);
+                for ($r = 0; $r < $layout['rows']; $r++) {
+                    $rowLetter = chr(ord('A') + $r);
 
-                for ($s = 1; $s <= $layout['seats_per_row']; $s++) {
-                    $type = SeatType::Standard;
+                    for ($s = 1; $s <= $layout['seats_per_row']; $s++) {
+                        $type = SeatType::Standard;
 
-                    if ($rowLetter === $lastRowLetter) {
-                        // Last row: accessible (aisle seats only — seats 1, 2, last-1, last)
-                        if ($s <= 2 || $s >= $layout['seats_per_row'] - 1) {
-                            $type = SeatType::Accessible;
+                        if ($rowLetter === $lastRowLetter) {
+                            // Last row: accessible (aisle seats only — seats 1, 2, last-1, last)
+                            if ($s <= 2 || $s >= $layout['seats_per_row'] - 1) {
+                                $type = SeatType::Accessible;
+                            }
+                        } elseif (in_array($rowLetter, $layout['premium_rows'])) {
+                            $type = SeatType::Premium;
                         }
-                    } elseif (in_array($rowLetter, $layout['premium_rows'])) {
-                        $type = SeatType::Premium;
-                    }
 
-                    Seat::create([
-                        'auditorium_id' => $auditorium->id,
-                        'label' => $rowLetter . $s,
-                        'row' => $rowLetter,
-                        'number' => $s,
-                        'type' => $type,
-                    ]);
+                        Seat::create([
+                            'auditorium_id' => $auditorium->id,
+                            'label' => $rowLetter.$s,
+                            'row' => $rowLetter,
+                            'number' => $s,
+                            'type' => $type,
+                        ]);
+                    }
                 }
-            }
             }
         }
     }

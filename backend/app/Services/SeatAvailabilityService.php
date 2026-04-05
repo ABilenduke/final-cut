@@ -42,9 +42,9 @@ class SeatAvailabilityService
      * before calling this method to prevent concurrent double-bookings.
      *
      * @param  string[]  $seatIds
-     * @return int  Total cost of all reserved seats in cents.
+     * @return int Total cost of all reserved seats in cents.
      *
-     * @throws ValidationException   When any seat does not belong to the showtime's auditorium.
+     * @throws ValidationException When any seat does not belong to the showtime's auditorium.
      * @throws SeatConflictException When any seat is already taken by a confirmed booking.
      */
     public function reserveSeats(Showtime $showtime, array $seatIds, Booking $booking): int
@@ -76,17 +76,17 @@ class SeatAvailabilityService
             $seat = $seats->get($seatId);
 
             $price = match ($seat->type) {
-                SeatType::Standard   => $showtime->price_standard,
-                SeatType::Premium    => $showtime->price_premium,
+                SeatType::Standard => $showtime->price_standard,
+                SeatType::Premium => $showtime->price_premium,
                 SeatType::Accessible => $showtime->price_accessible,
             };
 
             BookingSeat::create([
-                'booking_id'  => $booking->id,
+                'booking_id' => $booking->id,
                 'showtime_id' => $showtime->id,
-                'seat_id'     => $seatId,
-                'section'     => $seat->type->value,
-                'price'       => $price,
+                'seat_id' => $seatId,
+                'section' => $seat->type->value,
+                'price' => $price,
             ]);
 
             $total += $price;

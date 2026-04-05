@@ -41,7 +41,7 @@ class Booking extends Model
 
         self::$sqids ??= new Sqids(alphabet: 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789', minLength: 6);
 
-        return 'CVF-' . self::$sqids->encode([$sequence]);
+        return 'CVF-'.self::$sqids->encode([$sequence]);
     }
 
     protected function casts(): array

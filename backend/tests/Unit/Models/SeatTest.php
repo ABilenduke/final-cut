@@ -3,6 +3,7 @@
 use App\Enums\SeatType;
 use App\Models\Auditorium;
 use App\Models\Seat;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Str;
 
 it('creates a seat with UUID primary key', function () {
@@ -35,7 +36,7 @@ it('enforces unique (auditorium_id, row, number) constraint', function () {
         'number' => 1,
         'label' => 'A1-dup',
     ]);
-})->throws(\Illuminate\Database\QueryException::class);
+})->throws(QueryException::class);
 
 it('enforces unique (auditorium_id, label) constraint', function () {
     $auditorium = Auditorium::factory()->create();
@@ -51,7 +52,7 @@ it('enforces unique (auditorium_id, label) constraint', function () {
         'number' => 2,
         'label' => 'A1',
     ]);
-})->throws(\Illuminate\Database\QueryException::class);
+})->throws(QueryException::class);
 
 it('cascades delete from auditorium to seats', function () {
     $auditorium = Auditorium::factory()->create();

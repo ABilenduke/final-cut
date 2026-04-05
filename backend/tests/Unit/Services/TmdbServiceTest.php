@@ -68,6 +68,10 @@ function tmdbCombinedResponse(?array $credits = null, ?array $videos = null): ar
     return $response;
 }
 
+beforeEach(function () {
+    config(['services.tmdb.api_key' => 'test-tmdb-api-key']);
+});
+
 // --- tmdbToMovie transformation tests ---
 
 test('tmdbToMovie transforms TMDB data correctly', function () {

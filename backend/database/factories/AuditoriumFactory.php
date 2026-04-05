@@ -15,7 +15,7 @@ class AuditoriumFactory extends Factory
     {
         return [
             'location_id' => Location::factory(),
-            'name' => 'Screen ' . fake()->unique()->numberBetween(1, 10000),
+            'name' => 'Screen '.fake()->unique()->numberBetween(1, 10000),
             'total_seats' => fake()->numberBetween(50, 300),
         ];
     }

@@ -27,7 +27,7 @@ class BookingFactory extends Factory
             'discount' => 0,
             'total' => $subtotal,
             'payment_method' => PaymentMethod::Card,
-            'stripe_payment_intent_id' => 'pi_' . fake()->regexify('[a-zA-Z0-9]{24}'),
+            'stripe_payment_intent_id' => 'pi_'.fake()->regexify('[a-zA-Z0-9]{24}'),
         ];
     }
 

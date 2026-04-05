@@ -66,10 +66,10 @@ class MenuItemSeeder extends Seeder
         $eastsideExclusive = ['Ice Cream Sundae'];
 
         $eastsidePriceOverrides = [
-            'Small Popcorn'  => 699,
+            'Small Popcorn' => 699,
             'Medium Popcorn' => 899,
-            'Large Popcorn'  => 1099,
-            'Craft Beer'     => 999,
+            'Large Popcorn' => 1099,
+            'Craft Beer' => 999,
         ];
 
         $allItems = MenuItem::all();

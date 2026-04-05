@@ -1,6 +1,5 @@
 <?php
 
-use App\Enums\BookingStatus;
 use App\Enums\MovieStatus;
 use App\Enums\SeatType;
 use App\Http\Resources\AuditoriumResource;
@@ -9,8 +8,6 @@ use App\Http\Resources\MovieResource;
 use App\Http\Resources\SeatResource;
 use App\Http\Resources\ShowtimeResource;
 use App\Models\Auditorium;
-use App\Models\Booking;
-use App\Models\BookingSeat;
 use App\Models\Movie;
 use App\Models\Seat;
 use App\Models\Showtime;

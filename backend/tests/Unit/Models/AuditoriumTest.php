@@ -3,6 +3,8 @@
 use App\Models\Auditorium;
 use App\Models\Location;
 use App\Models\Seat;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Str;
 
 it('creates an auditorium with UUID primary key', function () {
@@ -25,14 +27,14 @@ it('has many seats', function () {
 
 it('has showtimes relationship', function () {
     $auditorium = Auditorium::factory()->create();
-    expect($auditorium->showtimes())->toBeInstanceOf(\Illuminate\Database\Eloquent\Relations\HasMany::class);
+    expect($auditorium->showtimes())->toBeInstanceOf(HasMany::class);
 });
 
 it('enforces unique name constraint within a location', function () {
     $location = Location::factory()->create();
     Auditorium::factory()->create(['location_id' => $location->id, 'name' => 'IMAX']);
     Auditorium::factory()->create(['location_id' => $location->id, 'name' => 'IMAX']);
-})->throws(\Illuminate\Database\QueryException::class);
+})->throws(QueryException::class);
 
 it('allows same name across different locations', function () {
     $location1 = Location::factory()->create();

@@ -22,11 +22,11 @@ function mockStripeClient(): array
 function fakePaymentIntent(string $status = 'succeeded'): PaymentIntent
 {
     return PaymentIntent::constructFrom([
-        'id'       => 'pi_test_abc123',
-        'object'   => 'payment_intent',
-        'amount'   => 2500,
+        'id' => 'pi_test_abc123',
+        'object' => 'payment_intent',
+        'amount' => 2500,
         'currency' => 'usd',
-        'status'   => $status,
+        'status' => $status,
     ]);
 }
 
@@ -152,10 +152,10 @@ test('refundPaymentIntent calls Stripe refunds create with correct payment inten
         ->once()
         ->with(Mockery::on(fn (array $params) => $params['payment_intent'] === 'pi_test_abc123'))
         ->andReturn(Refund::constructFrom([
-            'id'             => 're_test_xyz',
-            'object'         => 'refund',
+            'id' => 're_test_xyz',
+            'object' => 'refund',
             'payment_intent' => 'pi_test_abc123',
-            'status'         => 'succeeded',
+            'status' => 'succeeded',
         ]));
 
     $service = new StripeService(client: $client);
@@ -169,7 +169,7 @@ test('refundPaymentIntent calls Stripe refunds create with correct payment inten
 test('service reads stripe secret key from config when no key provided', function () {
     config(['services.stripe.secret' => 'sk_test_from_config']);
 
-    $service = new StripeService();
+    $service = new StripeService;
 
     expect($service)->toBeInstanceOf(StripeService::class);
 });

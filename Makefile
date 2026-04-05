@@ -1,4 +1,4 @@
-.PHONY: up down build shell migrate fresh certs trust-cert prod-up prod-down prod-build prod-logs local-prod-up local-prod-down local-prod-build local-prod-logs storybook storybook-logs e2e
+.PHONY: up down build shell migrate fresh certs trust-cert prod-up prod-down prod-build prod-logs local-prod-up local-prod-down local-prod-build local-prod-logs storybook storybook-logs e2e ci-e2e
 
 up:
 	docker compose up -d
@@ -68,3 +68,11 @@ storybook-logs:
 
 e2e:
 	docker compose run --rm --build playwright
+
+CI_COMPOSE = docker compose -f docker-compose.yml -f docker-compose.ci.yml
+
+ci-e2e:
+	$(CI_COMPOSE) up -d --build --wait
+	$(CI_COMPOSE) exec -T backend php artisan migrate:fresh --seed
+	$(CI_COMPOSE) run --rm playwright
+	$(CI_COMPOSE) down -v

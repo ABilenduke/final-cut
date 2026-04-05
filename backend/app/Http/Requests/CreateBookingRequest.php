@@ -15,17 +15,17 @@ class CreateBookingRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'showtimeId'           => ['required', 'uuid', 'exists:showtimes,id'],
-            'seatIds'              => ['required', 'array', 'min:1', 'max:10'],
-            'seatIds.*'            => ['required', 'uuid', 'distinct', 'exists:seats,id'],
-            'foodItems'            => ['sometimes', 'array'],
-            'foodItems.*.itemId'   => ['required', 'uuid', 'exists:menu_items,id'],
+            'showtimeId' => ['required', 'uuid', 'exists:showtimes,id'],
+            'seatIds' => ['required', 'array', 'min:1', 'max:10'],
+            'seatIds.*' => ['required', 'uuid', 'distinct', 'exists:seats,id'],
+            'foodItems' => ['sometimes', 'array'],
+            'foodItems.*.itemId' => ['required', 'uuid', 'exists:menu_items,id'],
             'foodItems.*.quantity' => ['required', 'integer', 'min:1', 'max:10'],
-            'paymentMethodId'      => ['required_without:giftCardCode', 'nullable', 'string'],
-            'promoCode'            => ['sometimes', 'nullable', 'string', 'max:20'],
-            'giftCardCode'         => ['sometimes', 'nullable', 'string', 'max:20'],
-            'email'                => ['nullable', 'email', 'max:255'],
-            'loyaltyOptIn'         => ['sometimes', 'boolean'],
+            'paymentMethodId' => ['required_without:giftCardCode', 'nullable', 'string'],
+            'promoCode' => ['sometimes', 'nullable', 'string', 'max:20'],
+            'giftCardCode' => ['sometimes', 'nullable', 'string', 'max:20'],
+            'email' => ['nullable', 'email', 'max:255'],
+            'loyaltyOptIn' => ['sometimes', 'boolean'],
         ];
     }
 
