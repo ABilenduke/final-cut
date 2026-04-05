@@ -267,6 +267,22 @@ test('forgot password returns success and sends notification when email exists',
     Notification::assertSentTo($user, ResetPassword::class);
 });
 
+test('forgot password notification contains frontend reset URL', function () {
+    $user = User::factory()->create(['email' => 'john@finalcut.test']);
+
+    $token = Password::createToken($user);
+    $notification = new ResetPassword($token);
+
+    $mail = $notification->toMail($user);
+
+    $frontendUrl = config('app.frontend_url');
+    $actionUrl = $mail->actionUrl;
+
+    expect($actionUrl)->toStartWith("{$frontendUrl}/auth/reset-password")
+        ->and($actionUrl)->toContain("token={$token}")
+        ->and($actionUrl)->toContain('email=john%40finalcut.test');
+});
+
 test('forgot password returns success even when email does not exist', function () {
     Notification::fake();
 
