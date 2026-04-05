@@ -354,34 +354,23 @@ test('partial gift card without paymentMethodId returns 422', function () {
         ->where('status', BookingStatus::Confirmed)->count())->toBe(0);
 });
 
-test('gift card depleted between pre-check and transaction returns 422 without paymentMethodId', function () {
+test('gift card with insufficient balance requires paymentMethodId for remaining amount', function () {
     $fixture = $this->createShowtimeWithSeats();
     $this->fakeStripe();
 
+    // Gift card has $2 balance — passes pre-check (balance > 0) but only
+    // partially covers the $12 seat. Without a paymentMethodId for the
+    // remaining $10, the request should fail with 422.
     $giftCard = GiftCard::factory()->create([
-        'current_balance' => 5000, // Pre-check sees $50 — more than enough
+        'current_balance' => 200,
         'status'          => \App\Enums\GiftCardStatus::Active,
     ]);
-
-    // Simulate concurrent depletion by hooking into the lockForUpdate query.
-    // We drain the gift card after the pre-check but before the in-transaction lock.
-    // Since we can't easily intercept mid-transaction, we just set balance to 0
-    // before the request — the pre-check uses a non-locking read so it will
-    // see the stale Active status while the locked read inside the transaction
-    // finds 0 balance.
-    //
-    // Actually, we need the pre-check to pass, so set balance to something that
-    // passes the pre-check (> 0) but drain it to 0 before the transaction reads it.
-    // The simplest approach: use a balance that's less than the seat price so
-    // cardAmount > 0 after gift card application.
-    $giftCard->update(['current_balance' => 200]); // $2 — pre-check passes (> 0), but cardAmount = $10
 
     $response = postJson($this->bookingUrl($fixture['location']), [
         'showtimeId'   => $fixture['showtime']->id,
         'seatIds'      => [$fixture['seats'][0]->id],
         'giftCardCode' => $giftCard->code,
         'email'        => 'guest@example.com',
-        // No paymentMethodId — expecting gift card to cover everything
     ]);
 
     $response->assertStatus(422);
