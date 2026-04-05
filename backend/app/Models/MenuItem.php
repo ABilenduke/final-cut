@@ -53,20 +53,14 @@ class MenuItem extends Model
         );
     }
 
-    public function scopeCurrentlyAvailable(Builder $query, ?Location $location = null): Builder
+    public function scopeCurrentlyAvailable(Builder $query): Builder
     {
-        $query->whereNull('menu_items.unavailable_at');
+        return $query->whereNull('menu_items.unavailable_at');
+    }
 
-        if ($location) {
-            $query->select('menu_items.*')
-                ->join('location_menu_item', function ($join) use ($location) {
-                    $join->on('location_menu_item.menu_item_id', '=', 'menu_items.id')
-                        ->where('location_menu_item.location_id', '=', $location->id);
-                })
-                ->whereNull('location_menu_item.unavailable_at');
-        }
-
-        return $query;
+    public function scopeLocationAvailable(Builder $query): Builder
+    {
+        return $query->whereNull('location_menu_item.unavailable_at');
     }
 
     public function scopeCurrentlyUnavailable(Builder $query): Builder

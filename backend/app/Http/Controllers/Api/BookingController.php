@@ -57,15 +57,15 @@ class BookingController extends Controller
 
         foreach ($foodItemsInput as $item) {
             $menuItem = $location->menuItems()
-                ->whereNull('menu_items.unavailable_at')
-                ->whereNull('location_menu_item.unavailable_at')
+                ->currentlyAvailable()
+                ->locationAvailable()
                 ->find($item['itemId']);
 
             if (! $menuItem) {
                 return $this->errorResponse([['field' => 'foodItems', 'message' => "Menu item {$item['itemId']} is unavailable at this location."]], 400);
             }
 
-            $resolvedPrice = $menuItem->pivot->price_override ?? $menuItem->price;
+            $resolvedPrice = $menuItem->priceForLocation();
             $itemTotal = $resolvedPrice * $item['quantity'];
             $foodTotal += $itemTotal;
 
@@ -199,6 +199,12 @@ class BookingController extends Controller
                                 'paymentIntentId' => $paymentIntent->id,
                             ],
                         ]);
+                    }
+
+                    if ($paymentIntent->status !== 'succeeded') {
+                        $booking->delete();
+
+                        return $this->errorResponse([['field' => 'payment', 'message' => 'Payment could not be completed. Please try again.']], 402);
                     }
 
                     $stripePaymentIntentId = $paymentIntent->id;

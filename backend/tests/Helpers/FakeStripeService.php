@@ -60,6 +60,14 @@ class FakeStripeService extends StripeService
         return $this;
     }
 
+    public function shouldReturnNonTerminalStatus(string $status = 'processing'): static
+    {
+        $this->behavior = 'non_terminal';
+        $this->failureMessage = $status;
+
+        return $this;
+    }
+
     public function createPaymentIntent(int $amount, string $paymentMethodId, array $metadata = []): \Stripe\PaymentIntent
     {
         $this->createCallCount++;
@@ -94,6 +102,15 @@ class FakeStripeService extends StripeService
                 $this->failureMessage,
                 503,
             );
+        }
+
+        if ($this->behavior === 'non_terminal') {
+            return \Stripe\PaymentIntent::constructFrom([
+                'id'            => 'pi_fake_nonterminal_xxx',
+                'object'        => 'payment_intent',
+                'status'        => $this->failureMessage,
+                'client_secret' => null,
+            ]);
         }
 
         if ($this->behavior === 'require3ds') {

@@ -102,13 +102,13 @@ it('resolves base price when pivot override is null', function () {
     expect($pivotItem->priceForLocation())->toBe(599);
 });
 
-it('scopes to available items at a specific location', function () {
+it('scopes to available items at a specific location via relationship', function () {
     $location = Location::factory()->create();
 
     MenuItem::factory()->forLocation($location)->create();
     MenuItem::factory()->create(); // not attached — should be excluded
 
-    expect(MenuItem::currentlyAvailable($location)->count())->toBe(1);
+    expect($location->menuItems()->currentlyAvailable()->count())->toBe(1);
 });
 
 it('excludes globally unavailable items from location scope', function () {
@@ -117,7 +117,7 @@ it('excludes globally unavailable items from location scope', function () {
     MenuItem::factory()->forLocation($location)->create();
     MenuItem::factory()->unavailable()->forLocation($location)->create();
 
-    expect(MenuItem::currentlyAvailable($location)->count())->toBe(1);
+    expect($location->menuItems()->currentlyAvailable()->count())->toBe(1);
 });
 
 it('excludes location-unavailable items from location scope', function () {
@@ -126,13 +126,17 @@ it('excludes location-unavailable items from location scope', function () {
     MenuItem::factory()->forLocation($location)->create();
     MenuItem::factory()->forLocation($location, ['unavailable_at' => now()])->create();
 
-    expect(MenuItem::currentlyAvailable($location)->count())->toBe(1);
+    expect($location->menuItems()->currentlyAvailable()->locationAvailable()->count())->toBe(1);
 });
 
-it('global scope without location still works for admin views', function () {
-    MenuItem::factory()->create();
-    MenuItem::factory()->unavailable()->create();
+it('location-scoped query hydrates pivot attributes for priceForLocation', function () {
+    $location = Location::factory()->create();
 
-    // Without location parameter — original behavior preserved
-    expect(MenuItem::currentlyAvailable()->count())->toBe(1);
+    MenuItem::factory()->forLocation($location, ['price_override' => 999])->create(['price' => 599]);
+
+    $item = $location->menuItems()->currentlyAvailable()->locationAvailable()->first();
+
+    expect($item->pivot)->not->toBeNull()
+        ->and($item->pivot->price_override)->toBe(999)
+        ->and($item->priceForLocation())->toBe(999);
 });

@@ -12,8 +12,8 @@ class FoodMenuController extends Controller
     public function index(Location $location, Request $request): JsonResponse
     {
         $query = $location->menuItems()
-            ->whereNull('menu_items.unavailable_at')
-            ->whereNull('location_menu_item.unavailable_at')
+            ->currentlyAvailable()
+            ->locationAvailable()
             ->orderBy('menu_items.category')
             ->orderBy('menu_items.name');
 

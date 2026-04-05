@@ -74,12 +74,15 @@ class MenuItemSeeder extends Seeder
 
         $allItems = MenuItem::all();
 
+        $downtownItems = [];
+        $eastsideItems = [];
+
         foreach ($allItems as $item) {
             $isDowntownExclusive = in_array($item->name, $downtownExclusive);
             $isEastsideExclusive = in_array($item->name, $eastsideExclusive);
 
             if (! $isEastsideExclusive) {
-                $downtown->menuItems()->attach($item->id);
+                $downtownItems[$item->id] = [];
             }
 
             if (! $isDowntownExclusive) {
@@ -87,8 +90,11 @@ class MenuItemSeeder extends Seeder
                 if (isset($eastsidePriceOverrides[$item->name])) {
                     $pivotData['price_override'] = $eastsidePriceOverrides[$item->name];
                 }
-                $eastside->menuItems()->attach($item->id, $pivotData);
+                $eastsideItems[$item->id] = $pivotData;
             }
         }
+
+        $downtown->menuItems()->syncWithoutDetaching($downtownItems);
+        $eastside->menuItems()->syncWithoutDetaching($eastsideItems);
     }
 }

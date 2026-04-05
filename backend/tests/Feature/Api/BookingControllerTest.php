@@ -146,6 +146,25 @@ test('payment declined returns 402', function () {
         ->where('status', BookingStatus::Confirmed)->count())->toBe(0);
 });
 
+test('non-terminal payment status returns 402 and does not create booking', function () {
+    $fixture = $this->createShowtimeWithSeats();
+    $this->fakeStripe()->shouldReturnNonTerminalStatus('processing');
+
+    $response = postJson($this->bookingUrl($fixture['location']), [
+        'showtimeId'      => $fixture['showtime']->id,
+        'seatIds'         => [$fixture['seats'][0]->id],
+        'paymentMethodId' => 'pm_test_visa',
+        'email'           => 'guest@example.com',
+    ]);
+
+    $response->assertStatus(402);
+    expect($response->json('errors.0.field'))->toBe('payment');
+
+    // Booking should not exist
+    expect(Booking::where('showtime_id', $fixture['showtime']->id)
+        ->where('status', BookingStatus::Confirmed)->count())->toBe(0);
+});
+
 test('invalid payment method returns 400', function () {
     $fixture = $this->createShowtimeWithSeats();
     $this->fakeStripe()->shouldFailWithInvalidRequest('No such payment method: pm_expired');
