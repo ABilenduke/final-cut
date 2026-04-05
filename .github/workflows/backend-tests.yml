@@ -45,13 +45,13 @@ jobs:
       postgres:
         image: postgres:17
         env:
-          POSTGRES_USER: testing
-          POSTGRES_PASSWORD: testing
+          POSTGRES_USER: final_cut
+          POSTGRES_PASSWORD: secret
           POSTGRES_DB: final_cut_test
         ports:
           - 5432:5432
         options: >-
-          --health-cmd="pg_isready -U testing"
+          --health-cmd="pg_isready -U final_cut"
           --health-interval=10s
           --health-timeout=5s
           --health-retries=5
@@ -81,7 +81,7 @@ jobs:
           DB_HOST: 127.0.0.1
           DB_PORT: 5432
           DB_DATABASE: final_cut_test
-          DB_USERNAME: testing
-          DB_PASSWORD: testing
+          DB_USERNAME: final_cut
+          DB_PASSWORD: secret
           DB_SSLMODE: disable
         run: php artisan test --compact

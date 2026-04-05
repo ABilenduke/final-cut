@@ -58,6 +58,9 @@ jobs:
       - name: Install dependencies
         run: deno install
 
+      - name: Build application
+        run: deno task build
+
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
 
