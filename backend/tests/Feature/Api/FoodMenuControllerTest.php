@@ -112,7 +112,7 @@ test('filters by category query parameter', function () {
     MenuItem::factory()->forLocation($location)->create(['category' => 'popcorn', 'name' => 'Popcorn']);
     MenuItem::factory()->forLocation($location)->create(['category' => 'drinks', 'name' => 'Soda']);
 
-    $response = getJson(foodMenuUrl($location) . '?category=popcorn');
+    $response = getJson(foodMenuUrl($location).'?category=popcorn');
     $response->assertOk();
 
     $data = $response->json('data');

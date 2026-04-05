@@ -2,6 +2,8 @@
 
 use App\Enums\GiftCardStatus;
 use App\Models\GiftCard;
+use Carbon\Carbon;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Str;
 
 it('creates a gift card with UUID primary key', function () {
@@ -13,7 +15,7 @@ it('creates a gift card with UUID primary key', function () {
 it('enforces unique code constraint', function () {
     GiftCard::factory()->create(['code' => 'TESTCODE1234']);
     GiftCard::factory()->create(['code' => 'TESTCODE1234']);
-})->throws(\Illuminate\Database\QueryException::class);
+})->throws(QueryException::class);
 
 it('stores balances as integers (cents)', function () {
     $card = GiftCard::factory()->create([
@@ -31,7 +33,7 @@ it('casts status to GiftCardStatus enum', function () {
 
 it('casts purchased_at to datetime', function () {
     $card = GiftCard::factory()->create();
-    expect($card->purchased_at)->toBeInstanceOf(\Carbon\Carbon::class);
+    expect($card->purchased_at)->toBeInstanceOf(Carbon::class);
 });
 
 it('defaults status to active', function () {

@@ -16,7 +16,7 @@ uses()->beforeEach(function () {
     if ($current !== 'final_cut_test') {
         throw new RuntimeException(
             "Refusing to run tests against database \"{$current}\". Expected \"final_cut_test\". "
-            . 'Check phpunit.xml DB_DATABASE or your .env.testing configuration.'
+            .'Check phpunit.xml DB_DATABASE or your .env.testing configuration.'
         );
     }
 })->in('Feature', 'Unit');

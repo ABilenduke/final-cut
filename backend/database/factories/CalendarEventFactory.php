@@ -26,7 +26,7 @@ class CalendarEventFactory extends Factory
             'description' => fake()->paragraph(),
             'movie_slug' => null,
             'image_url' => null,
-            'slug' => Str::slug($title) . '-' . fake()->unique()->randomNumber(4),
+            'slug' => Str::slug($title).'-'.fake()->unique()->randomNumber(4),
             'ticket_url' => null,
             'loyalty_only' => false,
             'accessibility_tags' => [],

@@ -4,6 +4,7 @@ use App\Models\Auditorium;
 use App\Models\Location;
 use App\Models\MenuItem;
 use App\Models\Showtime;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Str;
 
 it('creates a location with UUID primary key', function () {
@@ -51,4 +52,4 @@ it('returns only attached menu items, not all', function () {
 it('enforces unique slug constraint', function () {
     Location::factory()->create(['slug' => 'downtown']);
     Location::factory()->create(['slug' => 'downtown']);
-})->throws(\Illuminate\Database\QueryException::class);
+})->throws(QueryException::class);

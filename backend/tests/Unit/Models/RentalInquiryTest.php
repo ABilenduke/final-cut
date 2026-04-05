@@ -3,6 +3,7 @@
 use App\Enums\InquiryStatus;
 use App\Enums\RentalEventType;
 use App\Models\RentalInquiry;
+use Carbon\Carbon;
 use Illuminate\Support\Str;
 
 it('creates a rental inquiry with UUID primary key', function () {
@@ -28,5 +29,5 @@ it('defaults status to pending', function () {
 
 it('casts preferred_date to date', function () {
     $inquiry = RentalInquiry::factory()->create(['preferred_date' => '2026-07-01']);
-    expect($inquiry->preferred_date)->toBeInstanceOf(\Carbon\Carbon::class);
+    expect($inquiry->preferred_date)->toBeInstanceOf(Carbon::class);
 });

@@ -15,14 +15,14 @@ use Illuminate\Validation\ValidationException;
 
 function makeShowtimeFixture(array $showtimeOverrides = []): array
 {
-    $location   = Location::factory()->create();
+    $location = Location::factory()->create();
     $auditorium = Auditorium::factory()->create(['location_id' => $location->id]);
-    $movie      = Movie::factory()->create();
-    $showtime   = Showtime::factory()->create(array_merge([
-        'auditorium_id'    => $auditorium->id,
-        'movie_id'         => $movie->id,
-        'price_standard'   => 1200,
-        'price_premium'    => 1800,
+    $movie = Movie::factory()->create();
+    $showtime = Showtime::factory()->create(array_merge([
+        'auditorium_id' => $auditorium->id,
+        'movie_id' => $movie->id,
+        'price_standard' => 1200,
+        'price_premium' => 1800,
         'price_accessible' => 1000,
     ], $showtimeOverrides));
 
@@ -34,11 +34,11 @@ test('checkAvailability returns empty array when all seats available', function 
 
     $seat = Seat::factory()->create([
         'auditorium_id' => $auditorium->id,
-        'type'          => SeatType::Standard,
+        'type' => SeatType::Standard,
     ]);
 
     $service = app(SeatAvailabilityService::class);
-    $result  = $service->checkAvailability($showtime->id, [$seat->id]);
+    $result = $service->checkAvailability($showtime->id, [$seat->id]);
 
     expect($result)->toBeEmpty();
 });
@@ -51,17 +51,17 @@ test('checkAvailability returns taken seat IDs for confirmed bookings', function
 
     $booking = Booking::factory()->create([
         'showtime_id' => $showtime->id,
-        'status'      => BookingStatus::Confirmed,
+        'status' => BookingStatus::Confirmed,
     ]);
 
     BookingSeat::factory()->create([
-        'booking_id'  => $booking->id,
+        'booking_id' => $booking->id,
         'showtime_id' => $showtime->id,
-        'seat_id'     => $seatA->id,
+        'seat_id' => $seatA->id,
     ]);
 
     $service = app(SeatAvailabilityService::class);
-    $result  = $service->checkAvailability($showtime->id, [$seatA->id, $seatB->id]);
+    $result = $service->checkAvailability($showtime->id, [$seatA->id, $seatB->id]);
 
     expect($result)->toHaveCount(1)
         ->and($result[0])->toBe($seatA->id);
@@ -77,13 +77,13 @@ test('checkAvailability ignores cancelled bookings', function () {
     ]);
 
     BookingSeat::factory()->create([
-        'booking_id'  => $booking->id,
+        'booking_id' => $booking->id,
         'showtime_id' => $showtime->id,
-        'seat_id'     => $seat->id,
+        'seat_id' => $seat->id,
     ]);
 
     $service = app(SeatAvailabilityService::class);
-    $result  = $service->checkAvailability($showtime->id, [$seat->id]);
+    $result = $service->checkAvailability($showtime->id, [$seat->id]);
 
     expect($result)->toBeEmpty();
 });
@@ -91,8 +91,8 @@ test('checkAvailability ignores cancelled bookings', function () {
 test('reserveSeats creates BookingSeat records with correct prices', function () {
     ['auditorium' => $auditorium, 'showtime' => $showtime] = makeShowtimeFixture();
 
-    $standardSeat   = Seat::factory()->create(['auditorium_id' => $auditorium->id, 'type' => SeatType::Standard]);
-    $premiumSeat    = Seat::factory()->create(['auditorium_id' => $auditorium->id, 'type' => SeatType::Premium]);
+    $standardSeat = Seat::factory()->create(['auditorium_id' => $auditorium->id, 'type' => SeatType::Standard]);
+    $premiumSeat = Seat::factory()->create(['auditorium_id' => $auditorium->id, 'type' => SeatType::Premium]);
     $accessibleSeat = Seat::factory()->create(['auditorium_id' => $auditorium->id, 'type' => SeatType::Accessible]);
 
     $booking = Booking::factory()->create(['showtime_id' => $showtime->id]);
@@ -121,7 +121,7 @@ test('reserveSeats returns total seat cost', function () {
     $booking = Booking::factory()->create(['showtime_id' => $showtime->id]);
 
     $service = app(SeatAvailabilityService::class);
-    $total   = $service->reserveSeats($showtime, [$seat1->id, $seat2->id], $booking);
+    $total = $service->reserveSeats($showtime, [$seat1->id, $seat2->id], $booking);
 
     expect($total)->toBe(3000);
 });
@@ -133,12 +133,12 @@ test('reserveSeats throws SeatConflictException for taken seats', function () {
 
     $firstBooking = Booking::factory()->create([
         'showtime_id' => $showtime->id,
-        'status'      => BookingStatus::Confirmed,
+        'status' => BookingStatus::Confirmed,
     ]);
     BookingSeat::factory()->create([
-        'booking_id'  => $firstBooking->id,
+        'booking_id' => $firstBooking->id,
         'showtime_id' => $showtime->id,
-        'seat_id'     => $seat->id,
+        'seat_id' => $seat->id,
     ]);
 
     $secondBooking = Booking::factory()->create(['showtime_id' => $showtime->id]);
@@ -156,7 +156,7 @@ test('reserveSeats deduplicates seat IDs and charges only once per seat', functi
     $booking = Booking::factory()->create(['showtime_id' => $showtime->id]);
 
     $service = app(SeatAvailabilityService::class);
-    $total   = $service->reserveSeats($showtime, [$seat->id, $seat->id], $booking);
+    $total = $service->reserveSeats($showtime, [$seat->id, $seat->id], $booking);
 
     // Should only create one BookingSeat record despite duplicate input
     expect(BookingSeat::where('booking_id', $booking->id)->count())->toBe(1);
@@ -166,11 +166,11 @@ test('reserveSeats deduplicates seat IDs and charges only once per seat', functi
 test('reserveSeats validates seats belong to showtime auditorium', function () {
     ['showtime' => $showtime] = makeShowtimeFixture();
 
-    $otherLocation   = Location::factory()->create();
+    $otherLocation = Location::factory()->create();
     $otherAuditorium = Auditorium::factory()->create(['location_id' => $otherLocation->id]);
-    $foreignSeat     = Seat::factory()->create([
+    $foreignSeat = Seat::factory()->create([
         'auditorium_id' => $otherAuditorium->id,
-        'type'          => SeatType::Standard,
+        'type' => SeatType::Standard,
     ]);
 
     $booking = Booking::factory()->create(['showtime_id' => $showtime->id]);

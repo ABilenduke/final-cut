@@ -3,6 +3,7 @@
 use App\Models\Auditorium;
 use App\Models\Movie;
 use App\Models\Showtime;
+use Carbon\Carbon;
 use Illuminate\Support\Str;
 
 it('creates a showtime with UUID primary key', function () {
@@ -34,8 +35,8 @@ it('stores prices as integers (cents)', function () {
 
 it('casts start_time and end_time to datetime', function () {
     $showtime = Showtime::factory()->create();
-    expect($showtime->start_time)->toBeInstanceOf(\Carbon\Carbon::class);
-    expect($showtime->end_time)->toBeInstanceOf(\Carbon\Carbon::class);
+    expect($showtime->start_time)->toBeInstanceOf(Carbon::class);
+    expect($showtime->end_time)->toBeInstanceOf(Carbon::class);
 });
 
 it('cascades delete from movie', function () {

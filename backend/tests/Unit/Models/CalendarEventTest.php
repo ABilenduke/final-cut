@@ -2,6 +2,8 @@
 
 use App\Enums\CalendarEventType;
 use App\Models\CalendarEvent;
+use Carbon\Carbon;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Str;
 
 it('creates a calendar event with UUID primary key', function () {
@@ -31,13 +33,13 @@ it('defaults loyalty_only to false', function () {
 
 it('casts date to date', function () {
     $event = CalendarEvent::factory()->create(['date' => '2026-06-15']);
-    expect($event->date)->toBeInstanceOf(\Carbon\Carbon::class);
+    expect($event->date)->toBeInstanceOf(Carbon::class);
 });
 
 it('enforces unique slug constraint when not null', function () {
     CalendarEvent::factory()->create(['slug' => 'test-event']);
     CalendarEvent::factory()->create(['slug' => 'test-event']);
-})->throws(\Illuminate\Database\QueryException::class);
+})->throws(QueryException::class);
 
 it('allows multiple null slugs', function () {
     CalendarEvent::factory()->create(['slug' => null]);

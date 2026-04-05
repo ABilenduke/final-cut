@@ -1,6 +1,5 @@
 <?php
 
-use App\Enums\MovieStatus;
 use App\Models\Auditorium;
 use App\Models\Location;
 use App\Models\Movie;

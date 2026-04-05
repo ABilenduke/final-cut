@@ -5,6 +5,8 @@ use App\Enums\PaymentMethod;
 use App\Models\Booking;
 use App\Models\Showtime;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Str;
 
 it('creates a booking with UUID primary key', function () {
@@ -32,7 +34,7 @@ it('does not overwrite explicit confirmation code', function () {
 it('enforces unique confirmation code at database level', function () {
     Booking::factory()->create(['confirmation_code' => 'CVF-ABC123']);
     Booking::factory()->create(['confirmation_code' => 'CVF-ABC123']);
-})->throws(\Illuminate\Database\QueryException::class);
+})->throws(QueryException::class);
 
 it('belongs to a showtime', function () {
     $booking = Booking::factory()->create();
@@ -71,10 +73,10 @@ it('stores monetary values as integers (cents)', function () {
 
 it('has seats relationship', function () {
     $booking = Booking::factory()->create();
-    expect($booking->seats())->toBeInstanceOf(\Illuminate\Database\Eloquent\Relations\HasMany::class);
+    expect($booking->seats())->toBeInstanceOf(HasMany::class);
 });
 
 it('has food items relationship', function () {
     $booking = Booking::factory()->create();
-    expect($booking->foodItems())->toBeInstanceOf(\Illuminate\Database\Eloquent\Relations\HasMany::class);
+    expect($booking->foodItems())->toBeInstanceOf(HasMany::class);
 });

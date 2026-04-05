@@ -8,6 +8,7 @@ use App\Models\Location;
 use App\Models\Movie;
 use App\Models\Seat;
 use App\Models\Showtime;
+use App\Services\StripeService;
 
 trait BookingTestHelper
 {
@@ -33,46 +34,46 @@ trait BookingTestHelper
         $seats = [
             Seat::factory()->create([
                 'auditorium_id' => $auditorium->id,
-                'row'           => 'A',
-                'number'        => 1,
-                'label'         => 'A1',
-                'type'          => SeatType::Standard,
+                'row' => 'A',
+                'number' => 1,
+                'label' => 'A1',
+                'type' => SeatType::Standard,
             ]),
             Seat::factory()->create([
                 'auditorium_id' => $auditorium->id,
-                'row'           => 'A',
-                'number'        => 2,
-                'label'         => 'A2',
-                'type'          => SeatType::Standard,
+                'row' => 'A',
+                'number' => 2,
+                'label' => 'A2',
+                'type' => SeatType::Standard,
             ]),
             Seat::factory()->create([
                 'auditorium_id' => $auditorium->id,
-                'row'           => 'A',
-                'number'        => 3,
-                'label'         => 'A3',
-                'type'          => SeatType::Standard,
+                'row' => 'A',
+                'number' => 3,
+                'label' => 'A3',
+                'type' => SeatType::Standard,
             ]),
             Seat::factory()->create([
                 'auditorium_id' => $auditorium->id,
-                'row'           => 'B',
-                'number'        => 1,
-                'label'         => 'B1',
-                'type'          => SeatType::Premium,
+                'row' => 'B',
+                'number' => 1,
+                'label' => 'B1',
+                'type' => SeatType::Premium,
             ]),
             Seat::factory()->create([
                 'auditorium_id' => $auditorium->id,
-                'row'           => 'C',
-                'number'        => 1,
-                'label'         => 'C1',
-                'type'          => SeatType::Accessible,
+                'row' => 'C',
+                'number' => 1,
+                'label' => 'C1',
+                'type' => SeatType::Accessible,
             ]),
         ];
 
         $showtime = Showtime::factory()->create(array_merge([
-            'movie_id'         => $movie->id,
-            'auditorium_id'    => $auditorium->id,
-            'price_standard'   => 1200,
-            'price_premium'    => 1800,
+            'movie_id' => $movie->id,
+            'auditorium_id' => $auditorium->id,
+            'price_standard' => 1200,
+            'price_premium' => 1800,
             'price_accessible' => 1000,
         ], $overrides));
 
@@ -84,7 +85,7 @@ trait BookingTestHelper
      */
     public function bookingUrl(Location $location, string $path = ''): string
     {
-        return "/api/locations/{$location->slug}/bookings" . ($path ? "/{$path}" : '');
+        return "/api/locations/{$location->slug}/bookings".($path ? "/{$path}" : '');
     }
 
     /**
@@ -94,7 +95,7 @@ trait BookingTestHelper
     {
         $fake = new FakeStripeService;
 
-        $this->app->instance(\App\Services\StripeService::class, $fake);
+        $this->app->instance(StripeService::class, $fake);
 
         return $fake;
     }

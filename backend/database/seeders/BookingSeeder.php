@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Enums\BookingStatus;
 use App\Enums\PaymentMethod;
+use App\Enums\SeatType;
 use App\Models\Booking;
 use App\Models\BookingFoodItem;
 use App\Models\BookingSeat;
@@ -25,7 +26,7 @@ class BookingSeeder extends Seeder
 
         foreach ($selectedShowtimes as $index => $showtime) {
             $seats = $showtime->auditorium->seats
-                ->where('type', \App\Enums\SeatType::Standard)
+                ->where('type', SeatType::Standard)
                 ->take(fake()->numberBetween(2, 4));
 
             $seatTotal = $seats->count() * $showtime->price_standard;
@@ -39,7 +40,7 @@ class BookingSeeder extends Seeder
                 'discount' => 0,
                 'total' => $seatTotal,
                 'payment_method' => PaymentMethod::Card,
-                'stripe_payment_intent_id' => 'pi_seed_' . fake()->regexify('[a-zA-Z0-9]{20}'),
+                'stripe_payment_intent_id' => 'pi_seed_'.fake()->regexify('[a-zA-Z0-9]{20}'),
             ]);
 
             foreach ($seats as $seat) {

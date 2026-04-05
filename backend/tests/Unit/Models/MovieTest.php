@@ -2,6 +2,8 @@
 
 use App\Enums\MovieStatus;
 use App\Models\Movie;
+use Carbon\Carbon;
+use Illuminate\Database\QueryException;
 
 it('creates a movie with auto-increment primary key', function () {
     $movie = Movie::factory()->create();
@@ -12,12 +14,12 @@ it('creates a movie with auto-increment primary key', function () {
 it('enforces unique slug constraint', function () {
     Movie::factory()->create(['slug' => 'test-movie']);
     Movie::factory()->create(['slug' => 'test-movie']);
-})->throws(\Illuminate\Database\QueryException::class);
+})->throws(QueryException::class);
 
 it('enforces unique tmdb_id constraint', function () {
     Movie::factory()->create(['tmdb_id' => 12345]);
     Movie::factory()->create(['tmdb_id' => 12345]);
-})->throws(\Illuminate\Database\QueryException::class);
+})->throws(QueryException::class);
 
 it('allows null tmdb_id', function () {
     $movie = Movie::factory()->create(['tmdb_id' => null]);
@@ -49,12 +51,12 @@ it('casts status to MovieStatus enum', function () {
 
 it('casts release_date to date', function () {
     $movie = Movie::factory()->create(['release_date' => '2026-06-15']);
-    expect($movie->release_date)->toBeInstanceOf(\Carbon\Carbon::class);
+    expect($movie->release_date)->toBeInstanceOf(Carbon::class);
 });
 
 it('casts tmdb_enriched_at to datetime', function () {
     $movie = Movie::factory()->create(['tmdb_enriched_at' => '2026-04-04 12:00:00']);
-    expect($movie->tmdb_enriched_at)->toBeInstanceOf(\Carbon\Carbon::class);
+    expect($movie->tmdb_enriched_at)->toBeInstanceOf(Carbon::class);
 });
 
 it('defines showtimes relationship method', function () {

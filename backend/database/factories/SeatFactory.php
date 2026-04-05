@@ -19,7 +19,7 @@ class SeatFactory extends Factory
 
         return [
             'auditorium_id' => Auditorium::factory(),
-            'label' => $row . $number,
+            'label' => $row.$number,
             'row' => $row,
             'number' => $number,
             'type' => SeatType::Standard,
