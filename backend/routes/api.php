@@ -13,13 +13,15 @@ use App\Http\Controllers\Api\RentalController;
 use App\Http\Controllers\Api\ShowtimeController;
 use Illuminate\Support\Facades\Route;
 
-// Movies
+// Movies (shared across locations)
 Route::get('/movies', [MovieController::class, 'index']);
 Route::get('/movies/{slug}', [MovieController::class, 'show']);
-Route::get('/movies/{slug}/showtimes', [MovieController::class, 'showtimes']);
 
-// Showtimes
-Route::get('/showtimes/{id}', [ShowtimeController::class, 'show']);
+// Location-scoped resources
+Route::prefix('locations/{location}')->group(function () {
+    Route::get('/movies/{slug}/showtimes', [MovieController::class, 'showtimes']);
+    Route::get('/showtimes/{id}', [ShowtimeController::class, 'show']);
+});
 
 // Bookings
 Route::post('/bookings', [BookingController::class, 'store']);

@@ -9,7 +9,7 @@ class AuditoriumResource extends JsonResource
 {
     public function toArray(Request $request): array
     {
-        $seatsByRow = $this->seats->sortBy(['row', 'number'])->groupBy('row');
+        $seatsByRow = $this->seats->sortBy([['row', 'asc'], ['number', 'asc']])->groupBy('row');
 
         $sections = $this->seats->pluck('type')->unique()->map(fn ($type) => [
             'name' => $type->value,

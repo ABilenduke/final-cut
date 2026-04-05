@@ -4,7 +4,7 @@ use App\Models\Movie;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 
-function fakeTmdbDetail(int $id = 550, string $title = 'Fight Club'): array
+function fakeTmdbCombinedResponse(int $id = 550, string $title = 'Fight Club'): array
 {
     return [
         'id' => $id,
@@ -17,24 +17,16 @@ function fakeTmdbDetail(int $id = 550, string $title = 'Fight Club'): array
         'genres' => [['id' => 18, 'name' => 'Drama']],
         'poster_path' => '/poster.jpg',
         'backdrop_path' => '/backdrop.jpg',
-    ];
-}
-
-function fakeTmdbCreditsResponse(): array
-{
-    return [
-        'cast' => [
-            ['id' => 1, 'name' => 'Brad Pitt', 'character' => 'Tyler Durden', 'profile_path' => '/brad.jpg'],
+        'credits' => [
+            'cast' => [
+                ['id' => 1, 'name' => 'Brad Pitt', 'character' => 'Tyler Durden', 'profile_path' => '/brad.jpg'],
+            ],
+            'crew' => [],
         ],
-        'crew' => [],
-    ];
-}
-
-function fakeTmdbVideosResponse(): array
-{
-    return [
-        'results' => [
-            ['key' => 'trailer123', 'type' => 'Trailer', 'site' => 'YouTube'],
+        'videos' => [
+            'results' => [
+                ['key' => 'trailer123', 'type' => 'Trailer', 'site' => 'YouTube'],
+            ],
         ],
     ];
 }
@@ -54,9 +46,7 @@ test('enriches movies with stale tmdb_enriched_at', function () {
     ]);
 
     Http::fake([
-        'api.themoviedb.org/3/movie/550' => Http::response(fakeTmdbDetail(550), 200),
-        'api.themoviedb.org/3/movie/550/credits*' => Http::response(fakeTmdbCreditsResponse(), 200),
-        'api.themoviedb.org/3/movie/550/videos*' => Http::response(fakeTmdbVideosResponse(), 200),
+        'api.themoviedb.org/3/movie/550*' => Http::response(fakeTmdbCombinedResponse(550), 200),
     ]);
 
     $this->artisan('movies:enrich')
@@ -94,7 +84,7 @@ test('handles TMDB failures gracefully without crashing', function () {
     ]);
 
     Http::fake([
-        'api.themoviedb.org/3/movie/999' => Http::response([], 500),
+        'api.themoviedb.org/3/movie/999*' => Http::response([], 500),
     ]);
 
     $this->artisan('movies:enrich')
@@ -112,9 +102,7 @@ test('--movie flag enriches a single movie by slug', function () {
     ]);
 
     Http::fake([
-        'api.themoviedb.org/3/movie/550' => Http::response(fakeTmdbDetail(550), 200),
-        'api.themoviedb.org/3/movie/550/credits*' => Http::response(fakeTmdbCreditsResponse(), 200),
-        'api.themoviedb.org/3/movie/550/videos*' => Http::response(fakeTmdbVideosResponse(), 200),
+        'api.themoviedb.org/3/movie/550*' => Http::response(fakeTmdbCombinedResponse(550), 200),
     ]);
 
     $this->artisan('movies:enrich --movie=fight-club')
@@ -134,9 +122,7 @@ test('--force flag re-enriches recently enriched movies', function () {
     ]);
 
     Http::fake([
-        'api.themoviedb.org/3/movie/550' => Http::response(fakeTmdbDetail(550), 200),
-        'api.themoviedb.org/3/movie/550/credits*' => Http::response(fakeTmdbCreditsResponse(), 200),
-        'api.themoviedb.org/3/movie/550/videos*' => Http::response(fakeTmdbVideosResponse(), 200),
+        'api.themoviedb.org/3/movie/550*' => Http::response(fakeTmdbCombinedResponse(550), 200),
     ]);
 
     $this->artisan('movies:enrich --force')
@@ -148,8 +134,7 @@ test('--force flag re-enriches recently enriched movies', function () {
 
 test('--movie flag reports error for unknown slug', function () {
     $this->artisan('movies:enrich --movie=nonexistent')
-        ->expectsOutput('No movies need enrichment.')
-        ->assertSuccessful();
+        ->assertFailed();
 
     Http::assertNothingSent();
 });

@@ -52,6 +52,22 @@ function tmdbVideos(): array
     ];
 }
 
+/**
+ * Build a combined TMDB response as returned by append_to_response.
+ */
+function tmdbCombinedResponse(?array $credits = null, ?array $videos = null): array
+{
+    $response = tmdbMovieDetail();
+    if ($credits !== null) {
+        $response['credits'] = $credits;
+    }
+    if ($videos !== null) {
+        $response['videos'] = $videos;
+    }
+
+    return $response;
+}
+
 // --- tmdbToMovie transformation tests ---
 
 test('tmdbToMovie transforms TMDB data correctly', function () {
@@ -140,12 +156,14 @@ test('tmdbToMovie handles missing data gracefully', function () {
 });
 
 // --- fetchEnrichmentData tests ---
+// The service uses append_to_response to fetch detail+credits+videos in a single request.
 
 test('fetchEnrichmentData fetches detail, credits, and videos from TMDB', function () {
     Http::fake([
-        'api.themoviedb.org/3/movie/550' => Http::response(tmdbMovieDetail(), 200),
-        'api.themoviedb.org/3/movie/550/credits*' => Http::response(tmdbCredits(), 200),
-        'api.themoviedb.org/3/movie/550/videos*' => Http::response(tmdbVideos(), 200),
+        'api.themoviedb.org/3/movie/550*' => Http::response(
+            tmdbCombinedResponse(tmdbCredits(), tmdbVideos()),
+            200
+        ),
     ]);
 
     Cache::flush();
@@ -163,27 +181,28 @@ test('fetchEnrichmentData fetches detail, credits, and videos from TMDB', functi
 
 test('fetchEnrichmentData caches results for 24 hours', function () {
     Http::fake([
-        'api.themoviedb.org/3/movie/550' => Http::response(tmdbMovieDetail(), 200),
-        'api.themoviedb.org/3/movie/550/credits*' => Http::response(tmdbCredits(), 200),
-        'api.themoviedb.org/3/movie/550/videos*' => Http::response(tmdbVideos(), 200),
+        'api.themoviedb.org/3/movie/550*' => Http::response(
+            tmdbCombinedResponse(tmdbCredits(), tmdbVideos()),
+            200
+        ),
     ]);
 
     Cache::flush();
 
     $service = app(TmdbService::class);
 
-    // First call — hits TMDB
+    // First call — hits TMDB (1 combined request)
     $service->fetchEnrichmentData(550);
     // Second call — should use cache
     $service->fetchEnrichmentData(550);
 
-    // 3 calls for first request (detail + credits + videos), 0 for second (cached)
-    Http::assertSentCount(3);
+    // 1 combined request for first call, 0 for second (cached)
+    Http::assertSentCount(1);
 });
 
 test('fetchEnrichmentData returns null when TMDB is unavailable', function () {
     Http::fake([
-        'api.themoviedb.org/3/movie/550' => Http::response([], 500),
+        'api.themoviedb.org/3/movie/550*' => Http::response([], 500),
     ]);
 
     Cache::flush();
@@ -209,7 +228,7 @@ test('fetchEnrichmentData returns null when no API key configured', function () 
 
 test('fetchEnrichmentData uses negative caching after failure', function () {
     Http::fake([
-        'api.themoviedb.org/3/movie/550' => Http::response([], 500),
+        'api.themoviedb.org/3/movie/550*' => Http::response([], 500),
     ]);
 
     Cache::flush();
@@ -234,9 +253,10 @@ test('fetchEnrichmentData uses negative caching after failure', function () {
 
 test('enrichMovie updates model fields from TMDB data', function () {
     Http::fake([
-        'api.themoviedb.org/3/movie/550' => Http::response(tmdbMovieDetail(), 200),
-        'api.themoviedb.org/3/movie/550/credits*' => Http::response(tmdbCredits(), 200),
-        'api.themoviedb.org/3/movie/550/videos*' => Http::response(tmdbVideos(), 200),
+        'api.themoviedb.org/3/movie/550*' => Http::response(
+            tmdbCombinedResponse(tmdbCredits(), tmdbVideos()),
+            200
+        ),
     ]);
 
     Cache::flush();
@@ -271,11 +291,14 @@ test('enrichMovie returns false when tmdb_id is null', function () {
     Http::assertNothingSent();
 });
 
-test('fetchEnrichmentData marks result as partial when credits fail', function () {
+test('fetchEnrichmentData marks result as partial when credits missing from response', function () {
+    // Simulate append_to_response returning detail+videos but no credits key
+    $response = tmdbMovieDetail();
+    $response['videos'] = tmdbVideos();
+    // credits key deliberately omitted
+
     Http::fake([
-        'api.themoviedb.org/3/movie/550' => Http::response(tmdbMovieDetail(), 200),
-        'api.themoviedb.org/3/movie/550/credits*' => Http::response([], 500),
-        'api.themoviedb.org/3/movie/550/videos*' => Http::response(tmdbVideos(), 200),
+        'api.themoviedb.org/3/movie/550*' => Http::response($response, 200),
     ]);
 
     Cache::flush();
@@ -290,10 +313,12 @@ test('fetchEnrichmentData marks result as partial when credits fail', function (
 });
 
 test('fetchEnrichmentData does not cache partial results', function () {
+    // Simulate partial response (no credits key)
+    $response = tmdbMovieDetail();
+    $response['videos'] = tmdbVideos();
+
     Http::fake([
-        'api.themoviedb.org/3/movie/550' => Http::response(tmdbMovieDetail(), 200),
-        'api.themoviedb.org/3/movie/550/credits*' => Http::response([], 500),
-        'api.themoviedb.org/3/movie/550/videos*' => Http::response(tmdbVideos(), 200),
+        'api.themoviedb.org/3/movie/550*' => Http::response($response, 200),
     ]);
 
     Cache::flush();
@@ -310,11 +335,13 @@ test('fetchEnrichmentData does not cache partial results', function () {
     expect(count(Http::recorded()))->toBeGreaterThan($firstCallCount);
 });
 
-test('enrichMovie preserves cast and trailer on partial TMDB failure', function () {
+test('enrichMovie preserves cast and trailer on partial TMDB response', function () {
+    // Simulate partial response (no credits key)
+    $response = tmdbMovieDetail();
+    $response['videos'] = tmdbVideos();
+
     Http::fake([
-        'api.themoviedb.org/3/movie/550' => Http::response(tmdbMovieDetail(), 200),
-        'api.themoviedb.org/3/movie/550/credits*' => Http::response([], 500),
-        'api.themoviedb.org/3/movie/550/videos*' => Http::response(tmdbVideos(), 200),
+        'api.themoviedb.org/3/movie/550*' => Http::response($response, 200),
     ]);
 
     Cache::flush();
@@ -347,7 +374,7 @@ test('enrichMovie preserves cast and trailer on partial TMDB failure', function 
 
 test('enrichMovie preserves local data when TMDB is unavailable', function () {
     Http::fake([
-        'api.themoviedb.org/3/movie/999' => Http::response([], 500),
+        'api.themoviedb.org/3/movie/999*' => Http::response([], 500),
     ]);
 
     Cache::flush();

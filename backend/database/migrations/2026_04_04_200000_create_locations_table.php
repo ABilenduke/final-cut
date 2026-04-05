@@ -8,19 +8,16 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('auditoriums', function (Blueprint $table) {
+        Schema::create('locations', function (Blueprint $table) {
             $table->uuid('id')->primary();
-            $table->foreignUuid('location_id')->constrained()->cascadeOnDelete();
             $table->string('name');
-            $table->unsignedSmallInteger('total_seats');
+            $table->string('slug')->unique();
             $table->timestamps();
-
-            $table->unique(['location_id', 'name']);
         });
     }
 
     public function down(): void
     {
-        Schema::dropIfExists('auditoriums');
+        Schema::dropIfExists('locations');
     }
 };

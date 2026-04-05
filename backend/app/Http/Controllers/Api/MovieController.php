@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Resources\MovieListResource;
 use App\Http\Resources\MovieResource;
 use App\Http\Resources\ShowtimeResource;
+use App\Models\Location;
 use App\Models\Movie;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -41,7 +42,7 @@ class MovieController extends Controller
         return $this->successResponse(new MovieResource($movie));
     }
 
-    public function showtimes(Request $request, string $slug): JsonResponse
+    public function showtimes(Request $request, Location $location, string $slug): JsonResponse
     {
         $movie = Movie::where('slug', $slug)->first();
 
@@ -52,6 +53,7 @@ class MovieController extends Controller
         $date = $request->input('date', now()->toDateString());
 
         $showtimes = $movie->showtimes()
+            ->whereHas('auditorium', fn ($q) => $q->where('location_id', $location->id))
             ->with('movie', 'auditorium')
             ->whereDate('start_time', $date)
             ->orderBy('start_time')

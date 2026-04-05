@@ -2,6 +2,7 @@
 
 use App\Enums\MovieStatus;
 use App\Models\Auditorium;
+use App\Models\Location;
 use App\Models\Movie;
 use App\Models\Showtime;
 
@@ -139,13 +140,14 @@ test('GET /api/movies/{slug} returns movie with persisted cast data', function (
 
 /*
 |--------------------------------------------------------------------------
-| GET /api/movies/{slug}/showtimes
+| GET /api/locations/{location}/movies/{slug}/showtimes
 |--------------------------------------------------------------------------
 */
 
-test('GET /api/movies/{slug}/showtimes returns showtimes for movie', function () {
+test('GET showtimes returns showtimes for movie at location', function () {
+    $location = Location::factory()->create();
     $movie = Movie::factory()->create(['slug' => 'showtime-movie']);
-    $auditorium = Auditorium::factory()->create();
+    $auditorium = Auditorium::factory()->create(['location_id' => $location->id]);
 
     Showtime::factory()->create([
         'movie_id' => $movie->id,
@@ -154,7 +156,7 @@ test('GET /api/movies/{slug}/showtimes returns showtimes for movie', function ()
         'end_time' => now()->setTime(21, 0),
     ]);
 
-    getJson('/api/movies/showtime-movie/showtimes?date='.now()->toDateString())
+    getJson("/api/locations/{$location->slug}/movies/showtime-movie/showtimes?date=".now()->toDateString())
         ->assertOk()
         ->assertJsonCount(1, 'data')
         ->assertJsonStructure([
@@ -165,9 +167,10 @@ test('GET /api/movies/{slug}/showtimes returns showtimes for movie', function ()
         ]);
 });
 
-test('GET /api/movies/{slug}/showtimes filters by date', function () {
+test('GET showtimes filters by date', function () {
+    $location = Location::factory()->create();
     $movie = Movie::factory()->create(['slug' => 'date-filter']);
-    $auditorium = Auditorium::factory()->create();
+    $auditorium = Auditorium::factory()->create(['location_id' => $location->id]);
 
     // Today's showtime
     Showtime::factory()->create([
@@ -185,18 +188,19 @@ test('GET /api/movies/{slug}/showtimes filters by date', function () {
         'end_time' => now()->addDay()->setTime(21, 0),
     ]);
 
-    getJson('/api/movies/date-filter/showtimes?date='.now()->toDateString())
+    getJson("/api/locations/{$location->slug}/movies/date-filter/showtimes?date=".now()->toDateString())
         ->assertOk()
         ->assertJsonCount(1, 'data');
 
-    getJson('/api/movies/date-filter/showtimes?date='.now()->addDay()->toDateString())
+    getJson("/api/locations/{$location->slug}/movies/date-filter/showtimes?date=".now()->addDay()->toDateString())
         ->assertOk()
         ->assertJsonCount(1, 'data');
 });
 
-test('GET /api/movies/{slug}/showtimes defaults to today', function () {
+test('GET showtimes defaults to today', function () {
+    $location = Location::factory()->create();
     $movie = Movie::factory()->create(['slug' => 'today-default']);
-    $auditorium = Auditorium::factory()->create();
+    $auditorium = Auditorium::factory()->create(['location_id' => $location->id]);
 
     Showtime::factory()->create([
         'movie_id' => $movie->id,
@@ -213,20 +217,55 @@ test('GET /api/movies/{slug}/showtimes defaults to today', function () {
         'end_time' => now()->addDay()->setTime(22, 0),
     ]);
 
-    getJson('/api/movies/today-default/showtimes')
+    getJson("/api/locations/{$location->slug}/movies/today-default/showtimes")
         ->assertOk()
         ->assertJsonCount(1, 'data');
 });
 
-test('GET /api/movies/{slug}/showtimes returns empty for no showtimes on date', function () {
-    $movie = Movie::factory()->create(['slug' => 'no-showtimes']);
+test('GET showtimes returns empty for no showtimes on date', function () {
+    $location = Location::factory()->create();
+    Movie::factory()->create(['slug' => 'no-showtimes']);
 
-    getJson('/api/movies/no-showtimes/showtimes?date=2026-12-25')
+    getJson("/api/locations/{$location->slug}/movies/no-showtimes/showtimes?date=2026-12-25")
         ->assertOk()
         ->assertJsonPath('data', []);
 });
 
-test('GET /api/movies/{slug}/showtimes returns 404 for unknown slug', function () {
-    getJson('/api/movies/nonexistent/showtimes')
+test('GET showtimes returns 404 for unknown movie slug', function () {
+    $location = Location::factory()->create();
+
+    getJson("/api/locations/{$location->slug}/movies/nonexistent/showtimes")
         ->assertNotFound();
+});
+
+test('GET showtimes excludes showtimes from other locations', function () {
+    $location1 = Location::factory()->create();
+    $location2 = Location::factory()->create();
+    $movie = Movie::factory()->create(['slug' => 'cross-location']);
+
+    $aud1 = Auditorium::factory()->create(['location_id' => $location1->id]);
+    $aud2 = Auditorium::factory()->create(['location_id' => $location2->id]);
+
+    Showtime::factory()->create([
+        'movie_id' => $movie->id,
+        'auditorium_id' => $aud1->id,
+        'start_time' => now()->setTime(19, 0),
+        'end_time' => now()->setTime(21, 0),
+    ]);
+    Showtime::factory()->create([
+        'movie_id' => $movie->id,
+        'auditorium_id' => $aud2->id,
+        'start_time' => now()->setTime(20, 0),
+        'end_time' => now()->setTime(22, 0),
+    ]);
+
+    // Location 1 sees only its showtime
+    getJson("/api/locations/{$location1->slug}/movies/cross-location/showtimes?date=".now()->toDateString())
+        ->assertOk()
+        ->assertJsonCount(1, 'data');
+
+    // Location 2 sees only its showtime
+    getJson("/api/locations/{$location2->slug}/movies/cross-location/showtimes?date=".now()->toDateString())
+        ->assertOk()
+        ->assertJsonCount(1, 'data');
 });

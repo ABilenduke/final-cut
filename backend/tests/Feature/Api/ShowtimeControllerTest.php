@@ -5,6 +5,7 @@ use App\Enums\SeatType;
 use App\Models\Auditorium;
 use App\Models\Booking;
 use App\Models\BookingSeat;
+use App\Models\Location;
 use App\Models\Movie;
 use App\Models\Seat;
 use App\Models\Showtime;
@@ -13,13 +14,14 @@ use function Pest\Laravel\getJson;
 
 /*
 |--------------------------------------------------------------------------
-| GET /api/showtimes/{id}
+| GET /api/locations/{location}/showtimes/{id}
 |--------------------------------------------------------------------------
 */
 
 test('returns showtime with auditorium and seat map', function () {
+    $location = Location::factory()->create();
     $movie = Movie::factory()->create();
-    $auditorium = Auditorium::factory()->create(['name' => 'Screen 1', 'total_seats' => 2]);
+    $auditorium = Auditorium::factory()->create(['location_id' => $location->id, 'name' => 'Screen 1', 'total_seats' => 2]);
 
     Seat::factory()->create(['auditorium_id' => $auditorium->id, 'row' => 'A', 'number' => 1, 'label' => 'A1', 'type' => SeatType::Standard]);
     Seat::factory()->create(['auditorium_id' => $auditorium->id, 'row' => 'A', 'number' => 2, 'label' => 'A2', 'type' => SeatType::Standard]);
@@ -32,7 +34,7 @@ test('returns showtime with auditorium and seat map', function () {
         'price_accessible' => 1000,
     ]);
 
-    getJson("/api/showtimes/{$showtime->id}")
+    getJson("/api/locations/{$location->slug}/showtimes/{$showtime->id}")
         ->assertOk()
         ->assertJsonStructure([
             'data' => [
@@ -49,8 +51,9 @@ test('returns showtime with auditorium and seat map', function () {
 });
 
 test('all seats are available when no bookings exist', function () {
+    $location = Location::factory()->create();
     $movie = Movie::factory()->create();
-    $auditorium = Auditorium::factory()->create(['total_seats' => 2]);
+    $auditorium = Auditorium::factory()->create(['location_id' => $location->id, 'total_seats' => 2]);
 
     Seat::factory()->create(['auditorium_id' => $auditorium->id, 'row' => 'A', 'number' => 1, 'label' => 'A1']);
     Seat::factory()->create(['auditorium_id' => $auditorium->id, 'row' => 'A', 'number' => 2, 'label' => 'A2']);
@@ -60,15 +63,16 @@ test('all seats are available when no bookings exist', function () {
         'auditorium_id' => $auditorium->id,
     ]);
 
-    $response = getJson("/api/showtimes/{$showtime->id}")->assertOk();
+    $response = getJson("/api/locations/{$location->slug}/showtimes/{$showtime->id}")->assertOk();
 
     $seats = $response->json('data.seats');
     expect($seats)->each(fn ($seat) => $seat->toHaveKey('status', 'available'));
 });
 
 test('seats are marked taken when a confirmed booking exists', function () {
+    $location = Location::factory()->create();
     $movie = Movie::factory()->create();
-    $auditorium = Auditorium::factory()->create(['total_seats' => 2]);
+    $auditorium = Auditorium::factory()->create(['location_id' => $location->id, 'total_seats' => 2]);
 
     $seatA1 = Seat::factory()->create(['auditorium_id' => $auditorium->id, 'row' => 'A', 'number' => 1, 'label' => 'A1']);
     $seatA2 = Seat::factory()->create(['auditorium_id' => $auditorium->id, 'row' => 'A', 'number' => 2, 'label' => 'A2']);
@@ -89,7 +93,7 @@ test('seats are marked taken when a confirmed booking exists', function () {
         'seat_id' => $seatA1->id,
     ]);
 
-    $response = getJson("/api/showtimes/{$showtime->id}")->assertOk();
+    $response = getJson("/api/locations/{$location->slug}/showtimes/{$showtime->id}")->assertOk();
 
     $seats = collect($response->json('data.seats'));
     $a1 = $seats->firstWhere('label', 'A1');
@@ -100,8 +104,9 @@ test('seats are marked taken when a confirmed booking exists', function () {
 });
 
 test('cancelled bookings do NOT mark seats as taken', function () {
+    $location = Location::factory()->create();
     $movie = Movie::factory()->create();
-    $auditorium = Auditorium::factory()->create(['total_seats' => 1]);
+    $auditorium = Auditorium::factory()->create(['location_id' => $location->id, 'total_seats' => 1]);
 
     $seat = Seat::factory()->create(['auditorium_id' => $auditorium->id, 'row' => 'A', 'number' => 1, 'label' => 'A1']);
 
@@ -119,15 +124,16 @@ test('cancelled bookings do NOT mark seats as taken', function () {
         'seat_id' => $seat->id,
     ]);
 
-    $response = getJson("/api/showtimes/{$showtime->id}")->assertOk();
+    $response = getJson("/api/locations/{$location->slug}/showtimes/{$showtime->id}")->assertOk();
 
     $seats = collect($response->json('data.seats'));
     expect($seats->first()['status'])->toBe('available');
 });
 
 test('bookings for a different showtime do NOT affect availability', function () {
+    $location = Location::factory()->create();
     $movie = Movie::factory()->create();
-    $auditorium = Auditorium::factory()->create(['total_seats' => 1]);
+    $auditorium = Auditorium::factory()->create(['location_id' => $location->id, 'total_seats' => 1]);
 
     $seat = Seat::factory()->create(['auditorium_id' => $auditorium->id, 'row' => 'A', 'number' => 1, 'label' => 'A1']);
 
@@ -143,15 +149,16 @@ test('bookings for a different showtime do NOT affect availability', function ()
     ]);
 
     // Showtime1 should still have the seat available
-    $response = getJson("/api/showtimes/{$showtime1->id}")->assertOk();
+    $response = getJson("/api/locations/{$location->slug}/showtimes/{$showtime1->id}")->assertOk();
 
     $seats = collect($response->json('data.seats'));
     expect($seats->first()['status'])->toBe('available');
 });
 
 test('seat price is computed from seat type and showtime pricing', function () {
+    $location = Location::factory()->create();
     $movie = Movie::factory()->create();
-    $auditorium = Auditorium::factory()->create(['total_seats' => 3]);
+    $auditorium = Auditorium::factory()->create(['location_id' => $location->id, 'total_seats' => 3]);
 
     Seat::factory()->create(['auditorium_id' => $auditorium->id, 'row' => 'A', 'number' => 1, 'label' => 'A1', 'type' => SeatType::Standard]);
     Seat::factory()->create(['auditorium_id' => $auditorium->id, 'row' => 'B', 'number' => 1, 'label' => 'B1', 'type' => SeatType::Premium]);
@@ -165,7 +172,7 @@ test('seat price is computed from seat type and showtime pricing', function () {
         'price_accessible' => 1000,
     ]);
 
-    $response = getJson("/api/showtimes/{$showtime->id}")->assertOk();
+    $response = getJson("/api/locations/{$location->slug}/showtimes/{$showtime->id}")->assertOk();
 
     $seats = collect($response->json('data.seats'));
 
@@ -175,13 +182,43 @@ test('seat price is computed from seat type and showtime pricing', function () {
 });
 
 test('returns 404 for non-existent showtime', function () {
-    getJson('/api/showtimes/00000000-0000-0000-0000-000000000000')
+    $location = Location::factory()->create();
+
+    getJson("/api/locations/{$location->slug}/showtimes/00000000-0000-0000-0000-000000000000")
+        ->assertNotFound();
+});
+
+test('returns 404 for showtime at wrong location', function () {
+    $location1 = Location::factory()->create();
+    $location2 = Location::factory()->create();
+    $movie = Movie::factory()->create();
+
+    $auditorium = Auditorium::factory()->create(['location_id' => $location1->id, 'total_seats' => 1]);
+    Seat::factory()->create(['auditorium_id' => $auditorium->id, 'row' => 'A', 'number' => 1, 'label' => 'A1']);
+
+    $showtime = Showtime::factory()->create([
+        'movie_id' => $movie->id,
+        'auditorium_id' => $auditorium->id,
+    ]);
+
+    // Showtime belongs to location1, request via location2 → 404
+    getJson("/api/locations/{$location2->slug}/showtimes/{$showtime->id}")
+        ->assertNotFound();
+
+    // Same showtime via correct location → 200
+    getJson("/api/locations/{$location1->slug}/showtimes/{$showtime->id}")
+        ->assertOk();
+});
+
+test('returns 404 for non-existent location', function () {
+    getJson('/api/locations/nonexistent/showtimes/00000000-0000-0000-0000-000000000000')
         ->assertNotFound();
 });
 
 test('seat map handles large auditorium efficiently', function () {
+    $location = Location::factory()->create();
     $movie = Movie::factory()->create();
-    $auditorium = Auditorium::factory()->create(['total_seats' => 300]);
+    $auditorium = Auditorium::factory()->create(['location_id' => $location->id, 'total_seats' => 300]);
 
     // Create 300 seats (15 rows x 20 seats)
     foreach (range('A', 'O') as $row) {
@@ -212,7 +249,7 @@ test('seat map handles large auditorium efficiently', function () {
         ]);
     }
 
-    $response = getJson("/api/showtimes/{$showtime->id}")
+    $response = getJson("/api/locations/{$location->slug}/showtimes/{$showtime->id}")
         ->assertOk()
         ->assertJsonCount(300, 'data.seats');
 
@@ -222,8 +259,9 @@ test('seat map handles large auditorium efficiently', function () {
 });
 
 test('cancelled booking seat can be rebooked by another booking', function () {
+    $location = Location::factory()->create();
     $movie = Movie::factory()->create();
-    $auditorium = Auditorium::factory()->create(['total_seats' => 1]);
+    $auditorium = Auditorium::factory()->create(['location_id' => $location->id, 'total_seats' => 1]);
 
     $seat = Seat::factory()->create(['auditorium_id' => $auditorium->id, 'row' => 'A', 'number' => 1, 'label' => 'A1']);
 
@@ -253,7 +291,7 @@ test('cancelled booking seat can be rebooked by another booking', function () {
         'seat_id' => $seat->id,
     ]);
 
-    $response = getJson("/api/showtimes/{$showtime->id}")->assertOk();
+    $response = getJson("/api/locations/{$location->slug}/showtimes/{$showtime->id}")->assertOk();
 
     $seats = collect($response->json('data.seats'));
     expect($seats->first()['status'])->toBe('taken');
