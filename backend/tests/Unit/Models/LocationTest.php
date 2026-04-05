@@ -2,6 +2,7 @@
 
 use App\Models\Auditorium;
 use App\Models\Location;
+use App\Models\MenuItem;
 use App\Models\Showtime;
 use Illuminate\Support\Str;
 
@@ -29,6 +30,22 @@ it('has many showtimes through auditoriums', function () {
 it('uses slug as route key', function () {
     $location = Location::factory()->create(['slug' => 'downtown']);
     expect($location->getRouteKeyName())->toBe('slug');
+});
+
+it('has many menu items through pivot', function () {
+    $location = Location::factory()->create();
+    MenuItem::factory()->forLocation($location)->create();
+
+    expect($location->menuItems)->toHaveCount(1)
+        ->and($location->menuItems->first())->toBeInstanceOf(MenuItem::class);
+});
+
+it('returns only attached menu items, not all', function () {
+    $location = Location::factory()->create();
+    MenuItem::factory()->forLocation($location)->create();
+    MenuItem::factory()->create(); // not attached
+
+    expect($location->menuItems)->toHaveCount(1);
 });
 
 it('enforces unique slug constraint', function () {

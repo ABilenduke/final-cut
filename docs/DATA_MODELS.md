@@ -4,6 +4,8 @@ TypeScript interfaces for all data types, server API route inventory, and integr
 
 All types are defined in `app/types/` and auto-imported by Nuxt.
 
+> **Currency convention:** All monetary values (prices, totals, discounts, balances) are positive integers in cents (USD). `$12.99` → `1299`. Never use floats for money. See CLAUDE.md for rationale.
+
 ---
 
 ## 1. TypeScript Interfaces

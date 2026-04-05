@@ -73,7 +73,8 @@ See @docs/DATA_MODELS.md for full schema. Core entities: Movie (auto-increment P
 - **CSS**: CSS custom properties for theming (no CSS-in-JS). See @docs/DESIGN_SYSTEM.md for tokens, typography, and component specs
 - **Color tokens**: `#FFB4A8` (primary) is a **text-on-dark color only**. `#550000` (primary_container) is the **fill color** for buttons, active states, hero accents. Tokens use underscores in docs (`primary_container`) but hyphens in CSS (`--primary-container`)
 - **Booleans as timestamps**: Prefer nullable timestamps over booleans when the column represents a state transition (e.g., `unavailable_at` instead of `available`). This provides free metadata about *when* the state changed. Keep plain booleans for classification flags that don't represent events (e.g., `loyalty_only`)
-- **Payments**: Stripe integration via `StripeService`
+- **Currency**: All monetary values (prices, totals, discounts, balances) are stored, calculated, and transmitted as **positive integers in cents** (USD only). `$12.99` = `1299`. This follows Stripe's standard and avoids floating-point errors. Never use floats for money. The frontend `formatCurrency` utility converts cents to display strings. API responses return cents; the client formats for display
+- **Payments**: Stripe integration via `stripe/stripe-php` SDK. `StripeService` wraps `StripeClient` for PaymentIntent creation/confirmation. Configured via `STRIPE_SECRET_KEY` and `STRIPE_PUBLISHABLE_KEY` env vars in backend `.env` (mapped through `config/services.php`). Tests use `FakeStripeService` (in `tests/Helpers/`) which skips the real Stripe client — no API keys needed to run the test suite
 - **Auth**: nuxt-auth-utils
 - **Commits**: conventional commits (`feat:`, `fix:`, `docs:`, etc.)
 
@@ -144,4 +145,5 @@ When executing any implementation plan, maintain a **progress journal** at `docs
 - NEVER create API routes without corresponding Pest tests.
 - NEVER hardcode a single location — all showtime, auditorium, seat, and menu queries must be location-scoped.
 - NEVER call TMDB in the request path — API responses serve local DB data only. TMDB enrichment happens offline via `movies:enrich`.
+- NEVER use floats or decimals for monetary values — all prices, totals, discounts, and balances are integers in cents.
 - NEVER leave failing tests — if a change breaks a test, fix it immediately. No work is done until the full suite is green.
