@@ -1,12 +1,14 @@
 # Site Architecture
 
-Technical architecture reference for the movie theatre web application, built on Nuxt 4.
+Technical architecture reference for the movie theatre web application. The frontend is a Nuxt 4 SPA; the backend is a Laravel 13 API.
 
 ---
 
 ## Project Structure
 
-The application follows Nuxt 4 conventions with the `app/` source directory and a co-located `server/` directory for backend-for-frontend (BFF) routes.
+The application has two codebases: a Nuxt 4 frontend (`frontend/`) and a Laravel 13 backend (`backend/`), orchestrated via Docker Compose. The frontend calls the Laravel API directly — there is no Nuxt server-side BFF layer.
+
+### Frontend (`frontend/app/`)
 
 ```
 app/
@@ -73,24 +75,18 @@ app/
     ├── formatRuntime.ts
     ├── slugify.ts
     └── seatLabel.ts
-
-server/
-├── api/
-│   ├── auth/            Login, register, logout, session
-│   ├── movies/          Now playing, coming soon, detail by slug
-│   ├── showtimes/       Showtimes by movie/date, seat availability
-│   ├── bookings/        Create booking, confirm payment
-│   ├── calendar/        Calendar events, filtering
-│   ├── account/         Profile, order history, loyalty points
-│   ├── gift-cards/      Purchase, check balance
-│   ├── rentals/         Rental inquiry submission
-│   └── contact.post.ts  Contact form handler
-├── middleware/
-│   └── auth.ts          Server-side session verification
-└── utils/
-    ├── tmdb.ts          TMDB API client and response mapping
-    └── auth.ts          Session helpers, password hashing
 ```
+
+### Backend (`backend/`)
+
+Laravel 13 API. See `backend/routes/api.php` for all route definitions. Key directories:
+
+- `app/Http/Controllers/` — API controllers
+- `app/Models/` — Eloquent models
+- `app/Services/` — Business logic (TmdbService, StripeService, SeatAvailabilityService, etc.)
+- `database/migrations/` — PostgreSQL schema
+- `database/factories/` and `database/seeders/` — Test data
+- `tests/Feature/` — Pest feature tests (410 tests)
 
 ---
 
@@ -195,72 +191,59 @@ export default defineNuxtConfig({
 
 ## Environment Variables
 
-All environment variables use the `NUXT_` prefix for automatic mapping to Nuxt runtime config. Variables prefixed with `NUXT_PUBLIC_` are exposed to the client bundle; all others remain server-only.
+### Backend (Laravel `.env`)
+
+Backend environment is standard Laravel. Key variables:
+
+- `TMDB_API_KEY` — TMDB API v3 key for movie enrichment (mapped through `config/services.php`)
+- `STRIPE_SECRET_KEY` / `STRIPE_PUBLISHABLE_KEY` — Stripe API keys (mapped through `config/services.php`)
+- `DB_*` — PostgreSQL connection (database: `final_cut`, test: `final_cut_test`)
+- `REDIS_*` — Redis connection for cache/sessions
+
+### Frontend (Nuxt runtime config)
+
+Frontend environment variables use the `NUXT_` prefix for automatic mapping to Nuxt runtime config:
 
 ```bash
-# TMDB
-NUXT_TMDB_API_KEY=                        # TMDB API v3 key for movie data
-
-# Stripe
-NUXT_STRIPE_SECRET_KEY=                   # Stripe secret key (server only)
 NUXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=       # Stripe publishable key (client)
-
-# Auth
-NUXT_SESSION_PASSWORD=                    # 32+ char secret for session encryption
-
-# App
 NUXT_PUBLIC_SITE_URL=                     # Base URL for SEO, OG tags, emails
-```
-
-These map to `useRuntimeConfig()` in code:
-
-```ts
-const config = useRuntimeConfig()
-
-// Server-only
-config.tmdbApiKey
-config.stripeSecretKey
-config.sessionPassword
-
-// Client-accessible
-config.public.stripePublishableKey
-config.public.siteUrl
+NUXT_PUBLIC_API_BASE_URL=                 # Laravel API base URL
+NUXT_SESSION_PASSWORD=                    # 32+ char secret for nuxt-auth-utils cookie encryption
 ```
 
 ---
 
-## BFF Pattern
+## Frontend-Backend Architecture
 
-All external API calls route through Nuxt server routes in `server/api/`. The frontend never calls TMDB, Stripe, or any third-party API directly.
+The frontend calls the Laravel API directly. There is no Nuxt server-side BFF layer. TMDB and Stripe integrations live entirely in the Laravel backend.
 
 ### Why
 
-- **Key protection.** API keys stay on the server. The client bundle contains zero secrets.
-- **Data merging.** A single `/api/movies/:slug` response combines TMDB movie metadata with local showtime and pricing data, eliminating client-side waterfall requests.
-- **Caching.** Server routes use `cachedEventHandler` for in-memory and ISR-compatible caching, reducing upstream API calls.
-- **Stable contract.** Frontend composables depend on our own API shape, not a third party's. If TMDB changes their response format, only `server/utils/tmdb.ts` needs updating.
-- **SSR compatibility.** `useFetch` calls to `/api/*` work identically during server-side rendering and client-side navigation.
+- **Key protection.** API keys stay in the Laravel backend. The client bundle contains zero secrets.
+- **Data merging.** Laravel API responses combine database records with TMDB-enriched metadata, eliminating client-side waterfall requests.
+- **Caching.** Laravel uses Redis caching for TMDB enrichment results (24h for success, 5min for failures).
+- **Stable contract.** Frontend composables depend on our own API shape, not a third party's. If TMDB changes their response format, only the Laravel `TmdbService` needs updating.
+- **TMDB is offline-only.** TMDB enrichment runs via the `movies:enrich` scheduled command (hourly). API responses serve only local database data — TMDB is never in the request path.
 
 ### Data Flow
 
 ```
-┌─────────┐     useFetch('/api/movies')     ┌──────────────┐     fetch()     ┌──────────┐
-│ Browser  │ ──────────────────────────────► │ Server Route │ ──────────────► │ TMDB API │
-│          │ ◄────────────────────────────── │              │ ◄────────────── │          │
-└─────────┘     Merged JSON response        │  + merge     │   Movie data   └──────────┘
-                                            │  local data  │
-                                            └──────────────┘
-
-┌─────────┐     useFetch('/api/showtimes')  ┌──────────────┐
-│ Browser  │ ──────────────────────────────► │ Server Route │ ──► Local mock JSON
+┌─────────┐     useFetch('/api/movies')     ┌──────────────┐
+│ Browser  │ ──────────────────────────────► │ Laravel API  │ ──► PostgreSQL (movies, showtimes)
 │          │ ◄────────────────────────────── │              │
-└─────────┘     Showtime data               └──────────────┘
+└─────────┘     JSON response               └──────────────┘
+
+                                            ┌──────────────┐     TMDB API    ┌──────────┐
+                                            │   Scheduled  │ ──────────────► │   TMDB   │
+                                            │ movies:enrich│ ◄────────────── │          │
+                                            └──────────────┘   Backfill      └──────────┘
+                                                               metadata
 
 ┌─────────┐     Stripe Elements             ┌──────────┐
 │ Browser  │ ──────────────────────────────► │ Stripe.js│  (tokenizes card client-side)
 │          │                                 └──────────┘
-│          │     POST /api/bookings           ┌──────────────┐     Stripe SDK  ┌────────────┐
-│          │ ──────────────────────────────► │ Server Route │ ──────────────► │ Stripe API │
+│          │     POST /api/bookings          ┌──────────────┐     Stripe SDK  ┌────────────┐
+│          │ ──────────────────────────────► │ Laravel API  │ ──────────────► │ Stripe API │
 │          │ ◄────────────────────────────── │              │ ◄────────────── │            │
 └─────────┘     Booking confirmation        └──────────────┘   PaymentIntent └────────────┘
 ```

@@ -12,7 +12,7 @@ Configure the Laravel project for API development: CORS, service configuration f
 ## Reference Documents
 
 - `docs/DATA_MODELS.md` — API route inventory (Section 2)
-- `docs/SITE_ARCHITECTURE.md` — Environment variables, BFF pattern
+- `docs/SITE_ARCHITECTURE.md` — Environment variables, frontend-backend architecture
 
 ---
 

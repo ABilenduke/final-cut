@@ -16,7 +16,7 @@ All types are defined in `app/types/` and auto-imported by Nuxt.
 // app/types/movie.ts
 
 interface Movie {
-  id: number                    // TMDB movie ID
+  id: number                    // Auto-increment PK (not TMDB ID)
   slug: string                  // URL-safe slug derived from title
   title: string
   tagline: string
@@ -248,34 +248,29 @@ interface RentalInquiry {
 
 ---
 
-## 2. Server API Route Inventory
+## 2. API Route Inventory
 
-All routes are in `server/api/`. TMDB calls are proxied through server routes (BFF pattern). Local data starts as JSON fixtures in `server/data/` and can be swapped for a database later.
+All routes are served by the Laravel backend (`backend/routes/api.php`). Data comes from PostgreSQL. TMDB enrichment happens offline via the `movies:enrich` scheduled command — it is never in the request path.
+
+**Response envelope:** All success responses use `{ data, meta? }`. Paginated responses include `{ data, meta: { total, page, per_page } }`. Error responses use `{ errors: [{ message, field? }] }`.
+
+**Location scoping:** Showtimes, food menus, and bookings are scoped to a physical theater location via `/api/locations/{location}/...`. Movies and calendar events are shared across locations.
 
 ### Movies
 
 | Method | Path | Auth | Data Source | Request | Response |
 | ------ | ---- | ---- | ----------- | ------- | -------- |
-| GET | `/api/movies` | Public | TMDB + Local | `?status=now_showing\|coming_soon&genre=id&page=1` | `{ movies: Movie[], total: number, page: number }` |
-| GET | `/api/movies/:slug` | Public | TMDB | — | `Movie` |
-| GET | `/api/movies/:slug/showtimes` | Public | Local | `?date=YYYY-MM-DD` | `{ showtimes: Showtime[] }` |
+| GET | `/api/movies` | Public | PostgreSQL | `?status=now_showing\|coming_soon&per_page=20` | `{ data: Movie[], meta: { total, page, per_page } }` |
+| GET | `/api/movies/:slug` | Public | PostgreSQL | — | `{ data: Movie }` |
+| GET | `/api/locations/:location/movies/:slug/showtimes` | Public | PostgreSQL | `?date=YYYY-MM-DD` | `{ data: Showtime[] }` |
 
-**TMDB mapping for `/api/movies`:**
-- `status=now_showing` → TMDB `/movie/now_playing`
-- `status=coming_soon` → TMDB `/movie/upcoming`
-- Merge with local showtimes: match by TMDB movie ID
-
-**TMDB mapping for `/api/movies/:slug`:**
-- TMDB `/movie/{id}` for details
-- TMDB `/movie/{id}/credits` for cast
-- TMDB `/movie/{id}/videos` for trailer key (filter `type=Trailer`, `site=YouTube`)
-- Slug-to-ID mapping maintained in local lookup table
+Movies are created locally with title, slug, status, and optional `tmdb_id`. TMDB metadata (synopsis, cast, images, trailer, ratings) is backfilled offline by the `movies:enrich` scheduled command. API responses serve only database data.
 
 ### Showtimes
 
 | Method | Path | Auth | Data Source | Request | Response |
 | ------ | ---- | ---- | ----------- | ------- | -------- |
-| GET | `/api/showtimes/:id` | Public | Local | — | `Showtime & { auditorium: Auditorium, seats: Seat[] }` |
+| GET | `/api/locations/:location/showtimes/:id` | Public | Local | — | `{ data: { showtime, auditorium, seats[] } }` |
 
 Returns showtime details with full seat map including current availability. This is the entry point for the seat selection page.
 
@@ -283,12 +278,14 @@ Returns showtime details with full seat map including current availability. This
 
 | Method | Path | Auth | Data Source | Request | Response |
 | ------ | ---- | ---- | ----------- | ------- | -------- |
-| POST | `/api/bookings` | Public | Local + Stripe | `{ showtimeId, seatIds[], foodItems[], paymentMethodId, email? }` | `{ booking: Booking }` |
-| GET | `/api/bookings/:id` | Public* | Local | — | `Booking` |
+| POST | `/api/locations/:location/bookings` | Public | Local + Stripe | `{ showtimeId, seatIds[], foodItems[], paymentMethodId, email? }` | `{ data: Booking }` |
+| POST | `/api/locations/:location/bookings/confirm` | Public | Local + Stripe | `{ paymentIntentId }` | `{ data: Booking }` |
+| GET | `/api/bookings/:id` | Auth | Local | — | `{ data: Booking }` |
+| GET | `/api/bookings/lookup` | Public | Local | `?confirmation_code=XXX&email=XXX` | `{ data: Booking }` |
 
-*`GET /api/bookings/:id` is accessible by booking ID (acts as a secret URL). Authenticated users can also access via their order history.
+`GET /api/bookings/:id` requires authentication (owner only). Guests retrieve bookings via `/api/bookings/lookup` with their confirmation code and email.
 
-**POST `/api/bookings` flow:**
+**POST `/api/locations/:location/bookings` flow:**
 1. Validate seat availability (re-check at purchase time)
 2. Calculate total (seats + food - discounts)
 3. Create Stripe PaymentIntent with calculated amount
@@ -296,30 +293,33 @@ Returns showtime details with full seat map including current availability. This
 5. Return booking with confirmation code
 6. If seats taken since selection: return `409 Conflict` with which seats are unavailable
 
+**3DS flow:** If PaymentIntent requires action, the response includes `{ requiresAction: true, clientSecret }`. After client-side 3DS confirmation, `POST /api/locations/:location/bookings/confirm` completes the booking.
+
 ### Calendar
 
 | Method | Path | Auth | Data Source | Request | Response |
 | ------ | ---- | ---- | ----------- | ------- | -------- |
-| GET | `/api/calendar/events` | Public | Local | `?month=M&year=Y&type=showtime\|special_event\|loyalty_exclusive&accessibility=sensory_friendly,open_caption` | `{ events: CalendarEvent[] }` |
-| GET | `/api/calendar/events/:slug` | Public | Local | — | `CalendarEvent` (full detail) |
+| GET | `/api/calendar/events` | Public | Local | `?month=M&year=Y&type=showtime\|special_event\|loyalty_exclusive&accessibility=sensory_friendly,open_caption` | `{ data: CalendarEvent[] }` |
+| GET | `/api/calendar/events/:slug` | Public | Local | — | `{ data: CalendarEvent }` |
 
 ### Food Menu
 
 | Method | Path | Auth | Data Source | Request | Response |
 | ------ | ---- | ---- | ----------- | ------- | -------- |
-| GET | `/api/food-menu` | Public | Local | `?category=popcorn\|drinks\|...` | `{ items: MenuItem[] }` |
+| GET | `/api/locations/:location/food-menu` | Public | Local | `?category=popcorn\|drinks\|...` | `{ data: MenuItem[] }` |
 
 ### Auth
 
 | Method | Path | Auth | Data Source | Request | Response |
 | ------ | ---- | ---- | ----------- | ------- | -------- |
-| POST | `/api/auth/register` | Guest | Local | `{ name, email, password }` | `{ user: User }` + session cookie |
-| POST | `/api/auth/login` | Guest | Local | `{ email, password }` | `{ user: User }` + session cookie |
+| POST | `/api/auth/register` | Guest | Local | `{ name, email, password }` | `{ data: User }` + Sanctum session cookie |
+| POST | `/api/auth/login` | Guest | Local | `{ email, password }` | `{ data: User }` + Sanctum session cookie |
 | POST | `/api/auth/logout` | Auth | — | — | Clears session cookie |
-| GET | `/api/auth/me` | Auth | Local | — | `{ user: User }` |
-| POST | `/api/auth/forgot-password` | Guest | Local | `{ email }` | `{ success: true }` |
+| GET | `/api/auth/me` | Auth | Local | — | `{ data: User }` |
+| POST | `/api/auth/forgot-password` | Guest | Local | `{ email }` | `{ data: { success: true } }` |
+| POST | `/api/auth/reset-password` | Guest | Local | `{ token, email, password, password_confirmation }` | `{ data: { success: true } }` |
 
-Session-based auth via `nuxt-auth-utils`. Sessions stored in encrypted HTTP-only cookies. No JWT.
+Session-based auth via Laravel Sanctum. Sessions stored server-side in Redis; the browser sends an HTTP-only session cookie. `nuxt-auth-utils` on the frontend provides SSR hydration only — it stores user state in an encrypted cookie so the Nuxt server-renderer knows the auth state without an API call per page load.
 
 ### Account
 
@@ -327,7 +327,7 @@ Session-based auth via `nuxt-auth-utils`. Sessions stored in encrypted HTTP-only
 | ------ | ---- | ---- | ----------- | ------- | -------- |
 | GET | `/api/account/profile` | Auth | Local | — | `{ data: UserProfile }` |
 | PATCH | `/api/account/profile` | Auth | Local | `Partial<UserProfile>` | `{ data: UserProfile }` |
-| GET | `/api/account/orders` | Auth | Local | `?page=1&limit=10` | `{ data: Booking[], meta: { total, page, per_page } }` |
+| GET | `/api/account/orders` | Auth | Local | `?page=1&per_page=10` | `{ data: Booking[], meta: { total, page, per_page } }` |
 | GET | `/api/account/bookings` | Auth | Local | `?upcoming=true` | `{ data: Booking[] }` |
 | GET | `/api/account/loyalty` | Auth | Local | — | `{ data: { points, tier, premierExpiry?, history[] } }` |
 | GET | `/api/account/payment-methods` | Auth | Stripe | — | `{ data: [{ id, brand, last4, expMonth, expYear }] }` |
@@ -338,100 +338,43 @@ Session-based auth via `nuxt-auth-utils`. Sessions stored in encrypted HTTP-only
 
 | Method | Path | Auth | Data Source | Request | Response |
 | ------ | ---- | ---- | ----------- | ------- | -------- |
-| POST | `/api/gift-cards/purchase` | Public | Local + Stripe | `{ amount, recipientEmail, recipientName, senderName, message, paymentMethodId }` | `{ giftCard: GiftCard }` |
-| GET | `/api/gift-cards/balance` | Public | Local | `?code=XXXX` | `{ balance: number, status }` |
+| POST | `/api/gift-cards/purchase` | Public | Local + Stripe | `{ amount, recipientEmail, recipientName, senderName, message, paymentMethodId }` | `{ data: GiftCard }` |
+| POST | `/api/gift-cards/confirm` | Public | Local + Stripe | `{ paymentIntentId }` | `{ data: GiftCard }` |
+| GET | `/api/gift-cards/balance` | Public | Local | `?code=XXXX` | `{ data: { balance, status } }` |
 
 ### Rentals / Contact
 
 | Method | Path | Auth | Data Source | Request | Response |
 | ------ | ---- | ---- | ----------- | ------- | -------- |
-| POST | `/api/rentals/inquiry` | Public | Local | `RentalInquiry` fields | `{ success: true, inquiryId }` |
-| POST | `/api/contact` | Public | Local | `{ name, email, subject, message }` | `{ success: true }` |
+| POST | `/api/rentals/inquiry` | Public | Local | `RentalInquiry` fields | `{ data: { success: true, inquiryId } }` |
+| POST | `/api/contact` | Public | Local | `{ name, email, subject, message }` | `{ data: { success: true } }` |
 
 ---
 
 ## 3. TMDB Integration
 
-### API Configuration
+TMDB is an **offline enrichment source only** — it is never called in the request path. All API responses serve data from PostgreSQL. The Laravel backend's `TmdbService` handles all TMDB communication.
 
-- **Base URL:** `https://api.themoviedb.org/3`
-- **Auth:** Bearer token via `NUXT_TMDB_API_KEY` runtime config
+### Image URL Convention
+
+TMDB image URLs stored in the database use the full path format. The frontend renders these directly — no TMDB API calls needed.
+
 - **Image base URL:** `https://image.tmdb.org/t/p/`
 - **Image sizes used:**
   - Posters: `w500` (listings), `w780` (detail page)
   - Backdrops: `w1280` (hero sections)
   - Profiles: `w185` (cast list)
 
-### Endpoints Used
+### TMDB Enrichment (Offline)
 
-| Our Route | TMDB Endpoint | Purpose |
-| --------- | ------------- | ------- |
-| `/api/movies?status=now_showing` | `/movie/now_playing?region=US&page=1` | Now showing list |
-| `/api/movies?status=coming_soon` | `/movie/upcoming?region=US&page=1` | Coming soon list |
-| `/api/movies/:slug` | `/movie/{id}` | Movie details |
-| `/api/movies/:slug` | `/movie/{id}/credits` | Cast list |
-| `/api/movies/:slug` | `/movie/{id}/videos` | Trailer YouTube key |
-| `/api/movies/:slug` | `/movie/{id}/images` | Additional images |
+The `movies:enrich` artisan command runs hourly via Laravel's scheduler. For each movie with a `tmdb_id` that needs enrichment, it calls `TmdbService` to backfill metadata (synopsis, cast, images, trailer, ratings). Results are cached in Redis: 24 hours for success, 5 minutes for failures. See `@docs/plans/backend/v1/03-movie-api.md` for implementation details.
 
-### TMDB-to-Movie Type Mapping
-
-```typescript
-// server/utils/tmdb.ts — transform function
-
-function tmdbToMovie(tmdbMovie: TmdbMovieDetail, credits: TmdbCredits, videos: TmdbVideos): Movie {
-  return {
-    id: tmdbMovie.id,
-    slug: slugify(tmdbMovie.title),
-    title: tmdbMovie.title,
-    tagline: tmdbMovie.tagline,
-    synopsis: tmdbMovie.overview,
-    runtime: tmdbMovie.runtime,
-    rating: tmdbMovie.vote_average,
-    releaseDate: tmdbMovie.release_date,
-    genres: tmdbMovie.genres,
-    cast: credits.cast.slice(0, 12).map(c => ({
-      id: c.id,
-      name: c.name,
-      character: c.character,
-      profileUrl: c.profile_path
-        ? `https://image.tmdb.org/t/p/w185${c.profile_path}`
-        : null
-    })),
-    posterUrl: `https://image.tmdb.org/t/p/w500${tmdbMovie.poster_path}`,
-    backdropUrl: `https://image.tmdb.org/t/p/w1280${tmdbMovie.backdrop_path}`,
-    trailerKey: videos.results
-      .find(v => v.type === 'Trailer' && v.site === 'YouTube')?.key ?? null,
-    status: 'now_showing' // Set by calling route
-  }
-}
-```
-
-### Merging TMDB + Local Showtime Data
-
-The `/api/movies` route:
-1. Fetches TMDB movie list (now_playing or upcoming)
-2. Reads local showtime data from `server/data/showtimes.json`
-3. Matches by TMDB movie ID
-4. Returns merged response: TMDB metadata + next available showtime per movie
-
-Movies in TMDB that don't have local showtimes are still returned (they're playing at the theater but showtimes aren't yet scheduled). Movies with showtimes but not in TMDB's list are flagged for manual review.
-
-### Caching Strategy
-
-Server routes use Nuxt's `cachedEventHandler` to avoid hitting TMDB on every request:
-
-| Route | Cache Duration | Rationale |
-| ----- | -------------- | --------- |
-| `/api/movies` (list) | 30 minutes | Movie lists update daily |
-| `/api/movies/:slug` (detail) | 1 hour | Movie details rarely change |
-| `/api/movies/:slug/showtimes` | No cache | Showtime availability is near-real-time |
-
-```typescript
-// Example: server/api/movies/index.get.ts
-export default cachedEventHandler(async (event) => {
-  // ... fetch and merge
-}, { maxAge: 60 * 30 }) // 30 minutes
-```
+The enrichment process maps TMDB data to the local movie schema:
+- `tmdbMovie.overview` → `synopsis`
+- `tmdbMovie.vote_average` → `rating`
+- `credits.cast` (first 12) → `cast` JSON column
+- `videos` (first YouTube trailer) → `trailer_key`
+- Image paths are stored as full URLs with size prefix (e.g., `https://image.tmdb.org/t/p/w500/...`)
 
 ---
 
@@ -478,7 +421,7 @@ Uses Stripe's SetupIntent flow:
 ### Stripe SDK Usage
 
 - **Client (`@stripe/stripe-js`):** Stripe Elements for card input, PaymentMethod creation, 3DS handling
-- **Server (`stripe` Node SDK):** PaymentIntent creation/confirmation, Customer management, SetupIntent creation, webhook handling
+- **Server (`stripe/stripe-php` SDK):** PaymentIntent creation/confirmation, Customer management, SetupIntent creation, webhook handling
 
 ### Webhook (Future)
 
@@ -486,25 +429,11 @@ Uses Stripe's SetupIntent flow:
 
 ---
 
-## 5. Local Mock Data
+## 5. Database & Seeding
 
-During initial development, server routes return data from JSON fixtures:
+All data is served from PostgreSQL. The backend includes comprehensive seeders for development and testing:
 
-| File | Contents |
-| ---- | -------- |
-| `server/data/showtimes.json` | Showtime schedule for next 14 days |
-| `server/data/auditoriums.json` | Auditorium layouts (rows, seats, sections) |
-| `server/data/menu.json` | Food and drink items |
-| `server/data/events.json` | Special events and calendar entries |
-| `server/data/faq.json` | FAQ categories and items |
+- `DatabaseSeeder` — Creates locations, auditoriums, seats, movies, showtimes, users, bookings, gift cards, calendar events, and menu items
+- `GiftCardSeeder` — Creates gift cards in various states for testing stateful scenarios
 
-These files serve as the contract for what the database schema will eventually need to support. The composable interfaces (`useMovies`, `useShowtimes`, etc.) remain identical regardless of whether data comes from JSON fixtures or a database.
-
-### Mock Data Toggle
-
-```typescript
-// server/utils/config.ts
-export const useMockData = process.env.MOCK_DATA === 'true'
-```
-
-When `MOCK_DATA=true`, TMDB calls are bypassed and movie data is also read from `server/data/movies.json`. This allows development without an API key.
+Run `make fresh` from the project root to reset the database with fresh migrations and seeds. See `@docs/plans/backend/v1/08-testing-and-seeding.md` for details.

@@ -19,7 +19,7 @@ Implement the movie and showtime API endpoints. The theatre owns its movie catal
 ## Reference Documents
 
 - `docs/DATA_MODELS.md` — Sections 2 (API routes) and 3 (TMDB integration)
-- `docs/SITE_ARCHITECTURE.md` — BFF pattern, caching strategy
+- `docs/SITE_ARCHITECTURE.md` — Frontend-backend architecture, caching strategy
 
 ---
 
