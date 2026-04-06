@@ -44,16 +44,9 @@ class AccountController extends Controller
         $paginator = $request->user()->bookings()
             ->with(self::BOOKING_RELATIONS)
             ->latest()
-            ->paginate($request->integer('limit', 10));
+            ->paginate(min(max($request->integer('limit', 10), 1), 50));
 
-        return response()->json([
-            'data' => BookingResource::collection($paginator->items()),
-            'meta' => [
-                'total' => $paginator->total(),
-                'page' => $paginator->currentPage(),
-                'per_page' => $paginator->perPage(),
-            ],
-        ]);
+        return $this->paginatedResponse($paginator, BookingResource::class);
     }
 
     public function bookings(Request $request): JsonResponse

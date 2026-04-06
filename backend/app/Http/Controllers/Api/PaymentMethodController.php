@@ -70,7 +70,12 @@ class PaymentMethodController extends Controller
             $pm = $this->stripe->retrievePaymentMethod($id);
 
             if ($pm->customer !== $user->stripe_customer_id) {
-                return $this->errorResponse([['message' => 'Unauthorized']], 403);
+                logger()->warning('Payment method ownership mismatch', [
+                    'user_id' => $user->id,
+                    'payment_method_id' => $id,
+                ]);
+
+                return $this->errorResponse([['message' => 'Payment method not found']], 404);
             }
 
             $this->stripe->detachPaymentMethod($id);
@@ -93,7 +98,7 @@ class PaymentMethodController extends Controller
 
         // Lock the user row to prevent concurrent requests from creating duplicate Stripe customers
         return DB::transaction(function () use ($user) {
-            $locked = User::lockForUpdate()->find($user->id);
+            $locked = User::lockForUpdate()->findOrFail($user->id);
 
             // Re-check after acquiring lock — another request may have created the customer
             if ($locked->stripe_customer_id) {

@@ -22,4 +22,11 @@ class LoginRequest extends FormRequest
             'password' => ['required', 'string'],
         ];
     }
+
+    protected function prepareForValidation(): void
+    {
+        if ($this->has('email') && is_string($this->email)) {
+            $this->merge(['email' => strtolower($this->email)]);
+        }
+    }
 }

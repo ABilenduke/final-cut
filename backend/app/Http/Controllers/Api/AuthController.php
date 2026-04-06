@@ -72,6 +72,10 @@ class AuthController extends Controller
 
     public function forgotPassword(Request $request): JsonResponse
     {
+        if ($request->has('email') && is_string($request->email)) {
+            $request->merge(['email' => strtolower($request->email)]);
+        }
+
         $request->validate([
             'email' => ['required', 'email'],
         ]);
@@ -83,6 +87,10 @@ class AuthController extends Controller
 
     public function resetPassword(Request $request): JsonResponse
     {
+        if ($request->has('email') && is_string($request->email)) {
+            $request->merge(['email' => strtolower($request->email)]);
+        }
+
         $request->validate([
             'token' => ['required', 'string'],
             'email' => ['required', 'email'],
