@@ -16,7 +16,7 @@ All types are defined in `app/types/` and auto-imported by Nuxt.
 // app/types/movie.ts
 
 interface Movie {
-  id: number                    // TMDB movie ID
+  id: number                    // Auto-increment PK (not TMDB ID)
   slug: string                  // URL-safe slug derived from title
   title: string
   tagline: string
@@ -248,28 +248,19 @@ interface RentalInquiry {
 
 ---
 
-## 2. Server API Route Inventory
+## 2. API Route Inventory
 
-All routes are in `server/api/`. TMDB calls are proxied through server routes (BFF pattern). Local data starts as JSON fixtures in `server/data/` and can be swapped for a database later.
+All routes are served by the Laravel backend (`backend/routes/api.php`). Data comes from PostgreSQL. TMDB enrichment happens offline via the `movies:enrich` scheduled command — it is never in the request path.
 
 ### Movies
 
 | Method | Path | Auth | Data Source | Request | Response |
 | ------ | ---- | ---- | ----------- | ------- | -------- |
-| GET | `/api/movies` | Public | TMDB + Local | `?status=now_showing\|coming_soon&genre=id&page=1` | `{ movies: Movie[], total: number, page: number }` |
-| GET | `/api/movies/:slug` | Public | TMDB | — | `Movie` |
-| GET | `/api/movies/:slug/showtimes` | Public | Local | `?date=YYYY-MM-DD` | `{ showtimes: Showtime[] }` |
+| GET | `/api/movies` | Public | PostgreSQL | `?status=now_showing\|coming_soon&genre=id&page=1` | `{ movies: Movie[], total: number, page: number }` |
+| GET | `/api/movies/:slug` | Public | PostgreSQL | — | `Movie` |
+| GET | `/api/movies/:slug/showtimes` | Public | PostgreSQL | `?date=YYYY-MM-DD` | `{ showtimes: Showtime[] }` |
 
-**TMDB mapping for `/api/movies`:**
-- `status=now_showing` → TMDB `/movie/now_playing`
-- `status=coming_soon` → TMDB `/movie/upcoming`
-- Merge with local showtimes: match by TMDB movie ID
-
-**TMDB mapping for `/api/movies/:slug`:**
-- TMDB `/movie/{id}` for details
-- TMDB `/movie/{id}/credits` for cast
-- TMDB `/movie/{id}/videos` for trailer key (filter `type=Trailer`, `site=YouTube`)
-- Slug-to-ID mapping maintained in local lookup table
+Movies are created locally with title, slug, status, and optional `tmdb_id`. TMDB metadata (synopsis, cast, images, trailer, ratings) is backfilled offline by the `movies:enrich` scheduled command. API responses serve only database data.
 
 ### Showtimes
 
@@ -406,32 +397,9 @@ function tmdbToMovie(tmdbMovie: TmdbMovieDetail, credits: TmdbCredits, videos: T
 }
 ```
 
-### Merging TMDB + Local Showtime Data
+### TMDB Enrichment (Offline)
 
-The `/api/movies` route:
-1. Fetches TMDB movie list (now_playing or upcoming)
-2. Reads local showtime data from `server/data/showtimes.json`
-3. Matches by TMDB movie ID
-4. Returns merged response: TMDB metadata + next available showtime per movie
-
-Movies in TMDB that don't have local showtimes are still returned (they're playing at the theater but showtimes aren't yet scheduled). Movies with showtimes but not in TMDB's list are flagged for manual review.
-
-### Caching Strategy
-
-Server routes use Nuxt's `cachedEventHandler` to avoid hitting TMDB on every request:
-
-| Route | Cache Duration | Rationale |
-| ----- | -------------- | --------- |
-| `/api/movies` (list) | 30 minutes | Movie lists update daily |
-| `/api/movies/:slug` (detail) | 1 hour | Movie details rarely change |
-| `/api/movies/:slug/showtimes` | No cache | Showtime availability is near-real-time |
-
-```typescript
-// Example: server/api/movies/index.get.ts
-export default cachedEventHandler(async (event) => {
-  // ... fetch and merge
-}, { maxAge: 60 * 30 }) // 30 minutes
-```
+The `movies:enrich` artisan command runs hourly via Laravel's scheduler. For each movie with a `tmdb_id` that needs enrichment, it calls `TmdbService` to backfill metadata (synopsis, cast, images, trailer, ratings). Results are cached in Redis: 24 hours for success, 5 minutes for failures. See `@docs/plans/backend/v1/03-movie-api.md` for implementation details.
 
 ---
 
@@ -478,7 +446,7 @@ Uses Stripe's SetupIntent flow:
 ### Stripe SDK Usage
 
 - **Client (`@stripe/stripe-js`):** Stripe Elements for card input, PaymentMethod creation, 3DS handling
-- **Server (`stripe` Node SDK):** PaymentIntent creation/confirmation, Customer management, SetupIntent creation, webhook handling
+- **Server (`stripe/stripe-php` SDK):** PaymentIntent creation/confirmation, Customer management, SetupIntent creation, webhook handling
 
 ### Webhook (Future)
 
@@ -486,25 +454,11 @@ Uses Stripe's SetupIntent flow:
 
 ---
 
-## 5. Local Mock Data
+## 5. Database & Seeding
 
-During initial development, server routes return data from JSON fixtures:
+All data is served from PostgreSQL. The backend includes comprehensive seeders for development and testing:
 
-| File | Contents |
-| ---- | -------- |
-| `server/data/showtimes.json` | Showtime schedule for next 14 days |
-| `server/data/auditoriums.json` | Auditorium layouts (rows, seats, sections) |
-| `server/data/menu.json` | Food and drink items |
-| `server/data/events.json` | Special events and calendar entries |
-| `server/data/faq.json` | FAQ categories and items |
+- `DatabaseSeeder` — Creates locations, auditoriums, seats, movies, showtimes, users, bookings, gift cards, calendar events, and menu items
+- `GiftCardSeeder` — Creates gift cards in various states for testing stateful scenarios
 
-These files serve as the contract for what the database schema will eventually need to support. The composable interfaces (`useMovies`, `useShowtimes`, etc.) remain identical regardless of whether data comes from JSON fixtures or a database.
-
-### Mock Data Toggle
-
-```typescript
-// server/utils/config.ts
-export const useMockData = process.env.MOCK_DATA === 'true'
-```
-
-When `MOCK_DATA=true`, TMDB calls are bypassed and movie data is also read from `server/data/movies.json`. This allows development without an API key.
+Run `make fresh` from the project root to reset the database with fresh migrations and seeds. See `@docs/plans/backend/v1/08-testing-and-seeding.md` for details.
