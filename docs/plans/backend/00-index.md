@@ -1,7 +1,7 @@
 # Backend Implementation Plans — Master Index
 
 > **Project:** Final Cut Movie Theatre
-> **Stack:** Laravel 13, PHP 8.3, PostgreSQL, Redis, Pest
+> **Stack:** Laravel 13, PHP 8.4, PostgreSQL, Redis, Pest
 > **Methodology:** MoSCoW prioritization, dependency-first ordering, domain grouping, inline testing
 
 ---
