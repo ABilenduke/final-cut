@@ -202,13 +202,13 @@ test('delete payment method detaches and returns success', function () {
     expect($fake->detachedPaymentMethods[0]['paymentMethodId'])->toBe('pm_to_delete');
 });
 
-test('delete payment method returns 403 when PM customer does not match user stripe_customer_id', function () {
+test('delete payment method returns 404 when PM customer does not match user stripe_customer_id', function () {
     $fake = fakeStripe()->withRetrievedPmCustomer('cus_someone_else');
     $user = User::factory()->create(['stripe_customer_id' => 'cus_owner']);
 
     $response = actingAs($user)->deleteJson('/api/account/payment-methods/pm_not_mine');
 
-    $response->assertForbidden()
+    $response->assertNotFound()
         ->assertJsonStructure(['errors' => [['message']]]);
 
     // Should NOT have detached
