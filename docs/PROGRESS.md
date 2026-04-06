@@ -634,3 +634,127 @@
 
 **Test count:** 332 tests, 1061 assertions, 0 failures (up from 266 tests at start)
 **New tests added:** 66 (21 + 16 + 16 + 13)
+
+---
+
+# Progress Journal — Plan 07: Calendar, Food Menu, Gift Cards, Contact & Rentals API
+
+## Task 1: CalendarEventController
+**Status:** ✅ Complete
+**Started:** 2026-04-05
+**Completed:** 2026-04-05
+
+### Work Done
+
+- [2026-04-05] Created CalendarEventResource with camelCase fields, enum ->value, date/time formatting
+- [2026-04-05] Implemented index with month/year filtering (defaults to current), type filter, accessibility JSON column filter (OR logic via whereJsonContains)
+- [2026-04-05] Implemented show by slug with 404 for invalid
+- [2026-04-05] Wrote 11 Pest tests, removed 2 calendar stub tests from RouteStubsTest
+
+### Files Changed
+
+- `backend/app/Http/Controllers/Api/CalendarEventController.php` — implemented index + show
+- `backend/app/Http/Resources/CalendarEventResource.php` — new
+- `backend/tests/Feature/Api/CalendarEventControllerTest.php` — new (11 tests)
+- `backend/tests/Feature/Api/RouteStubsTest.php` — removed 2 calendar stubs
+
+---
+
+## Task 2: GiftCardController
+**Status:** ✅ Complete
+**Started:** 2026-04-05
+**Completed:** 2026-04-05
+
+### Work Done
+
+- [2026-04-05] Created PurchaseGiftCardRequest with amount (500-50000), recipientEmail, recipientName, senderName, message (nullable), paymentMethodId validation
+- [2026-04-05] Created GiftCardResource with camelCase fields
+- [2026-04-05] Implemented purchase with Stripe PaymentIntent, GC-XXXXXXXX code generation with uniqueness loop
+- [2026-04-05] Implemented balance check by code (404 for invalid, 422 for missing)
+- [2026-04-05] Stripe error handling follows BookingController pattern (402/400/502)
+- [2026-04-05] Wrote 15 Pest tests, removed 2 gift card stub tests from RouteStubsTest
+
+### Files Changed
+
+- `backend/app/Http/Controllers/Api/GiftCardController.php` — implemented purchase + balance
+- `backend/app/Http/Requests/PurchaseGiftCardRequest.php` — new
+- `backend/app/Http/Resources/GiftCardResource.php` — new
+- `backend/tests/Feature/Api/GiftCardControllerTest.php` — new (15 tests)
+- `backend/tests/Feature/Api/RouteStubsTest.php` — removed 2 gift card stubs
+
+---
+
+## Task 3: ContactController + RentalController
+**Status:** ✅ Complete
+**Started:** 2026-04-05
+**Completed:** 2026-04-05
+
+### Work Done
+
+- [2026-04-05] Created ContactRequest (name, email, subject, message — all required)
+- [2026-04-05] Created RentalInquiryRequest (eventType enum, preferredDate after:today, guestCount min:1, name, email required; phone, message nullable)
+- [2026-04-05] ContactController logs via Log::info for MVP (no email)
+- [2026-04-05] RentalController creates RentalInquiry with status: pending, returns 201
+- [2026-04-05] Added throttle:5,1 middleware to both routes in api.php
+- [2026-04-05] Wrote 12 Pest tests (4 contact + 8 rental), removed 2 stub tests from RouteStubsTest
+
+### Files Changed
+
+- `backend/app/Http/Controllers/Api/ContactController.php` — implemented store
+- `backend/app/Http/Controllers/Api/RentalController.php` — implemented store
+- `backend/app/Http/Requests/ContactRequest.php` — new
+- `backend/app/Http/Requests/RentalInquiryRequest.php` — new
+- `backend/tests/Feature/Api/ContactControllerTest.php` — new (4 tests)
+- `backend/tests/Feature/Api/RentalControllerTest.php` — new (8 tests)
+- `backend/routes/api.php` — added throttle middleware group
+- `backend/tests/Feature/Api/RouteStubsTest.php` — removed 2 contact/rental stubs
+
+---
+
+## Final Verification
+**Status:** ✅ Complete
+**Completed:** 2026-04-05
+
+**Test count:** 370 tests, 1218 assertions, 0 failures (up from 332 at start of Plan 07)
+**New tests added:** 38 (11 + 15 + 4 + 8)
+**Stub tests removed:** 6 (all 501 stubs now replaced by dedicated test files)
+**Pint:** All 155 files pass
+
+---
+
+## Gift Card 3DS & Idempotency
+**Status:** ✅ Complete
+**Started:** 2026-04-06
+**Completed:** 2026-04-06
+
+### Work Done
+- [2026-04-06] Added `idempotency_key` (nullable, unique) and `payload_hash` (nullable) columns to gift_cards migration
+- [2026-04-06] Added optional `?string $idempotencyKey` parameter to `StripeService::createPaymentIntent`
+- [2026-04-06] Created `PayloadFingerprint` utility for canonical SHA-256 request hashing with normalization rules
+- [2026-04-06] Rewrote `GiftCardController::purchase` with full idempotency + 3DS support (lookup-before-Stripe replay, cache-based pending state, hard failure caching)
+- [2026-04-06] Added `POST /api/gift-cards/confirm` endpoint for 3DS completion with replay safety
+- [2026-04-06] Updated `PurchaseGiftCardRequest` to require `Idempotency-Key` UUID header
+- [2026-04-06] Added decline behavior to `FakeStripeService::confirmPaymentIntent`
+- [2026-04-06] Fixed StripeService unit test mocks to accept new options parameter
+- [2026-04-06] Added 25 new tests covering idempotency replay, normalization, 3DS flow, failure caching, confirm, and compensating refunds
+
+### Decisions
+- [2026-04-06] Hard failures (card declined, invalid PM) are cached for 15 min to enable deterministic replay; transient failures (Stripe unavailable, unexpected status) are NOT cached to allow retry
+- [2026-04-06] Compensating refund is a deliberate new design decision for gift cards — not assumed precedent from booking flow
+- [2026-04-06] `payload_hash` and `idempotency_key` stored on gift card row but NOT exposed in API response (internal replay fields)
+- [2026-04-06] `InvalidRequestException` cached as hard failure for payment-specific outcomes from `createPaymentIntent`
+
+### Files Changed
+- `backend/database/migrations/2026_04_04_200004_create_gift_cards_table.php` — added idempotency_key and payload_hash columns
+- `backend/app/Models/GiftCard.php` — added to Fillable
+- `backend/app/Services/StripeService.php` — optional idempotencyKey param on createPaymentIntent
+- `backend/tests/Helpers/FakeStripeService.php` — tracks idempotency keys, added decline to confirmPaymentIntent
+- `backend/app/Support/PayloadFingerprint.php` — new utility class
+- `backend/app/Http/Controllers/Api/GiftCardController.php` — full rewrite with idempotency + 3DS + confirm
+- `backend/app/Http/Requests/PurchaseGiftCardRequest.php` — Idempotency-Key header validation
+- `backend/routes/api.php` — added gift-cards/confirm route
+- `backend/tests/Feature/Api/GiftCardControllerTest.php` — 25 new tests (46 total, up from 17)
+- `backend/tests/Unit/Support/PayloadFingerprintTest.php` — 7 unit tests
+- `backend/tests/Unit/Services/StripeServiceTest.php` — updated mocks for options parameter
+
+**Test count:** 408 tests, 1342 assertions, 0 failures (up from 370)

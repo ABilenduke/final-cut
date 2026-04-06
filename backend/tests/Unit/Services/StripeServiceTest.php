@@ -42,7 +42,7 @@ test('createPaymentIntent calls Stripe with correct parameters', function () {
                 && $params['confirm'] === true
                 && $params['automatic_payment_methods']['enabled'] === true
                 && $params['automatic_payment_methods']['allow_redirects'] === 'never';
-        }))
+        }), Mockery::type('array'))
         ->andReturn(fakePaymentIntent());
 
     $service = new StripeService(client: $client);
@@ -56,7 +56,7 @@ test('createPaymentIntent passes metadata through to Stripe', function () {
 
     $piService->shouldReceive('create')
         ->once()
-        ->with(Mockery::on(fn (array $params) => $params['metadata'] === $metadata))
+        ->with(Mockery::on(fn (array $params) => $params['metadata'] === $metadata), Mockery::type('array'))
         ->andReturn(fakePaymentIntent());
 
     $service = new StripeService(client: $client);

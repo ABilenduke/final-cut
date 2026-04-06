@@ -15,18 +15,8 @@ use function Pest\Laravel\postJson;
 // - tests/Feature/Api/MovieControllerTest.php
 // - tests/Feature/Api/ShowtimeControllerTest.php
 
-// Calendar
-test('GET /api/calendar/events returns 200', function () {
-    getJson('/api/calendar/events')
-        ->assertOk()
-        ->assertJsonStructure(['data']);
-});
-
-test('GET /api/calendar/events/{slug} returns 200', function () {
-    getJson('/api/calendar/events/opening-night')
-        ->assertOk()
-        ->assertJsonStructure(['data']);
-});
+// Calendar — covered by dedicated test file:
+// - tests/Feature/Api/CalendarEventControllerTest.php
 
 // Food Menu — covered by dedicated test file:
 // - tests/Feature/Api/FoodMenuControllerTest.php
@@ -47,31 +37,12 @@ test('GET /api/calendar/events/{slug} returns 200', function () {
 // Bookings — covered by dedicated test file:
 // - tests/Feature/Api/BookingControllerTest.php
 
-// Gift Cards
-test('POST /api/gift-cards/purchase returns 501', function () {
-    postJson('/api/gift-cards/purchase')
-        ->assertStatus(501)
-        ->assertJson(['message' => 'Not implemented']);
-});
+// Gift Cards — covered by dedicated test file:
+// - tests/Feature/Api/GiftCardControllerTest.php
 
-test('GET /api/gift-cards/balance returns 501', function () {
-    getJson('/api/gift-cards/balance')
-        ->assertStatus(501)
-        ->assertJson(['message' => 'Not implemented']);
-});
-
-// Contact / Rentals
-test('POST /api/rentals/inquiry returns 501', function () {
-    postJson('/api/rentals/inquiry')
-        ->assertStatus(501)
-        ->assertJson(['message' => 'Not implemented']);
-});
-
-test('POST /api/contact returns 501', function () {
-    postJson('/api/contact')
-        ->assertStatus(501)
-        ->assertJson(['message' => 'Not implemented']);
-});
+// Contact / Rentals — covered by dedicated test files:
+// - tests/Feature/Api/ContactControllerTest.php
+// - tests/Feature/Api/RentalControllerTest.php
 
 /*
 |--------------------------------------------------------------------------

@@ -8,10 +8,17 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Carbon;
 
+/**
+ * @property GiftCardStatus $status
+ * @property Carbon|null $purchased_at
+ */
 #[Fillable([
     'code', 'initial_balance', 'current_balance', 'recipient_email',
-    'recipient_name', 'sender_name', 'message', 'status', 'purchased_at',
+    'recipient_name', 'sender_name', 'message', 'status',
+    'stripe_payment_intent_id', 'idempotency_key', 'payload_hash',
+    'purchased_at',
 ])]
 class GiftCard extends Model
 {

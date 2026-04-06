@@ -88,13 +88,14 @@ class FakeStripeService extends StripeService
         return $this;
     }
 
-    public function createPaymentIntent(int $amount, string $paymentMethodId, array $metadata = []): PaymentIntent
+    public function createPaymentIntent(int $amount, string $paymentMethodId, array $metadata = [], ?string $idempotencyKey = null): PaymentIntent
     {
         $this->createCallCount++;
         $this->createdPaymentIntents[] = [
             'amount' => $amount,
             'paymentMethodId' => $paymentMethodId,
             'metadata' => $metadata,
+            'idempotencyKey' => $idempotencyKey,
         ];
 
         if ($this->behavior === 'decline') {
@@ -143,7 +144,7 @@ class FakeStripeService extends StripeService
         }
 
         return PaymentIntent::constructFrom([
-            'id' => 'pi_fake_xxx',
+            'id' => 'pi_fake_'.str_pad($this->createCallCount, 3, '0', STR_PAD_LEFT),
             'object' => 'payment_intent',
             'status' => 'succeeded',
             'client_secret' => null,
@@ -153,6 +154,19 @@ class FakeStripeService extends StripeService
     public function confirmPaymentIntent(string $paymentIntentId): PaymentIntent
     {
         $this->confirmedPaymentIntents[] = ['paymentIntentId' => $paymentIntentId];
+
+        if ($this->behavior === 'decline') {
+            throw CardException::factory(
+                'Your card was declined.',
+                402,
+                null,
+                null,
+                null,
+                'card_declined',
+                'card_declined',
+                null,
+            );
+        }
 
         if ($this->behavior === 'invalid_request') {
             throw InvalidRequestException::factory(

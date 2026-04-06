@@ -14,23 +14,29 @@ use Stripe\StripeClient;
 
 class StripeService
 {
-    private StripeClient $client;
+    private ?StripeClient $client;
+
+    private ?string $apiKey;
 
     public function __construct(?string $apiKey = null, ?StripeClient $client = null)
     {
-        if ($client) {
-            $this->client = $client;
+        $this->client = $client;
+        $this->apiKey = $apiKey;
+    }
 
-            return;
+    private function client(): StripeClient
+    {
+        if ($this->client) {
+            return $this->client;
         }
 
-        $key = $apiKey ?? config('services.stripe.secret');
+        $key = $this->apiKey ?? config('services.stripe.secret');
 
         if (empty($key)) {
             throw new \RuntimeException('Stripe API key is not configured. Set STRIPE_SECRET_KEY in your environment or services.stripe.secret in config.');
         }
 
-        $this->client = new StripeClient($key);
+        return $this->client = new StripeClient($key);
     }
 
     /**
@@ -38,12 +44,20 @@ class StripeService
      *
      * Callers must check status === 'requires_action' to detect 3DS challenges.
      *
+     * @param  ?string  $idempotencyKey  Optional Stripe idempotency key for request deduplication.
+     *
      * @throws CardException Propagates — controller maps to 402
      * @throws InvalidRequestException Propagates — controller maps to 400
      */
-    public function createPaymentIntent(int $amount, string $paymentMethodId, array $metadata = []): PaymentIntent
+    public function createPaymentIntent(int $amount, string $paymentMethodId, array $metadata = [], ?string $idempotencyKey = null): PaymentIntent
     {
-        return $this->client->paymentIntents->create([
+        $options = [];
+
+        if ($idempotencyKey !== null) {
+            $options['idempotency_key'] = $idempotencyKey;
+        }
+
+        return $this->client()->paymentIntents->create([
             'amount' => $amount,
             'currency' => 'usd',
             'payment_method' => $paymentMethodId,
@@ -53,7 +67,7 @@ class StripeService
                 'allow_redirects' => 'never',
             ],
             'metadata' => $metadata,
-        ]);
+        ], $options);
     }
 
     /**
@@ -64,7 +78,7 @@ class StripeService
      */
     public function confirmPaymentIntent(string $paymentIntentId): PaymentIntent
     {
-        return $this->client->paymentIntents->confirm($paymentIntentId);
+        return $this->client()->paymentIntents->confirm($paymentIntentId);
     }
 
     /**
@@ -77,7 +91,7 @@ class StripeService
      */
     public function refundPaymentIntent(string $paymentIntentId): Refund
     {
-        return $this->client->refunds->create([
+        return $this->client()->refunds->create([
             'payment_intent' => $paymentIntentId,
         ]);
     }
@@ -88,10 +102,10 @@ class StripeService
     public function getOrCreateCustomer(string $email, ?string $existingCustomerId = null): Customer
     {
         if ($existingCustomerId) {
-            return $this->client->customers->retrieve($existingCustomerId);
+            return $this->client()->customers->retrieve($existingCustomerId);
         }
 
-        return $this->client->customers->create(['email' => $email]);
+        return $this->client()->customers->create(['email' => $email]);
     }
 
     /**
@@ -101,7 +115,7 @@ class StripeService
      */
     public function listPaymentMethods(string $customerId): array
     {
-        return $this->client->paymentMethods->all([
+        return $this->client()->paymentMethods->all([
             'customer' => $customerId,
             'type' => 'card',
         ])->data;
@@ -112,7 +126,7 @@ class StripeService
      */
     public function createSetupIntent(string $customerId): SetupIntent
     {
-        return $this->client->setupIntents->create(['customer' => $customerId]);
+        return $this->client()->setupIntents->create(['customer' => $customerId]);
     }
 
     /**
@@ -120,7 +134,7 @@ class StripeService
      */
     public function retrievePaymentMethod(string $paymentMethodId): StripePaymentMethod
     {
-        return $this->client->paymentMethods->retrieve($paymentMethodId);
+        return $this->client()->paymentMethods->retrieve($paymentMethodId);
     }
 
     /**
@@ -128,6 +142,6 @@ class StripeService
      */
     public function detachPaymentMethod(string $paymentMethodId): StripePaymentMethod
     {
-        return $this->client->paymentMethods->detach($paymentMethodId);
+        return $this->client()->paymentMethods->detach($paymentMethodId);
     }
 }
