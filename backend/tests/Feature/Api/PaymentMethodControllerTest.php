@@ -1,7 +1,7 @@
 <?php
 
 use App\Models\User;
-use Tests\Helpers\BookingTestHelper;
+use App\Services\StripeService;
 use Tests\Helpers\FakeStripeService;
 
 use function Pest\Laravel\actingAs;
@@ -18,7 +18,7 @@ use function Pest\Laravel\postJson;
 function fakeStripe(): FakeStripeService
 {
     $fake = new FakeStripeService;
-    app()->instance(\App\Services\StripeService::class, $fake);
+    app()->instance(StripeService::class, $fake);
 
     return $fake;
 }

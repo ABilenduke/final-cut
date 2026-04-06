@@ -68,7 +68,7 @@ test('loyalty endpoint returns ISO8601 premierExpiry for premier user', function
     $premierExpiry = $response->json('data.premierExpiry');
     expect($premierExpiry)->not->toBeNull();
     // Verify it is a valid ISO8601 string
-    expect(fn () => new \DateTimeImmutable($premierExpiry))->not->toThrow(\Exception::class);
+    expect(fn () => new DateTimeImmutable($premierExpiry))->not->toThrow(Exception::class);
 });
 
 test('loyalty endpoint returns correctly shaped history entries', function () {

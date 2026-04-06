@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\BookingStatus;
 use App\Models\Booking;
 use App\Models\BookingFoodItem;
 use App\Models\BookingSeat;
@@ -19,7 +20,7 @@ uses(BookingTestHelper::class);
 
 function createBookingForUser(User $user, array $showtimeOverrides = [], array $bookingOverrides = []): Booking
 {
-    /** @var \Tests\Helpers\BookingTestHelper $this */
+    /** @var BookingTestHelper $this */
     $setup = test()->createShowtimeWithSeats($showtimeOverrides);
 
     $booking = Booking::factory()->create(array_merge([
@@ -167,7 +168,7 @@ test('orders includes both confirmed and cancelled bookings', function () {
     $user = User::factory()->create();
 
     createBookingForUser($user);
-    createBookingForUser($user, bookingOverrides: ['status' => \App\Enums\BookingStatus::Cancelled]);
+    createBookingForUser($user, bookingOverrides: ['status' => BookingStatus::Cancelled]);
 
     $response = actingAs($user)->getJson('/api/account/orders');
 
@@ -346,7 +347,7 @@ test('upcoming bookings excludes cancelled and refunded future bookings', functi
         'start_time' => now()->addDays(3),
         'end_time' => now()->addDays(3)->addHours(2),
     ], bookingOverrides: [
-        'status' => \App\Enums\BookingStatus::Cancelled,
+        'status' => BookingStatus::Cancelled,
     ]);
 
     // Refunded future booking — should be excluded
@@ -354,7 +355,7 @@ test('upcoming bookings excludes cancelled and refunded future bookings', functi
         'start_time' => now()->addDays(4),
         'end_time' => now()->addDays(4)->addHours(2),
     ], bookingOverrides: [
-        'status' => \App\Enums\BookingStatus::Refunded,
+        'status' => BookingStatus::Refunded,
     ]);
 
     $response = actingAs($user)->getJson('/api/account/bookings');

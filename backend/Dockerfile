@@ -140,7 +140,32 @@ COPY --from=composer:2.9.5 /usr/bin/composer /usr/bin/composer
 RUN sed -i 's/opcache.validate_timestamps = 0/opcache.validate_timestamps = 1/' \
     $PHP_INI_DIR/conf.d/opcache.ini
 
-# Install dev dependencies (vendor stage only has --no-dev)
+# Create a dev user matching the host UID/GID so bind-mounted files
+# and the vendor volume share the same ownership. This is scoped to
+# the development stage only — production still runs as www-data.
+ARG DEV_UID=1000
+ARG DEV_GID=1000
+RUN addgroup -g ${DEV_GID} devuser \
+    && adduser -u ${DEV_UID} -G devuser -D -h /home/devuser devuser \
+    && chown -R devuser:devuser storage bootstrap/cache vendor
+
+# Configure PHP-FPM pool to run workers as devuser instead of www-data.
+# The FPM master process still starts as root (required for FPM), but
+# all worker processes that handle requests run as devuser (UID 1000).
+RUN sed -i \
+    -e 's/^user = www-data/user = devuser/' \
+    -e 's/^group = www-data/group = devuser/' \
+    /usr/local/etc/php-fpm.d/www.conf
+
+# Install dev dependencies as the dev user so the vendor volume
+# is owned by the same UID as the host bind mount.
+USER devuser
+
 RUN composer install --no-interaction
 
-USER www-data
+# Dev entrypoint: starts as root to fix bind-mount ownership on
+# storage dirs, then exec's php-fpm (which needs root for its master).
+USER root
+COPY docker/dev-entrypoint.sh /usr/local/bin/dev-entrypoint.sh
+ENTRYPOINT ["dev-entrypoint.sh"]
+CMD ["php-fpm"]
