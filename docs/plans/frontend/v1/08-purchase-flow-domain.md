@@ -195,7 +195,7 @@ Build the most complex feature in the application: the 3-step ticket purchase fl
   - `frontend/app/components/booking/PromoCode.vue`
   - `frontend/app/components/booking/PromoCode.stories.ts`
 - **Details:**
-  **PromoCode:** Input + "Apply" button. Server validates code. Applied state shows code + discount + "Remove". Error state shows message below input.
+  **PromoCode:** Input + "Apply" button. Client-side preview: mirrors promo config from `app/data/promoCodes.ts` to show estimated discount on 'Apply'. The preview is strictly non-authoritative — the server is the sole authority at booking time. Show an 'estimated' label on the preview discount. If the server returns a different discount at booking time, update the display. Applied state shows code + discount + "Remove". Error state shows message below input.
 
   **Props:** `appliedCode: string | null`
   **Events:** `apply(code)`, `remove`
@@ -295,7 +295,7 @@ Build the most complex feature in the application: the 3-step ticket purchase fl
   Per PURCHASE_FLOW.md Section 3. Layout: `purchase`. Rendering: client-only (`ssr: false`).
 
   **On page load:**
-  1. Fetch `GET /api/showtimes/:id` (showtime + seat map)
+  1. Fetch `GET /api/locations/{location}/showtimes/{id}` (showtime + seat map). Location slug comes from `useLocations().activeLocation`.
   2. Initialize `useSeatSelection` with seat data
   3. Initialize `useCart` with showtime reference
 
@@ -351,10 +351,15 @@ Build the most complex feature in the application: the 3-step ticket purchase fl
   **Payment submission flow (per PURCHASE_FLOW.md):**
   1. Client validates
   2. Stripe.js creates PaymentMethod
-  3. POST `/api/bookings` with full order
+  3. POST `/api/locations/{location}/bookings` with full order
   4. Handle responses: success → redirect to confirmation, 409 → redirect to seats, 402 → show error, 3DS → Stripe modal
+  - `POST /api/locations/{location}/bookings/confirm` with `paymentIntentId` after 3DS
 
   **Error handling:** Full error matrix from PURCHASE_FLOW.md Section 4.
+
+  **409 seat conflict:** Parse `errors[0].unavailableSeatIds` from response body. Deselect affected seats in cart, show toast listing unavailable seats, redirect back to seat selection page.
+
+  **410 session expired:** Clear cart, redirect to movie detail page with toast 'Your session has expired. Please start over.'
 
 - **Acceptance Criteria:**
   - [ ] Establishing Shot 65/35 on desktop, single column on mobile
@@ -385,6 +390,8 @@ Build the most complex feature in the application: the 3-step ticket purchase fl
   **PurchaseStepIndicator:** On this page, `navigableSteps=[]` — all steps show as completed but non-clickable.
 
   **Cart clear:** Cart is cleared on reaching this page (transaction complete).
+
+  **Guest booking lookup:** Include a 'Find My Booking' section below the main confirmation. Input: confirmation code + email. Calls `GET /api/bookings/lookup?confirmation_code=X&email=X`. This endpoint is intentionally not location-scoped — bookings are globally unique by confirmation code + email.
 
 - **Acceptance Criteria:**
   - [ ] Booking details load and display
@@ -441,3 +448,4 @@ Task 12 (Confirmation Page) ← uses Task 9
 4. **FoodPreOrderPanel dependency on Plan 10** — MenuCategoryTabs component is defined in Plan 10. Either build a simple version here or stub it. Recommendation: build an inline version here; Plan 10 can extract it to the shared component.
 5. **Mobile bottom sheet** — CartSummary as a mobile bottom sheet requires careful implementation. Consider using a CSS-only approach (fixed bottom, max-height transition) or a lightweight sheet library.
 6. **.ics file generation** — Build the .ics template per PURCHASE_FLOW.md. No external library needed — it's a simple text format. Generate a Blob and trigger download.
+7. **Location scoping** — All booking and showtime endpoints require a location slug. The location comes from `useLocations().activeLocation`. If the user changes location mid-purchase, the cart should be cleared and the flow restarted.

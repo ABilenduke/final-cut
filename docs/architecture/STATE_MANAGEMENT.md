@@ -39,6 +39,27 @@ const { user, isAuthenticated, login, logout } = useAuth()
 
 ---
 
+### Location — `useLocations`
+
+**File:** `app/composables/useLocations.ts`
+
+**State:**
+- `locations: Ref<Location[]>` — all available theater locations
+- `activeLocation: Ref<Location>` — user's selected location (localStorage-backed)
+
+**Methods:**
+- `fetchLocations(): Promise<void>` — GET `/api/locations`, called on app init
+- `setLocation(slug: string): void` — updates active location, writes to localStorage
+
+**Persistence:** Active location slug stored in localStorage. On init, if the stored slug doesn't match any location from the API, falls back to the first valid location and overwrites localStorage.
+
+**Usage:**
+```typescript
+const { activeLocation, setLocation } = useLocations()
+```
+
+---
+
 ### Cart — `useCart`
 
 **File:** `app/composables/useCart.ts`

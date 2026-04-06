@@ -72,6 +72,8 @@ Build the content pages that round out the site experience: FAQ, Contact, Food &
 
   **MenuCategoryTabs:** Horizontal scrolling tabs. Props: `categories: string[]`, `active: string`. Events: `select(category)`. `role="tablist"`, tabs with `role="tab"`, `aria-selected`.
 
+  The food menu API (`GET /api/locations/{location}/food-menu`) returns items grouped by category as `{ data: Record<string, MenuItem[]> }`, not a flat array. MenuCategoryTabs can use the group keys directly. MenuItem component renders individual items from the grouped response.
+
 - **Acceptance Criteria:**
   - [ ] Menu item displays all fields with correct typography
   - [ ] Dietary badges use CvBadge
@@ -91,6 +93,14 @@ Build the content pages that round out the site experience: FAQ, Contact, Food &
 - **Details:**
   **GiftCardPurchase:** Amount selector (preset: $25, $50, $75, $100 + custom CvInput), recipient name, email, personal message, purchase CTA. Integrates with Stripe for payment. Emits `purchase({ amount, recipientEmail, recipientName, message })`.
 
+  **Idempotency:** Generate a UUID per purchase attempt and send as `Idempotency-Key` header. Store the key so retries reuse the same one with the same payload.
+
+  **3DS flow:** Purchase can return `{ requiresAction: true, clientSecret, paymentIntentId }`. Handle via Stripe.js next-action, then call `POST /api/gift-cards/confirm` with `paymentIntentId`.
+
+  **Duplicate detection:** If the server returns 409 with payload mismatch, show an error. If same payload, show 'retrieving status...' and fetch the existing result.
+
+  **Amount validation:** Gift card amounts: 500-50000 cents ($5-$500).
+
   **BalanceChecker:** Code input (CvInput), "Check Balance" button (CvButton), balance display area. Uses `useGiftCards().checkBalance()`.
 
 - **Acceptance Criteria:**
@@ -99,6 +109,10 @@ Build the content pages that round out the site experience: FAQ, Contact, Food &
   - [ ] Stripe payment integration for purchase
   - [ ] Balance check returns and displays result
   - [ ] Error handling for invalid codes
+  - [ ] Idempotency-Key UUID sent on purchase request
+  - [ ] 3DS continuation flow works (requiresAction → confirm)
+  - [ ] Duplicate submission handled gracefully
+  - [ ] Amount validated within $5-$500 range
 
 ---
 
@@ -139,7 +153,7 @@ Build the content pages that round out the site experience: FAQ, Contact, Food &
 
   **Contact (`/contact`):** Establishing Shot 65/35, prerendered. Left: ContactMap, directions, parking, accessibility info. Right: hours, phone, email, ContactForm. SEO: `LocalBusiness` structured data.
 
-  **Food & Drink (`/food-drink`):** Ensemble grid with MenuCategoryTabs. ISR (30 min). Data: `GET /api/food-menu`. SEO: `Menu` structured data.
+  **Food & Drink (`/food-drink`):** Ensemble grid with MenuCategoryTabs. ISR (30 min). Data: `GET /api/locations/{location}/food-menu`. Location slug from `useLocations().activeLocation`. SEO: `Menu` structured data.
 
   **Gift Cards (`/gift-cards`):** Establishing Shot 65/35. Left: GiftCardPurchase. Right: BalanceChecker.
 

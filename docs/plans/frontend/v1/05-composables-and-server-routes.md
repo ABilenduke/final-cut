@@ -7,7 +7,7 @@
 
 ## Overview
 
-Build all 9 composables that form the frontend data layer. The frontend calls the Laravel API directly — there is no Nuxt server-side BFF layer. Composables wrap `useFetch` / `$fetch` calls targeting the Laravel backend via `NUXT_PUBLIC_API_BASE_URL`. Authentication uses Laravel Sanctum (session cookies) with `nuxt-auth-utils` for SSR hydration only.
+Build all 9 composables that form the frontend data layer. The frontend calls the Laravel API directly — there is no Nuxt server-side BFF layer. Composables wrap `useFetch` / `$fetch` calls targeting the Laravel backend via `NUXT_PUBLIC_API_BASE_URL`. Authentication uses Laravel Sanctum (session cookies). SSR hydration via nuxt-auth-utils is deferred for v1 — auth state is restored on app init via `GET /api/auth/me`.
 
 ## Reference Documents
 
@@ -27,27 +27,57 @@ Build all 9 composables that form the frontend data layer. The frontend calls th
 - **Files:**
   - `frontend/app/utils/api.ts` — Configured `$fetch` instance for Laravel API calls
 - **Details:**
-  Create a composable or utility that provides a pre-configured `$fetch` instance pointing at the Laravel backend. Reads `useRuntimeConfig().public.apiBaseUrl` to construct the base URL. All API calls should include `credentials: 'include'` to send Sanctum session cookies cross-origin.
+  Create a centralized API client layer that ALL composables consume. Individual composables must never independently configure credentials, headers, or error handling.
 
-  ```typescript
-  // app/utils/api.ts
-  export function useApi() {
-    const config = useRuntimeConfig()
-    return $fetch.create({
-      baseURL: config.public.apiBaseUrl,
-      credentials: 'include',
-      headers: {
-        Accept: 'application/json',
-      },
-    })
-  }
-  ```
+  The API client must:
+  - Read `useRuntimeConfig().public.apiBaseUrl` for the base URL
+  - Always include `credentials: 'include'` and `Accept: application/json`
+  - **CSRF bootstrap:** Call `GET /sanctum/csrf-cookie` before the first state-changing request (POST/PATCH/DELETE) in a session. Read the `X-XSRF-TOKEN` from the cookie and send it on subsequent requests. This is automatic — composable consumers don't need to think about CSRF.
+  - **Error envelope parsing:** Parse `{ errors: [{ message, field? }] }` responses into a consistent error shape. Handle dot-notation field paths for nested payloads (e.g., `foodItems.0.quantity`).
+  - **Idempotency-Key support:** Provide a mechanism for composables to attach `Idempotency-Key` UUID headers on specific operations (opt-in, not universal).
+  - **Retry policy:** Never auto-retry on deterministic 4xx (400/401/403/409/419/422/429). For 5xx and network errors, preserve state and offer manual retry only.
+  - **Error categories:**
+    - Actionable user errors (deterministic): 409 seat conflicts, 410 expired sessions, 401/419 session expired, 402 payment declined, 422 validation, 429 rate limited
+    - Transport failures (non-deterministic): 5xx server errors, network timeouts — preserve form/cart state, show manual retry button
 
 - **Acceptance Criteria:**
-  - [ ] `useApi()` returns a configured `$fetch` instance
+  - [ ] CSRF cookie is automatically fetched before first mutation
+  - [ ] X-XSRF-TOKEN header sent on all subsequent requests
+  - [ ] Error envelope `{ errors }` parsed into consistent shape
+  - [ ] Dot-notation field paths (e.g., `foodItems.0.quantity`) correctly mapped
+  - [ ] No auto-retry on 4xx status codes
+  - [ ] Idempotency-Key attachment works when requested by a composable
   - [ ] Base URL read from `NUXT_PUBLIC_API_BASE_URL` runtime config
   - [ ] Credentials included for Sanctum cookie auth
   - [ ] Auto-imported by Nuxt from `app/utils/`
+
+---
+
+### Task 1b: `useLocations` Composable
+
+- **MoSCoW:** Must Have
+- **Complexity:** S
+- **Files:**
+  - `frontend/app/composables/useLocations.ts`
+- **Details:**
+  Global state via `useState`. Manages the user's selected theater location. Location is a first-class concern — booking, showtime, food menu, and other calls require a location slug.
+
+  **State:**
+  - `locations: Ref<Location[]>` — all locations from `GET /api/locations`
+  - `activeLocation: Ref<Location>` — current selection (localStorage-backed)
+
+  **Methods:**
+  - `fetchLocations()` — fetches all locations on app init
+  - `setLocation(slug: string)` — updates active location, writes to localStorage
+
+  **Stale storage fallback:** On init, if the localStorage slug doesn't match any location from the API, silently fall back to the first valid location and overwrite localStorage.
+
+- **Acceptance Criteria:**
+  - [ ] Locations fetched from `GET /api/locations` on app init
+  - [ ] Active location persisted to localStorage
+  - [ ] Stale localStorage value falls back to first valid location
+  - [ ] `activeLocation` is reactive and accessible from any component
+  - [ ] Auto-imported by Nuxt
 
 ---
 
@@ -130,7 +160,9 @@ Build all 9 composables that form the frontend data layer. The frontend calls th
 - **Files:**
   - `frontend/app/composables/useAuth.ts`
 - **Details:**
-  Per STATE_MANAGEMENT.md. Global state via `useState`. Authentication is handled by Laravel Sanctum — the browser sends session cookies directly to the Laravel API. `nuxt-auth-utils` is used only for SSR hydration (storing user state in an encrypted cookie so the Nuxt server-renderer knows the auth state without making an API call on every page load).
+  Per STATE_MANAGEMENT.md. Global state via `useState`. Authentication is handled by Laravel Sanctum — the browser sends session cookies directly to the Laravel API. SSR hydration via nuxt-auth-utils is deferred for v1. On app init, `fetchUser()` calls `GET /api/auth/me` to restore session state from the Sanctum session cookie.
+
+  **CSRF bootstrap:** `login()` and `register()` must call `GET /sanctum/csrf-cookie` before the POST (handled automatically by the centralized API client from Task 1).
 
   **State:**
   - `user: Ref<User | null>`
@@ -258,9 +290,9 @@ Build all 9 composables that form the frontend data layer. The frontend calls th
 - **Details:**
   Per STATE_MANAGEMENT.md. Both call Laravel API directly with `credentials: 'include'` for Sanctum session auth.
 
-  **useAccount:** Profile CRUD, orders (paginated), upcoming bookings, loyalty, payment methods CRUD. All `/api/account/*` endpoints require authentication — Sanctum middleware on the Laravel side handles this.
+  **useAccount:** Profile CRUD, orders (paginated via `?limit=N`), upcoming bookings (no query params needed — always returns upcoming confirmed bookings), loyalty, payment methods CRUD. All `/api/account/*` endpoints require authentication — Sanctum middleware on the Laravel side handles this.
 
-  **useGiftCards:** Purchase (Stripe) and balance check via `/api/gift-cards/*`.
+  **useGiftCards:** Purchase (Stripe) and balance check via `/api/gift-cards/*`. Gift card purchase requires an `Idempotency-Key` UUID header on the POST request. Generate a UUID per purchase attempt and store it so retries reuse the same key. The purchase can return a `requiresAction` response for 3DS — handle identically to booking 3DS flow, then call `POST /api/gift-cards/confirm` with the `paymentIntentId`. Show 'retrieving status...' UX on duplicate submission detection (409 with payload mismatch).
 
 - **Acceptance Criteria:**
   - [ ] Account endpoints require authentication (Sanctum session)
@@ -309,6 +341,7 @@ Build all 9 composables that form the frontend data layer. The frontend calls th
 
 ```
 Task 1 (API Config) ← all composables depend on this
+Task 1b (useLocations) ← needs Task 1
 Task 2 (useMovies) ← needs Task 1
 Task 3 (useShowtimes) ← needs Task 1
 Task 4 (useAuth) ← needs Task 1
@@ -323,5 +356,5 @@ Task 9 (useToast) ← independent
 
 1. **CORS configuration** — The Laravel backend must allow credentials from the frontend origin. Verify `config/cors.php` has `supports_credentials: true` and the frontend origin in `allowed_origins`.
 2. **Sanctum cookie domain** — In dev, the frontend (Nuxt) and backend (Laravel) run on different ports. Sanctum's `stateful` domains must include the frontend origin for cookie-based auth to work cross-origin.
-3. **SSR and API calls** — When Nuxt renders on the server, `useFetch` calls go from the Nuxt server process to Laravel. Ensure the `apiBaseUrl` is resolvable from within the Docker network (e.g., `http://backend:8000` for SSR vs `https://finalcut.test` for client-side).
-4. **Stripe in dev** — Stripe test keys are configured in the Laravel backend. The frontend only needs the publishable key via `NUXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`.
+3. **Stripe in dev** — Stripe test keys are configured in the Laravel backend. The frontend only needs the publishable key via `NUXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`.
+4. **Location selection required** — Most data-fetching composables (useShowtimes, food menu, bookings) require an active location. The app must fetch locations and establish a default before these composables can be called. `useLocations` handles this on app init.

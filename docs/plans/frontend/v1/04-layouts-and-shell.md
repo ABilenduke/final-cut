@@ -51,6 +51,7 @@ Build the four Nuxt layouts and six layout components that form the persistent s
   - Logo (links to `/`, Noto Serif `headline-sm`)
   - Primary nav: Movies, What's On, Food & Drink, Events, Gift Cards
   - Auth controls: "Sign In" (guest) or user avatar dropdown (authenticated) — reads from `useAuth()`
+  - Location switcher: dropdown showing available theater locations (from `useLocations()`). Displays active location name. On change: updates localStorage, triggers refresh of location-scoped data. Default to first location or localStorage value.
   - Mobile: hamburger toggle below `screen-md`
 
   **Accessibility:** `<header role="banner">` containing `<nav role="navigation" aria-label="Primary">`. Mobile menu: `aria-expanded` on toggle, focus trap when open.
@@ -62,6 +63,10 @@ Build the four Nuxt layouts and six layout components that form the persistent s
   - [ ] Auth controls switch between guest/authenticated state
   - [ ] Hamburger menu on mobile with focus trap
   - [ ] `aria-label="Primary"` on nav element
+  - [ ] Location switcher displays active location
+  - [ ] Dropdown lists all available locations
+  - [ ] Selection persists to localStorage
+  - [ ] Location change triggers data refresh
 
 ---
 
@@ -325,3 +330,4 @@ Task 11 (blank.vue) ← independent
 1. **Layout nesting** — `account.vue` effectively extends `default.vue`. In Nuxt 4, layouts don't nest. May need to duplicate the shell structure or use a shared composable/component for the common chrome.
 2. **Cart in purchase layout** — CartSummary component (from Plan 08) doesn't exist yet. Use a placeholder slot or stub during this plan; wire up the real component in Plan 08.
 3. **NeuralTicker data source** — What populates the ticker? Options: hardcoded strings, next few showtimes from API, or a dedicated endpoint. Start with hardcoded strings; data integration comes in Plan 05/06.
+4. **NeuralTicker data source and location** — When ticker becomes data-driven (Plan 05/06), its content will need location context to show relevant showtimes and events for the user's selected location.
