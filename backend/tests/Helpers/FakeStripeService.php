@@ -88,13 +88,14 @@ class FakeStripeService extends StripeService
         return $this;
     }
 
-    public function createPaymentIntent(int $amount, string $paymentMethodId, array $metadata = []): PaymentIntent
+    public function createPaymentIntent(int $amount, string $paymentMethodId, array $metadata = [], ?string $idempotencyKey = null): PaymentIntent
     {
         $this->createCallCount++;
         $this->createdPaymentIntents[] = [
             'amount' => $amount,
             'paymentMethodId' => $paymentMethodId,
             'metadata' => $metadata,
+            'idempotencyKey' => $idempotencyKey,
         ];
 
         if ($this->behavior === 'decline') {

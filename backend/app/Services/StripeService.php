@@ -44,11 +44,19 @@ class StripeService
      *
      * Callers must check status === 'requires_action' to detect 3DS challenges.
      *
+     * @param  ?string  $idempotencyKey  Optional Stripe idempotency key for request deduplication.
+     *
      * @throws CardException Propagates — controller maps to 402
      * @throws InvalidRequestException Propagates — controller maps to 400
      */
-    public function createPaymentIntent(int $amount, string $paymentMethodId, array $metadata = []): PaymentIntent
+    public function createPaymentIntent(int $amount, string $paymentMethodId, array $metadata = [], ?string $idempotencyKey = null): PaymentIntent
     {
+        $options = [];
+
+        if ($idempotencyKey !== null) {
+            $options['idempotency_key'] = $idempotencyKey;
+        }
+
         return $this->client()->paymentIntents->create([
             'amount' => $amount,
             'currency' => 'usd',
@@ -59,7 +67,7 @@ class StripeService
                 'allow_redirects' => 'never',
             ],
             'metadata' => $metadata,
-        ]);
+        ], $options);
     }
 
     /**
