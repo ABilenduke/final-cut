@@ -291,7 +291,7 @@ Build all 10 composables that form the frontend data layer. The frontend calls t
 - **Details:**
   Per STATE_MANAGEMENT.md. Both call Laravel API directly with `credentials: 'include'` for Sanctum session auth.
 
-  **useAccount:** Profile CRUD, orders (paginated via `?limit=N`), upcoming bookings (no query params needed — always returns upcoming confirmed bookings), loyalty, payment methods CRUD. All `/api/account/*` endpoints require authentication — Sanctum middleware on the Laravel side handles this.
+  **useAccount:** Profile CRUD, orders (paginated via `?page=N&limit=M`, where `page` selects the results page and `limit` controls page size), upcoming bookings (no query params needed — always returns upcoming confirmed bookings), loyalty, payment methods CRUD. All `/api/account/*` endpoints require authentication — Sanctum middleware on the Laravel side handles this.
 
   **useGiftCards:** Purchase (Stripe) and balance check via `/api/gift-cards/*`. Gift card purchase requires an `Idempotency-Key` UUID header on the POST request. Generate a UUID per purchase attempt and store it so retries reuse the same key. The purchase can return a `requiresAction` response for 3DS — handle identically to booking 3DS flow, then call `POST /api/gift-cards/confirm` with the `paymentIntentId`. Show 'retrieving status...' UX on duplicate submission detection (409 with payload mismatch).
 

@@ -143,7 +143,7 @@ Build the authentication pages and account management dashboard: 5 domain compon
 
   **Profile:** Close-Up. ProfileForm component.
 
-  **Orders:** Close-Up. OrderHistoryList with pagination (`?limit=N`).
+  **Orders:** Close-Up. OrderHistoryList with Laravel pagination (`?page=N` for page number, `?limit=N` for page size).
 
   **Loyalty:** Close-Up. Points balance, tier status (Member/Premier), upgrade CTA for members, renewal date for premier, points history, available rewards.
 
