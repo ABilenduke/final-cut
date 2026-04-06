@@ -14,8 +14,8 @@ const dateTimeFormatter = new Intl.DateTimeFormat('en-US', {
 
 /**
  * Parse a date string into a Date object.
- * Date-only strings (YYYY-MM-DD) are anchored to UTC noon so they
- * always format to the same calendar date regardless of local timezone.
+ * Date-only strings (YYYY-MM-DD) are anchored to UTC noon to avoid
+ * day-shift issues in timezones west of UTC (up to UTC-12).
  */
 function parseDate(iso: string): Date {
   if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) {
