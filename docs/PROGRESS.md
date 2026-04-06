@@ -634,3 +634,88 @@
 
 **Test count:** 332 tests, 1061 assertions, 0 failures (up from 266 tests at start)
 **New tests added:** 66 (21 + 16 + 16 + 13)
+
+---
+
+# Progress Journal — Plan 07: Calendar, Food Menu, Gift Cards, Contact & Rentals API
+
+## Task 1: CalendarEventController
+**Status:** ✅ Complete
+**Started:** 2026-04-05
+**Completed:** 2026-04-05
+
+### Work Done
+
+- [2026-04-05] Created CalendarEventResource with camelCase fields, enum ->value, date/time formatting
+- [2026-04-05] Implemented index with month/year filtering (defaults to current), type filter, accessibility JSON column filter (OR logic via whereJsonContains)
+- [2026-04-05] Implemented show by slug with 404 for invalid
+- [2026-04-05] Wrote 11 Pest tests, removed 2 calendar stub tests from RouteStubsTest
+
+### Files Changed
+
+- `backend/app/Http/Controllers/Api/CalendarEventController.php` — implemented index + show
+- `backend/app/Http/Resources/CalendarEventResource.php` — new
+- `backend/tests/Feature/Api/CalendarEventControllerTest.php` — new (11 tests)
+- `backend/tests/Feature/Api/RouteStubsTest.php` — removed 2 calendar stubs
+
+---
+
+## Task 2: GiftCardController
+**Status:** ✅ Complete
+**Started:** 2026-04-05
+**Completed:** 2026-04-05
+
+### Work Done
+
+- [2026-04-05] Created PurchaseGiftCardRequest with amount (500-50000), recipientEmail, recipientName, senderName, message (nullable), paymentMethodId validation
+- [2026-04-05] Created GiftCardResource with camelCase fields
+- [2026-04-05] Implemented purchase with Stripe PaymentIntent, GC-XXXXXXXX code generation with uniqueness loop
+- [2026-04-05] Implemented balance check by code (404 for invalid, 422 for missing)
+- [2026-04-05] Stripe error handling follows BookingController pattern (402/400/502)
+- [2026-04-05] Wrote 15 Pest tests, removed 2 gift card stub tests from RouteStubsTest
+
+### Files Changed
+
+- `backend/app/Http/Controllers/Api/GiftCardController.php` — implemented purchase + balance
+- `backend/app/Http/Requests/PurchaseGiftCardRequest.php` — new
+- `backend/app/Http/Resources/GiftCardResource.php` — new
+- `backend/tests/Feature/Api/GiftCardControllerTest.php` — new (15 tests)
+- `backend/tests/Feature/Api/RouteStubsTest.php` — removed 2 gift card stubs
+
+---
+
+## Task 3: ContactController + RentalController
+**Status:** ✅ Complete
+**Started:** 2026-04-05
+**Completed:** 2026-04-05
+
+### Work Done
+
+- [2026-04-05] Created ContactRequest (name, email, subject, message — all required)
+- [2026-04-05] Created RentalInquiryRequest (eventType enum, preferredDate after:today, guestCount min:1, name, email required; phone, message nullable)
+- [2026-04-05] ContactController logs via Log::info for MVP (no email)
+- [2026-04-05] RentalController creates RentalInquiry with status: pending, returns 201
+- [2026-04-05] Added throttle:5,1 middleware to both routes in api.php
+- [2026-04-05] Wrote 12 Pest tests (4 contact + 8 rental), removed 2 stub tests from RouteStubsTest
+
+### Files Changed
+
+- `backend/app/Http/Controllers/Api/ContactController.php` — implemented store
+- `backend/app/Http/Controllers/Api/RentalController.php` — implemented store
+- `backend/app/Http/Requests/ContactRequest.php` — new
+- `backend/app/Http/Requests/RentalInquiryRequest.php` — new
+- `backend/tests/Feature/Api/ContactControllerTest.php` — new (4 tests)
+- `backend/tests/Feature/Api/RentalControllerTest.php` — new (8 tests)
+- `backend/routes/api.php` — added throttle middleware group
+- `backend/tests/Feature/Api/RouteStubsTest.php` — removed 2 contact/rental stubs
+
+---
+
+## Final Verification
+**Status:** ✅ Complete
+**Completed:** 2026-04-05
+
+**Test count:** 370 tests, 1218 assertions, 0 failures (up from 332 at start of Plan 07)
+**New tests added:** 38 (11 + 15 + 4 + 8)
+**Stub tests removed:** 6 (all 501 stubs now replaced by dedicated test files)
+**Pint:** All 155 files pass
