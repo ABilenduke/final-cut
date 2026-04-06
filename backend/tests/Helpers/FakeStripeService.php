@@ -143,7 +143,7 @@ class FakeStripeService extends StripeService
         }
 
         return PaymentIntent::constructFrom([
-            'id' => 'pi_fake_xxx',
+            'id' => 'pi_fake_'.str_pad($this->createCallCount, 3, '0', STR_PAD_LEFT),
             'object' => 'payment_intent',
             'status' => 'succeeded',
             'client_secret' => null,

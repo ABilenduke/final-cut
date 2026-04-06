@@ -18,6 +18,7 @@ return new class extends Migration
             $table->string('sender_name');
             $table->text('message')->nullable();
             $table->string('status')->default('active');
+            $table->string('stripe_payment_intent_id')->nullable()->unique();
             $table->timestamp('purchased_at')->nullable();
             $table->timestamps();
         });

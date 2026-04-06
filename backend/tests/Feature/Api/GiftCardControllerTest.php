@@ -182,6 +182,38 @@ test('purchase does not create gift card when payment returns non-terminal statu
     expect(GiftCard::count())->toBe(0);
 });
 
+test('purchase stores stripe_payment_intent_id on gift card', function () {
+    fakeGiftCardStripe();
+
+    postJson('/api/gift-cards/purchase', validPurchasePayload())
+        ->assertStatus(201);
+
+    expect(GiftCard::first()->stripe_payment_intent_id)->toBe('pi_fake_001');
+});
+
+test('purchase issues compensating refund when database write fails after payment', function () {
+    $fake = fakeGiftCardStripe();
+
+    // Force GiftCard::create to fail via a model event listener
+    GiftCard::creating(function () {
+        throw new RuntimeException('Simulated DB failure');
+    });
+
+    // Laravel's exception handler catches the re-thrown exception and returns 500
+    postJson('/api/gift-cards/purchase', validPurchasePayload())
+        ->assertStatus(500);
+
+    // Verify Stripe was charged
+    expect($fake->createdPaymentIntents)->toHaveCount(1);
+
+    // Verify compensating refund was issued
+    expect($fake->refundedPaymentIntents)->toHaveCount(1);
+    expect($fake->refundedPaymentIntents[0]['paymentIntentId'])->toBe('pi_fake_001');
+
+    // No gift card was persisted
+    expect(GiftCard::count())->toBe(0);
+});
+
 /*
 |--------------------------------------------------------------------------
 | Balance — Success

@@ -52,19 +52,28 @@ class GiftCardController extends Controller
             ], 502);
         }
 
-        $code = $this->generateUniqueCode();
+        // Payment captured. If the DB write fails, issue a compensating refund
+        // so we don't orphan a charge — same pattern as BookingController.
+        try {
+            $code = $this->generateUniqueCode();
 
-        $giftCard = GiftCard::create([
-            'code' => $code,
-            'initial_balance' => $validated['amount'],
-            'current_balance' => $validated['amount'],
-            'recipient_email' => $validated['recipientEmail'],
-            'recipient_name' => $validated['recipientName'],
-            'sender_name' => $validated['senderName'],
-            'message' => $validated['message'] ?? null,
-            'status' => GiftCardStatus::Active,
-            'purchased_at' => now(),
-        ]);
+            $giftCard = GiftCard::create([
+                'code' => $code,
+                'initial_balance' => $validated['amount'],
+                'current_balance' => $validated['amount'],
+                'recipient_email' => $validated['recipientEmail'],
+                'recipient_name' => $validated['recipientName'],
+                'sender_name' => $validated['senderName'],
+                'message' => $validated['message'] ?? null,
+                'status' => GiftCardStatus::Active,
+                'stripe_payment_intent_id' => $paymentIntent->id,
+                'purchased_at' => now(),
+            ]);
+        } catch (\Throwable $e) {
+            $this->refundOrReport($paymentIntent->id);
+
+            throw $e;
+        }
 
         return $this->successResponse(new GiftCardResource($giftCard), status: 201);
     }
@@ -87,6 +96,19 @@ class GiftCardController extends Controller
             'balance' => $giftCard->current_balance,
             'status' => $giftCard->status->value,
         ]);
+    }
+
+    /**
+     * Attempt to refund a captured PaymentIntent as a compensating action.
+     * If the refund itself fails, report it so it can be resolved manually.
+     */
+    private function refundOrReport(string $paymentIntentId): void
+    {
+        try {
+            $this->stripeService->refundPaymentIntent($paymentIntentId);
+        } catch (\Throwable $refundException) {
+            report($refundException);
+        }
     }
 
     private function generateUniqueCode(): string
