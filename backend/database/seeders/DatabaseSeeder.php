@@ -14,7 +14,7 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // Test user — only in local/testing environments
+        // Test users — only in local/testing environments
         if (app()->environment('local', 'testing')) {
             User::firstOrCreate(
                 ['email' => 'test@finalcut.test'],
@@ -25,6 +25,17 @@ class DatabaseSeeder extends Seeder
                     'loyalty_tier' => LoyaltyTier::Premier,
                     'loyalty_points' => 500,
                     'premier_expiry' => now()->addYear(),
+                ],
+            );
+
+            User::firstOrCreate(
+                ['email' => 'member@finalcut.test'],
+                [
+                    'name' => 'Member User',
+                    'password' => Hash::make('password'),
+                    'email_verified_at' => now(),
+                    'loyalty_tier' => LoyaltyTier::Member,
+                    'loyalty_points' => 50,
                 ],
             );
         }
@@ -39,7 +50,15 @@ class DatabaseSeeder extends Seeder
             ShowtimeSeeder::class,
             CalendarEventSeeder::class,
             MenuItemSeeder::class,
-            BookingSeeder::class,
         ]);
+
+        // Test-account-dependent seeders — only in local/testing
+        // These seeders reference test@finalcut.test and member@finalcut.test
+        if (app()->environment('local', 'testing')) {
+            $this->call([
+                BookingSeeder::class,
+                GiftCardSeeder::class,
+            ]);
+        }
     }
 }
