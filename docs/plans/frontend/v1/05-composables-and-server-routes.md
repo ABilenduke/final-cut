@@ -97,16 +97,18 @@ Build all 9 composables that form the frontend data layer. The frontend calls th
 - **Files:**
   - `frontend/app/composables/useShowtimes.ts`
 - **Details:**
+  Showtimes are location-scoped. The composable accepts a `locationId` parameter (selected by the user or defaulted).
+
   ```typescript
   function useShowtimes() {
-    const getShowtimes = (movieSlug: string, date?: string) =>
-      useFetch(`/api/movies/${movieSlug}/showtimes`, {
+    const getShowtimes = (locationId: string, movieSlug: string, date?: string) =>
+      useFetch(`/api/locations/${locationId}/movies/${movieSlug}/showtimes`, {
         baseURL: useRuntimeConfig().public.apiBaseUrl,
         query: { date },
         credentials: 'include',
       })
-    const getShowtime = (id: string) =>
-      useFetch(`/api/showtimes/${id}`, {
+    const getShowtime = (locationId: string, id: string) =>
+      useFetch(`/api/locations/${locationId}/showtimes/${id}`, {
         baseURL: useRuntimeConfig().public.apiBaseUrl,
         credentials: 'include',
       })
@@ -115,8 +117,8 @@ Build all 9 composables that form the frontend data layer. The frontend calls th
   ```
 
 - **Acceptance Criteria:**
-  - [ ] `getShowtime(id)` returns showtime + full seat map with availability
-  - [ ] `getShowtimes(slug, date)` returns showtimes for a movie
+  - [ ] `getShowtime(locationId, id)` returns showtime + full seat map with availability
+  - [ ] `getShowtimes(locationId, slug, date)` returns showtimes for a movie at a location
   - [ ] Seat statuses are accurate (available, taken, held)
 
 ---

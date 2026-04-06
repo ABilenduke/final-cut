@@ -90,7 +90,7 @@ These default to `1000` (standard first user on Linux/WSL). If your host UID dif
 
 See @docs/architecture/DATA_MODELS.md for full schema. Core entities: Movie (auto-increment PK, optional `tmdb_id` for enrichment, `slug` for URLs), Location, Auditorium (aka "Screen"), AuditoriumSection (Standard/Premium/Accessible pricing zones), Seat (row letter + number), Showtime (Movie + Auditorium, pricing in cents), Booking (human-readable confirmationCode like "CVF-A3X9K2"), User (loyaltyTier, loyaltyPoints), GiftCard.
 
-**Loyalty**: Two tiers — member (free, 1 pt/$1) and premier (paid annual, 10% food discount, birthday ticket, early seat access). Guest checkout offers post-purchase registration via magic link. See @docs/plans/backend/v1/05-auth-api.md.
+**Loyalty**: Two tiers — member (free, 1 pt/$1) and premier (paid annual, 10% food discount, birthday ticket, early seat access). Guest checkout offers post-purchase registration via magic link. See @docs/plans/backend/v1/06-account-api.md.
 
 **Movie Catalog & TMDB Enrichment**: The theatre owns its movie catalog — movies are created locally with title, slug, status, and optional `tmdb_id`. TMDB is **enrichment-only**, never in the request path. The scheduled command `movies:enrich` (runs hourly via Laravel scheduler) calls `TmdbService` to backfill metadata (synopsis, cast, images, trailer, ratings) for movies that have a `tmdb_id`. Enrichment results are cached 24 hours; failures are cached 5 minutes to avoid hammering. API responses serve only local DB data. See @docs/plans/backend/v1/03-movie-api.md.
 

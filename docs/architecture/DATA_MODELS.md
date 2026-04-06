@@ -252,13 +252,17 @@ interface RentalInquiry {
 
 All routes are served by the Laravel backend (`backend/routes/api.php`). Data comes from PostgreSQL. TMDB enrichment happens offline via the `movies:enrich` scheduled command — it is never in the request path.
 
+**Response envelope:** All success responses use `{ data, meta? }`. Paginated responses include `{ data, meta: { total, page, per_page } }`. Error responses use `{ errors: [{ message, field? }] }`.
+
+**Location scoping:** Showtimes, food menus, and bookings are scoped to a physical theater location via `/api/locations/{location}/...`. Movies and calendar events are shared across locations.
+
 ### Movies
 
 | Method | Path | Auth | Data Source | Request | Response |
 | ------ | ---- | ---- | ----------- | ------- | -------- |
-| GET | `/api/movies` | Public | PostgreSQL | `?status=now_showing\|coming_soon&genre=id&page=1` | `{ movies: Movie[], total: number, page: number }` |
-| GET | `/api/movies/:slug` | Public | PostgreSQL | — | `Movie` |
-| GET | `/api/movies/:slug/showtimes` | Public | PostgreSQL | `?date=YYYY-MM-DD` | `{ showtimes: Showtime[] }` |
+| GET | `/api/movies` | Public | PostgreSQL | `?status=now_showing\|coming_soon&per_page=20` | `{ data: Movie[], meta: { total, page, per_page } }` |
+| GET | `/api/movies/:slug` | Public | PostgreSQL | — | `{ data: Movie }` |
+| GET | `/api/locations/:location/movies/:slug/showtimes` | Public | PostgreSQL | `?date=YYYY-MM-DD` | `{ data: Showtime[] }` |
 
 Movies are created locally with title, slug, status, and optional `tmdb_id`. TMDB metadata (synopsis, cast, images, trailer, ratings) is backfilled offline by the `movies:enrich` scheduled command. API responses serve only database data.
 
@@ -266,7 +270,7 @@ Movies are created locally with title, slug, status, and optional `tmdb_id`. TMD
 
 | Method | Path | Auth | Data Source | Request | Response |
 | ------ | ---- | ---- | ----------- | ------- | -------- |
-| GET | `/api/showtimes/:id` | Public | Local | — | `Showtime & { auditorium: Auditorium, seats: Seat[] }` |
+| GET | `/api/locations/:location/showtimes/:id` | Public | Local | — | `{ data: { showtime, auditorium, seats[] } }` |
 
 Returns showtime details with full seat map including current availability. This is the entry point for the seat selection page.
 
@@ -274,12 +278,14 @@ Returns showtime details with full seat map including current availability. This
 
 | Method | Path | Auth | Data Source | Request | Response |
 | ------ | ---- | ---- | ----------- | ------- | -------- |
-| POST | `/api/bookings` | Public | Local + Stripe | `{ showtimeId, seatIds[], foodItems[], paymentMethodId, email? }` | `{ booking: Booking }` |
-| GET | `/api/bookings/:id` | Public* | Local | — | `Booking` |
+| POST | `/api/locations/:location/bookings` | Public | Local + Stripe | `{ showtimeId, seatIds[], foodItems[], paymentMethodId, email? }` | `{ data: Booking }` |
+| POST | `/api/locations/:location/bookings/confirm` | Public | Local + Stripe | `{ paymentIntentId }` | `{ data: Booking }` |
+| GET | `/api/bookings/:id` | Auth | Local | — | `{ data: Booking }` |
+| GET | `/api/bookings/lookup` | Public | Local | `?confirmation_code=XXX&email=XXX` | `{ data: Booking }` |
 
-*`GET /api/bookings/:id` is accessible by booking ID (acts as a secret URL). Authenticated users can also access via their order history.
+`GET /api/bookings/:id` requires authentication (owner only). Guests retrieve bookings via `/api/bookings/lookup` with their confirmation code and email.
 
-**POST `/api/bookings` flow:**
+**POST `/api/locations/:location/bookings` flow:**
 1. Validate seat availability (re-check at purchase time)
 2. Calculate total (seats + food - discounts)
 3. Create Stripe PaymentIntent with calculated amount
@@ -287,30 +293,33 @@ Returns showtime details with full seat map including current availability. This
 5. Return booking with confirmation code
 6. If seats taken since selection: return `409 Conflict` with which seats are unavailable
 
+**3DS flow:** If PaymentIntent requires action, the response includes `{ requiresAction: true, clientSecret }`. After client-side 3DS confirmation, `POST /api/locations/:location/bookings/confirm` completes the booking.
+
 ### Calendar
 
 | Method | Path | Auth | Data Source | Request | Response |
 | ------ | ---- | ---- | ----------- | ------- | -------- |
-| GET | `/api/calendar/events` | Public | Local | `?month=M&year=Y&type=showtime\|special_event\|loyalty_exclusive&accessibility=sensory_friendly,open_caption` | `{ events: CalendarEvent[] }` |
-| GET | `/api/calendar/events/:slug` | Public | Local | — | `CalendarEvent` (full detail) |
+| GET | `/api/calendar/events` | Public | Local | `?month=M&year=Y&type=showtime\|special_event\|loyalty_exclusive&accessibility=sensory_friendly,open_caption` | `{ data: CalendarEvent[] }` |
+| GET | `/api/calendar/events/:slug` | Public | Local | — | `{ data: CalendarEvent }` |
 
 ### Food Menu
 
 | Method | Path | Auth | Data Source | Request | Response |
 | ------ | ---- | ---- | ----------- | ------- | -------- |
-| GET | `/api/food-menu` | Public | Local | `?category=popcorn\|drinks\|...` | `{ items: MenuItem[] }` |
+| GET | `/api/locations/:location/food-menu` | Public | Local | `?category=popcorn\|drinks\|...` | `{ data: MenuItem[] }` |
 
 ### Auth
 
 | Method | Path | Auth | Data Source | Request | Response |
 | ------ | ---- | ---- | ----------- | ------- | -------- |
-| POST | `/api/auth/register` | Guest | Local | `{ name, email, password }` | `{ user: User }` + session cookie |
-| POST | `/api/auth/login` | Guest | Local | `{ email, password }` | `{ user: User }` + session cookie |
+| POST | `/api/auth/register` | Guest | Local | `{ name, email, password }` | `{ data: User }` + Sanctum session cookie |
+| POST | `/api/auth/login` | Guest | Local | `{ email, password }` | `{ data: User }` + Sanctum session cookie |
 | POST | `/api/auth/logout` | Auth | — | — | Clears session cookie |
-| GET | `/api/auth/me` | Auth | Local | — | `{ user: User }` |
-| POST | `/api/auth/forgot-password` | Guest | Local | `{ email }` | `{ success: true }` |
+| GET | `/api/auth/me` | Auth | Local | — | `{ data: User }` |
+| POST | `/api/auth/forgot-password` | Guest | Local | `{ email }` | `{ data: { success: true } }` |
+| POST | `/api/auth/reset-password` | Guest | Local | `{ token, email, password, password_confirmation }` | `{ data: { success: true } }` |
 
-Session-based auth via `nuxt-auth-utils`. Sessions stored in encrypted HTTP-only cookies. No JWT.
+Session-based auth via Laravel Sanctum. Sessions stored server-side in Redis; the browser sends an HTTP-only session cookie. `nuxt-auth-utils` on the frontend provides SSR hydration only — it stores user state in an encrypted cookie so the Nuxt server-renderer knows the auth state without an API call per page load.
 
 ### Account
 
@@ -318,7 +327,7 @@ Session-based auth via `nuxt-auth-utils`. Sessions stored in encrypted HTTP-only
 | ------ | ---- | ---- | ----------- | ------- | -------- |
 | GET | `/api/account/profile` | Auth | Local | — | `{ data: UserProfile }` |
 | PATCH | `/api/account/profile` | Auth | Local | `Partial<UserProfile>` | `{ data: UserProfile }` |
-| GET | `/api/account/orders` | Auth | Local | `?page=1&limit=10` | `{ data: Booking[], meta: { total, page, per_page } }` |
+| GET | `/api/account/orders` | Auth | Local | `?page=1&per_page=10` | `{ data: Booking[], meta: { total, page, per_page } }` |
 | GET | `/api/account/bookings` | Auth | Local | `?upcoming=true` | `{ data: Booking[] }` |
 | GET | `/api/account/loyalty` | Auth | Local | — | `{ data: { points, tier, premierExpiry?, history[] } }` |
 | GET | `/api/account/payment-methods` | Auth | Stripe | — | `{ data: [{ id, brand, last4, expMonth, expYear }] }` |
@@ -329,15 +338,16 @@ Session-based auth via `nuxt-auth-utils`. Sessions stored in encrypted HTTP-only
 
 | Method | Path | Auth | Data Source | Request | Response |
 | ------ | ---- | ---- | ----------- | ------- | -------- |
-| POST | `/api/gift-cards/purchase` | Public | Local + Stripe | `{ amount, recipientEmail, recipientName, senderName, message, paymentMethodId }` | `{ giftCard: GiftCard }` |
-| GET | `/api/gift-cards/balance` | Public | Local | `?code=XXXX` | `{ balance: number, status }` |
+| POST | `/api/gift-cards/purchase` | Public | Local + Stripe | `{ amount, recipientEmail, recipientName, senderName, message, paymentMethodId }` | `{ data: GiftCard }` |
+| POST | `/api/gift-cards/confirm` | Public | Local + Stripe | `{ paymentIntentId }` | `{ data: GiftCard }` |
+| GET | `/api/gift-cards/balance` | Public | Local | `?code=XXXX` | `{ data: { balance, status } }` |
 
 ### Rentals / Contact
 
 | Method | Path | Auth | Data Source | Request | Response |
 | ------ | ---- | ---- | ----------- | ------- | -------- |
-| POST | `/api/rentals/inquiry` | Public | Local | `RentalInquiry` fields | `{ success: true, inquiryId }` |
-| POST | `/api/contact` | Public | Local | `{ name, email, subject, message }` | `{ success: true }` |
+| POST | `/api/rentals/inquiry` | Public | Local | `RentalInquiry` fields | `{ data: { success: true, inquiryId } }` |
+| POST | `/api/contact` | Public | Local | `{ name, email, subject, message }` | `{ data: { success: true } }` |
 
 ---
 
