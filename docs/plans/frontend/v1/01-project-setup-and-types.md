@@ -88,7 +88,7 @@ Configure the Nuxt project for production use and define all TypeScript interfac
 
   ```typescript
   // app/types/location.ts
-  interface Location {
+  export interface Location {
     id: string
     name: string
     slug: string

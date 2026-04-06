@@ -45,13 +45,13 @@ const { user, isAuthenticated, login, logout } = useAuth()
 
 **State:**
 - `locations: Ref<Location[]>` — all available theater locations
-- `activeLocation: Ref<Location>` — user's selected location (localStorage-backed)
+- `activeLocation: Ref<Location | null>` — user's selected location (localStorage-backed); `null` until `fetchLocations()` completes and remains `null` if the API returns no locations
 
 **Methods:**
 - `fetchLocations(): Promise<void>` — GET `/api/locations`, called on app init
 - `setLocation(slug: string): void` — updates active location, writes to localStorage
 
-**Persistence:** Active location slug stored in localStorage. On init, if the stored slug doesn't match any location from the API, falls back to the first valid location and overwrites localStorage.
+**Persistence:** Active location slug stored in localStorage. On init, if the stored slug doesn't match any location from the API, falls back to the first valid location and overwrites localStorage. If the API returns no locations, `activeLocation` remains `null`.
 
 **Usage:**
 ```typescript
