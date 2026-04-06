@@ -155,6 +155,19 @@ class FakeStripeService extends StripeService
     {
         $this->confirmedPaymentIntents[] = ['paymentIntentId' => $paymentIntentId];
 
+        if ($this->behavior === 'decline') {
+            throw CardException::factory(
+                'Your card was declined.',
+                402,
+                null,
+                null,
+                null,
+                'card_declined',
+                'card_declined',
+                null,
+            );
+        }
+
         if ($this->behavior === 'invalid_request') {
             throw InvalidRequestException::factory(
                 $this->failureMessage,

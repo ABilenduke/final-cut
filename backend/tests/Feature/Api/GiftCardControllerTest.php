@@ -312,3 +312,429 @@ test('balance returns 422 when code param is missing', function () {
     getJson('/api/gift-cards/balance')
         ->assertStatus(422);
 });
+
+/*
+|--------------------------------------------------------------------------
+| Purchase — Idempotency Replay
+|--------------------------------------------------------------------------
+*/
+
+test('purchase replay returns same gift card when first attempt succeeded', function () {
+    fakeGiftCardStripe();
+    $key = (string) Str::uuid();
+    $payload = validPurchasePayload();
+
+    $first = postJson('/api/gift-cards/purchase', $payload, idempotencyHeader($key));
+    $first->assertStatus(201);
+    $giftCardId = $first->json('data.id');
+
+    $replay = postJson('/api/gift-cards/purchase', $payload, idempotencyHeader($key));
+    $replay->assertStatus(201);
+    $replay->assertJsonPath('data.id', $giftCardId);
+
+    expect(GiftCard::count())->toBe(1);
+});
+
+test('purchase replay returns requires_action when first attempt triggered 3DS', function () {
+    $fake = fakeGiftCardStripe();
+    $fake->shouldRequire3ds();
+    $key = (string) Str::uuid();
+    $payload = validPurchasePayload();
+
+    $first = postJson('/api/gift-cards/purchase', $payload, idempotencyHeader($key));
+    $first->assertOk();
+    $first->assertJsonPath('data.requiresAction', true);
+    $clientSecret = $first->json('data.clientSecret');
+
+    $replay = postJson('/api/gift-cards/purchase', $payload, idempotencyHeader($key));
+    $replay->assertOk();
+    $replay->assertJsonPath('data.requiresAction', true);
+    $replay->assertJsonPath('data.clientSecret', $clientSecret);
+
+    expect(GiftCard::count())->toBe(0);
+});
+
+test('purchase replay returns cached error when first attempt was declined', function () {
+    $fake = fakeGiftCardStripe();
+    $fake->shouldDecline();
+    $key = (string) Str::uuid();
+    $payload = validPurchasePayload();
+
+    $first = postJson('/api/gift-cards/purchase', $payload, idempotencyHeader($key));
+    $first->assertStatus(402);
+
+    // Switch to succeed — but replay should still return cached decline
+    $fake->shouldSucceed();
+
+    $replay = postJson('/api/gift-cards/purchase', $payload, idempotencyHeader($key));
+    $replay->assertStatus(402);
+    $replay->assertJsonPath('errors.0.field', 'payment');
+
+    expect(GiftCard::count())->toBe(0);
+});
+
+test('purchase returns 409 when same key used with different payload', function () {
+    fakeGiftCardStripe();
+    $key = (string) Str::uuid();
+
+    postJson('/api/gift-cards/purchase', validPurchasePayload(['amount' => 5000]), idempotencyHeader($key))
+        ->assertStatus(201);
+
+    postJson('/api/gift-cards/purchase', validPurchasePayload(['amount' => 7500]), idempotencyHeader($key))
+        ->assertStatus(409)
+        ->assertJsonPath('errors.0.field', 'idempotencyKey');
+
+    expect(GiftCard::count())->toBe(1);
+});
+
+test('purchase returns 409 on payload mismatch against cached 3DS state', function () {
+    $fake = fakeGiftCardStripe();
+    $fake->shouldRequire3ds();
+    $key = (string) Str::uuid();
+
+    postJson('/api/gift-cards/purchase', validPurchasePayload(['amount' => 5000]), idempotencyHeader($key))
+        ->assertOk();
+
+    postJson('/api/gift-cards/purchase', validPurchasePayload(['amount' => 7500]), idempotencyHeader($key))
+        ->assertStatus(409);
+});
+
+/*
+|--------------------------------------------------------------------------
+| Purchase — Payload Fingerprint Normalization
+|--------------------------------------------------------------------------
+*/
+
+test('purchase replay treats email casing differences as same payload', function () {
+    fakeGiftCardStripe();
+    $key = (string) Str::uuid();
+
+    postJson('/api/gift-cards/purchase', validPurchasePayload(['recipientEmail' => 'Test@Example.COM']), idempotencyHeader($key))
+        ->assertStatus(201);
+
+    postJson('/api/gift-cards/purchase', validPurchasePayload(['recipientEmail' => 'test@example.com']), idempotencyHeader($key))
+        ->assertStatus(201);
+
+    expect(GiftCard::count())->toBe(1);
+});
+
+test('purchase replay treats email whitespace differences as same payload', function () {
+    fakeGiftCardStripe();
+    $key = (string) Str::uuid();
+
+    postJson('/api/gift-cards/purchase', validPurchasePayload(['recipientEmail' => '  test@example.com  ']), idempotencyHeader($key))
+        ->assertStatus(201);
+
+    postJson('/api/gift-cards/purchase', validPurchasePayload(['recipientEmail' => 'test@example.com']), idempotencyHeader($key))
+        ->assertStatus(201);
+
+    expect(GiftCard::count())->toBe(1);
+});
+
+test('purchase replay treats null and empty message as same payload', function () {
+    fakeGiftCardStripe();
+    $key = (string) Str::uuid();
+
+    postJson('/api/gift-cards/purchase', validPurchasePayload(['message' => null]), idempotencyHeader($key))
+        ->assertStatus(201);
+
+    postJson('/api/gift-cards/purchase', validPurchasePayload(['message' => '']), idempotencyHeader($key))
+        ->assertStatus(201);
+
+    expect(GiftCard::count())->toBe(1);
+});
+
+test('purchase returns 409 when name casing differs', function () {
+    fakeGiftCardStripe();
+    $key = (string) Str::uuid();
+
+    postJson('/api/gift-cards/purchase', validPurchasePayload(['recipientName' => 'Jane Doe']), idempotencyHeader($key))
+        ->assertStatus(201);
+
+    postJson('/api/gift-cards/purchase', validPurchasePayload(['recipientName' => 'jane doe']), idempotencyHeader($key))
+        ->assertStatus(409);
+});
+
+/*
+|--------------------------------------------------------------------------
+| Purchase — 3DS Flow
+|--------------------------------------------------------------------------
+*/
+
+test('purchase returns requires_action with client secret when 3DS required', function () {
+    $fake = fakeGiftCardStripe();
+    $fake->shouldRequire3ds();
+
+    postJson('/api/gift-cards/purchase', validPurchasePayload(), idempotencyHeader())
+        ->assertOk()
+        ->assertJsonStructure([
+            'data' => ['requiresAction', 'clientSecret', 'paymentIntentId'],
+        ])
+        ->assertJsonPath('data.requiresAction', true);
+});
+
+test('purchase does not create gift card when 3DS is required', function () {
+    fakeGiftCardStripe()->shouldRequire3ds();
+
+    postJson('/api/gift-cards/purchase', validPurchasePayload(), idempotencyHeader())
+        ->assertOk();
+
+    expect(GiftCard::count())->toBe(0);
+});
+
+test('purchase writes both cache keys for 3DS pending state', function () {
+    fakeGiftCardStripe()->shouldRequire3ds();
+    $key = (string) Str::uuid();
+
+    $response = postJson('/api/gift-cards/purchase', validPurchasePayload(), idempotencyHeader($key));
+    $piId = $response->json('data.paymentIntentId');
+
+    expect(Cache::has("gift_card_idempotency:{$key}"))->toBeTrue();
+    expect(Cache::has("pending_gift_card:{$piId}"))->toBeTrue();
+
+    $pending = Cache::get("pending_gift_card:{$piId}");
+    expect($pending['idempotency_key'])->toBe($key);
+    expect($pending['amount'])->toBe(5000);
+});
+
+/*
+|--------------------------------------------------------------------------
+| Purchase — Failure Caching Distinction
+|--------------------------------------------------------------------------
+*/
+
+test('card decline is cached as hard failure and replayed', function () {
+    $fake = fakeGiftCardStripe();
+    $fake->shouldDecline();
+    $key = (string) Str::uuid();
+
+    postJson('/api/gift-cards/purchase', validPurchasePayload(), idempotencyHeader($key))
+        ->assertStatus(402);
+
+    expect(Cache::has("gift_card_idempotency:{$key}"))->toBeTrue();
+
+    $cached = Cache::get("gift_card_idempotency:{$key}");
+    expect($cached['status'])->toBe('failed');
+    expect($cached['error_status'])->toBe(402);
+});
+
+test('Stripe unavailability is NOT cached and retry goes through full flow', function () {
+    $fake = fakeGiftCardStripe();
+    $fake->shouldFailWithApiError();
+    $key = (string) Str::uuid();
+
+    postJson('/api/gift-cards/purchase', validPurchasePayload(), idempotencyHeader($key))
+        ->assertStatus(502);
+
+    expect(Cache::has("gift_card_idempotency:{$key}"))->toBeFalse();
+
+    // Switch to succeed — retry should work because nothing was cached
+    $fake->shouldSucceed();
+
+    postJson('/api/gift-cards/purchase', validPurchasePayload(), idempotencyHeader($key))
+        ->assertStatus(201);
+
+    expect(GiftCard::count())->toBe(1);
+});
+
+test('unexpected processing status is NOT cached and returns 502', function () {
+    fakeGiftCardStripe()->shouldReturnNonTerminalStatus('processing');
+
+    postJson('/api/gift-cards/purchase', validPurchasePayload(), idempotencyHeader())
+        ->assertStatus(502)
+        ->assertJsonPath('errors.0.field', 'payment');
+
+    expect(GiftCard::count())->toBe(0);
+});
+
+/*
+|--------------------------------------------------------------------------
+| Confirm — Success
+|--------------------------------------------------------------------------
+*/
+
+test('confirm creates gift card after 3DS completion', function () {
+    $fake = fakeGiftCardStripe();
+    $fake->shouldRequire3ds();
+
+    $response = postJson('/api/gift-cards/purchase', validPurchasePayload(), idempotencyHeader());
+    $piId = $response->json('data.paymentIntentId');
+
+    $fake->shouldSucceed();
+
+    postJson('/api/gift-cards/confirm', ['paymentIntentId' => $piId])
+        ->assertStatus(201)
+        ->assertJsonStructure([
+            'data' => ['id', 'code', 'initialBalance', 'currentBalance', 'recipientEmail', 'recipientName', 'senderName', 'status', 'purchasedAt'],
+        ])
+        ->assertJsonPath('data.initialBalance', 5000)
+        ->assertJsonPath('data.recipientEmail', 'recipient@example.com')
+        ->assertJsonPath('data.status', 'active');
+
+    expect(GiftCard::count())->toBe(1);
+    expect($fake->confirmedPaymentIntents)->toHaveCount(1);
+});
+
+test('confirm stores correct idempotency key and stripe PI on gift card', function () {
+    $fake = fakeGiftCardStripe();
+    $fake->shouldRequire3ds();
+    $key = (string) Str::uuid();
+
+    $response = postJson('/api/gift-cards/purchase', validPurchasePayload(), idempotencyHeader($key));
+    $piId = $response->json('data.paymentIntentId');
+
+    $fake->shouldSucceed();
+
+    postJson('/api/gift-cards/confirm', ['paymentIntentId' => $piId])
+        ->assertStatus(201);
+
+    $giftCard = GiftCard::first();
+    expect($giftCard->idempotency_key)->toBe($key);
+    expect($giftCard->stripe_payment_intent_id)->toBe($piId);
+});
+
+test('confirm clears both cache keys on success', function () {
+    $fake = fakeGiftCardStripe();
+    $fake->shouldRequire3ds();
+    $key = (string) Str::uuid();
+
+    $response = postJson('/api/gift-cards/purchase', validPurchasePayload(), idempotencyHeader($key));
+    $piId = $response->json('data.paymentIntentId');
+
+    $fake->shouldSucceed();
+
+    postJson('/api/gift-cards/confirm', ['paymentIntentId' => $piId])
+        ->assertStatus(201);
+
+    expect(Cache::has("gift_card_idempotency:{$key}"))->toBeFalse();
+    expect(Cache::has("pending_gift_card:{$piId}"))->toBeFalse();
+});
+
+/*
+|--------------------------------------------------------------------------
+| Confirm — Idempotency
+|--------------------------------------------------------------------------
+*/
+
+test('confirm replay returns existing gift card without duplicate', function () {
+    $fake = fakeGiftCardStripe();
+    $fake->shouldRequire3ds();
+
+    $response = postJson('/api/gift-cards/purchase', validPurchasePayload(), idempotencyHeader());
+    $piId = $response->json('data.paymentIntentId');
+
+    $fake->shouldSucceed();
+
+    $first = postJson('/api/gift-cards/confirm', ['paymentIntentId' => $piId]);
+    $first->assertStatus(201);
+    $giftCardId = $first->json('data.id');
+
+    $replay = postJson('/api/gift-cards/confirm', ['paymentIntentId' => $piId]);
+    $replay->assertStatus(201);
+    $replay->assertJsonPath('data.id', $giftCardId);
+
+    expect(GiftCard::count())->toBe(1);
+    // Second confirm should NOT call Stripe again
+    expect($fake->confirmedPaymentIntents)->toHaveCount(1);
+});
+
+test('confirm returns 410 when pending state has expired', function () {
+    postJson('/api/gift-cards/confirm', ['paymentIntentId' => 'pi_nonexistent'])
+        ->assertStatus(410);
+});
+
+test('confirm returns 422 when paymentIntentId is missing', function () {
+    postJson('/api/gift-cards/confirm', [])
+        ->assertStatus(422);
+});
+
+/*
+|--------------------------------------------------------------------------
+| Confirm — Failure Handling
+|--------------------------------------------------------------------------
+*/
+
+test('confirm returns 402 when Stripe declines on confirm', function () {
+    $fake = fakeGiftCardStripe();
+    $fake->shouldRequire3ds();
+
+    $response = postJson('/api/gift-cards/purchase', validPurchasePayload(), idempotencyHeader());
+    $piId = $response->json('data.paymentIntentId');
+
+    $fake->shouldDecline();
+
+    postJson('/api/gift-cards/confirm', ['paymentIntentId' => $piId])
+        ->assertStatus(402);
+
+    expect(GiftCard::count())->toBe(0);
+    // Cache preserved for retry
+    expect(Cache::has("pending_gift_card:{$piId}"))->toBeTrue();
+});
+
+test('confirm returns 502 when Stripe is unavailable', function () {
+    $fake = fakeGiftCardStripe();
+    $fake->shouldRequire3ds();
+
+    $response = postJson('/api/gift-cards/purchase', validPurchasePayload(), idempotencyHeader());
+    $piId = $response->json('data.paymentIntentId');
+
+    $fake->shouldFailWithApiError();
+
+    postJson('/api/gift-cards/confirm', ['paymentIntentId' => $piId])
+        ->assertStatus(502);
+
+    expect(Cache::has("pending_gift_card:{$piId}"))->toBeTrue();
+});
+
+test('confirm succeeds on retry after prior failed attempt', function () {
+    $fake = fakeGiftCardStripe();
+    $fake->shouldRequire3ds();
+
+    $response = postJson('/api/gift-cards/purchase', validPurchasePayload(), idempotencyHeader());
+    $piId = $response->json('data.paymentIntentId');
+
+    // First confirm fails
+    $fake->shouldFailWithApiError();
+    postJson('/api/gift-cards/confirm', ['paymentIntentId' => $piId])
+        ->assertStatus(502);
+
+    // Retry succeeds
+    $fake->shouldSucceed();
+    postJson('/api/gift-cards/confirm', ['paymentIntentId' => $piId])
+        ->assertStatus(201);
+
+    expect(GiftCard::count())->toBe(1);
+});
+
+/*
+|--------------------------------------------------------------------------
+| Confirm — Compensating Refund
+|--------------------------------------------------------------------------
+*/
+
+test('confirm issues compensating refund when DB write fails after payment', function () {
+    $fake = fakeGiftCardStripe();
+    $fake->shouldRequire3ds();
+
+    $response = postJson('/api/gift-cards/purchase', validPurchasePayload(), idempotencyHeader());
+    $piId = $response->json('data.paymentIntentId');
+
+    $fake->shouldSucceed();
+
+    // Force GiftCard::create to fail
+    GiftCard::creating(function () {
+        throw new RuntimeException('Simulated DB failure');
+    });
+
+    postJson('/api/gift-cards/confirm', ['paymentIntentId' => $piId])
+        ->assertStatus(500);
+
+    // Verify Stripe was confirmed
+    expect($fake->confirmedPaymentIntents)->toHaveCount(1);
+
+    // Verify compensating refund was issued
+    expect($fake->refundedPaymentIntents)->toHaveCount(1);
+    expect($fake->refundedPaymentIntents[0]['paymentIntentId'])->toBe($piId);
+
+    expect(GiftCard::count())->toBe(0);
+});
