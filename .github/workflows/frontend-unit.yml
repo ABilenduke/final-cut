@@ -53,5 +53,8 @@ jobs:
       - name: Install dependencies
         run: deno install
 
+      - name: Prepare Nuxt
+        run: npx nuxi prepare
+
       - name: Run tests
         run: npx vitest run --passWithNoTests
