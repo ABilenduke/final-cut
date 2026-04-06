@@ -1,0 +1,65 @@
+/* Print Stylesheet — The Lobby Card
+   Suppress interface chrome. Preserve booking confirmation content.
+   This is the ONLY file where #FFFFFF / white is permitted. */
+
+@media print {
+  /* Reset to printable defaults */
+  body {
+    background: white;
+    color: black;
+  }
+
+  /* Suppress all interface chrome */
+  nav,
+  footer,
+  .site-header,
+  .site-footer,
+  .mobile-nav,
+  .neural-ticker,
+  .skip-nav,
+  .sidebar-layout__nav,
+  .toast,
+  button:not(.print-visible),
+  .no-print {
+    display: none !important;
+  }
+
+  /* Remove decorative treatments */
+  * {
+    text-shadow: none !important;
+    box-shadow: none !important;
+  }
+
+  /* Grayscale images */
+  img {
+    filter: grayscale(100%);
+  }
+
+  /* Append link URLs */
+  a[href^="http"]::after {
+    content: " (" attr(href) ")";
+    font-size: 0.75rem;
+    color: black;
+  }
+
+  /* Prevent page breaks inside critical content */
+  h1, h2, h3, h4 {
+    page-break-after: avoid;
+  }
+
+  .cv-card,
+  .booking-confirmation {
+    page-break-inside: avoid;
+  }
+
+  /* Booking confirmation print optimization */
+  .booking-confirmation {
+    max-width: 100%;
+    margin: 0;
+    padding: 1rem;
+  }
+
+  .booking-confirmation__qr {
+    filter: none; /* Keep QR code crisp, not grayscale */
+  }
+}

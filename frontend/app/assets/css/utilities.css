@@ -1,0 +1,169 @@
+/* Utilities — Reusable patterns from the design system.
+   Aspect ratios, touch targets, glassmorphism, skeleton shimmer,
+   screen-reader only, edge catches, and focus indicators. */
+
+/* ——— Aspect Ratios ——— */
+
+.aspect-poster {
+  aspect-ratio: 2 / 3;
+  object-fit: cover;
+  object-position: top center;
+}
+
+.aspect-hero {
+  aspect-ratio: 21 / 9;
+  object-fit: cover;
+  object-position: center;
+}
+
+.aspect-video {
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+}
+
+.aspect-event {
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+}
+
+.aspect-square {
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+}
+
+/* ——— Touch Targets ——— */
+
+/* Below screen-md, enforce 3rem minimum on interactive elements */
+@media (max-width: 59.999rem) {
+  .touch-target {
+    min-height: 3rem;
+    min-width: 3rem;
+  }
+}
+
+/* Small variants (2.25rem) are pointer-fine only */
+@media (pointer: fine) {
+  .size-sm {
+    height: 2.25rem;
+  }
+}
+
+/* ——— Glassmorphism ——— */
+
+.glass {
+  background-color: rgba(59, 54, 54, 0.85); /* surface-variant at 85% — solid fallback */
+}
+
+@supports (backdrop-filter: blur(1px)) {
+  .glass {
+    background-color: rgba(59, 54, 54, 0.6); /* surface-variant at 60% */
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+  }
+}
+
+/* ——— Skeleton Shimmer ——— */
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.skeleton {
+  background-color: var(--surface-container-low);
+  background-image: linear-gradient(
+    90deg,
+    var(--surface-container-low) 0%,
+    var(--surface-container) 40%,
+    var(--surface-container-low) 80%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1500ms linear infinite;
+  border-radius: 0.125rem;
+}
+
+/* Reduced motion: solid fill, no shimmer */
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    background-image: none;
+    animation: none;
+  }
+}
+
+/* ——— Screen Reader Only ——— */
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+/* ——— Edge Catch (Decorative) ——— */
+
+.edge-catch {
+  outline: 0.0625rem solid rgba(87, 66, 62, 0.15); /* outline-variant at 15% opacity */
+}
+
+/* ——— Vignette Bloom ——— */
+
+.vignette-bloom {
+  background: radial-gradient(
+    ellipse at center,
+    var(--primary-container) 0%,
+    var(--surface-container-lowest) 70%
+  );
+}
+
+/* ——— Interactive Element Resets (opt-in) ——— */
+
+/* Use on <a> elements in components that fully restyle links */
+.link-reset {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* Use on <button> elements in components that fully restyle buttons */
+.button-reset {
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 0;
+}
+
+/* ——— Focus Indicators ——— */
+
+/* Baseline: gold outline visible in all contexts including
+   clipped containers, forced-colors mode, and high-contrast.
+   Box-shadow layered on top as visual enhancement only. */
+:focus-visible {
+  outline: 0.125rem solid var(--secondary);
+  outline-offset: 0.125rem;
+  box-shadow:
+    0 0 0 0.125rem var(--surface),
+    0 0 0 0.25rem var(--secondary);
+}
+
+/* In forced-colors mode, box-shadow is suppressed by the UA.
+   The outline remains visible as the primary focus indicator. */
+@media (forced-colors: active) {
+  :focus-visible {
+    outline: 0.125rem solid LinkText;
+    box-shadow: none;
+  }
+}
+
+/* ——— Floating Element Shadow ——— */
+
+.shadow-float {
+  box-shadow: 0 1.25rem 2.5rem rgba(0, 0, 0, 0.6);
+}
