@@ -868,5 +868,6 @@
 
 ## Post-Completion: Docs Refactor (2026-04-06)
 
-### Work Done
+### Changes
+
 - [2026-04-06] Updated reference doc descriptions in Plans 01 and 03: changed "BFF pattern" to "Frontend-backend architecture" to match the current architecture (frontend calls Laravel directly, no Nuxt BFF layer). These are doc-only label changes — no implementation impact on completed backend work.
