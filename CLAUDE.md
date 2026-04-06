@@ -88,16 +88,16 @@ These default to `1000` (standard first user on Linux/WSL). If your host UID dif
 
 ## Key Domain Concepts
 
-See @docs/DATA_MODELS.md for full schema. Core entities: Movie (auto-increment PK, optional `tmdb_id` for enrichment, `slug` for URLs), Location, Auditorium (aka "Screen"), AuditoriumSection (Standard/Premium/Accessible pricing zones), Seat (row letter + number), Showtime (Movie + Auditorium, pricing in cents), Booking (human-readable confirmationCode like "CVF-A3X9K2"), User (loyaltyTier, loyaltyPoints), GiftCard.
+See @docs/architecture/DATA_MODELS.md for full schema. Core entities: Movie (auto-increment PK, optional `tmdb_id` for enrichment, `slug` for URLs), Location, Auditorium (aka "Screen"), AuditoriumSection (Standard/Premium/Accessible pricing zones), Seat (row letter + number), Showtime (Movie + Auditorium, pricing in cents), Booking (human-readable confirmationCode like "CVF-A3X9K2"), User (loyaltyTier, loyaltyPoints), GiftCard.
 
-**Loyalty**: Two tiers — member (free, 1 pt/$1) and premier (paid annual, 10% food discount, birthday ticket, early seat access). Guest checkout offers post-purchase registration via magic link. See @docs/plans/backend/05-loyalty-system.md.
+**Loyalty**: Two tiers — member (free, 1 pt/$1) and premier (paid annual, 10% food discount, birthday ticket, early seat access). Guest checkout offers post-purchase registration via magic link. See @docs/plans/backend/v1/05-auth-api.md.
 
-**Movie Catalog & TMDB Enrichment**: The theatre owns its movie catalog — movies are created locally with title, slug, status, and optional `tmdb_id`. TMDB is **enrichment-only**, never in the request path. The scheduled command `movies:enrich` (runs hourly via Laravel scheduler) calls `TmdbService` to backfill metadata (synopsis, cast, images, trailer, ratings) for movies that have a `tmdb_id`. Enrichment results are cached 24 hours; failures are cached 5 minutes to avoid hammering. API responses serve only local DB data. See @docs/plans/backend/03-movie-api.md.
+**Movie Catalog & TMDB Enrichment**: The theatre owns its movie catalog — movies are created locally with title, slug, status, and optional `tmdb_id`. TMDB is **enrichment-only**, never in the request path. The scheduled command `movies:enrich` (runs hourly via Laravel scheduler) calls `TmdbService` to backfill metadata (synopsis, cast, images, trailer, ratings) for movies that have a `tmdb_id`. Enrichment results are cached 24 hours; failures are cached 5 minutes to avoid hammering. API responses serve only local DB data. See @docs/plans/backend/v1/03-movie-api.md.
 
 ## Design Decisions
 
 - **Styling**: Use `rem` units (not `px`), except where technically required (borders, shadows, sub-pixel)
-- **CSS**: CSS custom properties for theming (no CSS-in-JS). See @docs/DESIGN_SYSTEM.md for tokens, typography, and component specs
+- **CSS**: CSS custom properties for theming (no CSS-in-JS). See @docs/design-system/DESIGN_SYSTEM.md for tokens, typography, and component specs
 - **Color tokens**: `#FFB4A8` (primary) is a **text-on-dark color only**. `#550000` (primary_container) is the **fill color** for buttons, active states, hero accents. Tokens use underscores in docs (`primary_container`) but hyphens in CSS (`--primary-container`)
 - **Booleans as timestamps**: Prefer nullable timestamps over booleans when the column represents a state transition (e.g., `unavailable_at` instead of `available`). This provides free metadata about *when* the state changed. Keep plain booleans for classification flags that don't represent events (e.g., `loyalty_only`)
 - **Currency**: All monetary values (prices, totals, discounts, balances) are stored, calculated, and transmitted as **positive integers in cents** (USD only). `$12.99` = `1299`. This follows Stripe's standard and avoids floating-point errors. Never use floats for money. The frontend `formatCurrency` utility converts cents to display strings. API responses return cents; the client formats for display
@@ -116,7 +116,7 @@ This project follows **spec-driven development** with **test-driven development 
 
 ### Progress Tracking
 
-When executing any implementation plan, maintain a **progress journal** at `docs/PROGRESS.md`. This file is checked into the repo and persists across sessions.
+When executing any implementation plan, maintain a **progress journal** in `docs/progress/`. Use `docs/progress/backend-v1.md` for backend plans and `docs/progress/frontend-v1.md` for frontend plans. These files are checked into the repo and persist across sessions.
 
 **Format per step:**
 
@@ -141,14 +141,14 @@ When executing any implementation plan, maintain a **progress journal** at `docs
 
 **Rules:**
 
-- Create `docs/PROGRESS.md` at the start of plan execution if it doesn't exist
+- Create the relevant progress file at the start of plan execution if it doesn't exist
 - Update the journal as work progresses — don't batch updates at the end
 - Log decisions and blockers in real time so future sessions have full context
 - Mark steps complete only after verification passes
 
 ### Testing Requirements
 
-- **Backend**: All tests **must** use [Pest](https://pestphp.com/) (not raw PHPUnit). Run with `composer test` inside the backend container. Uses `RefreshDatabase` trait for isolation against `final_cut_test`. See @docs/plans/backend/08-testing-and-seeding.md.
+- **Backend**: All tests **must** use [Pest](https://pestphp.com/) (not raw PHPUnit). Run with `composer test` inside the backend container. Uses `RefreshDatabase` trait for isolation against `final_cut_test`. See @docs/plans/backend/v1/08-testing-and-seeding.md.
 - **Backend test helpers**: `AuthHelper` trait (`actingAsUser()`, `actingAsPremierUser()`, `actingAsGuest()`) and `StripeHelper` trait (`mockStripeSuccess()`, `mockStripeDeclined()`, `mockStripe3DS()`).
 - **Frontend unit/component**: All tests **must** use [Vitest](https://vitest.dev/) with `@nuxt/test-utils`. Run with `npx vitest` inside the frontend container.
 - **Frontend E2E**: Playwright. Run with `make e2e` from host or `npx playwright test` inside the frontend container.
@@ -157,17 +157,18 @@ When executing any implementation plan, maintain a **progress journal** at `docs
 
 ## Documentation
 
-- @docs/SITE_ARCHITECTURE.md — Overall app structure and routing
-- @docs/DATA_MODELS.md — Database schema and relationships
-- @docs/DESIGN_SYSTEM.md, @docs/DESIGN_SYSTEM_IMPLEMENTATION.md, @docs/DESIGN_SYSTEM_STRUCTURE.md — Design tokens, components, patterns
-- @docs/COMPONENT_INVENTORY.md — UI component catalog
-- @docs/PAGE_SPECS.md — Page-level specifications
-- @docs/PURCHASE_FLOW.md — Ticket purchase flow
-- @docs/STATE_MANAGEMENT.md — Frontend state architecture
+- @docs/README.md — Documentation navigation index
+- @docs/architecture/SITE_ARCHITECTURE.md — Overall app structure and routing
+- @docs/architecture/DATA_MODELS.md — Database schema and relationships
+- @docs/architecture/STATE_MANAGEMENT.md — Frontend state architecture
+- @docs/design-system/DESIGN_SYSTEM.md, @docs/design-system/DESIGN_SYSTEM_IMPLEMENTATION.md, @docs/design-system/DESIGN_SYSTEM_STRUCTURE.md — Design tokens, components, patterns
+- @docs/specs/COMPONENT_INVENTORY.md — UI component catalog
+- @docs/specs/PAGE_SPECS.md — Page-level specifications
+- @docs/specs/PURCHASE_FLOW.md — Ticket purchase flow
 
 ## Common Pitfalls
 
-- NEVER use `#FFB4A8` as a background/fill color — it is text-on-dark-maroon only. See @docs/DESIGN_SYSTEM.md Token Mapping.
+- NEVER use `#FFB4A8` as a background/fill color — it is text-on-dark-maroon only. See @docs/design-system/DESIGN_SYSTEM.md Token Mapping.
 - NEVER use `px` for spacing/sizing — use `rem` exclusively (exception: borders, shadows, sub-pixel).
 - NEVER create API routes without corresponding Pest tests.
 - NEVER hardcode a single location — all showtime, auditorium, seat, and menu queries must be location-scoped.
