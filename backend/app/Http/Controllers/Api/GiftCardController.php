@@ -151,6 +151,11 @@ class GiftCardController extends Controller
         // 1. Check if gift card already exists for this PI (replay)
         $existing = GiftCard::where('stripe_payment_intent_id', $paymentIntentId)->first();
         if ($existing) {
+            $pendingData = Cache::get("pending_gift_card:{$paymentIntentId}");
+            if ($pendingData && $existing->payload_hash !== $pendingData['payload_hash']) {
+                return $this->payloadMismatchResponse();
+            }
+
             return $this->successResponse(new GiftCardResource($existing), status: 201);
         }
 
@@ -270,6 +275,10 @@ class GiftCardController extends Controller
                         ?? GiftCard::where('stripe_payment_intent_id', $paymentIntentId)->first();
 
                     if ($existing) {
+                        if ($existing->payload_hash !== $payloadHash) {
+                            return $this->payloadMismatchResponse();
+                        }
+
                         return $this->successResponse(new GiftCardResource($existing), status: 201);
                     }
 

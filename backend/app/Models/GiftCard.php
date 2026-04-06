@@ -8,9 +8,11 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Carbon;
 
 /**
  * @property GiftCardStatus $status
+ * @property Carbon|null $purchased_at
  */
 #[Fillable([
     'code', 'initial_balance', 'current_balance', 'recipient_email',
