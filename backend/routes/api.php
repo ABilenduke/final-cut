@@ -58,6 +58,8 @@ Route::middleware('auth:sanctum')->prefix('account')->group(function () {
 Route::post('/gift-cards/purchase', [GiftCardController::class, 'purchase']);
 Route::get('/gift-cards/balance', [GiftCardController::class, 'balance']);
 
-// Contact / Rentals
-Route::post('/rentals/inquiry', [RentalController::class, 'store']);
-Route::post('/contact', [ContactController::class, 'store']);
+// Contact / Rentals (rate-limited: 5 per minute)
+Route::middleware('throttle:5,1')->group(function () {
+    Route::post('/rentals/inquiry', [RentalController::class, 'store']);
+    Route::post('/contact', [ContactController::class, 'store']);
+});
