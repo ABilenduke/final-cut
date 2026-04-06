@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Resources\CalendarEventResource;
 use App\Models\CalendarEvent;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -14,9 +15,11 @@ class CalendarEventController extends Controller
         $month = $request->integer('month', (int) now()->format('m'));
         $year = $request->integer('year', (int) now()->format('Y'));
 
+        $startOfMonth = Carbon::createFromDate($year, $month, 1)->startOfMonth()->toDateString();
+        $endOfMonth = Carbon::createFromDate($year, $month, 1)->endOfMonth()->toDateString();
+
         $query = CalendarEvent::query()
-            ->whereMonth('date', $month)
-            ->whereYear('date', $year);
+            ->whereBetween('date', [$startOfMonth, $endOfMonth]);
 
         if ($request->filled('type')) {
             $query->where('type', $request->input('type'));
@@ -41,7 +44,7 @@ class CalendarEventController extends Controller
         $event = CalendarEvent::where('slug', $slug)->first();
 
         if (! $event) {
-            return $this->errorResponse(['message' => 'Calendar event not found'], 404);
+            return $this->errorResponse([['message' => 'Calendar event not found']], 404);
         }
 
         return $this->successResponse(new CalendarEventResource($event));

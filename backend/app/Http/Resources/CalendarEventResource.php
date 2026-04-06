@@ -14,7 +14,7 @@ class CalendarEventResource extends JsonResource
             'type' => $this->type->value,
             'title' => $this->title,
             'date' => $this->date->toDateString(),
-            'startTime' => $this->start_time->toIso8601String(),
+            'startTime' => $this->start_time?->toIso8601String(),
             'endTime' => $this->end_time?->toIso8601String(),
             'description' => $this->description,
             'movieSlug' => $this->movie_slug,
