@@ -12,7 +12,7 @@ All global styles live in `app/assets/css/`. A single entry file aggregates ever
 app/assets/css/
 ├── main.css           # Import aggregator — this is what nuxt.config.ts references
 ├── tokens.css         # CSS custom properties (colors, spacing, z-index, easing, duration, icons)
-├── reset.css          # Minimal reset + font-face declarations
+├── reset.css          # Minimal reset + scrollbar-gutter + reduced-motion
 ├── typography.css     # Type scale, font stacks, fluid sizing
 ├── layouts.css        # Six named compositions + sidebar + container
 ├── utilities.css      # Aspect ratios, touch targets, glassmorphism, skeleton shimmer
@@ -54,24 +54,26 @@ Design system token names use underscores (e.g., `primary_container`, `surface_c
 ```css
 :root {
   /* Fills / Backgrounds / Surfaces */
-  --primary-container: #550000;
-  --secondary-container: #675900;
-  --tertiary-container: #29261b;
-  --surface: #131313;
-  --surface-container-lowest: #0e0e0e;
-  --surface-container-low: #1c1b1b;
-  --surface-container: #201f1f;
-  --surface-container-high: #2a2a2a;
+  --primary-container: #550000;       /* Primary buttons, active nav indicators, hero accents */
+  --secondary-container: #675900;     /* Secondary accent fills (rare) */
+  --tertiary-container: #29261b;      /* Subtle warm highlights */
+  --surface: #131313;                 /* Page background */
+  --surface-variant: #3B3636;         /* Translucent glass substrate for floating surfaces */
+  --surface-container-lowest: #0e0e0e; /* Recessed/void areas */
+  --surface-container-low: #1c1b1b;   /* Card backgrounds on surface */
+  --surface-container: #201f1f;       /* Content sections */
+  --surface-container-high: #2a2a2a;  /* Elevated cards, modals, active elements */
 
   /* Text / Icons / Foreground */
-  --primary: #FFB4A8;
-  --secondary: #DAC769;
-  --tertiary: #CCC6B6;
-  --on-surface: #E5E2E1;
+  --primary: #FFB4A8;                 /* Text ON primary_container fills ONLY — never as fill */
+  --secondary: #DAC769;              /* Gold text for CTAs, tertiary buttons, hover underlines — never as fill */
+  --tertiary: #CCC6B6;              /* Ivory body text, subdued labels */
+  --on-surface: #E5E2E1;            /* Default body text on dark backgrounds */
+  --on-tertiary-fixed-variant: #A89F91; /* Low-emphasis telemetry text (Neural Ticker) */
 
   /* Borders / Edges */
-  --outline-variant: #57423E;
-  --outline: #A58B86;
+  --outline-variant: #57423E;        /* Ghost borders / decorative edge catches only */
+  --outline: #A58B86;                /* Input underlines (unfocused), functional interactive boundaries */
 }
 ```
 
@@ -165,34 +167,24 @@ Note: CSS custom properties cannot be used in `@media` queries. Use the raw `rem
 
 ### Font Loading
 
-```css
-/* Google Fonts import — add to <head> via nuxt.config.ts app.head */
-/* Noto Serif: 400, 700 */
-/* Newsreader: 400, 400i, 700 */
-```
+Use the `@nuxt/fonts` module, which automatically downloads and self-hosts Google Fonts at build time. This provides production-grade font delivery with no external runtime dependency.
 
 In `nuxt.config.ts`:
 ```typescript
-app: {
-  head: {
-    link: [
-      {
-        rel: 'preconnect',
-        href: 'https://fonts.googleapis.com'
-      },
-      {
-        rel: 'preconnect',
-        href: 'https://fonts.gstatic.com',
-        crossorigin: ''
-      },
-      {
-        rel: 'stylesheet',
-        href: 'https://fonts.googleapis.com/css2?family=Newsreader:ital,wght@0,400;0,700;1,400&family=Noto+Serif:wght@400;700&display=swap'
-      }
-    ]
-  }
-}
+modules: ['@nuxt/fonts'],
+fonts: {
+  families: [
+    { name: 'Noto Serif', weights: [400, 700] },
+    { name: 'Newsreader', weights: [400, 700], styles: ['normal', 'italic'] },
+  ],
+},
 ```
+
+**Behavior:**
+- `font-display: swap` applied by default — prevents FOIT (flash of invisible text)
+- FOUT (flash of unstyled text) is acceptable — the serif fallback stack (Georgia, Times New Roman) preserves the system's tone during loading
+- Fonts are preloaded automatically
+- If custom fonts fail entirely, the fallback stack must still feel intentional, not broken
 
 ### Font Stacks
 
@@ -285,7 +277,7 @@ Implemented exactly as specified in `DESIGN_SYSTEM_STRUCTURE.md` Section 2. The 
 
 - **Establishing Shot:** `grid-template-columns: 65fr 35fr`, collapses at `59.999rem`
 - **Rack Focus:** `grid-template-columns: 35fr 65fr`, collapses with `order: -1` on primary content
-- **Wide Frame:** `width: 100vw; margin-inline: calc(-50vw + 50%)`
+- **Wide Frame:** `width: 100vw; margin-inline: calc(-50vw + 50%)` — requires `scrollbar-gutter: stable` on `<html>` (set in `reset.css`) to prevent horizontal overflow on platforms with visible scrollbars
 - **Close-Up:** `max-width: 40rem; margin-inline: auto`
 - **Ensemble:** `grid-template-columns: repeat(auto-fill, minmax(17.5rem, 1fr))`
 - **Auditorium:** Two-column wrapper with pinned labels and scrollable grid
@@ -439,6 +431,18 @@ The inner ring uses the local surface color to create a gap. The outer ring is g
 - Seat grid cells: inset gold outline (0.125rem)
 - Skip nav: the element itself is the indicator (no ring when visible)
 
+**Clipping rule:** Components inside any clipping or masked context — `overflow: auto`, `overflow: scroll`, `overflow: hidden`, `clip-path`, or size containment — must use `outline` for focus indication instead of `box-shadow`, because `box-shadow` is clipped by overflow boundaries.
+
+Pattern for focus in clipped containers:
+```css
+:focus-visible {
+  outline: 0.125rem solid var(--secondary);
+  outline-offset: 0.125rem;
+}
+```
+
+This applies to: seat grid cells (already handled), horizontally scrolling tab bars, cast list items, and any future scrollable or clipped container with interactive children.
+
 ---
 
 ## 9. Design System Guardrails
@@ -452,14 +456,16 @@ These are the rules most likely to be violated during implementation. Flag viola
 **Correct:** `background: var(--primary-container); color: var(--secondary);` (maroon fill, gold text)
 **Wrong:** `background: var(--primary);` (salmon pink fill)
 
-### 2. No 1px Solid Borders for Layout
+### 2. No Borders for Layout Sectioning; Functional Borders for Interactive Identification
 
-Layout boundaries are defined by surface tier shifts, not strokes. A card on `surface` (#131313) uses `surface-container-low` (#1c1b1b) background — the color difference IS the border.
+**Layout boundaries** are defined by surface tier shifts, not strokes. A card on `surface` (#131313) uses `surface-container-low` (#1c1b1b) background — the color difference IS the border.
 
-**Correct:** Adjacent elements at different surface tiers
-**Wrong:** `border: 1px solid var(--outline);` on a card
+**Interactive component boundaries** may use `outline` (#A58B86) at full opacity when a component's interactive nature cannot be identified by surface shift alone (e.g., inputs, toggles, segmented controls). See `DESIGN_SYSTEM.md` § No-Line Rule.
 
-The edge catch (`outline-variant` at 15% opacity) is decorative only — it fails contrast at ~1.06:1 and must never be the sole boundary indicator.
+**Correct (layout):** Adjacent elements at different surface tiers
+**Wrong (layout):** `border: 1px solid var(--outline);` on a content section or card-as-container
+**Correct (interactive):** `border-bottom: 1px solid var(--outline);` on an input field
+**Wrong (interactive):** `border-bottom: 1px solid var(--outline-variant);` as the sole boundary (decorative only, ~1.06:1 contrast)
 
 ### 3. Border Radius: 0.125rem or 0
 
@@ -469,7 +475,7 @@ Only two values exist. No `border-radius: 0.5rem`, no `rounded-lg`, no `rounded-
 
 ### 4. No #FFFFFF
 
-Maximum white is `var(--on-surface)` (#E5E2E1). Search the codebase for `#fff`, `#FFF`, `#ffffff`, `#FFFFFF`, `white`, `rgb(255` — none should appear outside the print stylesheet.
+Maximum white is `var(--on-surface)` (#E5E2E1). Search the codebase for `#fff`, `#FFF`, `#ffffff`, `#FFFFFF`, `white`, `rgb(255` — none should appear outside `print.css`. The print stylesheet is the **sole exception**: `body { background: white; color: black; }` is correct for print readability. This exception is confined to `print.css` and must not leak into screen styles.
 
 ### 5. Shadows Only on Floating Elements
 
@@ -491,3 +497,24 @@ Every interactive element below 60rem viewport width must be at least 3rem (48px
 ### 8. All Motion Respects prefers-reduced-motion
 
 No exceptions. No "this animation is subtle enough to keep." The global reset catches most cases, but components with unique animations need explicit overrides (see Section 6 above).
+
+### 9. Token Completeness
+
+Every token referenced in the design system must satisfy all four conditions:
+
+1. It exists in the canonical token list (`DESIGN_SYSTEM.md` § Token Mapping)
+2. It has an implementation value in `tokens.css` (this document, Section 2)
+3. It has a role sentence explaining what it is for
+4. If the token name is ambiguous (e.g., `primary` which is NOT a fill color), it has a usage note preventing misapplication
+
+A `var(--` reference to an undeclared custom property is a build failure, not a TODO. Resolve it before shipping.
+
+### 10. Forbidden Substitutions
+
+These are the specific misapplications that the token naming makes possible. Each is a hard rule.
+
+1. **Do not use `primary` (#FFB4A8) as a fill or background.** It is a text/icon color for use on `primary_container` fills. If you are writing `background: var(--primary)` — stop. You want `var(--primary-container)`.
+2. **Do not use `secondary` (#DAC769) as a fill or background.** It is a text, icon, and accent-line color. Gold fills do not exist in this system.
+3. **Do not use decorative edge catches as functional boundaries.** `outline_variant` at 15% opacity (~1.06:1 contrast) is decorative only. Interactive component boundaries require `outline` (#A58B86) at full opacity (4.54:1+).
+4. **Do not use `backdrop-filter` blur as a substitute for surface contrast.** The glass effect is visual enhancement. The underlying surface must provide sufficient contrast for text readability without blur.
+5. **Do not rely on surface tier shifts alone for interactive component identification.** Adjacent surface tiers differ by ~1.08:1 contrast. Where a component's interactive boundary must be perceivable (WCAG 1.4.11), use `outline` at full opacity.

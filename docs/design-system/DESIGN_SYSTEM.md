@@ -17,7 +17,11 @@ The palette is built on a foundation of deep, vacuum-black surfaces, punctuated 
 *   **Neutral (Deep Space / Carbon):** `surface: #131313` | `surface_container_lowest: #0e0e0e`.
 
 ### The "No-Line" Rule
-**Explicit Instruction:** Designers are prohibited from using 1px solid borders to section content. Layout boundaries must be defined solely through background color shifts or negative space. A `surface-container-low` card sitting on a `surface` background provides enough contrast to be felt without being drawn — hull panels distinguished by material grade, not visible seams.
+**Layout sectioning:** Borders are prohibited for layout boundaries. Sections, cards-as-containers, and content regions are defined solely through surface tier shifts and negative space. A `surface-container-low` card sitting on a `surface` background provides enough contrast to be felt without being drawn — hull panels distinguished by material grade, not visible seams.
+
+**Interactive identification:** Borders are permitted when a component's interactive nature or boundary cannot be identified by surface shift alone. Use `outline` (#A58B86) at full opacity (4.54:1+ contrast on all surface tiers). This applies to input fields (underline style), interactive controls without sufficient surface contrast against their background, toggles, and segmented controls. The boundary exists to make the component identifiable per WCAG 1.4.11 (non-text contrast), not for decoration.
+
+**Decorative edge catch:** `outline_variant` (#57423E) at 15% opacity remains available as a purely decorative treatment — a faint luminous edge, a containment field barely visible. It must never be the sole means of identifying a component boundary (~1.06:1 contrast, well below the 3:1 minimum for functional boundaries).
 
 ### Surface Hierarchy & Nesting
 Treat the UI as a series of focal planes — a deep-focus composition where every layer occupies a deliberate position in z-space. Use the `surface-container` tiers (Lowest to Highest) to create that sense of nested depth.
@@ -26,7 +30,10 @@ Treat the UI as a series of focal planes — a deep-focus composition where ever
 *   **Active Elements/Floating Modals:** `surface_container_high` (#2a2a2a) — the HUD layer, closest to the viewer.
 
 ### The "Glass & Gradient" Rule
-To simulate the quality of light passing through layered transparency — a viewport, a projection, a heads-up display — use Glassmorphism for floating elements. Apply `surface_variant` at 60% opacity with a `20px` backdrop-blur.
+To simulate the quality of light passing through layered transparency — a viewport, a projection, a heads-up display — use Glassmorphism for floating elements. Apply `surface_variant` (#3B3636) at 60% opacity with a `20px` backdrop-blur.
+
+**Fallback:** The glass effect is visual enhancement, not structure. Where `backdrop-filter` is unsupported or causes performance issues, use `surface_variant` at 85% opacity as a solid translucent surface. The higher opacity compensates for the absence of blur. Implement via `@supports (backdrop-filter: blur(1px))` — the base style is the fallback, the enhanced style is the upgrade.
+
 **Signature Texture:** Apply a subtle radial gradient from `primary_container` (#550000) to `surface_container_lowest` (#0e0e0e) in hero sections to produce a "vignette bloom" — the visual equivalent of a reactor core glimpsed through a corridor, or a practical light just outside the frame.
 
 ---
@@ -51,6 +58,7 @@ FILLS / BACKGROUNDS / SURFACES:
   secondary_container: #675900  → Secondary accent fills (rare)
   tertiary_container:  #29261b  → Subtle warm highlights
   surface:             #131313  → Page background
+  surface_variant:     #3B3636  → Translucent glass substrate for floating surfaces
   surface_container_lowest: #0e0e0e → Recessed/void areas
   surface_container_low:    #1c1b1b → Card backgrounds on surface
   surface_container:         #201f1f → Content sections
@@ -61,10 +69,11 @@ TEXT / ICONS / FOREGROUND:
   secondary:     #DAC769  → Gold text for CTAs, tertiary buttons, hover underlines
   tertiary:      #CCC6B6  → Ivory body text, subdued labels
   on_surface:    #E5E2E1  → Default body text on dark backgrounds
+  on_tertiary_fixed_variant: #A89F91 → Low-emphasis telemetry text on dark UI (Neural Ticker)
 
 BORDERS / EDGES (use sparingly per "No-Line" rule):
   outline_variant: #57423E at 15% opacity → Ghost borders / edge catches only
-  outline:         #A58B86 → Input underlines (unfocused state)
+  outline:         #A58B86 → Input underlines (unfocused state), functional interactive boundaries
 ```
 
 #### Never Do This
@@ -114,6 +123,8 @@ BORDERS / EDGES (use sparingly per "No-Line" rule):
 - **#DAC769 (secondary/gold):** CTA text, hover underlines, active nav indicators, focused input underlines, icon accents.
 - **#CCC6B6 (tertiary/ivory):** Body text, subdued metadata, secondary labels.
 - **#E5E2E1 (on_surface):** Primary readable text on any dark surface.
+- **#3B3636 (surface_variant):** Glass substrate — used at 60% opacity with backdrop blur for floating overlays, or at 85% opacity as solid fallback.
+- **#A89F91 (on_tertiary_fixed_variant):** Neural Ticker text, ambient metadata, low-priority telemetry. Contrast: 7.11:1 on surface, 5.49:1 on surface_container_high (AA on all tiers).
 
 #### Surface Stacking (Dark to Light = Back to Front)
 
@@ -130,10 +141,10 @@ Depth is communicated by surface tier, never by drop shadows on static elements.
 #### Additional Constraints
 
 - NO `#FFFFFF` anywhere. Max white is `on_surface` (#E5E2E1).
-- NO 1px solid borders for layout. Use surface tier shifts only.
+- NO 1px solid borders for layout sectioning. Use surface tier shifts only. Functional borders for interactive component identification use `outline` (#A58B86) at full opacity (see § No-Line Rule).
 - Border radius: `0.125rem` (sm) or `0` (none). Never `full` or `xl`.
 - Ghost borders (when accessibility requires): `outline_variant` (#57423E) at 15% opacity only.
-- Glassmorphism for floating elements: `surface_variant` at 60% opacity + `backdrop-filter: blur(20px)`.
+- Glassmorphism for floating elements: `surface_variant` (#3B3636) at 60% opacity + `backdrop-filter: blur(20px)`. Fallback: 85% opacity without blur (see § Glass & Gradient Rule).
 - Shadows on floating elements only: `box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6)`. Shadow tint must match background, never gray.
 
 ---
@@ -154,7 +165,7 @@ In this system, light doesn't come from a global source. It emanates from within
 
 *   **The Layering Principle:** Avoid shadows for static components. Instead, place a `surface-container-lowest` (#0e0e0e) element inside a `surface-container-low` (#1c1b1b) section. This "recessed" treatment reads as milled depth — a channel cut with precision rather than a shadow cast by accident.
 *   **Ambient Shadows:** For floating elements (like a Gold CTA button), use a diffused shadow: `box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6)`. The shadow must never be gray; it should be a darkened tint of the background — an element hovering above its surface, casting its own penumbra.
-*   **The "Edge Catch":** If accessibility requires a stroke, use `outline-variant` (#57423e) at **15% opacity**. This creates a faint luminous edge — light grazing a polished surface, a containment field barely visible — rather than a structural border.
+*   **The "Edge Catch":** For decorative edges, use `outline-variant` (#57423e) at **15% opacity** — a faint luminous edge, light grazing a polished surface, a containment field barely visible. This is decorative only (~1.06:1 contrast). If accessibility requires a functional boundary for interactive component identification, use `outline` (#A58B86) at full opacity instead (see § No-Line Rule).
 
 ---
 
@@ -172,7 +183,7 @@ In this system, light doesn't come from a global source. It emanates from within
 *   **Styling:** Underline-only style using the `outline` token (#a58b86). On focus, the underline transitions to `secondary` (Gold) with a subtle outer glow (Glassmorphism). The field should feel like it activates — a system acknowledging input — rather than simply receiving it.
 
 ### Signature Component: The "Neural Ticker"
-A horizontally scrolling data feed of `label-sm` text in `on_tertiary_fixed_variant`, running along the edge of a section or viewport. It reads as ambient telemetry — metadata, secondary navigation, or status information presented as a persistent, low-priority stream. The rhythm should be steady and smooth: not a carnival marquee, but a readout on a bridge console that you glance at when you need it and ignore when you don't.
+A horizontally scrolling data feed of `label-sm` text in `on_tertiary_fixed_variant` (#A89F91), running along the edge of a section or viewport. It reads as ambient telemetry — metadata, secondary navigation, or status information presented as a persistent, low-priority stream. The rhythm should be steady and smooth: not a carnival marquee, but a readout on a bridge console that you glance at when you need it and ignore when you don't.
 
 ---
 

@@ -85,6 +85,8 @@ The true mirror of the Establishing Shot. Secondary content on the left, primary
 
 The panoramic shot. Background fills the entire viewport via `width: 100vw; margin-inline: calc(-50vw + 50%)`.
 
+**Scrollbar compensation:** The `100vw` technique causes horizontal overflow when the page has a visible scrollbar (common on Windows/Linux). The global `scrollbar-gutter: stable` rule on `<html>` (defined in `reset.css`) reserves consistent space for the scrollbar, preventing this overflow. If edge cases arise on specific platforms, `overflow-x: clip` on the Wide Frame's parent container is the targeted fallback.
+
 **Content max-width:** 90rem (1440px) for general content; 45rem (720px) for text-only blocks.
 **Use:** Landing page hero, vignette bloom sections, full-width image galleries, event announcement banners.
 **Responsive collapse:** Remains full-bleed at all breakpoints. Below `screen-sm`, text block expands to full container width with page gutters. Image galleries switch from multi-column to single-column with horizontal scroll.
@@ -363,7 +365,7 @@ The full contrast audit is in `DESIGN_SYSTEM.md` § Token Mapping. Summary: **al
 | Text on `secondary_container` (#675900) | Use `on_surface` (#E5E2E1) for normal-size text. `primary`, `secondary`, `tertiary` are safe for `title-lg` and above (large text AA threshold: 3:1). |
 | `outline` on `secondary_container` | Do not use. If a border is needed on `secondary_container`, use `on_surface` at 30% opacity (decorative) or full opacity (functional). |
 | `outline_variant` at 15% opacity anywhere | Decorative use only (~1.06:1 contrast). Never rely on it for functional boundaries. Use `outline` (#A58B86) at full opacity for accessible borders (4.54:1+ on all surface tiers). |
-| Neural Ticker text (`on_tertiary_fixed_variant`) | Token hex value undefined in `DESIGN_SYSTEM.md`. Before implementation, resolve its value and verify contrast against `surface` and `surface_container` at minimum 4.5:1. |
+| Neural Ticker text (`on_tertiary_fixed_variant`) | Resolved: #A89F91. Contrast: 7.11:1 on `surface`, 6.29:1 on `surface_container`, 5.49:1 on `surface_container_high`. Passes AA on all surface tiers. |
 
 ### Focus Indicators
 
@@ -381,6 +383,8 @@ Focus indicators must be visible on all surface tiers without violating the "No-
 | Seat grid cells | **Focus:** 0.125rem `secondary` outline (inset) — this is the keyboard cursor. **Selected:** `primary_container` fill with `primary` check icon. **Focus + Selected:** Both render simultaneously. Focus and selection are independent visual states. |
 | Nav links | Gold underline (already defined as hover/active state). Focus adds the double-ring glow in addition. |
 | Modal close button | Double-ring glow (default) |
+
+**Clipping rule:** The double-ring `box-shadow` focus indicator is clipped by `overflow: auto/scroll/hidden`, `clip-path`, and size containment. Components inside any clipping or masked context must use `outline` instead: `outline: 0.125rem solid var(--secondary); outline-offset: 0.125rem;`. This applies to seat grid cells (already handled above), horizontally scrolling tab bars, cast list items, and any future scrollable or clipped container with interactive children.
 
 ### Skip Navigation
 
