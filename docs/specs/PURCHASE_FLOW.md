@@ -124,7 +124,7 @@ Enforce a reasonable maximum (e.g., 10 seats per transaction) to prevent abuse. 
 
 2. **Food & Drink Pre-Order (FoodPreOrderPanel)** — upsell moment designed to convert, not feel like a chore.
    - **Collapsed default state:** teaser banner ("Add snacks to your order?") with 2–3 popular combo thumbnail images. Uses `surface_container_high` background to visually separate it as a distinct moment in the flow.
-   - **Expanded state:** "Most Popular" section at top (3–4 highlighted combos), followed by categorized menu grid from `/api/food-menu` with category tabs. Each item shows image, name, price, and one-tap "Add" button with quantity selector.
+   - **Expanded state:** "Most Popular" section at top (3–4 highlighted combos), followed by categorized menu grid from `/api/locations/{location}/food-menu` with category tabs. Each item shows image, name, price, and one-tap "Add" button with quantity selector.
    - Items added here update the cart total in real-time. User can skip this entirely — the panel collapses back down if dismissed.
 
 3. **Promo Code (PromoCode)** — text input + "Apply" button. On apply: validates code server-side, returns discount amount. Applied code shows with discount and "Remove" option.

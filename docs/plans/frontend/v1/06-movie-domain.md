@@ -159,10 +159,10 @@ Build the movie browsing experience: 7 domain components and 3 pages. This is th
   **Sections:**
   1. **Hero** (Wide Frame) — Featured now-showing film via MovieHero. "Get Tickets" CTA.
   2. **Now Showing** (Ensemble grid) — MovieCards with showtime pills. The core funnel: what's playing → when → buy (single click from time chip to purchase).
-  3. **What's On This Week** — Compact event preview list via EventListCard (from Plan 07). Placeholder if Plan 07 not yet built.
+  3. **What's On This Week** — Compact event preview list via EventListCard (from Plan 07). Placeholder if Plan 07 not yet built. Fetch current month's events via `useCalendarEvents().getEvents(month, year)` and filter to the current week client-side. **Cross-month edge case:** When the week spans two months (e.g., April 28 -- May 4), for v1 accept that the week view may miss events from the next month. This is a deliberate v1 trade-off -- fetch both months if accuracy is critical later.
   4. **Coming Soon** (Ensemble grid) — MovieCards with `showShowtimes=false`, "Notify Me" action.
 
-  **Data:** `GET /api/movies?status=now_showing`, `GET /api/movies?status=coming_soon`, `GET /api/calendar/events?range=week`
+  **Data:** `GET /api/movies?status=now_showing`, `GET /api/movies?status=coming_soon`, `GET /api/calendar/events?month=M&year=Y` — filtered to current week client-side. Note: backend only supports month/year, not range=week.
 
   **SEO:** Title: `Final Cut — Now Showing & Tickets`. Structured data: `ItemList` (Movie).
 
@@ -217,7 +217,7 @@ Build the movie browsing experience: 7 domain components and 3 pages. This is th
   2. Establishing Shot — Left (65%): MovieDetail (title, tagline, synopsis, genres, runtime, rating), MovieTrailerEmbed, MovieCastList
   3. Establishing Shot — Right (35%): ShowtimeSelector, MovieRatingBadge
 
-  **Data:** `GET /api/movies/:slug`, `GET /api/movies/:slug/showtimes`
+  **Data:** `GET /api/movies/:slug`, `GET /api/locations/{location}/movies/{slug}/showtimes` — location from `useLocations().activeLocation`
 
   **SEO:** Title: `[Movie Title] — Showtimes & Tickets — Final Cut`. Structured data: `Movie`, `VideoObject` for trailer.
 

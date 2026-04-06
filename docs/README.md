@@ -35,6 +35,7 @@ Implementation plans organized by stack and version.
 - [Backend v1 Index](plans/backend/v1/00-index.md) — Plans 01-08 (all complete, 410 tests)
 - [Backend Features](plans/backend/features/) — Standalone post-v1 feature plans
 - [Frontend v1 Index](plans/frontend/v1/00-index.md) — Plans 01-13 (not yet started)
+- [Admin v1 Index](plans/admin/v1/00-index.md) — Planning only (deferred to v2)
 
 ## Progress
 

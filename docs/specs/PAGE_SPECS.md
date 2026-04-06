@@ -8,7 +8,7 @@ Comprehensive specification for every page on the movie theatre website, grouped
 
 | Layout      | Description                                                        |
 | ----------- | ------------------------------------------------------------------ |
-| `default`   | Standard site layout with header (Neural Ticker), nav, and footer  |
+| `default`   | Standard site layout with header (Neural Ticker, location switcher), nav, and footer  |
 | `account`   | Sidebar navigation for account management pages                    |
 | `purchase`  | Streamlined layout for the ticket purchase flow                    |
 | `blank`     | No chrome -- logo only, used for auth screens                      |
@@ -274,6 +274,37 @@ Comprehensive specification for every page on the movie theatre website, grouped
 
 ---
 
+### `/auth/reset-password` -- Reset Password
+
+| Property     | Value       |
+| ------------ | ----------- |
+| Layout       | `blank`     |
+| Compositions | Close-Up    |
+| Auth         | Guest-only  |
+
+**Sections (top to bottom)**
+
+1. Theater logo.
+2. New password input.
+3. Confirm password input.
+4. "Reset Password" button.
+5. Back to login link.
+
+**Components**
+
+`CvInput`, `CvButton`
+
+**Data Requirements**
+
+- Reads `token` and `email` from URL query params
+- `POST /api/auth/reset-password` with `{ token, email, password, password_confirmation }`
+
+**SEO**
+
+- `noindex`
+
+---
+
 ### `/account` -- Account Dashboard
 
 | Property     | Value                                                   |
@@ -499,7 +530,7 @@ Comprehensive specification for every page on the movie theatre website, grouped
 
 **Data Requirements**
 
-- `GET /api/food-menu` (for pre-order panel)
+- `GET /api/locations/{location}/food-menu` (for pre-order panel, location from active selection)
 - `POST /api/bookings` (creates PaymentIntent, validates seats, processes order)
 
 **SEO**
@@ -564,7 +595,7 @@ Comprehensive specification for every page on the movie theatre website, grouped
 
 **Data Requirements**
 
-- `GET /api/food-menu`
+- `GET /api/locations/{location}/food-menu` (location from active selection)
 
 **SEO**
 

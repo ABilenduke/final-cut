@@ -35,25 +35,11 @@ Configure the Nuxt project for production use and define all TypeScript interfac
 
     css: ['~/assets/css/main.css'],
 
-    routeRules: {
-      '/':              { isr: 1800 },
-      '/movies':        { isr: 1800 },
-      '/movies/**':     { isr: 600 },
-      '/food-drink':    { isr: 1800 },
-      '/whats-on':      { isr: 900 },
-      '/events':        { isr: 900 },
-      '/blog/**':       { isr: 600 },
-      '/contact':       { prerender: true },
-      '/faq':           { prerender: true },
-      '/accessibility':  { prerender: true },
-      '/careers':       { prerender: true },
-      '/purchase/**':   { ssr: false },
-      '/account/**':    { ssr: false },
-      '/auth/**':       { ssr: false },
-    },
+    // Route rules (ISR/SSR/prerender) deferred to Plan 13 (E2E & Polish).
+    // Target values documented in docs/architecture/SITE_ARCHITECTURE.md.
+    // For v1, all routes use default client-side rendering.
 
     runtimeConfig: {
-      sessionPassword: '',           // nuxt-auth-utils cookie encryption (32+ chars)
       public: {
         apiBaseUrl: '',              // Laravel API base URL (NUXT_PUBLIC_API_BASE_URL)
         stripePublishableKey: '',    // Stripe publishable key (client-side only)
@@ -74,8 +60,8 @@ Configure the Nuxt project for production use and define all TypeScript interfac
   ```
 
 - **Acceptance Criteria:**
-  - [ ] Route rules match the table in SITE_ARCHITECTURE.md
-  - [ ] Runtime config keys match environment variable spec
+  - [ ] Route rules deferred to Plan 13 (comment placeholder present in config)
+  - [ ] Runtime config keys match environment variable spec (no sessionPassword)
   - [ ] Google Fonts (Noto Serif + Newsreader) load in both dev and production
   - [ ] CSS entry point registered (creates placeholder `main.css` if needed)
   - [ ] `npx nuxt dev` starts without errors
@@ -96,8 +82,19 @@ Configure the Nuxt project for production use and define all TypeScript interfac
   - `frontend/app/types/user.ts` — `User`, `UserProfile`
   - `frontend/app/types/gift-card.ts` — `GiftCard`
   - `frontend/app/types/rental-inquiry.ts` — `RentalInquiry`
+  - `frontend/app/types/location.ts` — `Location`
 - **Details:**
   Copy interfaces exactly from DATA_MODELS.md Section 1. All interfaces are `export`ed. Nuxt auto-imports from `app/types/` so no barrel file needed.
+
+  ```typescript
+  // app/types/location.ts
+  export interface Location {
+    id: string
+    name: string
+    slug: string
+    address: string
+  }
+  ```
 - **Acceptance Criteria:**
   - [ ] Every interface from DATA_MODELS.md Section 1 exists in the corresponding file
   - [ ] All type aliases (`AccessibilityTag`, `Allergen`, `DietaryTag`) are exported
@@ -136,14 +133,19 @@ Configure the Nuxt project for production use and define all TypeScript interfac
 - **Files:**
   - `frontend/app/data/faq.ts` — FAQ categories and items
   - `frontend/app/data/menu.ts` — Food/drink menu items
+  - `frontend/app/data/promoCodes.ts` — Client-side promo code preview config
 - **Details:**
   Typed arrays using the interfaces from Task 2. FAQ has 5 categories (Tickets & Booking, Age Restrictions & Ratings, Accessibility, Food & Allergies, Policies) with 3-5 items each. Menu has items across all 5 categories (popcorn, drinks, snacks, combos, specials) with realistic data.
+
+  Promo codes mirror `backend/config/promo_codes.php` for client-side discount preview. This is strictly non-authoritative — the server is the sole authority at booking time. Never assume parity with backend rules in logic or tests.
 - **Acceptance Criteria:**
   - [ ] FAQ data satisfies `Array<{ category: string; items: Array<{ question: string; answer: string }> }>`
   - [ ] Menu data satisfies `Array<MenuItem>`
   - [ ] At least 5 FAQ categories with 3+ items each
   - [ ] At least 15 menu items across all categories
   - [ ] Data imports without type errors
+  - [ ] Promo code data mirrors backend config structure
+  - [ ] Data includes type (percentage/fixed), value, and max_discount
 
 ---
 
@@ -186,12 +188,14 @@ Configure the Nuxt project for production use and define all TypeScript interfac
   - `frontend/package.json` — Add dependencies
 - **Details:**
   Install required packages per SITE_ARCHITECTURE.md:
-  - `nuxt-auth-utils` — SSR hydration of auth state (sealed encrypted cookie so the Nuxt server-renderer knows login status without an API call per page load; does NOT handle actual authentication — that's Laravel Sanctum)
   - `@stripe/stripe-js` — Client-side Stripe Elements for PCI-compliant card collection
+
+  nuxt-auth-utils deferred for v1 — SSR hydration not needed until SSR is enabled (Plan 13+). Auth state restored via `GET /api/auth/me` on app init.
 
   Dev dependencies (for later plans but install now):
   - `@nuxt/test-utils` — Component testing utilities
-  - `@nuxt/content` — Blog/FAQ markdown content (Plan 11)
+
+  @nuxt/content deferred to Plan 11 (post-MVP).
 
 - **Acceptance Criteria:**
   - [ ] All packages install without conflicts
@@ -220,7 +224,7 @@ Task 6 (Plugin) — independent, can run in parallel with 2-5
 
 ## Risks & Open Questions
 
-1. **nuxt-auth-utils compatibility** — Verify it supports Nuxt 4. This module is used only for SSR hydration of auth state, not for actual authentication (which is handled by Laravel Sanctum session cookies).
-2. **@nuxt/content** — May defer installation to Plan 11 if it causes conflicts with the current Nuxt version.
-3. **Google Fonts loading strategy** — Consider using `@nuxt/fonts` module instead of raw `<link>` tags for better performance. Decision: start with `<link>` tags (simpler), optimize later if needed.
-4. **CORS for Sanctum** — The Laravel backend must be configured with `supports_credentials: true` and the frontend origin in `allowed_origins` for cookie-based auth to work. Verify during Plan 05 integration.
+1. **@nuxt/content** — Explicitly deferred to Plan 11. Blog and FAQ markdown content will use static TypeScript data files until then.
+2. **Google Fonts loading strategy** — Consider using `@nuxt/fonts` module instead of raw `<link>` tags for better performance. Decision: start with `<link>` tags (simpler), optimize later if needed.
+3. **CORS for Sanctum** — The Laravel backend must be configured with `supports_credentials: true` and the frontend origin in `allowed_origins` for cookie-based auth to work. Verify during Plan 05 integration.
+4. **CSRF bootstrap** — The Laravel backend uses Sanctum SPA auth. The frontend must call `GET /sanctum/csrf-cookie` before the first state-changing request. This is implemented in Plan 05 (API client layer).

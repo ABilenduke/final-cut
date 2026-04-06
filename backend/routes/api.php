@@ -7,11 +7,15 @@ use App\Http\Controllers\Api\CalendarEventController;
 use App\Http\Controllers\Api\ContactController;
 use App\Http\Controllers\Api\FoodMenuController;
 use App\Http\Controllers\Api\GiftCardController;
+use App\Http\Controllers\Api\LocationController;
 use App\Http\Controllers\Api\MovieController;
 use App\Http\Controllers\Api\PaymentMethodController;
 use App\Http\Controllers\Api\RentalController;
 use App\Http\Controllers\Api\ShowtimeController;
 use Illuminate\Support\Facades\Route;
+
+// Locations
+Route::get('/locations', [LocationController::class, 'index']);
 
 // Movies (shared across locations)
 Route::get('/movies', [MovieController::class, 'index']);

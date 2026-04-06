@@ -229,3 +229,4 @@ Task 7 (Events Pages) ← uses Task 5
 1. **Calendar library** — Building a full calendar grid from scratch is complex. Consider using a lightweight library or building a minimal custom grid. Recommendation: build custom for design system consistency.
 2. **Week and list views** — The spec mentions month, week, and list views. Week and list are simpler but still require separate rendering. Prioritize month view first; week/list can follow.
 3. **Accessibility filter deep links** — The accessibility page (`/accessibility`) links to pre-filtered calendar views. Ensure the URL state system handles these incoming links correctly.
+4. **Week/list views are client-side projections** — The backend only supports `?month=M&year=Y` queries. Week and list views are computed by filtering month results client-side. Cross-month weeks may show incomplete data for v1 — this is a deliberate trade-off.

@@ -12,14 +12,14 @@ class AuditoriumSeeder extends Seeder
 {
     public function run(): void
     {
-        $downtown = Location::firstOrCreate(
+        $downtown = Location::updateOrCreate(
             ['slug' => 'downtown'],
-            ['name' => 'Downtown'],
+            ['name' => 'Downtown', 'address' => '123 Main Street, Downtown, NY 10001'],
         );
 
-        $eastside = Location::firstOrCreate(
+        $eastside = Location::updateOrCreate(
             ['slug' => 'eastside'],
-            ['name' => 'Eastside'],
+            ['name' => 'Eastside', 'address' => '456 East Avenue, Eastside, NY 10002'],
         );
 
         $locationLayouts = [

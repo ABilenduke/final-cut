@@ -28,6 +28,7 @@ Build the authentication pages and account management dashboard: 5 domain compon
   - `frontend/app/pages/auth/login.vue`
   - `frontend/app/pages/auth/register.vue`
   - `frontend/app/pages/auth/forgot-password.vue`
+  - `frontend/app/pages/auth/reset-password.vue`
 - **Details:**
   All use `blank` layout, Close-Up composition, client-only rendering (`ssr: false`). All apply `guest` middleware (redirects authenticated users to `/account`).
 
@@ -35,15 +36,20 @@ Build the authentication pages and account management dashboard: 5 domain compon
 
   **Register:** Logo, name + email + password + confirm password (CvInput), terms checkbox, "Already have an account?" link. On submit: `useAuth().register()`. SEO: `noindex`.
 
-  **Forgot Password:** Logo, email input, "Send Reset Link" button, back to login link. On submit: POST to auth endpoint (stub). SEO: `noindex`.
+  **Forgot Password:** Logo, email input, "Send Reset Link" button, back to login link. On submit: `POST /api/auth/forgot-password`. SEO: `noindex`.
+
+  **Reset Password:** Logo, new password + confirm password (CvInput), submit button. Reads `token` and `email` from URL query params (`/auth/reset-password?token=...&email=...`). On submit: `POST /api/auth/reset-password` with `{ token, email, password, password_confirmation }`. On success: redirect to login with success toast. SEO: `noindex`.
 
 - **Acceptance Criteria:**
-  - [ ] All 3 pages render with blank layout (no chrome)
+  - [ ] All 4 pages render with blank layout (no chrome)
   - [ ] `guest` middleware redirects authenticated users
   - [ ] Login redirects to `redirect` query param on success
   - [ ] Register validates password confirmation match
   - [ ] Form validation errors display via CvInput error prop
   - [ ] `noindex` meta tag set on all auth pages
+  - [ ] Reset password page extracts token and email from query params
+  - [ ] Form validates password confirmation match
+  - [ ] Successful reset redirects to login
 
 ---
 
@@ -137,11 +143,11 @@ Build the authentication pages and account management dashboard: 5 domain compon
 
   **Profile:** Close-Up. ProfileForm component.
 
-  **Orders:** Close-Up. OrderHistoryList with pagination (`?page=N`).
+  **Orders:** Close-Up. OrderHistoryList with Laravel pagination (`?page=N` for page number, `?limit=N` for page size).
 
   **Loyalty:** Close-Up. Points balance, tier status (Member/Premier), upgrade CTA for members, renewal date for premier, points history, available rewards.
 
-  **Bookings:** Close-Up. UpcomingBookings component.
+  **Bookings:** Close-Up. UpcomingBookings component. Fetches upcoming bookings without query params (no `upcoming=true`).
 
   **Payment Methods:** Close-Up. SavedPaymentMethods component.
 
@@ -189,5 +195,5 @@ Task 5 (Account Pages) ← uses Tasks 2-4 + account layout + useAccount
 
 1. **Avatar upload** — File upload requires either a storage solution (S3, local) or a service like Gravatar. For MVP, show a placeholder avatar and defer file upload to a later phase.
 2. **Stripe saved cards** — SavedPaymentMethods requires Stripe Customer objects. Users need to be linked to a Stripe Customer ID. This integration depends on Backend Plan 06.
-3. **Password change** — Requires verifying the current password server-side. The forgot-password flow is a stub for now (logs email, doesn't send).
-4. **Loyalty points history** — The loyalty page shows a points history. This requires backend tracking of point transactions (earned on purchase, redeemed). May be sparse data for MVP — stub with sample history.
+3. **Loyalty points history** — The loyalty page shows a points history. This requires backend tracking of point transactions (earned on purchase, redeemed). May be sparse data for MVP — stub with sample history.
+4. **nuxt-auth-utils deferred** — For v1, auth state is restored via `GET /api/auth/me` on app init using Sanctum session cookies. nuxt-auth-utils SSR hydration is not needed until SSR is enabled.
