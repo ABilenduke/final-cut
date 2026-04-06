@@ -507,7 +507,7 @@ Every token referenced in the design system must satisfy all four conditions:
 3. It has a role sentence explaining what it is for
 4. If the token name is ambiguous (e.g., `primary` which is NOT a fill color), it has a usage note preventing misapplication
 
-A `var(--` reference to an undeclared custom property is a build failure, not a TODO. Resolve it before shipping.
+A `var(--` reference to an undeclared custom property silently makes the affected property invalid at computed-value time — the browser discards it and the property falls back to its inherited or initial value. There is no build error; the failure is visual and silent. Treat any undeclared token reference as a bug. Resolve it before shipping.
 
 ### 10. Forbidden Substitutions
 

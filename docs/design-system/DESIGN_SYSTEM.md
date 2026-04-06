@@ -165,7 +165,7 @@ In this system, light doesn't come from a global source. It emanates from within
 
 *   **The Layering Principle:** Avoid shadows for static components. Instead, place a `surface-container-lowest` (#0e0e0e) element inside a `surface-container-low` (#1c1b1b) section. This "recessed" treatment reads as milled depth — a channel cut with precision rather than a shadow cast by accident.
 *   **Ambient Shadows:** For floating elements (like a Gold CTA button), use a diffused shadow: `box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6)`. The shadow must never be gray; it should be a darkened tint of the background — an element hovering above its surface, casting its own penumbra.
-*   **The "Edge Catch":** For decorative edges, use `outline-variant` (#57423e) at **15% opacity** — a faint luminous edge, light grazing a polished surface, a containment field barely visible. This is decorative only (~1.06:1 contrast). If accessibility requires a functional boundary for interactive component identification, use `outline` (#A58B86) at full opacity instead (see § No-Line Rule).
+*   **The "Edge Catch":** For decorative edges, use `outline_variant` (#57423E) at **15% opacity** — a faint luminous edge, light grazing a polished surface, a containment field barely visible. This is decorative only (~1.06:1 contrast). If accessibility requires a functional boundary for interactive component identification, use `outline` (#A58B86) at full opacity instead (see § No-Line Rule).
 
 ---
 
