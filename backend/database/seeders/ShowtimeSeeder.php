@@ -17,7 +17,7 @@ class ShowtimeSeeder extends Seeder
         $auditoriums = Auditorium::all();
         $screenTimes = ['10:00', '13:00', '16:00', '19:00', '21:30'];
 
-        foreach (range(0, 13) as $dayOffset) {
+        foreach (range(-3, 13) as $dayOffset) {
             $date = Carbon::today()->addDays($dayOffset);
 
             foreach ($movies as $movie) {

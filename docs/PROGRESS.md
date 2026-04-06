@@ -758,3 +758,108 @@
 - `backend/tests/Unit/Services/StripeServiceTest.php` — updated mocks for options parameter
 
 **Test count:** 408 tests, 1342 assertions, 0 failures (up from 370)
+
+---
+
+# Progress Journal — Plan 08: Comprehensive Testing & Data Seeding
+
+## Task 1: Test Suite Organization & Helpers
+**Status:** ✅ Complete (already done)
+**Completed:** 2026-04-06
+
+### Work Done
+- [2026-04-06] Verified existing infrastructure meets all Plan 08 Task 1 requirements: `BookingTestHelper` trait, `FakeStripeService`, organized test directories under `tests/Feature/Api/` and `tests/Unit/`, `RefreshDatabase` trait, `composer test` working
+- [2026-04-06] No new files needed — separate `AuthHelper`/`StripeHelper` traits would be redundant given existing helpers
+
+### Decisions
+- [2026-04-06] Skipped creating `AuthHelper.php` and `StripeHelper.php` — the existing `BookingTestHelper` trait and `FakeStripeService` class already provide all the same functionality. Pest's `actingAs()` function handles auth in tests directly.
+
+---
+
+## Task 2: Feature Test Coverage
+**Status:** ✅ Complete (already done)
+**Completed:** 2026-04-06
+
+### Work Done
+- [2026-04-06] Verified 408 existing tests across 15 feature test files and multiple unit test files far exceed the 51 minimum requirement. Every API endpoint has happy-path + error case coverage.
+
+---
+
+## Task 3: Full Purchase Flow Integration Test
+**Status:** ✅ Complete
+**Started:** 2026-04-06
+**Completed:** 2026-04-06
+
+### Work Done
+- [2026-04-06] Created `PurchaseFlowIntegrationTest.php` with 2 tests (38 assertions):
+  1. **Full purchase journey** — register → browse movies → get showtimes → get seat map (all available) → book 2 seats + food → verify confirmation code, seat records, food records, Stripe call, loyalty points → retrieve booking → check order history → verify booked seats now show as taken
+  2. **Sequential conflict test** — User A books seats A1+A2 successfully, User B attempts same seats → 409 with `unavailableSeatIds`, only 1 booking exists
+
+### Decisions
+- [2026-04-06] Named "second booking for already-taken seats" (not "concurrent") — it's sequential requests in one PHP process, proving `SeatAvailabilityService` rejects taken seats, not true concurrency
+- [2026-04-06] Set movie status to `NowShowing` explicitly — `Movie::factory()` uses random status, and `GET /api/movies` defaults to `now_showing` filter
+- [2026-04-06] Loyalty assertion compares `$user->fresh()->loyalty_points > $pointsBefore` (not just `> 0`) to avoid dependency on seeded defaults
+- [2026-04-06] Seat availability assertion checks by label (`A1`, `A2` taken, others available) — deterministic because `createShowtimeWithSeats()` always creates A1, A2, A3, B1, C1
+
+### Files Changed
+- `backend/tests/Feature/Api/PurchaseFlowIntegrationTest.php` — new (2 tests, 38 assertions)
+
+---
+
+## Task 4: Unit Test Coverage for Services
+**Status:** ✅ Complete (already done)
+**Completed:** 2026-04-06
+
+### Work Done
+- [2026-04-06] Verified all services have dedicated test files: `TmdbServiceTest` (13), `SeatAvailabilityServiceTest` (7), `StripeServiceTest` (9), `LoyaltyServiceTest` (10)
+- [2026-04-06] No `ConfirmationCodeService` exists — confirmation code logic lives on `Booking::generateConfirmationCode()` and is tested in `BookingTest.php` (4 tests)
+
+---
+
+## Task 5: Enhanced Database Seeder
+**Status:** ✅ Complete
+**Started:** 2026-04-06
+**Completed:** 2026-04-06
+
+### Work Done
+- [2026-04-06] Added `member@finalcut.test` / `password` (Member tier, 50 points) to `DatabaseSeeder.php`
+- [2026-04-06] Extended `ShowtimeSeeder` range from `(0, 13)` to `(-3, 13)` — adds 3 days of past showtimes
+- [2026-04-06] Rewrote `BookingSeeder` with deterministic variety:
+  - 3 past completed bookings (test user, 2 with food, 1 without)
+  - 2 upcoming bookings (1 test user, 1 member user)
+  - 1 cancelled booking (excluded from `$usedSeats` tracking)
+  - 2 guest bookings (`guest@finalcut.test`, 1 past + 1 future)
+  - Varied seat occupancy: ~10% (8/80), ~50% (40/80), ~90% (108/120) on 3 specific future showtimes
+  - Collision-safe `$usedSeats` map tracks all confirmed bookings per showtime
+  - All seat selection deterministic (ordered by row+number, no randomness)
+- [2026-04-06] Created `GiftCardSeeder` with 5 gift cards: 3 active ($25/$50/$100), 1 depleted, 1 expired (2 years old)
+
+### Decisions
+- [2026-04-06] Cancelled bookings excluded from `$usedSeats` map — they don't block seat availability at the application level
+- [2026-04-06] Occupancy bookings use `take()` from sorted seat list (not `shuffle()`/`random()`) for full determinism
+- [2026-04-06] `guest@finalcut.test` is NOT created as a User — only referenced as `guest_email` on bookings
+- [2026-04-06] Food items in occupancy bookings added to every 3rd booking for variety without over-saturating
+- [2026-04-06] Expired gift card uses inline state override (`GiftCardStatus::Expired`, `purchased_at` 2 years ago) — no factory state method needed for one-off
+
+### Files Changed
+- `backend/database/seeders/DatabaseSeeder.php` — added member user, added GiftCardSeeder to chain
+- `backend/database/seeders/ShowtimeSeeder.php` — extended range to include past days
+- `backend/database/seeders/BookingSeeder.php` — full rewrite with deterministic variety + collision safety
+- `backend/database/seeders/GiftCardSeeder.php` — new
+
+---
+
+## Final Verification
+**Status:** ✅ Complete
+**Completed:** 2026-04-06
+
+**Test count:** 410 tests, 1380 assertions, 0 failures (up from 408)
+**New tests added:** 2 (integration test)
+**Pint:** All 159 files pass
+**Seed time:** ~4.4 seconds
+**Seed data verified:**
+- Test accounts: Premier (500 pts) + Member (50 pts)
+- Bookings: 85 confirmed + 1 cancelled, 2 guest, 28 with food
+- Gift cards: 3 active, 1 depleted, 1 expired
+- Showtimes: 102 past + 404 future
+- Occupancy: 10% (8/80), 50% (40/80), 90% (108/120)
