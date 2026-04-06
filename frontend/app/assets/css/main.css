@@ -1,2 +1,9 @@
 /* Main CSS entry point — aggregates all design system files.
-   Individual files created in Plan 02 (Design System CSS). */
+   Order matters: reset → tokens → typography → layouts → utilities → print. */
+
+@import './reset.css';
+@import './tokens.css';
+@import './typography.css';
+@import './layouts.css';
+@import './utilities.css';
+@import './print.css';

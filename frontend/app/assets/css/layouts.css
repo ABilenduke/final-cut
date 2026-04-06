@@ -1,0 +1,219 @@
+/* Layout Compositions — Composing the Frame
+   Six named compositions replacing conventional grid frameworks.
+   Per DESIGN_SYSTEM_STRUCTURE.md Section 2. */
+
+/* ——— Global Container ——— */
+
+.container {
+  width: 100%;
+  max-width: 90rem;
+  margin-inline: auto;
+  padding-inline: var(--space-2xl);
+}
+
+@media (max-width: 59.999rem) {
+  .container {
+    padding-inline: var(--space-xl);
+  }
+}
+
+@media (max-width: 39.999rem) {
+  .container {
+    padding-inline: var(--space-md);
+  }
+}
+
+/* ——— 1. Establishing Shot — 65/35 Offset Split ——— */
+
+.establishing-shot {
+  display: grid;
+  grid-template-columns: 65fr 35fr;
+  gap: var(--space-2xl);
+}
+
+@media (max-width: 59.999rem) {
+  .establishing-shot {
+    grid-template-columns: 1fr;
+    gap: var(--space-lg);
+  }
+}
+
+/* ——— 2. Rack Focus — 35/65 Reverse Split ——— */
+
+.rack-focus {
+  display: grid;
+  grid-template-columns: 35fr 65fr;
+  gap: var(--space-2xl);
+}
+
+@media (max-width: 59.999rem) {
+  .rack-focus {
+    grid-template-columns: 1fr;
+    gap: var(--space-lg);
+  }
+
+  /* Primary content (right column, the 65% side) renders first */
+  .rack-focus > :last-child {
+    order: -1;
+  }
+}
+
+/* ——— 3. Wide Frame — Full-Bleed Cinematic ——— */
+
+.wide-frame {
+  width: 100vw;
+  margin-inline: calc(-50vw + 50%);
+}
+
+.wide-frame__content {
+  max-width: 90rem;
+  margin-inline: auto;
+  padding-inline: var(--space-2xl);
+}
+
+.wide-frame__text {
+  max-width: 45rem;
+}
+
+@media (max-width: 39.999rem) {
+  .wide-frame__content {
+    padding-inline: var(--space-md);
+  }
+
+  .wide-frame__text {
+    max-width: 100%;
+  }
+}
+
+/* ——— 4. Close-Up — Centered Narrow Column ——— */
+
+.close-up {
+  max-width: 40rem;
+  margin-inline: auto;
+}
+
+/* ——— 5. Ensemble — Fluid Card Grid ——— */
+
+.ensemble {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(17.5rem, 1fr));
+  gap: var(--space-lg);
+}
+
+/* Container query fallback: when Ensemble is inside a narrow panel */
+.ensemble-container {
+  container-type: inline-size;
+  container-name: ensemble;
+}
+
+@container ensemble (max-width: 37.5rem) {
+  .ensemble {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ——— 6. Auditorium — Seat Selection Grid ——— */
+
+.auditorium {
+  display: grid;
+  grid-template-columns: var(--space-xl) 1fr;
+  gap: 0;
+}
+
+/* Row labels — pinned left, never scroll */
+.auditorium__labels {
+  position: sticky;
+  left: 0;
+  z-index: var(--z-card);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  background-color: var(--auditorium-bg, var(--surface));
+}
+
+.auditorium__label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--seat-size, 2.5rem);
+  font-family: var(--font-body);
+  font-size: var(--type-label-md);
+  color: var(--tertiary);
+}
+
+/* Scrollable seat matrix */
+.auditorium__grid {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scroll-snap-type: x proximity;
+}
+
+.auditorium__seats {
+  display: grid;
+  grid-template-columns: repeat(var(--seats-per-row, 10), var(--seat-size, 2.5rem));
+  gap: var(--space-xs);
+  width: fit-content;
+}
+
+/* Screen indicator */
+.auditorium__screen {
+  grid-column: 1 / -1;
+  height: 0.25rem;
+  width: 60%;
+  margin-inline: auto;
+  margin-bottom: var(--space-md);
+  background-color: var(--primary-container);
+}
+
+/* Desktop: 2.5rem cells */
+.auditorium {
+  --seat-size: 2.5rem;
+}
+
+/* Mobile: 3rem cells for touch targets */
+@media (max-width: 59.999rem) {
+  .auditorium {
+    --seat-size: 3rem;
+  }
+
+  .auditorium__grid {
+    scroll-snap-type: x proximity;
+  }
+}
+
+/* ——— Sidebar Layout (Account pages) ——— */
+
+.sidebar-layout {
+  display: grid;
+  grid-template-columns: 15rem 1fr;
+  gap: var(--space-2xl);
+}
+
+/* Tablet: icon-only rail */
+@media (max-width: 79.999rem) and (min-width: 60rem) {
+  .sidebar-layout {
+    grid-template-columns: 4rem 1fr;
+    gap: var(--space-md);
+  }
+}
+
+/* Mobile: single column with bottom nav bar */
+@media (max-width: 59.999rem) {
+  .sidebar-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar-layout__nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: calc(3.5rem + env(safe-area-inset-bottom, 0rem));
+    z-index: var(--z-sticky);
+    background-color: var(--surface-container);
+  }
+
+  .sidebar-layout__content {
+    padding-bottom: calc(4.5rem + env(safe-area-inset-bottom, 0rem));
+  }
+}

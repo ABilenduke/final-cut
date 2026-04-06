@@ -1,0 +1,131 @@
+/* Typography — The Director's Voice
+   Noto Serif for display/headline/title (structural authority).
+   Newsreader for body/label (editorial grace).
+   Fluid scaling between screen-sm (40rem) and screen-lg (80rem). */
+
+:root {
+  /* ——— Font Stacks ——— */
+  --font-display: 'Noto Serif', Georgia, 'Times New Roman', serif;
+  --font-body: 'Newsreader', Georgia, 'Times New Roman', serif;
+
+  /* ——— Type Scale: Display (Noto Serif, -0.02em) ——— */
+  --type-display-lg: clamp(2.25rem, 1.25rem + 2.5vw, 3.5rem);
+  --type-display-md: clamp(1.875rem, 1.125rem + 1.875vw, 2.8125rem);
+  --type-display-sm: clamp(1.5rem, 0.9rem + 1.5vw, 2.25rem);
+
+  /* ——— Type Scale: Headline (Noto Serif, -0.02em) ——— */
+  --type-headline-lg: clamp(1.375rem, 0.875rem + 1.25vw, 2rem);
+  --type-headline-md: clamp(1.25rem, 0.85rem + 1vw, 1.75rem);
+  --type-headline-sm: clamp(1.125rem, 0.825rem + 0.75vw, 1.5rem);
+
+  /* ——— Type Scale: Title (Noto Serif) ——— */
+  --type-title-lg: clamp(1rem, 0.7rem + 0.75vw, 1.375rem);
+  --type-title-md: 1rem;
+
+  /* ——— Type Scale: Body (Newsreader) ——— */
+  --type-body-lg: 1.125rem;
+  --type-body-md: 1rem;
+  --type-body-sm: 0.875rem;
+
+  /* ——— Type Scale: Label (Newsreader) ——— */
+  --type-label-lg: 0.875rem;
+  --type-label-md: 0.75rem;
+  --type-label-sm: 0.6875rem;
+}
+
+/* ——— Usage Classes ——— */
+
+/* Display */
+.display-lg {
+  font-family: var(--font-display);
+  font-size: var(--type-display-lg);
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+.display-md {
+  font-family: var(--font-display);
+  font-size: var(--type-display-md);
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+.display-sm {
+  font-family: var(--font-display);
+  font-size: var(--type-display-sm);
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+/* Headline */
+.headline-lg {
+  font-family: var(--font-display);
+  font-size: var(--type-headline-lg);
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.headline-md {
+  font-family: var(--font-display);
+  font-size: var(--type-headline-md);
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.headline-sm {
+  font-family: var(--font-display);
+  font-size: var(--type-headline-sm);
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+/* Title */
+.title-lg {
+  font-family: var(--font-display);
+  font-size: var(--type-title-lg);
+  line-height: 1.3;
+}
+
+.title-md {
+  font-family: var(--font-display);
+  font-size: var(--type-title-md);
+  line-height: 1.3;
+}
+
+/* Body */
+.body-lg {
+  font-family: var(--font-body);
+  font-size: var(--type-body-lg);
+  line-height: 1.6;
+}
+
+.body-md {
+  font-family: var(--font-body);
+  font-size: var(--type-body-md);
+  line-height: 1.6;
+}
+
+.body-sm {
+  font-family: var(--font-body);
+  font-size: var(--type-body-sm);
+  line-height: 1.6;
+}
+
+/* Label */
+.label-lg {
+  font-family: var(--font-body);
+  font-size: var(--type-label-lg);
+  line-height: 1.4;
+}
+
+.label-md {
+  font-family: var(--font-body);
+  font-size: var(--type-label-md);
+  line-height: 1.4;
+}
+
+.label-sm {
+  font-family: var(--font-body);
+  font-size: var(--type-label-sm);
+  line-height: 1.4;
+}
