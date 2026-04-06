@@ -56,6 +56,7 @@ Route::middleware('auth:sanctum')->prefix('account')->group(function () {
 
 // Gift Cards
 Route::post('/gift-cards/purchase', [GiftCardController::class, 'purchase']);
+Route::post('/gift-cards/confirm', [GiftCardController::class, 'confirm']);
 Route::get('/gift-cards/balance', [GiftCardController::class, 'balance']);
 
 // Contact / Rentals (rate-limited: 5 per minute)

@@ -2,6 +2,7 @@
 
 use App\Models\GiftCard;
 use App\Services\StripeService;
+use Illuminate\Support\Str;
 use Tests\Helpers\FakeStripeService;
 
 use function Pest\Laravel\getJson;
@@ -27,6 +28,11 @@ function validPurchasePayload(array $overrides = []): array
     ], $overrides);
 }
 
+function idempotencyHeader(?string $key = null): array
+{
+    return ['Idempotency-Key' => $key ?? (string) Str::uuid()];
+}
+
 /*
 |--------------------------------------------------------------------------
 | Purchase — Success
@@ -36,7 +42,7 @@ function validPurchasePayload(array $overrides = []): array
 test('purchase creates a gift card and returns 201 with correct structure', function () {
     fakeGiftCardStripe();
 
-    postJson('/api/gift-cards/purchase', validPurchasePayload())
+    postJson('/api/gift-cards/purchase', validPurchasePayload(), idempotencyHeader())
         ->assertStatus(201)
         ->assertJsonStructure([
             'data' => [
@@ -67,7 +73,7 @@ test('purchase creates a gift card and returns 201 with correct structure', func
 test('purchase charges Stripe the correct amount with gift_card metadata', function () {
     $fake = fakeGiftCardStripe();
 
-    postJson('/api/gift-cards/purchase', validPurchasePayload(['amount' => 10000]))
+    postJson('/api/gift-cards/purchase', validPurchasePayload(['amount' => 10000]), idempotencyHeader())
         ->assertStatus(201);
 
     expect($fake->createdPaymentIntents)->toHaveCount(1);
@@ -79,10 +85,10 @@ test('purchase charges Stripe the correct amount with gift_card metadata', funct
 test('purchase generates unique gift card codes', function () {
     fakeGiftCardStripe();
 
-    postJson('/api/gift-cards/purchase', validPurchasePayload())
+    postJson('/api/gift-cards/purchase', validPurchasePayload(), idempotencyHeader())
         ->assertStatus(201);
 
-    postJson('/api/gift-cards/purchase', validPurchasePayload())
+    postJson('/api/gift-cards/purchase', validPurchasePayload(), idempotencyHeader())
         ->assertStatus(201);
 
     $codes = GiftCard::pluck('code')->toArray();
@@ -95,9 +101,33 @@ test('purchase generates unique gift card codes', function () {
 test('purchase allows null message', function () {
     fakeGiftCardStripe();
 
-    postJson('/api/gift-cards/purchase', validPurchasePayload(['message' => null]))
+    postJson('/api/gift-cards/purchase', validPurchasePayload(['message' => null]), idempotencyHeader())
         ->assertStatus(201)
         ->assertJsonPath('data.message', null);
+});
+
+test('purchase passes idempotency key to Stripe', function () {
+    $fake = fakeGiftCardStripe();
+    $key = '550e8400-e29b-41d4-a716-446655440000';
+
+    postJson('/api/gift-cards/purchase', validPurchasePayload(), idempotencyHeader($key))
+        ->assertStatus(201);
+
+    expect($fake->createdPaymentIntents)->toHaveCount(1);
+    expect($fake->createdPaymentIntents[0]['idempotencyKey'])->toBe($key);
+});
+
+test('purchase stores idempotency_key and payload_hash on gift card', function () {
+    fakeGiftCardStripe();
+    $key = (string) Str::uuid();
+
+    postJson('/api/gift-cards/purchase', validPurchasePayload(), idempotencyHeader($key))
+        ->assertStatus(201);
+
+    $giftCard = GiftCard::first();
+    expect($giftCard->idempotency_key)->toBe($key);
+    expect($giftCard->payload_hash)->not->toBeNull();
+    expect(strlen($giftCard->payload_hash))->toBe(64);
 });
 
 /*
@@ -109,7 +139,7 @@ test('purchase allows null message', function () {
 test('purchase returns 422 when amount below minimum', function () {
     fakeGiftCardStripe();
 
-    postJson('/api/gift-cards/purchase', validPurchasePayload(['amount' => 499]))
+    postJson('/api/gift-cards/purchase', validPurchasePayload(['amount' => 499]), idempotencyHeader())
         ->assertStatus(422)
         ->assertJsonValidationErrors(['amount']);
 });
@@ -117,7 +147,7 @@ test('purchase returns 422 when amount below minimum', function () {
 test('purchase returns 422 when amount exceeds maximum', function () {
     fakeGiftCardStripe();
 
-    postJson('/api/gift-cards/purchase', validPurchasePayload(['amount' => 50001]))
+    postJson('/api/gift-cards/purchase', validPurchasePayload(['amount' => 50001]), idempotencyHeader())
         ->assertStatus(422)
         ->assertJsonValidationErrors(['amount']);
 });
@@ -125,7 +155,7 @@ test('purchase returns 422 when amount exceeds maximum', function () {
 test('purchase returns 422 when required fields are missing', function () {
     fakeGiftCardStripe();
 
-    postJson('/api/gift-cards/purchase', [])
+    postJson('/api/gift-cards/purchase', [], idempotencyHeader())
         ->assertStatus(422)
         ->assertJsonValidationErrors([
             'amount',
@@ -134,6 +164,22 @@ test('purchase returns 422 when required fields are missing', function () {
             'senderName',
             'paymentMethodId',
         ]);
+});
+
+test('purchase returns 422 when Idempotency-Key header is missing', function () {
+    fakeGiftCardStripe();
+
+    postJson('/api/gift-cards/purchase', validPurchasePayload())
+        ->assertStatus(422)
+        ->assertJsonValidationErrors(['idempotencyKey']);
+});
+
+test('purchase returns 422 when Idempotency-Key is not a valid UUID', function () {
+    fakeGiftCardStripe();
+
+    postJson('/api/gift-cards/purchase', validPurchasePayload(), ['Idempotency-Key' => 'not-a-uuid'])
+        ->assertStatus(422)
+        ->assertJsonValidationErrors(['idempotencyKey']);
 });
 
 /*
@@ -145,7 +191,7 @@ test('purchase returns 422 when required fields are missing', function () {
 test('purchase returns 402 when card is declined', function () {
     fakeGiftCardStripe()->shouldDecline();
 
-    postJson('/api/gift-cards/purchase', validPurchasePayload())
+    postJson('/api/gift-cards/purchase', validPurchasePayload(), idempotencyHeader())
         ->assertStatus(402)
         ->assertJsonPath('errors.0.field', 'payment');
 
@@ -155,7 +201,7 @@ test('purchase returns 402 when card is declined', function () {
 test('purchase returns 400 for invalid payment method', function () {
     fakeGiftCardStripe()->shouldFailWithInvalidRequest();
 
-    postJson('/api/gift-cards/purchase', validPurchasePayload())
+    postJson('/api/gift-cards/purchase', validPurchasePayload(), idempotencyHeader())
         ->assertStatus(400)
         ->assertJsonPath('errors.0.field', 'payment');
 
@@ -165,18 +211,18 @@ test('purchase returns 400 for invalid payment method', function () {
 test('purchase returns 502 when Stripe is unavailable', function () {
     fakeGiftCardStripe()->shouldFailWithApiError();
 
-    postJson('/api/gift-cards/purchase', validPurchasePayload())
+    postJson('/api/gift-cards/purchase', validPurchasePayload(), idempotencyHeader())
         ->assertStatus(502)
         ->assertJsonPath('errors.0.field', 'payment');
 
     expect(GiftCard::count())->toBe(0);
 });
 
-test('purchase does not create gift card when payment returns non-terminal status', function () {
+test('purchase returns 502 when payment returns non-terminal status', function () {
     fakeGiftCardStripe()->shouldReturnNonTerminalStatus();
 
-    postJson('/api/gift-cards/purchase', validPurchasePayload())
-        ->assertStatus(402)
+    postJson('/api/gift-cards/purchase', validPurchasePayload(), idempotencyHeader())
+        ->assertStatus(502)
         ->assertJsonPath('errors.0.field', 'payment');
 
     expect(GiftCard::count())->toBe(0);
@@ -185,7 +231,7 @@ test('purchase does not create gift card when payment returns non-terminal statu
 test('purchase stores stripe_payment_intent_id on gift card', function () {
     fakeGiftCardStripe();
 
-    postJson('/api/gift-cards/purchase', validPurchasePayload())
+    postJson('/api/gift-cards/purchase', validPurchasePayload(), idempotencyHeader())
         ->assertStatus(201);
 
     expect(GiftCard::first()->stripe_payment_intent_id)->toBe('pi_fake_001');
@@ -200,7 +246,7 @@ test('purchase issues compensating refund when database write fails after paymen
     });
 
     // Laravel's exception handler catches the re-thrown exception and returns 500
-    postJson('/api/gift-cards/purchase', validPurchasePayload())
+    postJson('/api/gift-cards/purchase', validPurchasePayload(), idempotencyHeader())
         ->assertStatus(500);
 
     // Verify Stripe was charged
@@ -221,7 +267,7 @@ test('purchase issues compensating refund when database write fails after paymen
 */
 
 test('balance returns correct balance for valid code', function () {
-    $card = GiftCard::factory()->create([
+    GiftCard::factory()->create([
         'code' => 'GC-TESTCODE1',
         'current_balance' => 7500,
     ]);
