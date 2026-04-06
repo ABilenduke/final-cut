@@ -37,18 +37,8 @@ use function Pest\Laravel\postJson;
 // Bookings — covered by dedicated test file:
 // - tests/Feature/Api/BookingControllerTest.php
 
-// Gift Cards
-test('POST /api/gift-cards/purchase returns 501', function () {
-    postJson('/api/gift-cards/purchase')
-        ->assertStatus(501)
-        ->assertJson(['message' => 'Not implemented']);
-});
-
-test('GET /api/gift-cards/balance returns 501', function () {
-    getJson('/api/gift-cards/balance')
-        ->assertStatus(501)
-        ->assertJson(['message' => 'Not implemented']);
-});
+// Gift Cards — covered by dedicated test file:
+// - tests/Feature/Api/GiftCardControllerTest.php
 
 // Contact / Rentals
 test('POST /api/rentals/inquiry returns 501', function () {
