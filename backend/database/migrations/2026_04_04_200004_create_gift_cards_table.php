@@ -19,6 +19,8 @@ return new class extends Migration
             $table->text('message')->nullable();
             $table->string('status')->default('active');
             $table->string('stripe_payment_intent_id')->nullable()->unique();
+            $table->string('idempotency_key')->nullable()->unique();
+            $table->string('payload_hash')->nullable();
             $table->timestamp('purchased_at')->nullable();
             $table->timestamps();
         });

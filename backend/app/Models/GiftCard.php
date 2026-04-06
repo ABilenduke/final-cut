@@ -12,7 +12,8 @@ use Illuminate\Database\Eloquent\Model;
 #[Fillable([
     'code', 'initial_balance', 'current_balance', 'recipient_email',
     'recipient_name', 'sender_name', 'message', 'status',
-    'stripe_payment_intent_id', 'purchased_at',
+    'stripe_payment_intent_id', 'idempotency_key', 'payload_hash',
+    'purchased_at',
 ])]
 class GiftCard extends Model
 {
