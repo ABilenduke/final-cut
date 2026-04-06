@@ -343,63 +343,28 @@ Session-based auth via `nuxt-auth-utils`. Sessions stored in encrypted HTTP-only
 
 ## 3. TMDB Integration
 
-### API Configuration
+TMDB is an **offline enrichment source only** — it is never called in the request path. All API responses serve data from PostgreSQL. The Laravel backend's `TmdbService` handles all TMDB communication.
 
-- **Base URL:** `https://api.themoviedb.org/3`
-- **Auth:** Bearer token via `NUXT_TMDB_API_KEY` runtime config
+### Image URL Convention
+
+TMDB image URLs stored in the database use the full path format. The frontend renders these directly — no TMDB API calls needed.
+
 - **Image base URL:** `https://image.tmdb.org/t/p/`
 - **Image sizes used:**
   - Posters: `w500` (listings), `w780` (detail page)
   - Backdrops: `w1280` (hero sections)
   - Profiles: `w185` (cast list)
 
-### Endpoints Used
-
-| Our Route | TMDB Endpoint | Purpose |
-| --------- | ------------- | ------- |
-| `/api/movies?status=now_showing` | `/movie/now_playing?region=US&page=1` | Now showing list |
-| `/api/movies?status=coming_soon` | `/movie/upcoming?region=US&page=1` | Coming soon list |
-| `/api/movies/:slug` | `/movie/{id}` | Movie details |
-| `/api/movies/:slug` | `/movie/{id}/credits` | Cast list |
-| `/api/movies/:slug` | `/movie/{id}/videos` | Trailer YouTube key |
-| `/api/movies/:slug` | `/movie/{id}/images` | Additional images |
-
-### TMDB-to-Movie Type Mapping
-
-```typescript
-// server/utils/tmdb.ts — transform function
-
-function tmdbToMovie(tmdbMovie: TmdbMovieDetail, credits: TmdbCredits, videos: TmdbVideos): Movie {
-  return {
-    id: tmdbMovie.id,
-    slug: slugify(tmdbMovie.title),
-    title: tmdbMovie.title,
-    tagline: tmdbMovie.tagline,
-    synopsis: tmdbMovie.overview,
-    runtime: tmdbMovie.runtime,
-    rating: tmdbMovie.vote_average,
-    releaseDate: tmdbMovie.release_date,
-    genres: tmdbMovie.genres,
-    cast: credits.cast.slice(0, 12).map(c => ({
-      id: c.id,
-      name: c.name,
-      character: c.character,
-      profileUrl: c.profile_path
-        ? `https://image.tmdb.org/t/p/w185${c.profile_path}`
-        : null
-    })),
-    posterUrl: `https://image.tmdb.org/t/p/w500${tmdbMovie.poster_path}`,
-    backdropUrl: `https://image.tmdb.org/t/p/w1280${tmdbMovie.backdrop_path}`,
-    trailerKey: videos.results
-      .find(v => v.type === 'Trailer' && v.site === 'YouTube')?.key ?? null,
-    status: 'now_showing' // Set by calling route
-  }
-}
-```
-
 ### TMDB Enrichment (Offline)
 
 The `movies:enrich` artisan command runs hourly via Laravel's scheduler. For each movie with a `tmdb_id` that needs enrichment, it calls `TmdbService` to backfill metadata (synopsis, cast, images, trailer, ratings). Results are cached in Redis: 24 hours for success, 5 minutes for failures. See `@docs/plans/backend/v1/03-movie-api.md` for implementation details.
+
+The enrichment process maps TMDB data to the local movie schema:
+- `tmdbMovie.overview` → `synopsis`
+- `tmdbMovie.vote_average` → `rating`
+- `credits.cast` (first 12) → `cast` JSON column
+- `videos` (first YouTube trailer) → `trailer_key`
+- Image paths are stored as full URLs with size prefix (e.g., `https://image.tmdb.org/t/p/w500/...`)
 
 ---
 

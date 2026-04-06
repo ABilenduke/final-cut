@@ -53,12 +53,11 @@ Configure the Nuxt project for production use and define all TypeScript interfac
     },
 
     runtimeConfig: {
-      tmdbApiKey: '',
-      stripeSecretKey: '',
-      sessionPassword: '',
+      sessionPassword: '',           // nuxt-auth-utils cookie encryption (32+ chars)
       public: {
-        stripePublishableKey: '',
-        siteUrl: '',
+        apiBaseUrl: '',              // Laravel API base URL (NUXT_PUBLIC_API_BASE_URL)
+        stripePublishableKey: '',    // Stripe publishable key (client-side only)
+        siteUrl: '',                 // Base URL for SEO, OG tags
       },
     },
 
@@ -187,9 +186,8 @@ Configure the Nuxt project for production use and define all TypeScript interfac
   - `frontend/package.json` — Add dependencies
 - **Details:**
   Install required packages per SITE_ARCHITECTURE.md:
-  - `nuxt-auth-utils` — Session-based authentication
-  - `@stripe/stripe-js` — Client-side Stripe Elements
-  - `stripe` — Server-side Stripe SDK
+  - `nuxt-auth-utils` — SSR hydration of auth state (sealed encrypted cookie so the Nuxt server-renderer knows login status without an API call per page load; does NOT handle actual authentication — that's Laravel Sanctum)
+  - `@stripe/stripe-js` — Client-side Stripe Elements for PCI-compliant card collection
 
   Dev dependencies (for later plans but install now):
   - `@nuxt/test-utils` — Component testing utilities
@@ -222,6 +220,7 @@ Task 6 (Plugin) — independent, can run in parallel with 2-5
 
 ## Risks & Open Questions
 
-1. **nuxt-auth-utils compatibility** — Verify it supports Nuxt 4. If not, may need to implement session management manually using `h3` session utilities.
+1. **nuxt-auth-utils compatibility** — Verify it supports Nuxt 4. This module is used only for SSR hydration of auth state, not for actual authentication (which is handled by Laravel Sanctum session cookies).
 2. **@nuxt/content** — May defer installation to Plan 11 if it causes conflicts with the current Nuxt version.
 3. **Google Fonts loading strategy** — Consider using `@nuxt/fonts` module instead of raw `<link>` tags for better performance. Decision: start with `<link>` tags (simpler), optimize later if needed.
+4. **CORS for Sanctum** — The Laravel backend must be configured with `supports_credentials: true` and the frontend origin in `allowed_origins` for cookie-based auth to work. Verify during Plan 05 integration.

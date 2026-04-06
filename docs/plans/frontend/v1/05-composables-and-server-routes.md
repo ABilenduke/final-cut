@@ -1,4 +1,4 @@
-# Plan 05: Composables & Server Routes
+# Plan 05: Composables & API Integration
 
 > **Priority:** Must Have
 > **Complexity:** L
@@ -7,144 +7,111 @@
 
 ## Overview
 
-Build all 9 composables and their corresponding Nuxt server routes (BFF layer). This plan implements the entire data layer: TMDB movie fetching, authentication, cart management, seat selection state, and all API proxy routes. Server routes use mock JSON data initially, with a toggle for real API integration.
+Build all 9 composables that form the frontend data layer. The frontend calls the Laravel API directly — there is no Nuxt server-side BFF layer. Composables wrap `useFetch` / `$fetch` calls targeting the Laravel backend via `NUXT_PUBLIC_API_BASE_URL`. Authentication uses Laravel Sanctum (session cookies) with `nuxt-auth-utils` for SSR hydration only.
 
 ## Reference Documents
 
-- `docs/STATE_MANAGEMENT.md` — All composable signatures, state management rules
-- `docs/DATA_MODELS.md` — API route inventory (Section 2), TMDB integration (Section 3), Stripe integration (Section 4), mock data (Section 5)
-- `docs/SITE_ARCHITECTURE.md` — BFF pattern, composable responsibilities, environment variables
-- `docs/PURCHASE_FLOW.md` — Cart lifecycle, session timeout
+- `docs/architecture/STATE_MANAGEMENT.md` — All composable signatures, state management rules
+- `docs/architecture/DATA_MODELS.md` — API route inventory (Section 2), Stripe integration (Section 4)
+- `docs/architecture/SITE_ARCHITECTURE.md` — Frontend-backend architecture, composable responsibilities, environment variables
+- `docs/specs/PURCHASE_FLOW.md` — Cart lifecycle, session timeout
 
 ---
 
 ## Tasks
 
-### Task 1: Mock Data Files
+### Task 1: API Fetch Configuration
 
 - **MoSCoW:** Must Have
 - **Complexity:** S
 - **Files:**
-  - `frontend/server/data/movies.json` — 20 movies (mix of now_showing/coming_soon)
-  - `frontend/server/data/showtimes.json` — 50+ showtimes across next 14 days
-  - `frontend/server/data/auditoriums.json` — 3 auditorium layouts with seat maps
-  - `frontend/server/data/menu.json` — Full food/drink menu
-  - `frontend/server/data/events.json` — 10 calendar events
-  - `frontend/server/utils/config.ts` — Mock data toggle (`MOCK_DATA` env var)
+  - `frontend/app/utils/api.ts` — Configured `$fetch` instance for Laravel API calls
 - **Details:**
-  JSON fixtures matching TypeScript interfaces from Plan 01. These serve as the data contract. Movies should include realistic TMDB-like IDs and slug values. Auditoriums should have varied layouts (small: 8 rows × 10 seats, medium: 12 × 14, large/IMAX: 15 × 20) with standard, premium, and accessible sections.
+  Create a composable or utility that provides a pre-configured `$fetch` instance pointing at the Laravel backend. Reads `useRuntimeConfig().public.apiBaseUrl` to construct the base URL. All API calls should include `credentials: 'include'` to send Sanctum session cookies cross-origin.
+
+  ```typescript
+  // app/utils/api.ts
+  export function useApi() {
+    const config = useRuntimeConfig()
+    return $fetch.create({
+      baseURL: config.public.apiBaseUrl,
+      credentials: 'include',
+      headers: {
+        Accept: 'application/json',
+      },
+    })
+  }
+  ```
 
 - **Acceptance Criteria:**
-  - [ ] All 5 JSON files contain realistic mock data
-  - [ ] Data satisfies the TypeScript interfaces from Plan 01
-  - [ ] Auditoriums have varied layouts with all seat types
-  - [ ] Showtimes span 14 days with multiple per movie
-  - [ ] `useMockData` flag reads from `process.env.MOCK_DATA`
+  - [ ] `useApi()` returns a configured `$fetch` instance
+  - [ ] Base URL read from `NUXT_PUBLIC_API_BASE_URL` runtime config
+  - [ ] Credentials included for Sanctum cookie auth
+  - [ ] Auto-imported by Nuxt from `app/utils/`
 
 ---
 
-### Task 2: TMDB Server Utility
-
-- **MoSCoW:** Must Have
-- **Complexity:** M
-- **Files:**
-  - `frontend/server/utils/tmdb.ts` — TMDB API client + `tmdbToMovie` transform function
-- **Details:**
-  Per DATA_MODELS.md Section 3:
-  - HTTP client wrapping TMDB API v3 (`https://api.themoviedb.org/3`)
-  - Bearer token auth via `useRuntimeConfig().tmdbApiKey`
-  - Image URL builder: poster (w500/w780), backdrop (w1280), profile (w185)
-  - `tmdbToMovie()` transform exactly as specified in DATA_MODELS.md
-  - When `MOCK_DATA=true`, return data from `server/data/movies.json` instead
-
-- **Acceptance Criteria:**
-  - [ ] `tmdbToMovie` transform matches DATA_MODELS.md spec exactly
-  - [ ] Image URLs constructed with correct size prefixes
-  - [ ] Cast limited to first 12 members
-  - [ ] Trailer extracted (type=Trailer, site=YouTube)
-  - [ ] Falls back to mock data when `MOCK_DATA=true`
-
----
-
-### Task 3: Movie Server Routes
-
-- **MoSCoW:** Must Have
-- **Complexity:** M
-- **Files:**
-  - `frontend/server/api/movies/index.get.ts` — List movies (now_showing/coming_soon)
-  - `frontend/server/api/movies/[slug].get.ts` — Movie detail by slug
-  - `frontend/server/api/movies/[slug]/showtimes.get.ts` — Showtimes for a movie by date
-- **Details:**
-  Per DATA_MODELS.md Section 2:
-
-  **`/api/movies`:**
-  - Query params: `status` (now_showing|coming_soon), `genre`, `page`
-  - TMDB: now_showing → `/movie/now_playing`, coming_soon → `/movie/upcoming`
-  - Merge with local showtime data by TMDB movie ID
-  - Cache: `cachedEventHandler` with 30-minute maxAge
-  - Response: `{ movies: Movie[], total: number, page: number }`
-
-  **`/api/movies/:slug`:**
-  - TMDB: `/movie/{id}` + `/movie/{id}/credits` + `/movie/{id}/videos`
-  - Slug-to-ID mapping via slugify match
-  - Cache: 1 hour maxAge
-  - Response: `Movie`
-
-  **`/api/movies/:slug/showtimes`:**
-  - Query params: `date` (YYYY-MM-DD)
-  - Source: local showtime data (no TMDB)
-  - No cache (near-real-time availability)
-  - Response: `{ showtimes: Showtime[] }`
-
-- **Acceptance Criteria:**
-  - [ ] All 3 routes return correctly shaped responses
-  - [ ] Caching configured per spec (30min, 1hr, none)
-  - [ ] TMDB integration works with real API key
-  - [ ] Mock data works when `MOCK_DATA=true`
-  - [ ] Genre and status filtering works
-
----
-
-### Task 4: `useMovies` Composable
+### Task 2: `useMovies` Composable
 
 - **MoSCoW:** Must Have
 - **Complexity:** S
 - **Files:**
   - `frontend/app/composables/useMovies.ts`
 - **Details:**
-  Per STATE_MANAGEMENT.md:
+  Per STATE_MANAGEMENT.md. Wraps Laravel API calls for movie data.
+
   ```typescript
   function useMovies() {
-    const nowShowing = (options?) => useFetch('/api/movies', { query: { status: 'now_showing', ...options } })
-    const comingSoon = (options?) => useFetch('/api/movies', { query: { status: 'coming_soon', ...options } })
-    const getMovie = (slug) => useFetch(`/api/movies/${slug}`)
+    const api = useApi()
+    const nowShowing = (options?) => useFetch('/api/movies', {
+      baseURL: useRuntimeConfig().public.apiBaseUrl,
+      query: { status: 'now_showing', ...options },
+      credentials: 'include',
+    })
+    const comingSoon = (options?) => useFetch('/api/movies', {
+      baseURL: useRuntimeConfig().public.apiBaseUrl,
+      query: { status: 'coming_soon', ...options },
+      credentials: 'include',
+    })
+    const getMovie = (slug: string) => useFetch(`/api/movies/${slug}`, {
+      baseURL: useRuntimeConfig().public.apiBaseUrl,
+      credentials: 'include',
+    })
     return { nowShowing, comingSoon, getMovie }
   }
   ```
 
 - **Acceptance Criteria:**
-  - [ ] `nowShowing()` returns now-showing movies
-  - [ ] `comingSoon()` returns upcoming movies
-  - [ ] `getMovie(slug)` returns single movie detail
+  - [ ] `nowShowing()` fetches now-showing movies from Laravel API
+  - [ ] `comingSoon()` fetches upcoming movies from Laravel API
+  - [ ] `getMovie(slug)` fetches single movie detail
   - [ ] All methods use `useFetch` for SSR compatibility
   - [ ] Auto-imported by Nuxt
 
 ---
 
-### Task 5: `useShowtimes` Composable + Showtime Route
+### Task 3: `useShowtimes` Composable
 
 - **MoSCoW:** Must Have
 - **Complexity:** S
 - **Files:**
-  - `frontend/server/api/showtimes/[id].get.ts` — Single showtime with auditorium + seat map
   - `frontend/app/composables/useShowtimes.ts`
 - **Details:**
-  **Server route:** Returns `Showtime & { auditorium: Auditorium, seats: Seat[] }` — the entry point for seat selection.
-
-  **Composable:**
   ```typescript
-  const getShowtimes = (movieSlug, date?) => useFetch(`/api/movies/${movieSlug}/showtimes`, { query: { date } })
-  const getShowtime = (id) => useFetch(`/api/showtimes/${id}`)
+  function useShowtimes() {
+    const getShowtimes = (movieSlug: string, date?: string) =>
+      useFetch(`/api/movies/${movieSlug}/showtimes`, {
+        baseURL: useRuntimeConfig().public.apiBaseUrl,
+        query: { date },
+        credentials: 'include',
+      })
+    const getShowtime = (id: string) =>
+      useFetch(`/api/showtimes/${id}`, {
+        baseURL: useRuntimeConfig().public.apiBaseUrl,
+        credentials: 'include',
+      })
+    return { getShowtimes, getShowtime }
+  }
   ```
 
 - **Acceptance Criteria:**
@@ -154,48 +121,45 @@ Build all 9 composables and their corresponding Nuxt server routes (BFF layer). 
 
 ---
 
-### Task 6: Auth Server Routes + `useAuth` Composable
+### Task 4: `useAuth` Composable
 
 - **MoSCoW:** Must Have
 - **Complexity:** M
 - **Files:**
-  - `frontend/server/api/auth/login.post.ts`
-  - `frontend/server/api/auth/register.post.ts`
-  - `frontend/server/api/auth/logout.post.ts`
-  - `frontend/server/api/auth/me.get.ts`
-  - `frontend/server/api/auth/forgot-password.post.ts`
-  - `frontend/server/middleware/auth.ts` — Server-side session verification
-  - `frontend/server/utils/auth.ts` — Session helpers, password hashing
   - `frontend/app/composables/useAuth.ts`
 - **Details:**
-  Per STATE_MANAGEMENT.md and DATA_MODELS.md:
+  Per STATE_MANAGEMENT.md. Global state via `useState`. Authentication is handled by Laravel Sanctum — the browser sends session cookies directly to the Laravel API. `nuxt-auth-utils` is used only for SSR hydration (storing user state in an encrypted cookie so the Nuxt server-renderer knows the auth state without making an API call on every page load).
 
-  **Composable (global state via `useState`):**
+  **State:**
   - `user: Ref<User | null>`
   - `isAuthenticated: ComputedRef<boolean>`
-  - Methods: `login(email, password)`, `register(name, email, password)`, `logout()`, `fetchUser()`
-  - Session stored in encrypted HTTP-only cookie via `nuxt-auth-utils`
 
-  **Server routes:** Session-based auth. Login validates credentials, sets session cookie. Register creates user, sets session. Logout clears session. Me returns current user from session. Forgot-password is a stub (logs email, returns success).
+  **Methods:**
+  - `login(email, password)` — `POST /api/auth/login` to Laravel, sets Sanctum session cookie, updates `user` state
+  - `register(name, email, password)` — `POST /api/auth/register` to Laravel
+  - `logout()` — `POST /api/auth/logout` to Laravel, clears state
+  - `fetchUser()` — `GET /api/auth/me` from Laravel, called on app init to restore session
+
+  All API calls use `$fetch` with `credentials: 'include'` to send Sanctum cookies. No server-side auth routes, middleware, or session utilities in the Nuxt frontend.
 
 - **Acceptance Criteria:**
-  - [ ] Login sets session cookie and returns user
-  - [ ] Register creates user and sets session
-  - [ ] Logout clears session
+  - [ ] Login calls Laravel API and sets user state
+  - [ ] Register calls Laravel API and sets user state
+  - [ ] Logout clears session via Laravel API
   - [ ] `fetchUser()` restores session on app init
   - [ ] `isAuthenticated` reactive computed works correctly
-  - [ ] Server middleware protects authenticated routes
+  - [ ] Sanctum session cookies sent with all API requests
 
 ---
 
-### Task 7: `useCart` Composable
+### Task 5: `useCart` Composable
 
 - **MoSCoW:** Must Have
 - **Complexity:** M
 - **Files:**
   - `frontend/app/composables/useCart.ts`
 - **Details:**
-  Per STATE_MANAGEMENT.md — global state via `useState`. Ephemeral (not persisted).
+  Per STATE_MANAGEMENT.md — global state via `useState`. Ephemeral (not persisted). No API calls — purely client-side state management.
 
   **State:** `showtime`, `seats`, `foodItems`, `promoCode`, `promoDiscount`, `giftCardCode`, `giftCardAmount`, `subtotal` (computed), `total` (computed)
 
@@ -219,14 +183,14 @@ Build all 9 composables and their corresponding Nuxt server routes (BFF layer). 
 
 ---
 
-### Task 8: `useSeatSelection` Composable
+### Task 6: `useSeatSelection` Composable
 
 - **MoSCoW:** Must Have
 - **Complexity:** M
 - **Files:**
   - `frontend/app/composables/useSeatSelection.ts`
 - **Details:**
-  Per STATE_MANAGEMENT.md — local state (not global). Tracks interaction state for AuditoriumGrid.
+  Per STATE_MANAGEMENT.md — local state (not global). Tracks interaction state for AuditoriumGrid. No API calls — purely client-side state.
 
   **State:** `seats` (server truth), `selectedSeatIds` (client-only Set), `focusedSeatId`
 
@@ -250,83 +214,61 @@ Build all 9 composables and their corresponding Nuxt server routes (BFF layer). 
 
 ---
 
-### Task 9: Calendar, Account, Gift Cards Composables + Routes
+### Task 7: `useCalendarEvents` Composable
 
 - **MoSCoW:** Should Have
-- **Complexity:** M
+- **Complexity:** S
 - **Files:**
-  - `frontend/server/api/calendar/events/index.get.ts`
-  - `frontend/server/api/calendar/events/[slug].get.ts`
-  - `frontend/server/api/food-menu.get.ts`
-  - `frontend/server/api/account/profile.get.ts`
-  - `frontend/server/api/account/profile.patch.ts`
-  - `frontend/server/api/account/orders.get.ts`
-  - `frontend/server/api/account/bookings.get.ts`
-  - `frontend/server/api/account/loyalty.get.ts`
-  - `frontend/server/api/account/payment-methods/index.get.ts`
-  - `frontend/server/api/account/payment-methods/index.post.ts`
-  - `frontend/server/api/account/payment-methods/[id].delete.ts`
-  - `frontend/server/api/gift-cards/purchase.post.ts`
-  - `frontend/server/api/gift-cards/balance.get.ts`
-  - `frontend/server/api/contact.post.ts`
-  - `frontend/server/api/rentals/inquiry.post.ts`
   - `frontend/app/composables/useCalendarEvents.ts`
-  - `frontend/app/composables/useAccount.ts`
-  - `frontend/app/composables/useGiftCards.ts`
 - **Details:**
-  Per STATE_MANAGEMENT.md and DATA_MODELS.md Section 2.
+  Per STATE_MANAGEMENT.md. Calls Laravel API directly.
 
-  **Calendar:** List events with month/year/type/accessibility filters. Detail by slug.
-  **Account:** Profile CRUD, orders (paginated), upcoming bookings, loyalty, payment methods CRUD.
-  **Gift Cards:** Purchase (Stripe) and balance check.
-  **Contact/Rentals:** Form submissions (store to JSON or log for now).
-
-  All composables follow the same `useFetch` wrapper pattern from STATE_MANAGEMENT.md.
+  ```typescript
+  function useCalendarEvents() {
+    const getEvents = (month: number, year: number, type?: string) =>
+      useFetch('/api/calendar/events', {
+        baseURL: useRuntimeConfig().public.apiBaseUrl,
+        query: { month, year, type },
+        credentials: 'include',
+      })
+    const getEvent = (slug: string) =>
+      useFetch(`/api/calendar/events/${slug}`, {
+        baseURL: useRuntimeConfig().public.apiBaseUrl,
+        credentials: 'include',
+      })
+    return { getEvents, getEvent }
+  }
+  ```
 
 - **Acceptance Criteria:**
   - [ ] Calendar events filterable by type and accessibility tags
-  - [ ] Account routes protected by auth middleware
-  - [ ] Order history supports pagination
-  - [ ] Gift card balance check returns correct data
-  - [ ] Contact and rental forms return success response
+  - [ ] Event detail fetchable by slug
 
 ---
 
-### Task 10: Booking Server Routes
+### Task 8: `useAccount` + `useGiftCards` Composables
 
-- **MoSCoW:** Must Have
-- **Complexity:** L
+- **MoSCoW:** Should Have
+- **Complexity:** S
 - **Files:**
-  - `frontend/server/api/bookings/index.post.ts` — Create booking (Stripe PaymentIntent flow)
-  - `frontend/server/api/bookings/[id].get.ts` — Get booking by ID
-  - `frontend/server/api/bookings/confirm.post.ts` — 3DS confirmation handler
+  - `frontend/app/composables/useAccount.ts`
+  - `frontend/app/composables/useGiftCards.ts`
 - **Details:**
-  Per DATA_MODELS.md Section 2 and PURCHASE_FLOW.md Section 4:
+  Per STATE_MANAGEMENT.md. Both call Laravel API directly with `credentials: 'include'` for Sanctum session auth.
 
-  **POST `/api/bookings`:**
-  1. Validate seat availability (re-check at purchase time)
-  2. Validate food items, promo code, gift card
-  3. Calculate total: (seat prices) + (food) - (promo discount) - (gift card)
-  4. Create Stripe PaymentIntent with calculated amount
-  5. Confirm PaymentIntent
-  6. On success: mark seats taken, create booking, generate confirmation code ("CVF-" + alphanumeric)
-  7. Return booking
+  **useAccount:** Profile CRUD, orders (paginated), upcoming bookings, loyalty, payment methods CRUD. All `/api/account/*` endpoints require authentication — Sanctum middleware on the Laravel side handles this.
 
-  **Error responses:** 409 (seats taken), 402 (payment declined), 400 (invalid promo/gift card), 410 (session expired), 200 with `requiresAction` (3DS)
-
-  **GET `/api/bookings/:id`:** Returns booking by ID (acts as secret URL).
+  **useGiftCards:** Purchase (Stripe) and balance check via `/api/gift-cards/*`.
 
 - **Acceptance Criteria:**
-  - [ ] Successful booking creates record and returns confirmation code
-  - [ ] 409 returned when seats are no longer available
-  - [ ] 402 returned when payment is declined
-  - [ ] 3DS flow returns `requiresAction` with `clientSecret`
-  - [ ] Confirmation code format: "CVF-" + 6 alphanumeric characters
-  - [ ] Mock mode works without Stripe API key
+  - [ ] Account endpoints require authentication (Sanctum session)
+  - [ ] Order history supports pagination
+  - [ ] Gift card balance check returns correct data
+  - [ ] Profile update sends PATCH request
 
 ---
 
-### Task 11: `useToast` Composable
+### Task 9: `useToast` Composable
 
 - **MoSCoW:** Must Have
 - **Complexity:** XS
@@ -354,33 +296,30 @@ Build all 9 composables and their corresponding Nuxt server routes (BFF layer). 
   - `useCart`: add/remove seats, food items, promo, gift card, computed totals, timer
   - `useSeatSelection`: toggle, merge conflicts, moveFocus navigation
   - `useToast`: show/dismiss queue management
-  - `useAuth`: login/logout state transitions
-  - Utility functions in `server/utils/tmdb.ts` (tmdbToMovie transform)
+  - `useAuth`: login/logout state transitions (mock API responses)
 - **Integration Tests:**
-  - Server routes return correctly shaped responses with mock data
-  - Authenticated routes reject unauthenticated requests
-  - Booking route validates seat availability
+  - Composables successfully call Laravel API endpoints
+  - Authenticated composables fail gracefully when unauthenticated
+  - CORS and credentials work correctly between frontend and Laravel
 - **E2E Tests:** Deferred to Plan 13 (E2E & Polish)
 
 ## Dependencies Map
 
 ```
-Task 1 (Mock Data) ← all server routes depend on this
-Task 2 (TMDB Utility) ← Task 3 depends on this
-Task 3 (Movie Routes) → Task 4 (useMovies)
-Task 5 (Showtime Route + useShowtimes)
-Task 6 (Auth Routes + useAuth) ← Task 9 account routes depend on auth
-Task 7 (useCart) ← Task 10 booking routes reference cart shape
-Task 8 (useSeatSelection) ← independent
-Task 9 (Calendar/Account/GiftCards) ← needs Task 6 for auth middleware
-Task 10 (Booking Routes) ← needs Tasks 1, 2, 6, 7
-Task 11 (useToast) ← independent
+Task 1 (API Config) ← all composables depend on this
+Task 2 (useMovies) ← needs Task 1
+Task 3 (useShowtimes) ← needs Task 1
+Task 4 (useAuth) ← needs Task 1
+Task 5 (useCart) ← independent (no API calls)
+Task 6 (useSeatSelection) ← independent (no API calls)
+Task 7 (useCalendarEvents) ← needs Task 1
+Task 8 (useAccount + useGiftCards) ← needs Tasks 1, 4 (auth)
+Task 9 (useToast) ← independent
 ```
 
 ## Risks & Open Questions
 
-1. **Stripe in dev** — Need Stripe test keys for booking route. Stub with mock payment flow when `MOCK_DATA=true`.
-2. **nuxt-auth-utils API** — Verify the session API matches our usage. May need to use raw `h3` session utilities if the module API differs.
-3. **Slug-to-TMDB-ID mapping** — The slug is derived from the movie title. Need a reliable mapping strategy. Options: maintain a local lookup table, or slugify TMDB titles and match on the fly.
-4. **Mock data realism** — Mock showtimes need realistic date/time distribution. Use a seed script or generate programmatically.
-5. **Server route file naming** — Nuxt server routes use file-based naming. Verify `[slug].get.ts` and `index.get.ts` patterns work correctly with nested directories.
+1. **CORS configuration** — The Laravel backend must allow credentials from the frontend origin. Verify `config/cors.php` has `supports_credentials: true` and the frontend origin in `allowed_origins`.
+2. **Sanctum cookie domain** — In dev, the frontend (Nuxt) and backend (Laravel) run on different ports. Sanctum's `stateful` domains must include the frontend origin for cookie-based auth to work cross-origin.
+3. **SSR and API calls** — When Nuxt renders on the server, `useFetch` calls go from the Nuxt server process to Laravel. Ensure the `apiBaseUrl` is resolvable from within the Docker network (e.g., `http://backend:8000` for SSR vs `https://finalcut.test` for client-side).
+4. **Stripe in dev** — Stripe test keys are configured in the Laravel backend. The frontend only needs the publishable key via `NUXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`.

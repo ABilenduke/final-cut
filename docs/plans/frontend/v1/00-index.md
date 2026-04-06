@@ -14,7 +14,7 @@
 | 02 | [Design System CSS](02-design-system-css.md) | Must Have | M | 01 | Pending |
 | 03 | [UI Primitives](03-ui-primitives.md) | Must Have | L | 02 | Pending |
 | 04 | [Layouts & Shell](04-layouts-and-shell.md) | Must Have | M | 02, 03 | Pending |
-| 05 | [Composables & Server Routes](05-composables-and-server-routes.md) | Must Have | L | 01, 02 | Pending |
+| 05 | [Composables & API Integration](05-composables-and-server-routes.md) | Must Have | L | 01, 02 | Pending |
 | 06 | [Movie Domain](06-movie-domain.md) | Must Have | L | 03, 04, 05 | Pending |
 | 07 | [Calendar & Events Domain](07-calendar-events-domain.md) | Should Have | L | 03, 04, 05 | Pending |
 | 08 | [Purchase Flow Domain](08-purchase-flow-domain.md) | Must Have | XL | 03, 04, 05, 06 | Pending |
@@ -37,7 +37,7 @@
 │                                                      │
 04 Layouts & Shell                                     │
 │                                                      │
-05 Composables & Server Routes ────────────────────────┘
+05 Composables & API Integration ──────────────────────┘
 │
 ├── 06 Movie Domain (Must)
 │   └── 08 Purchase Flow Domain (Must)
