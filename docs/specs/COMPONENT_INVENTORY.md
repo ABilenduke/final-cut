@@ -59,7 +59,7 @@ Located in `app/components/ui/`. Auto-imported globally by Nuxt. These are the d
 
 **Events:** `click` (`MouseEvent`) — when interactive.
 
-**Behavior:** Decorative edge catch via `outline-variant` at 15% opacity. Radius: 0.25rem. Hover lift when interactive: `translateY(-0.125rem)`. Internal padding: `space-md`. When `interactive` without `href`: receives `tabindex="0"` and `role="button"`.
+**Behavior:** Decorative edge catch via `outline_variant` at 15% opacity. Radius: 0.25rem. Hover lift when interactive: `translateY(-0.125rem)`. Internal padding: `space-md`. When `interactive` without `href`: receives `tabindex="0"` and `role="button"`.
 
 ---
 
@@ -566,7 +566,7 @@ Located in `app/components/booking/`.
 
 **Events:** `navigate` (`number`).
 
-**Behavior:** Completed/active: `secondary` with gold underline. Future: `outline-variant`. Connector: `outline-variant` at 15% opacity. Font: `label-lg`, Newsreader.
+**Behavior:** Completed/active: `secondary` with gold underline. Future: `outline_variant`. Connector: `outline_variant` at 15% opacity. Font: `label-lg`, Newsreader.
 
 **Accessibility:** `<nav aria-label="Purchase steps">`. Current: `aria-current="step"`. Navigable steps: `<a>`. Non-navigable: `<span>` (or `aria-disabled="true"` for future).
 

@@ -47,14 +47,13 @@ Configure the Nuxt project for production use and define all TypeScript interfac
       },
     },
 
-    app: {
-      head: {
-        link: [
-          { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
-          { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' },
-          { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Newsreader:ital,wght@0,400;0,700;1,400&family=Noto+Serif:wght@400;700&display=swap' },
-        ],
-      },
+    modules: ['@nuxt/fonts'],
+
+    fonts: {
+      families: [
+        { name: 'Noto Serif', weights: [400, 700] },
+        { name: 'Newsreader', weights: [400, 700], styles: ['normal', 'italic'] },
+      ],
     },
   })
   ```
@@ -62,7 +61,7 @@ Configure the Nuxt project for production use and define all TypeScript interfac
 - **Acceptance Criteria:**
   - [ ] Route rules deferred to Plan 13 (comment placeholder present in config)
   - [ ] Runtime config keys match environment variable spec (no sessionPassword)
-  - [ ] Google Fonts (Noto Serif + Newsreader) load in both dev and production
+  - [ ] `@nuxt/fonts` installed and configured with Noto Serif + Newsreader
   - [ ] CSS entry point registered (creates placeholder `main.css` if needed)
   - [ ] `npx nuxt dev` starts without errors
 
@@ -225,6 +224,6 @@ Task 6 (Plugin) — independent, can run in parallel with 2-5
 ## Risks & Open Questions
 
 1. **@nuxt/content** — Explicitly deferred to Plan 11. Blog and FAQ markdown content will use static TypeScript data files until then.
-2. **Google Fonts loading strategy** — Consider using `@nuxt/fonts` module instead of raw `<link>` tags for better performance. Decision: start with `<link>` tags (simpler), optimize later if needed.
+2. **Google Fonts loading strategy** — Uses `@nuxt/fonts` module, which automatically downloads and self-hosts Google Fonts at build time. No external runtime dependency on Google CDN. Fonts are preloaded with `font-display: swap` by default.
 3. **CORS for Sanctum** — The Laravel backend must be configured with `supports_credentials: true` and the frontend origin in `allowed_origins` for cookie-based auth to work. Verify during Plan 05 integration.
 4. **CSRF bootstrap** — The Laravel backend uses Sanctum SPA auth. The frontend must call `GET /sanctum/csrf-cookie` before the first state-changing request. This is implemented in Plan 05 (API client layer).

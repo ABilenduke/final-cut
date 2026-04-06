@@ -29,8 +29,8 @@ Implement the complete CSS foundation for "The Cinematic Void Framework" — all
   All design tokens from DESIGN_SYSTEM_IMPLEMENTATION.md Section 2, defined on `:root`:
 
   **Colors:**
-  - Fills: `--primary-container: #550000`, `--secondary-container: #675900`, `--tertiary-container: #29261b`, `--surface: #131313`, `--surface-container-lowest: #0e0e0e`, `--surface-container-low: #1c1b1b`, `--surface-container: #201f1f`, `--surface-container-high: #2a2a2a`
-  - Text: `--primary: #FFB4A8`, `--secondary: #DAC769`, `--tertiary: #CCC6B6`, `--on-surface: #E5E2E1`
+  - Fills: `--primary-container: #550000`, `--secondary-container: #675900`, `--tertiary-container: #29261b`, `--surface: #131313`, `--surface-variant: #3B3636`, `--surface-container-lowest: #0e0e0e`, `--surface-container-low: #1c1b1b`, `--surface-container: #201f1f`, `--surface-container-high: #2a2a2a`
+  - Text: `--primary: #FFB4A8`, `--secondary: #DAC769`, `--tertiary: #CCC6B6`, `--on-surface: #E5E2E1`, `--on-tertiary-fixed-variant: #A89F91`
   - Borders: `--outline-variant: #57423E`, `--outline: #A58B86`
 
   **Spacing:** `--space-2xs` (0.125rem) through `--space-5xl` (8rem)
@@ -63,6 +63,10 @@ Implement the complete CSS foundation for "The Cinematic Void Framework" — all
   Minimal reset (box-sizing, margin, padding) plus the global `prefers-reduced-motion` reset from DESIGN_SYSTEM_IMPLEMENTATION.md Section 6:
 
   ```css
+  html {
+    scrollbar-gutter: stable;
+  }
+
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
       animation-duration: 0.01ms !important;
@@ -73,11 +77,14 @@ Implement the complete CSS foundation for "The Cinematic Void Framework" — all
   }
   ```
 
+  `scrollbar-gutter: stable` reserves consistent space for the scrollbar across all pages — required for the Wide Frame (`100vw`) composition to work without horizontal overflow on platforms with visible scrollbars (Windows, Linux).
+
   Also set `body` to use `--surface` background, `--on-surface` text, and `--font-body` font family.
 
 - **Acceptance Criteria:**
   - [ ] `box-sizing: border-box` applied universally
   - [ ] Default margins and paddings reset
+  - [ ] `scrollbar-gutter: stable` on `<html>`
   - [ ] Body uses design system surface color and font
   - [ ] Reduced motion global reset is present
   - [ ] No `#FFFFFF` or `white` values
@@ -92,6 +99,8 @@ Implement the complete CSS foundation for "The Cinematic Void Framework" — all
   - `frontend/app/assets/css/typography.css` — create new
 - **Details:**
   Per DESIGN_SYSTEM_IMPLEMENTATION.md Section 3:
+
+  **Font loading:** Uses `@nuxt/fonts` module (configured in Plan 01 `nuxt.config.ts`). Fonts are self-hosted at build time — no Google Fonts `<link>` tags. Font stacks provide serif fallbacks that preserve tone during loading or failure.
 
   **Font stacks:**
   - `--font-display: 'Noto Serif', Georgia, 'Times New Roman', serif`
@@ -165,7 +174,7 @@ Implement the complete CSS foundation for "The Cinematic Void Framework" — all
 
   - **Aspect ratios:** `.aspect-poster` (2/3), `.aspect-video` (16/9), `.aspect-square` (1/1), `.aspect-menu-item` (4/3)
   - **Touch targets:** `.touch-target` (min 3rem, gated below screen-md)
-  - **Glassmorphism:** `.glass` — `surface_variant` at 60% opacity + `backdrop-filter: blur(20px)`
+  - **Glassmorphism:** `.glass` — base: `surface_variant` (#3B3636) at 85% opacity (solid fallback); enhanced via `@supports (backdrop-filter: blur(1px))`: 60% opacity + `backdrop-filter: blur(20px)` + `-webkit-backdrop-filter: blur(20px)`
   - **Skeleton shimmer:** `@keyframes shimmer` (1500ms, linear, infinite)
   - **Screen reader only:** `.sr-only` (visually hidden but accessible)
   - **Edge catch:** `.edge-catch` — `outline_variant` at 15% opacity decorative border
@@ -260,4 +269,4 @@ Task 7 (main.css) ← aggregates all above, write last
 
 1. **Tailwind CSS 4** — CLAUDE.md lists Tailwind CSS 4 in the tech stack, but DESIGN_SYSTEM_IMPLEMENTATION.md Section 7 explicitly says "No Tailwind." Decision: follow the design system docs — use CSS custom properties only. Tailwind may be used for rapid prototyping of non-component styles if needed, but component styling must use the token system.
 2. **Container queries** — Mentioned in DESIGN_SYSTEM_IMPLEMENTATION.md Section 5 for variable-width contexts. Browser support is good but verify Nuxt's SSR handles them correctly.
-3. **`calc(-50vw + 50%)` scrollbar issue** — The Wide Frame technique can cause horizontal overflow if the page has a visible scrollbar. May need `overflow-x: hidden` on a parent or use `100dvw` instead.
+3. **`calc(-50vw + 50%)` scrollbar issue** — Resolved. `scrollbar-gutter: stable` on `<html>` (in `reset.css`, Task 2) reserves consistent scrollbar space, preventing the `100vw` technique from causing horizontal overflow. If edge cases arise on specific platforms, `overflow-x: clip` on the Wide Frame's parent container is the targeted fallback.
