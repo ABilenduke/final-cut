@@ -4,8 +4,9 @@ namespace App\Http\Requests;
 
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
-class LoginRequest extends FormRequest
+class UpdateProfileRequest extends FormRequest
 {
     public function authorize(): bool
     {
@@ -18,8 +19,12 @@ class LoginRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'email' => ['required', 'email'],
-            'password' => ['required', 'string'],
+            'name' => ['sometimes', 'string', 'max:255'],
+            'email' => ['sometimes', 'email', 'max:255', Rule::unique('users')->ignore($this->user()->id)],
+            'phone' => ['sometimes', 'nullable', 'string', 'max:20'],
+            'date_of_birth' => ['sometimes', 'nullable', 'date', 'before:today'],
+            'password' => ['sometimes', 'string', 'min:8', 'confirmed'],
+            'current_password' => ['required_with:password', 'current_password'],
         ];
     }
 

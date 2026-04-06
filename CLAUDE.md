@@ -69,6 +69,23 @@ npx playwright test      # Run e2e tests (prefer `make e2e` from host)
 
 Root `.env` holds Docker Compose variables (`APP_DOMAIN`, database/Redis credentials). Backend `.env` is standard Laravel. Copy from `.env.example` files. Certs are domain-stamped — regenerate with `make certs` if `APP_DOMAIN` changes.
 
+### Dev Containers & File Permissions
+
+Dev containers run as a `devuser` whose UID/GID matches the host user, avoiding bind-mount permission conflicts. Both the backend and frontend Dockerfiles create this user in their `development` stage using build args:
+
+```
+DEV_UID: ${DEV_UID:-1000}
+DEV_GID: ${DEV_GID:-1000}
+```
+
+These default to `1000` (standard first user on Linux/WSL). If your host UID differs, set `DEV_UID` and `DEV_GID` in the root `.env` file before building.
+
+**Backend:** PHP-FPM workers run as `devuser` (not `www-data`). A `dev-entrypoint.sh` script starts as root to fix ownership on `storage/` and `bootstrap/cache/` dirs that may have stale permissions, then exec's `php-fpm`. The vendor directory uses a named Docker volume (`backend-vendor`) owned by `devuser`.
+
+**Frontend:** Deno runs as `devuser`. The Deno cache directory is a named volume (`frontend-deno-cache`) mounted at `/home/devuser/.cache/deno`.
+
+**Hooks note:** Any `docker exec` commands in hooks (e.g., running Pint) must use `-u 1000` to match the `devuser` UID inside the container.
+
 ## Key Domain Concepts
 
 See @docs/DATA_MODELS.md for full schema. Core entities: Movie (auto-increment PK, optional `tmdb_id` for enrichment, `slug` for URLs), Location, Auditorium (aka "Screen"), AuditoriumSection (Standard/Premium/Accessible pricing zones), Seat (row letter + number), Showtime (Movie + Auditorium, pricing in cents), Booking (human-readable confirmationCode like "CVF-A3X9K2"), User (loyaltyTier, loyaltyPoints), GiftCard.

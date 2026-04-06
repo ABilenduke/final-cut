@@ -12,9 +12,12 @@ services:
   frontend:
     build:
       target: development
+      args:
+        DEV_UID: ${DEV_UID:-1000}
+        DEV_GID: ${DEV_GID:-1000}
     volumes:
       - ./frontend:/app
-      - frontend-deno-cache:/home/deno/.cache/deno
+      - frontend-deno-cache:/home/devuser/.cache/deno
     environment:
       - NODE_ENV=development
     healthcheck:
@@ -28,9 +31,12 @@ services:
     build:
       context: ./frontend
       target: development
+      args:
+        DEV_UID: ${DEV_UID:-1000}
+        DEV_GID: ${DEV_GID:-1000}
     volumes:
       - ./frontend:/app
-      - storybook-deno-cache:/home/deno/.cache/deno
+      - storybook-deno-cache:/home/devuser/.cache/deno
     environment:
       - NODE_ENV=development
       - STORYBOOK=true
@@ -49,12 +55,17 @@ services:
   backend:
     build:
       target: development
+      args:
+        DEV_UID: ${DEV_UID:-1000}
+        DEV_GID: ${DEV_GID:-1000}
     volumes:
       - ./backend:/var/www/html
       - backend-vendor:/var/www/html/vendor
     environment:
       - APP_ENV=local
       - APP_DEBUG=true
+      - DEV_UID=${DEV_UID:-1000}
+      - DEV_GID=${DEV_GID:-1000}
     depends_on:
       postgres:
         condition: service_healthy

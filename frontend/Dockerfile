@@ -7,6 +7,20 @@ COPY . .
 
 # ── Development ──────────────────────────────
 FROM base AS development
+
+# Create a dev user matching the host UID/GID so bind-mounted files
+# share the same ownership. Scoped to dev stage only — production
+# uses the distroless image with no shell or user management.
+ARG DEV_UID=1000
+ARG DEV_GID=1000
+RUN groupadd -g ${DEV_GID} devuser \
+    && useradd -u ${DEV_UID} -g devuser -m devuser \
+    && mkdir -p /home/devuser/.cache/deno \
+    && chown -R devuser:devuser /home/devuser /app
+
+USER devuser
+ENV DENO_DIR=/home/devuser/.cache/deno
+
 EXPOSE 3000
 CMD ["deno", "task", "dev"]
 

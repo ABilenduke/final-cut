@@ -29,10 +29,14 @@ abstract class Controller extends BaseController
         return response()->json(['message' => 'Not implemented'], 501);
     }
 
-    protected function paginatedResponse(LengthAwarePaginator $paginator): JsonResponse
+    protected function paginatedResponse(LengthAwarePaginator $paginator, ?string $resourceClass = null): JsonResponse
     {
+        $items = $resourceClass
+            ? $resourceClass::collection($paginator->items())
+            : $paginator->items();
+
         return response()->json([
-            'data' => $paginator->items(),
+            'data' => $items,
             'meta' => [
                 'total' => $paginator->total(),
                 'page' => $paginator->currentPage(),

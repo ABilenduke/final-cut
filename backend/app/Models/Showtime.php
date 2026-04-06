@@ -10,6 +10,10 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
+/**
+ * @property Movie $movie
+ * @property Auditorium $auditorium
+ */
 #[Fillable([
     'movie_id', 'auditorium_id', 'start_time', 'end_time',
     'price_standard', 'price_premium', 'price_accessible',
