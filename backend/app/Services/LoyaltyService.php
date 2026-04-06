@@ -3,7 +3,9 @@
 namespace App\Services;
 
 use App\Enums\BookingStatus;
+use App\Models\Booking;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Collection;
 
 class LoyaltyService
 {
@@ -48,13 +50,14 @@ class LoyaltyService
      */
     public function getHistory(User $user): array
     {
+        /** @var Collection<int, Booking> $bookings */
         $bookings = $user->bookings()
             ->with('showtime.movie')
             ->where('status', BookingStatus::Confirmed)
             ->latest()
             ->get();
 
-        return $bookings->map(fn ($booking) => [
+        return $bookings->map(fn (Booking $booking) => [
             'description' => "Booking for {$booking->showtime->movie->title}",
             'points' => (int) floor($booking->total / 100),
             'date' => $booking->created_at->toIso8601String(),

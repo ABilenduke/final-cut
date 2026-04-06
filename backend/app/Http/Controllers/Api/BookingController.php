@@ -13,6 +13,7 @@ use App\Models\BookingFoodItem;
 use App\Models\GiftCard;
 use App\Models\Location;
 use App\Models\Showtime;
+use App\Models\User;
 use App\Services\LoyaltyService;
 use App\Services\SeatAvailabilityService;
 use App\Services\StripeService;
@@ -439,7 +440,9 @@ class BookingController extends Controller
             ]);
         }
 
-        if ($user = $booking->user) {
+        /** @var User|null $user */
+        $user = $booking->user;
+        if ($user) {
             $this->loyaltyService->awardPointsForPurchase($user, $total);
         }
     }

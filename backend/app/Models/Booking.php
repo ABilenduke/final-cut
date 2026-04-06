@@ -15,6 +15,10 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\DB;
 use Sqids\Sqids;
 
+/**
+ * @property Showtime $showtime
+ * @property User|null $user
+ */
 #[Fillable([
     'confirmation_code', 'showtime_id', 'user_id', 'guest_email',
     'status', 'subtotal', 'discount', 'total', 'payment_method',

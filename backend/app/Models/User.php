@@ -16,6 +16,7 @@ use Illuminate\Support\Carbon;
 
 /**
  * @property LoyaltyTier $loyalty_tier
+ * @property Carbon|null $date_of_birth
  * @property Carbon|null $premier_expiry
  * @property Carbon $created_at
  */
