@@ -51,12 +51,12 @@
 /* ——— Glassmorphism ——— */
 
 .glass {
-  background-color: rgba(59, 54, 54, 0.85); /* surface-variant at 85% — solid fallback */
+  background-color: rgba(var(--surface-variant-rgb), 0.85); /* solid fallback */
 }
 
 @supports (backdrop-filter: blur(1px)) {
   .glass {
-    background-color: rgba(59, 54, 54, 0.6); /* surface-variant at 60% */
+    background-color: rgba(var(--surface-variant-rgb), 0.6);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
   }
@@ -98,10 +98,10 @@
 
 .sr-only {
   position: absolute;
-  width: 1px;
-  height: 1px;
+  width: 0.0625rem;
+  height: 0.0625rem;
   padding: 0;
-  margin: -1px;
+  margin: -0.0625rem;
   overflow: hidden;
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
@@ -111,7 +111,7 @@
 /* ——— Edge Catch (Decorative) ——— */
 
 .edge-catch {
-  outline: 0.0625rem solid rgba(87, 66, 62, 0.15); /* outline-variant at 15% opacity */
+  outline: 0.0625rem solid color-mix(in srgb, var(--outline-variant) 15%, transparent);
 }
 
 /* ——— Vignette Bloom ——— */

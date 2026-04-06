@@ -25,6 +25,10 @@
   --outline-variant: #57423E;      /* Decorative edge catches only (15% opacity) */
   --outline: #A58B86;              /* Input underlines, functional interactive boundaries */
 
+  /* ——— RGB Channel Tokens (for opacity variants) ——— */
+  --surface-variant-rgb: 59, 54, 54;
+  --outline-variant-rgb: 87, 66, 62;
+
   /* ——— Spacing ——— */
   --space-2xs: 0.125rem;  /* 2px  — optical adjustment only */
   --space-xs:  0.25rem;   /* 4px  — optical adjustment only */

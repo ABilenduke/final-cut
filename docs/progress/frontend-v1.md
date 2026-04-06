@@ -21,7 +21,7 @@
 - [2026-04-06] Created `reset.css` — browser reset, scrollbar-gutter, body defaults, reduced-motion global kill switch
 - [2026-04-06] Created `typography.css` — font stacks, 15 type scale tokens (fluid clamp for display/headline), 14 usage classes
 - [2026-04-06] Created `layouts.css` — global container, 6 named compositions (Establishing Shot, Rack Focus, Wide Frame, Close-Up, Ensemble, Auditorium), sidebar layout
-- [2026-04-06] Created `utilities.css` — aspect ratios, touch targets, glassmorphism with @supports fallback, skeleton shimmer, sr-only, edge-catch, vignette-bloom, focus indicators (double-ring + clipped container variant), float shadow
+- [2026-04-06] Created `utilities.css` — aspect ratios, touch targets, glassmorphism with @supports fallback, skeleton shimmer, sr-only, edge-catch, vignette-bloom, focus indicators (outline baseline with box-shadow enhancement and forced-colors fallback), float shadow
 - [2026-04-06] Created `print.css` — suppresses chrome, optimizes booking confirmation, white/black permitted only here
 - [2026-04-06] Updated `main.css` — import aggregator in correct order
 
