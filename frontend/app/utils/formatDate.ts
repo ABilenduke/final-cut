@@ -1,11 +1,7 @@
-/** Fixed timezone for deterministic SSR/client rendering. */
-const TIMEZONE = 'America/New_York'
-
 const dateFormatter = new Intl.DateTimeFormat('en-US', {
   month: 'short',
   day: 'numeric',
   year: 'numeric',
-  timeZone: TIMEZONE,
 })
 
 const dateTimeFormatter = new Intl.DateTimeFormat('en-US', {
@@ -14,17 +10,16 @@ const dateTimeFormatter = new Intl.DateTimeFormat('en-US', {
   year: 'numeric',
   hour: 'numeric',
   minute: '2-digit',
-  timeZone: TIMEZONE,
 })
 
 /**
  * Parse a date string into a Date object.
- * Date-only strings (YYYY-MM-DD) are treated as local calendar dates
- * by appending T12:00:00 to avoid UTC-midnight timezone shift.
+ * Date-only strings (YYYY-MM-DD) are anchored to UTC noon so they
+ * always format to the same calendar date regardless of local timezone.
  */
 function parseDate(iso: string): Date {
   if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) {
-    return new Date(`${iso}T12:00:00`)
+    return new Date(`${iso}T12:00:00Z`)
   }
   return new Date(iso)
 }
