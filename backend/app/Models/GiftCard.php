@@ -9,6 +9,9 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
+/**
+ * @property GiftCardStatus $status
+ */
 #[Fillable([
     'code', 'initial_balance', 'current_balance', 'recipient_email',
     'recipient_name', 'sender_name', 'message', 'status',

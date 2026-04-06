@@ -12,21 +12,29 @@ class CalendarEventController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $month = $request->integer('month', (int) now()->format('m'));
-        $year = $request->integer('year', (int) now()->format('Y'));
+        $validated = validator($request->query(), [
+            'month' => ['nullable', 'integer', 'between:1,12'],
+            'year' => ['nullable', 'integer', 'between:1900,2100'],
+            'type' => ['nullable', 'string'],
+            'accessibility' => ['nullable', 'string'],
+        ])->validate();
 
-        $startOfMonth = Carbon::createFromDate($year, $month, 1)->startOfMonth()->toDateString();
-        $endOfMonth = Carbon::createFromDate($year, $month, 1)->endOfMonth()->toDateString();
+        $month = isset($validated['month']) ? (int) $validated['month'] : (int) now()->format('m');
+        $year = isset($validated['year']) ? (int) $validated['year'] : (int) now()->format('Y');
+
+        $monthDate = Carbon::createFromDate($year, $month, 1);
+        $startOfMonth = $monthDate->copy()->startOfMonth()->toDateString();
+        $endOfMonth = $monthDate->copy()->endOfMonth()->toDateString();
 
         $query = CalendarEvent::query()
             ->whereBetween('date', [$startOfMonth, $endOfMonth]);
 
-        if ($request->filled('type')) {
-            $query->where('type', $request->input('type'));
+        if (! empty($validated['type'])) {
+            $query->where('type', $validated['type']);
         }
 
-        if ($request->filled('accessibility')) {
-            $tags = explode(',', $request->input('accessibility'));
+        if (! empty($validated['accessibility'])) {
+            $tags = explode(',', $validated['accessibility']);
             $query->where(function ($q) use ($tags) {
                 foreach ($tags as $tag) {
                     $q->orWhereJsonContains('accessibility_tags', trim($tag));

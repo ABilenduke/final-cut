@@ -241,43 +241,63 @@ class GiftCardController extends Controller
      */
     private function createGiftCard(array $data, string $paymentIntentId, string $idempotencyKey, string $payloadHash): JsonResponse
     {
+        $maxAttempts = 3;
+
         try {
-            $code = $this->generateUniqueCode();
+            for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
+                try {
+                    $code = $this->generateUniqueCode();
 
-            $giftCard = GiftCard::create([
-                'code' => $code,
-                'initial_balance' => $data['amount'],
-                'current_balance' => $data['amount'],
-                'recipient_email' => $data['recipientEmail'],
-                'recipient_name' => $data['recipientName'],
-                'sender_name' => $data['senderName'],
-                'message' => $data['message'] ?? null,
-                'status' => GiftCardStatus::Active,
-                'stripe_payment_intent_id' => $paymentIntentId,
-                'idempotency_key' => $idempotencyKey,
-                'payload_hash' => $payloadHash,
-                'purchased_at' => now(),
-            ]);
+                    $giftCard = GiftCard::create([
+                        'code' => $code,
+                        'initial_balance' => $data['amount'],
+                        'current_balance' => $data['amount'],
+                        'recipient_email' => $data['recipientEmail'],
+                        'recipient_name' => $data['recipientName'],
+                        'sender_name' => $data['senderName'],
+                        'message' => $data['message'] ?? null,
+                        'status' => GiftCardStatus::Active,
+                        'stripe_payment_intent_id' => $paymentIntentId,
+                        'idempotency_key' => $idempotencyKey,
+                        'payload_hash' => $payloadHash,
+                        'purchased_at' => now(),
+                    ]);
 
-            return $this->successResponse(new GiftCardResource($giftCard), status: 201);
-        } catch (UniqueConstraintViolationException) {
-            // Race condition: another request completed first
-            $existing = GiftCard::where('idempotency_key', $idempotencyKey)->first()
-                ?? GiftCard::where('stripe_payment_intent_id', $paymentIntentId)->first();
+                    return $this->successResponse(new GiftCardResource($giftCard), status: 201);
+                } catch (UniqueConstraintViolationException) {
+                    // Race condition: another request completed first, or code collision
+                    $existing = GiftCard::where('idempotency_key', $idempotencyKey)->first()
+                        ?? GiftCard::where('stripe_payment_intent_id', $paymentIntentId)->first();
 
-            if ($existing) {
-                return $this->successResponse(new GiftCardResource($existing), status: 201);
+                    if ($existing) {
+                        return $this->successResponse(new GiftCardResource($existing), status: 201);
+                    }
+
+                    // Code collision — retry with a new code
+                    if ($attempt < $maxAttempts) {
+                        continue;
+                    }
+
+                    // Exhausted retries with no existing record found — refund
+                    $this->refundOrReport($paymentIntentId);
+
+                    return $this->errorResponse([
+                        ['field' => 'payment', 'message' => 'An unexpected error occurred. Please try again.'],
+                    ], 500);
+                }
             }
-
-            // Neither found — unexpected, surface as server error
-            return $this->errorResponse([
-                ['field' => 'payment', 'message' => 'An unexpected error occurred. Please try again.'],
-            ], 500);
         } catch (\Throwable $e) {
             $this->refundOrReport($paymentIntentId);
 
             throw $e;
         }
+
+        // Unreachable, but satisfies return type
+        $this->refundOrReport($paymentIntentId);
+
+        return $this->errorResponse([
+            ['field' => 'payment', 'message' => 'An unexpected error occurred. Please try again.'],
+        ], 500);
     }
 
     private function cacheHardFailure(
