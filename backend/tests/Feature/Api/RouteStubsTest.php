@@ -15,18 +15,8 @@ use function Pest\Laravel\postJson;
 // - tests/Feature/Api/MovieControllerTest.php
 // - tests/Feature/Api/ShowtimeControllerTest.php
 
-// Calendar
-test('GET /api/calendar/events returns 200', function () {
-    getJson('/api/calendar/events')
-        ->assertOk()
-        ->assertJsonStructure(['data']);
-});
-
-test('GET /api/calendar/events/{slug} returns 200', function () {
-    getJson('/api/calendar/events/opening-night')
-        ->assertOk()
-        ->assertJsonStructure(['data']);
-});
+// Calendar — covered by dedicated test file:
+// - tests/Feature/Api/CalendarEventControllerTest.php
 
 // Food Menu — covered by dedicated test file:
 // - tests/Feature/Api/FoodMenuControllerTest.php
