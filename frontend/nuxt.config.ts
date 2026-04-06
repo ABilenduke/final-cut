@@ -3,6 +3,12 @@ export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   devtools: { enabled: true },
 
+  vite: {
+    server: {
+      allowedHosts: ['finalcut.test'],
+    },
+  },
+
   css: ['~/assets/css/main.css'],
 
   // Route rules (ISR/SSR/prerender) deferred to Plan 13 (E2E & Polish).
