@@ -7,7 +7,7 @@
 
 ## Overview
 
-Build all 9 composables that form the frontend data layer. The frontend calls the Laravel API directly — there is no Nuxt server-side BFF layer. Composables wrap `useFetch` / `$fetch` calls targeting the Laravel backend via `NUXT_PUBLIC_API_BASE_URL`. Authentication uses Laravel Sanctum (session cookies). SSR hydration via nuxt-auth-utils is deferred for v1 — auth state is restored on app init via `GET /api/auth/me`.
+Build all 10 composables that form the frontend data layer. The frontend calls the Laravel API directly — there is no Nuxt server-side BFF layer. Composables wrap `useFetch` / `$fetch` calls targeting the Laravel backend via `NUXT_PUBLIC_API_BASE_URL`. Authentication uses Laravel Sanctum (session cookies). SSR hydration via nuxt-auth-utils is deferred for v1 — auth state is restored on app init via `GET /api/auth/me`.
 
 ## Reference Documents
 
@@ -64,19 +64,20 @@ Build all 9 composables that form the frontend data layer. The frontend calls th
 
   **State:**
   - `locations: Ref<Location[]>` — all locations from `GET /api/locations`
-  - `activeLocation: Ref<Location>` — current selection (localStorage-backed)
+  - `activeLocation: Ref<Location | null>` — current selection (localStorage-backed); `null` until `fetchLocations()` completes
 
   **Methods:**
   - `fetchLocations()` — fetches all locations on app init
   - `setLocation(slug: string)` — updates active location, writes to localStorage
 
-  **Stale storage fallback:** On init, if the localStorage slug doesn't match any location from the API, silently fall back to the first valid location and overwrite localStorage.
+  **Stale storage fallback:** On init, if the localStorage slug doesn't match any location from the API, silently fall back to the first valid location and overwrite localStorage. If no locations are available, `activeLocation` remains `null`.
 
 - **Acceptance Criteria:**
   - [ ] Locations fetched from `GET /api/locations` on app init
-  - [ ] Active location persisted to localStorage
+  - [ ] `activeLocation` is `null` until `fetchLocations()` resolves
+  - [ ] Active location persisted to localStorage when a valid location exists
   - [ ] Stale localStorage value falls back to first valid location
-  - [ ] `activeLocation` is reactive and accessible from any component
+  - [ ] `activeLocation` remains `null` when the API returns zero locations
   - [ ] Auto-imported by Nuxt
 
 ---
