@@ -29,14 +29,16 @@ class BookingSeeder extends Seeder
         $testUser = User::where('email', 'test@finalcut.test')->firstOrFail();
         $memberUser = User::where('email', 'member@finalcut.test')->firstOrFail();
 
+        $now = Carbon::now();
+
         // Separate past and future showtimes (eager-load location for menu item scoping)
         $pastShowtimes = Showtime::with('auditorium.seats', 'auditorium.location.menuItems')
-            ->where('start_time', '<', Carbon::now())
+            ->where('start_time', '<', $now)
             ->orderBy('start_time')
             ->get();
 
         $futureShowtimes = Showtime::with('auditorium.seats', 'auditorium.location.menuItems')
-            ->where('start_time', '>=', Carbon::now())
+            ->where('start_time', '>=', $now)
             ->orderBy('start_time')
             ->get();
 
@@ -276,7 +278,7 @@ class BookingSeeder extends Seeder
 
         return $showtime->auditorium->seats
             ->reject(fn ($seat) => isset($usedForShowtime[$seat->id]))
-            ->sortBy(['row', 'number'])
+            ->sortBy([['row', 'asc'], ['number', 'asc']])
             ->take($count)
             ->values();
     }

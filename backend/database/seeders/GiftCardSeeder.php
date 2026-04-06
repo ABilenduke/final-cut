@@ -10,8 +10,9 @@ class GiftCardSeeder extends Seeder
 {
     public function run(): void
     {
-        // 3 active gift cards with varying balances
+        // 3 active gift cards with varying balances (deterministic codes for test references)
         GiftCard::factory()->create([
+            'code' => 'SEED-ACTIVE-2500',
             'initial_balance' => 2500,
             'current_balance' => 2500,
             'recipient_email' => 'test@finalcut.test',
@@ -21,6 +22,7 @@ class GiftCardSeeder extends Seeder
         ]);
 
         GiftCard::factory()->create([
+            'code' => 'SEED-ACTIVE-5000',
             'initial_balance' => 5000,
             'current_balance' => 3200,
             'recipient_email' => 'member@finalcut.test',
@@ -30,6 +32,7 @@ class GiftCardSeeder extends Seeder
         ]);
 
         GiftCard::factory()->create([
+            'code' => 'SEED-ACTIVE-10000',
             'initial_balance' => 10000,
             'current_balance' => 10000,
             'recipient_email' => 'guest@finalcut.test',
@@ -40,6 +43,7 @@ class GiftCardSeeder extends Seeder
 
         // 1 depleted gift card
         GiftCard::factory()->depleted()->create([
+            'code' => 'SEED-DEPLETED-5000',
             'initial_balance' => 5000,
             'recipient_email' => 'test@finalcut.test',
             'recipient_name' => 'Test User',
@@ -49,6 +53,7 @@ class GiftCardSeeder extends Seeder
 
         // 1 expired gift card
         GiftCard::factory()->create([
+            'code' => 'SEED-EXPIRED-5000',
             'initial_balance' => 5000,
             'current_balance' => 5000,
             'status' => GiftCardStatus::Expired,
