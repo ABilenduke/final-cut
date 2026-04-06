@@ -13,7 +13,7 @@ use App\Models\BookingFoodItem;
 use App\Models\GiftCard;
 use App\Models\Location;
 use App\Models\Showtime;
-use App\Models\User;
+use App\Services\LoyaltyService;
 use App\Services\SeatAvailabilityService;
 use App\Services\StripeService;
 use Illuminate\Http\JsonResponse;
@@ -31,6 +31,7 @@ class BookingController extends Controller
     public function __construct(
         private readonly SeatAvailabilityService $seatService,
         private readonly StripeService $stripeService,
+        private readonly LoyaltyService $loyaltyService,
     ) {}
 
     public function store(Location $location, CreateBookingRequest $request): JsonResponse
@@ -438,11 +439,8 @@ class BookingController extends Controller
             ]);
         }
 
-        if ($userId) {
-            $points = (int) floor($total / 100);
-            if ($points > 0) {
-                User::where('id', $userId)->increment('loyalty_points', $points);
-            }
+        if ($user = $booking->user) {
+            $this->loyaltyService->awardPointsForPurchase($user, $total);
         }
     }
 

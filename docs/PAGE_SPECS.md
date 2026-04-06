@@ -316,8 +316,10 @@ Comprehensive specification for every page on the movie theatre website, grouped
 
 1. Avatar upload.
 2. Name and email fields.
-3. Password change (current, new, confirm).
-4. Save button.
+3. Phone number field (optional).
+4. Date of birth field (optional).
+5. Password change (current, new, confirm).
+6. Save button.
 
 **Components**
 

@@ -2,11 +2,14 @@
 
 namespace App\Services;
 
+use Stripe\Customer;
 use Stripe\Exception\ApiErrorException;
 use Stripe\Exception\CardException;
 use Stripe\Exception\InvalidRequestException;
 use Stripe\PaymentIntent;
+use Stripe\PaymentMethod as StripePaymentMethod;
 use Stripe\Refund;
+use Stripe\SetupIntent;
 use Stripe\StripeClient;
 
 class StripeService
@@ -77,5 +80,54 @@ class StripeService
         return $this->client->refunds->create([
             'payment_intent' => $paymentIntentId,
         ]);
+    }
+
+    /**
+     * Retrieves an existing Stripe Customer or creates a new one.
+     */
+    public function getOrCreateCustomer(string $email, ?string $existingCustomerId = null): Customer
+    {
+        if ($existingCustomerId) {
+            return $this->client->customers->retrieve($existingCustomerId);
+        }
+
+        return $this->client->customers->create(['email' => $email]);
+    }
+
+    /**
+     * Lists all card payment methods for a Stripe Customer.
+     *
+     * @return StripePaymentMethod[]
+     */
+    public function listPaymentMethods(string $customerId): array
+    {
+        return $this->client->paymentMethods->all([
+            'customer' => $customerId,
+            'type' => 'card',
+        ])->data;
+    }
+
+    /**
+     * Creates a SetupIntent for saving a card to a Stripe Customer.
+     */
+    public function createSetupIntent(string $customerId): SetupIntent
+    {
+        return $this->client->setupIntents->create(['customer' => $customerId]);
+    }
+
+    /**
+     * Retrieves a payment method by ID.
+     */
+    public function retrievePaymentMethod(string $paymentMethodId): StripePaymentMethod
+    {
+        return $this->client->paymentMethods->retrieve($paymentMethodId);
+    }
+
+    /**
+     * Detaches a payment method from its customer.
+     */
+    public function detachPaymentMethod(string $paymentMethodId): StripePaymentMethod
+    {
+        return $this->client->paymentMethods->detach($paymentMethodId);
     }
 }

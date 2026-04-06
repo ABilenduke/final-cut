@@ -3,11 +3,14 @@
 namespace Tests\Helpers;
 
 use App\Services\StripeService;
+use Stripe\Customer;
 use Stripe\Exception\ApiConnectionException;
 use Stripe\Exception\CardException;
 use Stripe\Exception\InvalidRequestException;
 use Stripe\PaymentIntent;
+use Stripe\PaymentMethod;
 use Stripe\Refund;
+use Stripe\SetupIntent;
 
 class FakeStripeService extends StripeService
 {
@@ -25,6 +28,18 @@ class FakeStripeService extends StripeService
     public array $confirmedPaymentIntents = [];
 
     public array $refundedPaymentIntents = [];
+
+    public array $createdCustomers = [];
+
+    public array $createdSetupIntents = [];
+
+    public array $retrievedPaymentMethods = [];
+
+    public array $detachedPaymentMethods = [];
+
+    private array $fakePaymentMethods = [];
+
+    private string $retrievedPmCustomerId = 'cus_fake_xxx';
 
     public int $createCallCount = 0;
 
@@ -170,5 +185,110 @@ class FakeStripeService extends StripeService
             'payment_intent' => $paymentIntentId,
             'status' => 'succeeded',
         ]);
+    }
+
+    public function withPaymentMethods(array $methods): static
+    {
+        $this->fakePaymentMethods = $methods;
+
+        return $this;
+    }
+
+    public function withRetrievedPmCustomer(string $customerId): static
+    {
+        $this->retrievedPmCustomerId = $customerId;
+
+        return $this;
+    }
+
+    public function getOrCreateCustomer(string $email, ?string $existingCustomerId = null): Customer
+    {
+        $this->throwIfConfiguredToFail();
+
+        $this->createdCustomers[] = ['email' => $email, 'existingCustomerId' => $existingCustomerId];
+        $id = $existingCustomerId ?? 'cus_fake_'.substr(md5($email), 0, 8);
+
+        return Customer::constructFrom([
+            'id' => $id,
+            'object' => 'customer',
+            'email' => $email,
+        ]);
+    }
+
+    public function listPaymentMethods(string $customerId): array
+    {
+        $this->throwIfConfiguredToFail();
+
+        if (empty($this->fakePaymentMethods)) {
+            return [];
+        }
+
+        return array_map(fn ($pm) => PaymentMethod::constructFrom($pm), $this->fakePaymentMethods);
+    }
+
+    public function createSetupIntent(string $customerId): SetupIntent
+    {
+        $this->throwIfConfiguredToFail();
+
+        $this->createdSetupIntents[] = ['customerId' => $customerId];
+
+        return SetupIntent::constructFrom([
+            'id' => 'seti_fake_xxx',
+            'object' => 'setup_intent',
+            'client_secret' => 'seti_fake_xxx_secret_xxx',
+            'customer' => $customerId,
+        ]);
+    }
+
+    public function retrievePaymentMethod(string $paymentMethodId): PaymentMethod
+    {
+        $this->throwIfConfiguredToFail();
+
+        $this->retrievedPaymentMethods[] = ['paymentMethodId' => $paymentMethodId];
+
+        return PaymentMethod::constructFrom([
+            'id' => $paymentMethodId,
+            'object' => 'payment_method',
+            'customer' => $this->retrievedPmCustomerId,
+            'card' => [
+                'brand' => 'visa',
+                'last4' => '4242',
+                'exp_month' => 12,
+                'exp_year' => 2030,
+            ],
+        ]);
+    }
+
+    public function detachPaymentMethod(string $paymentMethodId): PaymentMethod
+    {
+        $this->throwIfConfiguredToFail();
+
+        $this->detachedPaymentMethods[] = ['paymentMethodId' => $paymentMethodId];
+
+        return PaymentMethod::constructFrom([
+            'id' => $paymentMethodId,
+            'object' => 'payment_method',
+        ]);
+    }
+
+    /**
+     * Throws the configured exception if the behavior is set to a failure mode.
+     * Used by customer/PM methods to respect shouldFailWithInvalidRequest and shouldFailWithApiError.
+     */
+    private function throwIfConfiguredToFail(): void
+    {
+        if ($this->behavior === 'invalid_request') {
+            throw InvalidRequestException::factory(
+                $this->failureMessage,
+                400,
+            );
+        }
+
+        if ($this->behavior === 'api_error') {
+            throw ApiConnectionException::factory(
+                $this->failureMessage,
+                503,
+            );
+        }
     }
 }

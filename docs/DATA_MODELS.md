@@ -325,14 +325,14 @@ Session-based auth via `nuxt-auth-utils`. Sessions stored in encrypted HTTP-only
 
 | Method | Path | Auth | Data Source | Request | Response |
 | ------ | ---- | ---- | ----------- | ------- | -------- |
-| GET | `/api/account/profile` | Auth | Local | — | `UserProfile` |
-| PATCH | `/api/account/profile` | Auth | Local | `Partial<UserProfile>` | `UserProfile` |
-| GET | `/api/account/orders` | Auth | Local | `?page=1&limit=10` | `{ orders: Booking[], total: number }` |
-| GET | `/api/account/bookings` | Auth | Local | `?upcoming=true` | `{ bookings: Booking[] }` |
-| GET | `/api/account/loyalty` | Auth | Local | — | `{ points, tier, premierExpiry?, history[] }` |
-| GET | `/api/account/payment-methods` | Auth | Stripe | — | `{ methods: PaymentMethod[] }` |
-| POST | `/api/account/payment-methods` | Auth | Stripe | Stripe SetupIntent flow | `{ method: PaymentMethod }` |
-| DELETE | `/api/account/payment-methods/:id` | Auth | Stripe | — | `{ success: true }` |
+| GET | `/api/account/profile` | Auth | Local | — | `{ data: UserProfile }` |
+| PATCH | `/api/account/profile` | Auth | Local | `Partial<UserProfile>` | `{ data: UserProfile }` |
+| GET | `/api/account/orders` | Auth | Local | `?page=1&limit=10` | `{ data: Booking[], meta: { total, page, per_page } }` |
+| GET | `/api/account/bookings` | Auth | Local | `?upcoming=true` | `{ data: Booking[] }` |
+| GET | `/api/account/loyalty` | Auth | Local | — | `{ data: { points, tier, premierExpiry?, history[] } }` |
+| GET | `/api/account/payment-methods` | Auth | Stripe | — | `{ data: [{ id, brand, last4, expMonth, expYear }] }` |
+| POST | `/api/account/payment-methods` | Auth | Stripe | Stripe SetupIntent flow | `{ data: { clientSecret } }` |
+| DELETE | `/api/account/payment-methods/:id` | Auth | Stripe | — | `{ data: { success: true } }` |
 
 ### Gift Cards
 

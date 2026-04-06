@@ -509,3 +509,128 @@
 - `backend/tests/Feature/Api/RouteStubsTest.php` — removed 5 auth stubs
 - `docs/SITE_ARCHITECTURE.md` — clarified auth architecture
 - `docs/STATE_MANAGEMENT.md` — clarified auth persistence
+
+---
+
+# Progress Journal — Plan 06: Account Management API
+
+## Step 0: Doc Updates
+**Status:** ✅ Complete
+**Started:** 2026-04-05
+**Completed:** 2026-04-05
+
+### Work Done
+- [2026-04-05] Updated `docs/DATA_MODELS.md` Account section response shapes to match `{ data }` envelope convention
+- [2026-04-05] Updated `docs/PAGE_SPECS.md` `/account/profile` to include phone and date_of_birth fields
+- [2026-04-05] Initialized Plan 06 section in PROGRESS.md
+
+### Decisions
+- [2026-04-05] All account endpoints follow existing `{ data }` envelope convention (via `successResponse()`), not the original doc naming (`orders`, `bookings`, `methods`)
+- [2026-04-05] POST /payment-methods is a "create SetupIntent" endpoint returning `{ data: { clientSecret } }`, not a "save completed method" endpoint
+
+### Files Changed
+- `docs/DATA_MODELS.md` — Account section response shapes updated
+- `docs/PAGE_SPECS.md` — /account/profile added phone, date_of_birth fields
+
+---
+
+## Task 1: Profile API
+**Status:** ✅ Complete
+**Started:** 2026-04-05
+**Completed:** 2026-04-05
+
+### Work Done
+- [2026-04-05] Created UserProfileResource extending UserResource (adds phone, dateOfBirth)
+- [2026-04-05] Created UpdateProfileRequest with partial update validation, email lowercasing via prepareForValidation()
+- [2026-04-05] Implemented profile() and updateProfile() in AccountController
+- [2026-04-05] 21 Pest tests covering GET/PATCH profile (97 assertions)
+
+### Decisions
+- [2026-04-05] Email lowercased in prepareForValidation() for case-insensitive uniqueness on PostgreSQL
+- [2026-04-05] Phone validation is permissive (string|max:20) — international format varies too much for strict rules
+- [2026-04-05] Password hashing handled by model's `hashed` cast, not manual Hash::make()
+
+### Files Changed
+- `backend/app/Http/Resources/UserProfileResource.php` — new
+- `backend/app/Http/Requests/UpdateProfileRequest.php` — new
+- `backend/app/Http/Controllers/Api/AccountController.php` — implemented profile(), updateProfile()
+- `backend/tests/Feature/Api/AccountProfileTest.php` — new (21 tests)
+
+---
+
+## Task 2: Orders & Bookings API
+**Status:** ✅ Complete
+**Started:** 2026-04-05
+**Completed:** 2026-04-05
+
+### Work Done
+- [2026-04-05] Implemented orders() with pagination (created_at DESC) and BookingResource::collection()
+- [2026-04-05] Implemented bookings() with upcoming filter (start_time > now, ASC sort via join)
+- [2026-04-05] 16 Pest tests covering pagination, user isolation, sorting, envelope shape
+
+### Decisions
+- [2026-04-05] orders() uses manual response()->json() instead of paginatedResponse() to wrap items in BookingResource
+- [2026-04-05] bookings() uses join on showtimes for start_time ASC ordering with select('bookings.*') to avoid column conflicts
+- [2026-04-05] BOOKING_RELATIONS constant shared between orders() and bookings()
+
+### Files Changed
+- `backend/app/Http/Controllers/Api/AccountController.php` — implemented orders(), bookings()
+- `backend/tests/Feature/Api/AccountOrdersTest.php` — new (16 tests)
+
+---
+
+## Task 3: Loyalty API
+**Status:** ✅ Complete
+**Started:** 2026-04-05
+**Completed:** 2026-04-05
+
+### Work Done
+- [2026-04-05] Created LoyaltyService with getPoints, getTier, awardPointsForPurchase (cents→points), getHistory
+- [2026-04-05] Implemented loyalty() in AccountController with LoyaltyService injection
+- [2026-04-05] Refactored BookingController to use LoyaltyService instead of inline increment logic
+- [2026-04-05] 10 unit tests + 6 feature tests (16 total)
+
+### Decisions
+- [2026-04-05] awardPointsForPurchase accepts cents, converts internally — callers pass money amounts
+- [2026-04-05] History derived from confirmed bookings only (1 point per dollar: floor(total/100))
+- [2026-04-05] BookingController refactored to inject LoyaltyService via constructor
+
+### Files Changed
+- `backend/app/Services/LoyaltyService.php` — new
+- `backend/app/Http/Controllers/Api/AccountController.php` — implemented loyalty(), added constructor injection
+- `backend/app/Http/Controllers/Api/BookingController.php` — refactored to use LoyaltyService
+- `backend/tests/Unit/Services/LoyaltyServiceTest.php` — new (10 tests)
+- `backend/tests/Feature/Api/AccountLoyaltyTest.php` — new (6 tests)
+
+---
+
+## Task 4: Payment Methods API
+**Status:** ✅ Complete
+**Started:** 2026-04-05
+**Completed:** 2026-04-05
+
+### Work Done
+- [2026-04-05] Extended StripeService with 5 methods: getOrCreateCustomer, listPaymentMethods, createSetupIntent, retrievePaymentMethod, detachPaymentMethod
+- [2026-04-05] Extended FakeStripeService with fake implementations, tracking arrays, and configurators
+- [2026-04-05] Implemented PaymentMethodController: index (list cards), store (create SetupIntent), destroy (with ownership check)
+- [2026-04-05] 13 Pest tests covering all endpoints including ownership authorization
+
+### Decisions
+- [2026-04-05] POST /payment-methods is "create SetupIntent" endpoint — card attachment happens client-side via Stripe.js
+- [2026-04-05] Stripe Customer created lazily on first call, ID persisted on User model
+- [2026-04-05] Delete verifies PM ownership by comparing PM's customer field to user's stripe_customer_id (returns 403 on mismatch)
+
+### Files Changed
+- `backend/app/Services/StripeService.php` — added 5 new methods
+- `backend/tests/Helpers/FakeStripeService.php` — added fake implementations + tracking
+- `backend/app/Http/Controllers/Api/PaymentMethodController.php` — fully implemented
+- `backend/tests/Feature/Api/PaymentMethodControllerTest.php` — new (13 tests)
+
+---
+
+## Final Verification
+**Status:** ✅ Complete
+**Completed:** 2026-04-05
+
+**Test count:** 332 tests, 1061 assertions, 0 failures (up from 266 tests at start)
+**New tests added:** 66 (21 + 16 + 16 + 13)
