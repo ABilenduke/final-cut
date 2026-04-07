@@ -11,6 +11,62 @@
 
 ---
 
+## Plan 03: UI Primitive Components
+**Status:** ✅ Complete
+**Completed:** 2026-04-06
+
+---
+
+## Plan 04: Layouts & Shell Components
+**Status:** ✅ Complete
+**Started:** 2026-04-07
+**Completed:** 2026-04-07
+
+### Work Done
+- [2026-04-07] Created SkipNav — hidden skip link, visible on :focus-visible, links to #main-content
+- [2026-04-07] Created SiteHeader — fixed 4rem header with logo, desktop nav (gold active underline), native `<select>` location switcher, auth controls (guest/authenticated), hamburger + mobile menu with focus trap (teleported to body)
+- [2026-04-07] Created SiteFooter — secondary nav, legal section, theater info (social links deferred until real URLs available)
+- [2026-04-07] Created NeuralTicker — sticky scrolling feed below header, pause/play, sr-only accessible link list, reduced-motion support
+- [2026-04-07] Created MobileNav — fixed bottom bar below screen-md, 5 items, 3rem touch targets
+- [2026-04-07] Created SidebarNav — 3-state responsive (15rem rail, 4rem icon rail, bottom bar), gold left edge gradient accent
+- [2026-04-07] Created PurchaseStepIndicator — 3 labeled steps, navigable/completed/current states, aria-current="step"
+- [2026-04-07] Created default.vue layout — SkipNav + SiteHeader + NeuralTicker + main + SiteFooter + MobileNav + CvToastContainer
+- [2026-04-07] Created account.vue layout — duplicated shell (Nuxt 4 no nesting) + SidebarNav with account nav items
+- [2026-04-07] Created purchase.vue layout — minimal header with logo, named slots for step-indicator/timer/cart, no footer
+- [2026-04-07] Created blank.vue layout — centered logo + content, no chrome
+- [2026-04-07] Created useLocations composable stub with localStorage rehydration
+- [2026-04-07] Added 14 new icons (menu, home, movie, calendar, account, location, pause, play, etc.)
+- [2026-04-07] Updated app.vue to wrap NuxtPage in NuxtLayout
+
+### Decisions
+- [2026-04-07] Location switcher uses native `<select>` instead of custom dropdown — full keyboard/AT accessibility out of the box
+- [2026-04-07] Mobile menu teleported to `<body>` for proper focus trap isolation (same pattern as CvModal)
+- [2026-04-07] NeuralTicker sr-only section renders accessible `<ul>` with real links when items have hrefs, flat text otherwise
+- [2026-04-07] Account layout duplicates shell structure rather than nesting — Nuxt 4 layouts don't nest
+- [2026-04-07] Social links removed from footer until real URLs and platform-specific icons are available
+- [2026-04-07] NeuralTicker data starts hardcoded; data integration comes in Plan 05/06
+- [2026-04-07] CartSummary in purchase layout uses named slot placeholder; wired in Plan 08
+- [2026-04-07] NeuralTicker made sticky (top: 4rem) below fixed header, making 6rem padding-top on layouts correct
+
+### Files Changed
+- `frontend/app/app.vue` — added NuxtLayout wrapper
+- `frontend/app/components/ui/icons.ts` — added 14 new icon paths
+- `frontend/app/components/layout/SkipNav.vue` — created
+- `frontend/app/components/layout/SiteHeader.vue` — created
+- `frontend/app/components/layout/SiteFooter.vue` — created
+- `frontend/app/components/layout/NeuralTicker.vue` — created
+- `frontend/app/components/layout/MobileNav.vue` — created
+- `frontend/app/components/layout/SidebarNav.vue` — created
+- `frontend/app/components/booking/PurchaseStepIndicator.vue` — created
+- `frontend/app/composables/useLocations.ts` — created
+- `frontend/app/layouts/default.vue` — created
+- `frontend/app/layouts/account.vue` — created
+- `frontend/app/layouts/purchase.vue` — created
+- `frontend/app/layouts/blank.vue` — created
+- Storybook stories for all 7 components
+
+---
+
 ## Plan 02: Design System CSS Foundation
 **Status:** ✅ Complete
 **Started:** 2026-04-06
