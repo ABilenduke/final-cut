@@ -1,3 +1,5 @@
+import '../app/assets/css/main.css'
+
 const preview = {
   parameters: {
     backgrounds: {
