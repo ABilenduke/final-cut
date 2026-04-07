@@ -23,20 +23,32 @@ export interface ApiErrorResponse {
 
 // Module-level CSRF state
 let csrfBootstrapped = false
+let csrfPromise: Promise<void> | null = null
 
 /** Reset CSRF state — call on auth transitions (login/logout) and exposed for testing */
 export function _resetCsrf() {
   csrfBootstrapped = false
+  csrfPromise = null
 }
 
 async function ensureCsrf(baseURL: string): Promise<void> {
-  if (csrfBootstrapped) return
-  await $fetch('/sanctum/csrf-cookie', { baseURL, credentials: 'include' })
-  csrfBootstrapped = true
+  if (csrfBootstrapped && getXsrfToken()) return
+
+  if (!csrfPromise) {
+    csrfPromise = (async () => {
+      await $fetch('/sanctum/csrf-cookie', { baseURL, credentials: 'include' })
+      csrfBootstrapped = true
+    })().finally(() => {
+      csrfPromise = null
+    })
+  }
+
+  await csrfPromise
 }
 
 async function refreshCsrf(baseURL: string): Promise<void> {
   csrfBootstrapped = false
+  csrfPromise = null
   await ensureCsrf(baseURL)
 }
 

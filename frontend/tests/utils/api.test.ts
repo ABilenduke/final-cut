@@ -48,7 +48,18 @@ describe('apiFetch', () => {
   })
 
   it('fetches CSRF cookie only once across multiple mutations', async () => {
-    mockFetch.mockResolvedValue({ data: {} })
+    mockFetch.mockImplementation((path: string) => {
+      if (path === '/sanctum/csrf-cookie') {
+        // Simulate Sanctum setting the XSRF-TOKEN cookie
+        Object.defineProperty(document, 'cookie', {
+          value: 'XSRF-TOKEN=csrf-token-abc',
+          writable: true,
+          configurable: true,
+        })
+        return Promise.resolve(undefined)
+      }
+      return Promise.resolve({ data: {} })
+    })
     await apiFetch('/api/auth/login', { method: 'POST', body: {} })
     await apiFetch('/api/auth/logout', { method: 'POST' })
     // 1 csrf + 2 actual = 3 total
@@ -57,6 +68,55 @@ describe('apiFetch', () => {
     expect(mockFetch.mock.calls[0][0]).toBe('/sanctum/csrf-cookie')
     expect(mockFetch.mock.calls[1][0]).toBe('/api/auth/login')
     expect(mockFetch.mock.calls[2][0]).toBe('/api/auth/logout')
+  })
+
+  it('re-bootstraps CSRF when cookie is cleared after initial bootstrap', async () => {
+    // First call: bootstrap sets cookie
+    mockFetch.mockImplementation((path: string) => {
+      if (path === '/sanctum/csrf-cookie') {
+        Object.defineProperty(document, 'cookie', {
+          value: 'XSRF-TOKEN=csrf-token-abc',
+          writable: true,
+          configurable: true,
+        })
+        return Promise.resolve(undefined)
+      }
+      return Promise.resolve({ data: {} })
+    })
+    await apiFetch('/api/auth/login', { method: 'POST', body: {} })
+    expect(mockFetch).toHaveBeenCalledTimes(2) // csrf + login
+
+    // Simulate cookie expiry/clear
+    Object.defineProperty(document, 'cookie', { value: '', writable: true, configurable: true })
+    await apiFetch('/api/auth/logout', { method: 'POST' })
+    // Should re-bootstrap: csrf + logout = 2 more calls
+    expect(mockFetch).toHaveBeenCalledTimes(4)
+    expect(mockFetch.mock.calls[2][0]).toBe('/sanctum/csrf-cookie')
+    expect(mockFetch.mock.calls[3][0]).toBe('/api/auth/logout')
+  })
+
+  it('deduplicates concurrent CSRF bootstrap requests', async () => {
+    let csrfCallCount = 0
+    mockFetch.mockImplementation((path: string) => {
+      if (path === '/sanctum/csrf-cookie') {
+        csrfCallCount++
+        Object.defineProperty(document, 'cookie', {
+          value: 'XSRF-TOKEN=csrf-token-abc',
+          writable: true,
+          configurable: true,
+        })
+        return Promise.resolve(undefined)
+      }
+      return Promise.resolve({ data: {} })
+    })
+    // Fire two mutations concurrently before CSRF bootstrap completes
+    await Promise.all([
+      apiFetch('/api/auth/login', { method: 'POST', body: {} }),
+      apiFetch('/api/auth/logout', { method: 'POST' }),
+    ])
+    // Only one CSRF bootstrap call despite two concurrent mutations
+    expect(csrfCallCount).toBe(1)
+    expect(mockFetch).toHaveBeenCalledTimes(3) // 1 csrf + 2 actual
   })
 
   it('sends X-XSRF-TOKEN header when cookie exists', async () => {

@@ -52,7 +52,7 @@ export function useLocations() {
       const response = await apiFetch<{ data: Location[] }>('/api/locations')
       locations.value = response.data
     } catch {
-      // Graceful degradation — locations stays empty, activeLocation stays null
+      // Graceful degradation — keep any previously loaded locations and activeLocation unchanged
     }
   }
 
