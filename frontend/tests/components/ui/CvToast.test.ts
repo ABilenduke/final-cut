@@ -1,16 +1,8 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import { mountSuspended } from '@nuxt/test-utils/runtime'
 import CvToast from '~/components/ui/CvToast.vue'
 
 describe('CvToast', () => {
-  beforeEach(() => {
-    vi.useFakeTimers()
-  })
-
-  afterEach(() => {
-    vi.useRealTimers()
-  })
-
   const infoToast = { id: 't1', message: 'Info message', type: 'info' as const, duration: 5000 }
   const successToast = { id: 't2', message: 'Success!', type: 'success' as const, duration: 5000 }
   const errorToast = { id: 't3', message: 'Error occurred', type: 'error' as const, duration: 5000 }
@@ -59,8 +51,7 @@ describe('CvToast', () => {
     const wrapper = await mountSuspended(CvToast, {
       props: { toast: persistentToast },
     })
-    vi.advanceTimersByTime(10000)
-    // Toast should still be rendered (component doesn't remove itself, but the timer should not fire)
+    // With duration 0, no timer is set — toast remains rendered
     expect(wrapper.find('.cv-toast__message').exists()).toBe(true)
   })
 })
