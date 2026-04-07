@@ -48,8 +48,12 @@ export function useLocations() {
   }, { immediate: true })
 
   async function fetchLocations(): Promise<void> {
-    const response = await apiFetch<{ data: Location[] }>('/api/locations')
-    locations.value = response.data
+    try {
+      const response = await apiFetch<{ data: Location[] }>('/api/locations')
+      locations.value = response.data
+    } catch {
+      // Graceful degradation — locations stays empty, activeLocation stays null
+    }
   }
 
   return {

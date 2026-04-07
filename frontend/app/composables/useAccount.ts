@@ -12,10 +12,10 @@ export function useAccount() {
       body: data as Record<string, any>,
     })
 
-  const orders = (page?: number, limit?: number) =>
+  const orders = (page?: number, perPage?: number) =>
     useApiFetch<{ data: Booking[]; meta: { total: number; page: number; per_page: number } }>(
       '/api/account/orders',
-      { query: { page, limit } },
+      { query: { page, per_page: perPage } },
     )
 
   const bookings = () =>

@@ -36,6 +36,21 @@ describe('useCalendarEvents', () => {
     expect(opts?.query).not.toHaveProperty('type')
   })
 
+  it('getEvents passes accessibility filter', () => {
+    const { getEvents } = useCalendarEvents()
+    getEvents(4, 2026, undefined, 'sensory_friendly,open_caption')
+    expect(mockUseApiFetch).toHaveBeenCalledWith('/api/calendar/events', {
+      query: { month: 4, year: 2026, accessibility: 'sensory_friendly,open_caption' },
+    })
+  })
+
+  it('getEvents omits accessibility when not provided', () => {
+    const { getEvents } = useCalendarEvents()
+    getEvents(4, 2026, 'special_event')
+    const [, opts] = mockUseApiFetch.mock.calls[0]
+    expect(opts?.query).not.toHaveProperty('accessibility')
+  })
+
   it('getEvent fetches by slug', () => {
     const { getEvent } = useCalendarEvents()
     getEvent('summer-film-fest')

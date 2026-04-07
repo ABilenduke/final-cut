@@ -34,7 +34,7 @@ describe('useAccount', () => {
     const { orders } = useAccount()
     orders(2, 10)
     expect(mockUseApiFetch).toHaveBeenCalledWith('/api/account/orders', {
-      query: { page: 2, limit: 10 },
+      query: { page: 2, per_page: 10 },
     })
   })
 
@@ -42,7 +42,7 @@ describe('useAccount', () => {
     const { orders } = useAccount()
     orders()
     expect(mockUseApiFetch).toHaveBeenCalledWith('/api/account/orders', {
-      query: { page: undefined, limit: undefined },
+      query: { page: undefined, per_page: undefined },
     })
   })
 

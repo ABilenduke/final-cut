@@ -130,4 +130,12 @@ describe('useLocations', () => {
     await nextTick()
     expect(activeLocation.value).toBeNull()
   })
+
+  it('fetchLocations degrades gracefully on API error', async () => {
+    mockApiFetch.mockRejectedValue({ errors: [{ message: 'Network error' }], status: 0 })
+    const { locations, activeLocation, fetchLocations } = useLocations()
+    await fetchLocations()
+    expect(locations.value).toEqual([])
+    expect(activeLocation.value).toBeNull()
+  })
 })
