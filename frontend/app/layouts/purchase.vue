@@ -3,6 +3,7 @@
 
 <template>
   <div class="layout-purchase">
+    <SkipNav />
     <header class="layout-purchase__header" role="banner">
       <div class="layout-purchase__header-inner">
         <NuxtLink to="/" class="layout-purchase__logo">

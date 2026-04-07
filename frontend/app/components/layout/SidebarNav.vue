@@ -143,8 +143,8 @@ function isActive(href: string): boolean {
   bottom: 0;
   left: 0;
   right: 0;
-  height: calc(3.5rem + env(safe-area-inset-bottom, 0px));
-  padding-bottom: env(safe-area-inset-bottom, 0px);
+  height: calc(3.5rem + env(safe-area-inset-bottom, 0rem));
+  padding-bottom: env(safe-area-inset-bottom, 0rem);
   background-color: var(--surface-container);
   z-index: var(--z-sticky);
 }

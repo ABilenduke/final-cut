@@ -4,7 +4,6 @@ const props = defineProps<{
 }>()
 
 const isPaused = ref(false)
-const tickerTrackEl = ref<HTMLElement | null>(null)
 
 function togglePause() {
   isPaused.value = !isPaused.value
@@ -31,7 +30,6 @@ const plainItems = computed(() => props.items.filter((item) => !item.href))
     <!-- Visual scrolling content (hidden from screen readers) -->
     <div class="neural-ticker__track-wrapper" aria-hidden="true">
       <div
-        ref="tickerTrackEl"
         class="neural-ticker__track"
         :class="{ 'neural-ticker__track--paused': isPaused }"
       >

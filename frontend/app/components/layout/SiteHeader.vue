@@ -37,13 +37,19 @@ function onLocationChange(event: Event) {
 watch(mobileMenuOpen, (open) => {
   if (open) {
     nextTick(() => {
-      if (mobileMenuEl.value) {
-        activate(mobileMenuEl.value)
+      if (!mobileMenuOpen.value || !mobileMenuEl.value) {
+        return
       }
+
+      activate(mobileMenuEl.value)
     })
   } else {
     deactivate()
   }
+})
+
+onUnmounted(() => {
+  deactivate()
 })
 
 // Close mobile menu on route change

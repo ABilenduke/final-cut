@@ -56,7 +56,7 @@ function handleClick(step: number) {
         <span
           v-if="index > 0"
           class="purchase-steps__connector"
-          :class="{ 'purchase-steps__connector--completed': isCompleted(step.number) }"
+          :class="{ 'purchase-steps__connector--completed': isCompleted(steps[index - 1].number) }"
         />
 
         <!-- Step indicator -->

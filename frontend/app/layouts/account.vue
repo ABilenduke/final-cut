@@ -71,7 +71,7 @@ const accountNavItems: Array<{ label: string; href: string; icon: IconName }> = 
   flex: 1;
   min-width: 0;
   /* Offset for mobile bottom nav on small screens */
-  padding-bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px));
+  padding-bottom: calc(4.5rem + env(safe-area-inset-bottom, 0rem));
 }
 
 @media (min-width: 60rem) {
