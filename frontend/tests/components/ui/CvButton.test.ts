@@ -101,4 +101,20 @@ describe('CvButton', () => {
     })
     expect(wrapper.attributes('type')).toBe('submit')
   })
+
+  it('sets native disabled attribute when disabled', async () => {
+    const wrapper = await mountSuspended(CvButton, {
+      props: { disabled: true },
+      slots: { default: 'Disabled' },
+    })
+    expect((wrapper.element as HTMLButtonElement).disabled).toBe(true)
+  })
+
+  it('sets native disabled attribute when loading', async () => {
+    const wrapper = await mountSuspended(CvButton, {
+      props: { loading: true },
+      slots: { default: 'Loading' },
+    })
+    expect((wrapper.element as HTMLButtonElement).disabled).toBe(true)
+  })
 })

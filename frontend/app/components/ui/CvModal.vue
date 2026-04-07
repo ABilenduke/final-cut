@@ -45,6 +45,8 @@ function onKeydown(event: KeyboardEvent) {
 watch(() => props.modelValue, (open) => {
   if (open) {
     nextTick(() => {
+      // Guard against stale callback if modelValue flipped back before tick
+      if (!props.modelValue) return
       if (panelRef.value) {
         focusTrap.activate(panelRef.value)
       }

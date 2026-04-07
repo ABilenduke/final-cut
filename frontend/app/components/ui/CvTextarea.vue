@@ -88,7 +88,7 @@ function onInput(event: Event) {
 }
 
 .cv-textarea--error {
-  border-bottom-color: var(--primary);
+  border-bottom-color: var(--primary-container);
 }
 
 .cv-textarea:disabled {

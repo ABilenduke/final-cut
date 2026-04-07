@@ -23,7 +23,7 @@ describe('CvAccordion', () => {
     expect(button.attributes('aria-expanded')).toBe('true')
   })
 
-  it('toggles on Enter key', async () => {
+  it('toggles on trigger button click', async () => {
     const wrapper = await mountSuspended(CvAccordion, {
       props: { title: 'FAQ', id: 'test-3' },
       slots: { default: 'Answer' },

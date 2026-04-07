@@ -34,10 +34,10 @@ describe('useToast', () => {
   })
 
   it('enforces max 5 toasts', () => {
-    const { show, toasts } = useToast()
-    // Clear any existing toasts from other tests
-    while (toasts.value.length > 0) {
-      toasts.value.pop()
+    const { show, dismiss, toasts } = useToast()
+    // Clear any existing toasts from other tests via public API
+    for (const t of [...toasts.value]) {
+      dismiss(t.id)
     }
     for (let i = 0; i < 6; i++) {
       show({ message: `Toast ${i}` })

@@ -97,7 +97,7 @@ function onInput(event: Event) {
 }
 
 .cv-input--error {
-  border-bottom-color: var(--primary);
+  border-bottom-color: var(--primary-container);
 }
 
 .cv-input:disabled {

@@ -15,9 +15,11 @@ const { dismiss } = useToast()
 let timerId: ReturnType<typeof setTimeout> | null = null
 let remainingTime = props.toast.duration
 let startTime = 0
+let isHovered = false
+let isFocused = false
 
 function startTimer() {
-  if (props.toast.duration <= 0) return
+  if (props.toast.duration <= 0 || timerId) return
   startTime = Date.now()
   timerId = setTimeout(() => {
     dismiss(props.toast.id)
@@ -34,8 +36,30 @@ function pauseTimer() {
   }
 }
 
-function resumeTimer() {
-  startTimer()
+function tryResume() {
+  if (!isHovered && !isFocused) {
+    startTimer()
+  }
+}
+
+function onMouseEnter() {
+  isHovered = true
+  pauseTimer()
+}
+
+function onMouseLeave() {
+  isHovered = false
+  tryResume()
+}
+
+function onFocusIn() {
+  isFocused = true
+  pauseTimer()
+}
+
+function onFocusOut() {
+  isFocused = false
+  tryResume()
 }
 
 onMounted(() => {
@@ -63,10 +87,10 @@ const ariaLive = computed(() => props.toast.type === 'error' ? 'assertive' : 'po
     :class="`cv-toast--${toast.type}`"
     :role="ariaRole"
     :aria-live="ariaLive"
-    @mouseenter="pauseTimer"
-    @mouseleave="resumeTimer"
-    @focusin="pauseTimer"
-    @focusout="resumeTimer"
+    @mouseenter="onMouseEnter"
+    @mouseleave="onMouseLeave"
+    @focusin="onFocusIn"
+    @focusout="onFocusOut"
   >
     <p class="cv-toast__message">{{ toast.message }}</p>
     <button

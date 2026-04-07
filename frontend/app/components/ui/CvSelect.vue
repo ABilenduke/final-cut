@@ -98,7 +98,7 @@ function onChange(event: Event) {
 }
 
 .cv-select--error {
-  border-bottom-color: var(--primary);
+  border-bottom-color: var(--primary-container);
 }
 
 .cv-select:disabled {

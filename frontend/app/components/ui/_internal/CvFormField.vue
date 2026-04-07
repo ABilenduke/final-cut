@@ -15,7 +15,7 @@ const helpId = `${id}-help`
 
 const ariaDescribedby = computed(() => {
   const parts: string[] = []
-  if (props.helpText) parts.push(helpId)
+  if (props.helpText && !props.error) parts.push(helpId)
   if (props.error) parts.push(errorId)
   return parts.length > 0 ? parts.join(' ') : undefined
 })

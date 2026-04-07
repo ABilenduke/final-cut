@@ -78,4 +78,14 @@ describe('CvInput', () => {
     const emitted = wrapper.emitted('update:modelValue')![0][0]
     expect(emitted).not.toBe(0)
   })
+
+  it('does not reference help id in aria-describedby when error is shown', async () => {
+    const wrapper = await mountSuspended(CvInput, {
+      props: { modelValue: '', label: 'Email', helpText: 'Enter email', error: 'Required' },
+    })
+    const input = wrapper.find('input')
+    const describedby = input.attributes('aria-describedby') || ''
+    expect(describedby).not.toContain('-help')
+    expect(describedby).toContain('-error')
+  })
 })

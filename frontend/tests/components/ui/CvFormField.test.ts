@@ -72,4 +72,17 @@ describe('CvFormField', () => {
     })
     expect(wrapper.find('.cv-form-field--inline').exists()).toBe(true)
   })
+
+  it('does not reference help text id in aria-describedby when error replaces it', async () => {
+    const wrapper = await mountSuspended(CvFormField, {
+      props: { label: 'Email', helpText: 'Enter your email', error: 'Invalid' },
+      slots: { default: () => '<input />' },
+    })
+    // Help element is hidden when error is shown
+    expect(wrapper.find('.cv-form-field__help').exists()).toBe(false)
+    expect(wrapper.find('.cv-form-field__error').exists()).toBe(true)
+    // No help id element should exist
+    const helpEl = wrapper.element.querySelector(`[id$="-help"]`)
+    expect(helpEl).toBeNull()
+  })
 })

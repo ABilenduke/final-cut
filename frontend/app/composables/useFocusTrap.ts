@@ -81,9 +81,16 @@ export function useFocusTrap() {
     if (triggerElement && document.contains(triggerElement) && triggerElement instanceof HTMLElement) {
       triggerElement.focus()
     } else {
-      // Trigger was unmounted — fall back
+      // Trigger was unmounted — fall back to body with temporary tabindex
       (document.activeElement as HTMLElement)?.blur()
+      const hadTabindex = document.body.hasAttribute('tabindex')
+      if (!hadTabindex) {
+        document.body.setAttribute('tabindex', '-1')
+      }
       document.body.focus()
+      if (!hadTabindex) {
+        document.body.removeAttribute('tabindex')
+      }
     }
 
     container = null

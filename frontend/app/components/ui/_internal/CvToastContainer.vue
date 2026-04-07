@@ -6,7 +6,7 @@ const { toasts } = useToast()
   <ClientOnly>
     <Teleport to="body">
       <div class="cv-toast-container" aria-label="Notifications" role="region">
-        <TransitionGroup name="cv-toast-slide">
+        <TransitionGroup name="cv-toast-slide" tag="div">
           <CvToast
             v-for="toast in toasts"
             :key="toast.id"
@@ -24,13 +24,16 @@ const { toasts } = useToast()
   bottom: var(--space-lg);
   right: var(--space-lg);
   z-index: var(--z-toast);
-  display: flex;
-  flex-direction: column-reverse;
-  gap: var(--space-sm);
   pointer-events: none;
 }
 
-.cv-toast-container > :deep(*) {
+.cv-toast-container > :deep(div) {
+  display: flex;
+  flex-direction: column-reverse;
+  gap: var(--space-sm);
+}
+
+.cv-toast-container :deep(.cv-toast) {
   pointer-events: auto;
 }
 

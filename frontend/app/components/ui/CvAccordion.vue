@@ -9,7 +9,6 @@ const props = withDefaults(defineProps<{
 
 const emit = defineEmits<{
   'toggle': [open: boolean]
-  'update:modelValue': [open: boolean]
 }>()
 
 // Controlled/uncontrolled: if open prop is provided, use it; otherwise internal state
@@ -25,7 +24,6 @@ function toggle() {
     internalOpen.value = newState
   }
   emit('toggle', newState)
-  emit('update:modelValue', newState)
 }
 </script>
 
