@@ -12,7 +12,7 @@ Final Cut operates **two physical theater locations** (with potential for more) 
 
 - **Frontend**: Nuxt 4 (Vue 3, TypeScript), Tailwind CSS 4, Storybook, Playwright e2e tests
 - **Backend**: Laravel 13 (PHP 8.4), Pest testing framework
-- **Database**: PostgreSQL with TLS (database: `final_cut`, test db: `final_cut_test`)
+- **Database**: PostgreSQL 18 with TLS (database: `final_cut`, test db: `final_cut_test`)
 - **Cache/Sessions**: Redis with TLS
 - **Email (dev)**: Mailpit (SMTP capture for local email testing)
 - **Infrastructure**: Docker Compose with Nginx reverse proxy, Fail2ban, TLS between all services
