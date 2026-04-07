@@ -57,26 +57,7 @@ const activeShowtimes = computed(() => {
   return groupedByDate.value.get(activeDate.value) ?? []
 })
 
-// Format date for tab label — short format like "Mon, Apr 7"
-const tabFormatter = new Intl.DateTimeFormat('en-US', {
-  weekday: 'short',
-  month: 'short',
-  day: 'numeric',
-})
-
-function formatTabDate(dateStr: string): string {
-  return tabFormatter.format(new Date(dateStr + 'T12:00:00'))
-}
-
-// Format time for slot button — "7:00 PM"
-const timeFormatter = new Intl.DateTimeFormat('en-US', {
-  hour: 'numeric',
-  minute: '2-digit',
-})
-
-function formatTime(iso: string): string {
-  return timeFormatter.format(new Date(iso))
-}
+// formatWeekdayDate and formatTime are auto-imported from ~/utils/formatDate
 
 function isToday(dateStr: string): boolean {
   return dateStr === today
@@ -126,7 +107,7 @@ function handleTabKeydown(event: KeyboardEvent, index: number) {
           @click="activeDate = date"
           @keydown="handleTabKeydown($event, index)"
         >
-          {{ formatTabDate(date) }}
+          {{ formatWeekdayDate(date) }}
           <span v-if="isToday(date)" class="showtime-selector__today-badge label-md">Today</span>
         </button>
       </div>

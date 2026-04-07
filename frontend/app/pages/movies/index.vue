@@ -58,7 +58,7 @@ useHead({
 
 <template>
   <div class="movies-page">
-    <div class="movies-page__container">
+    <div class="container">
       <!-- Tab bar -->
       <div class="movies-page__tabs" role="tablist" aria-label="Movie status">
         <button
@@ -116,12 +116,6 @@ useHead({
   padding-block: var(--space-3xl);
 }
 
-.movies-page__container {
-  max-width: 90rem;
-  margin-inline: auto;
-  padding-inline: var(--space-2xl);
-}
-
 .movies-page__tabs {
   display: flex;
   gap: var(--space-md);
@@ -169,9 +163,4 @@ useHead({
   padding: var(--space-3xl) 0;
 }
 
-@media (max-width: 60rem) {
-  .movies-page__container {
-    padding-inline: var(--space-md);
-  }
-}
 </style>

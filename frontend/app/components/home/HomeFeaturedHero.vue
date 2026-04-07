@@ -14,11 +14,9 @@ const emit = defineEmits<{
   'track': [event: { action: string; movieSlug: string }]
 }>()
 
-const timeFormatter = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' })
-
 const formattedTime = computed(() => {
   if (!props.nextShowtime) return ''
-  return timeFormatter.format(new Date(props.nextShowtime.startTime))
+  return formatTime(props.nextShowtime.startTime)
 })
 
 useHead({

@@ -87,7 +87,7 @@ useHead({
     <MovieHero :movie="movie" />
 
     <!-- 2. Establishing Shot 65/35 -->
-    <div class="movie-page__content">
+    <div class="container movie-page__content">
       <div class="establishing-shot">
         <!-- Left 65%: Movie detail (synopsis, genres, runtime, rating, trailer, cast) -->
         <div class="establishing-shot__primary">
@@ -118,9 +118,6 @@ useHead({
 
 <style scoped>
 .movie-page__content {
-  max-width: 90rem;
-  margin-inline: auto;
-  padding-inline: var(--space-2xl);
   padding-block: var(--space-3xl);
 }
 
@@ -132,9 +129,4 @@ useHead({
   top: 7rem; /* header (4rem) + ticker (2rem) + breathing room */
 }
 
-@media (max-width: 59.999rem) {
-  .movie-page__content {
-    padding-inline: var(--space-md);
-  }
-}
 </style>

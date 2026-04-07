@@ -39,3 +39,30 @@ export function formatDate(iso: string): string {
 export function formatDateTime(iso: string): string {
   return dateTimeFormatter.format(parseDate(iso))
 }
+
+const timeFormatter = new Intl.DateTimeFormat('en-US', {
+  hour: 'numeric',
+  minute: '2-digit',
+})
+
+/**
+ * Format ISO datetime to time-only string.
+ * e.g. "2026-04-03T19:00:00Z" → "7:00 PM"
+ */
+export function formatTime(iso: string): string {
+  return timeFormatter.format(new Date(iso))
+}
+
+const weekdayDateFormatter = new Intl.DateTimeFormat('en-US', {
+  weekday: 'short',
+  month: 'short',
+  day: 'numeric',
+})
+
+/**
+ * Format ISO date to weekday + date string.
+ * e.g. "2026-04-09" → "Thu, Apr 9"
+ */
+export function formatWeekdayDate(iso: string): string {
+  return weekdayDateFormatter.format(parseDate(iso))
+}

@@ -15,21 +15,9 @@ const comingSoonMovies = computed(() => comingSoonData.value?.data ?? [])
 // Select featured movie from listing data (pure function, ISR-safe)
 const featuredListing = computed(() => selectFeaturedMovie(nowShowingMovies.value))
 
-// Fetch full detail for featured movie (listing may omit tagline/synopsis).
-// useAsyncData with guard: returns null when no slug, preventing empty-URL requests.
-const { data: featuredDetailData } = useAsyncData(
-  'featured-movie-detail',
-  () => {
-    const slug = featuredListing.value?.slug
-    if (!slug) return Promise.resolve(null)
-    return apiFetch<{ data: Movie }>(`/api/movies/${slug}`)
-  },
-  { watch: [featuredListing] },
-)
-const featuredMovie = computed<Movie | null>(() => {
-  // Prefer detail data; fall back to listing data while detail loads
-  return featuredDetailData.value?.data ?? featuredListing.value ?? null
-})
+// The listing endpoint returns the full Movie shape (including tagline/backdropUrl),
+// so no separate detail fetch is needed.
+const featuredMovie = computed<Movie | null>(() => featuredListing.value ?? null)
 
 // --- Client-only: hero showtime for CTA ---
 const { activeLocation } = useLocations()

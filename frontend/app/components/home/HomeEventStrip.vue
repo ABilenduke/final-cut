@@ -17,7 +17,7 @@ const weekEvents = computed<CalendarEvent[]>(() => {
   }
 
   // Filter to this week's range and qualifying types
-  const validTypes = new Set(['special_event', 'loyalty_exclusive'])
+  const validTypes = new Set<CalendarEvent['type']>(['special_event', 'loyalty_exclusive'])
   return allEvents
     .filter((e) => {
       if (!validTypes.has(e.type)) return false
@@ -29,18 +29,8 @@ const weekEvents = computed<CalendarEvent[]>(() => {
     .slice(0, 5)
 })
 
-const hasEvents = computed(() => weekEvents.value.length > 0)
 
-// Format day + date (e.g., "Thu, Apr 9")
-const dayDateFormatter = new Intl.DateTimeFormat('en-US', {
-  weekday: 'short',
-  month: 'short',
-  day: 'numeric',
-})
-
-function formatDayDate(dateStr: string): string {
-  return dayDateFormatter.format(new Date(dateStr + 'T12:00:00'))
-}
+// formatWeekdayDate is auto-imported from ~/utils/formatDate
 
 function truncate(text: string, max: number): string {
   if (text.length <= max) return text
@@ -59,13 +49,13 @@ function eventLink(event: CalendarEvent): string {
 </script>
 
 <template>
-  <section v-if="hasEvents" class="event-strip">
-    <div class="event-strip__container">
+  <section v-if="weekEvents.length > 0" class="event-strip">
+    <div class="container">
       <h2 class="event-strip__heading headline-md">What's On This Week</h2>
 
       <div class="event-strip__list">
         <div v-for="event in weekEvents" :key="event.id" class="event-strip__item">
-          <span class="event-strip__date label-lg">{{ formatDayDate(event.date) }}</span>
+          <span class="event-strip__date label-lg">{{ formatWeekdayDate(event.date) }}</span>
           <div class="event-strip__info">
             <span class="event-strip__title title-md">{{ event.title }}</span>
             <span class="event-strip__desc body-sm">{{ truncate(event.description, 80) }}</span>
@@ -87,12 +77,6 @@ function eventLink(event: CalendarEvent): string {
 .event-strip {
   background-color: var(--surface-container-lowest);
   padding-block: var(--space-3xl);
-}
-
-.event-strip__container {
-  max-width: 90rem;
-  margin-inline: auto;
-  padding-inline: var(--space-2xl);
 }
 
 .event-strip__heading {
@@ -142,10 +126,6 @@ function eventLink(event: CalendarEvent): string {
 }
 
 @media (max-width: 60rem) {
-  .event-strip__container {
-    padding-inline: var(--space-md);
-  }
-
   .event-strip__item {
     flex-wrap: wrap;
   }
