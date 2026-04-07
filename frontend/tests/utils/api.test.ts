@@ -159,4 +159,46 @@ describe('apiFetch', () => {
     await apiFetch('/api/account/payment-methods/pm-1', { method: 'DELETE' })
     expect(mockFetch.mock.calls[0][0]).toBe('/sanctum/csrf-cookie')
   })
+
+  it('retries once on 419 CSRF mismatch for mutations', async () => {
+    mockFetch
+      .mockResolvedValueOnce(undefined) // CSRF bootstrap
+      .mockRejectedValueOnce({ data: { message: 'CSRF token mismatch.' }, status: 419 })
+      .mockResolvedValueOnce(undefined) // CSRF refresh
+      .mockResolvedValueOnce({ data: { success: true } }) // retry
+    _resetCsrf()
+    const result = await apiFetch('/api/auth/logout', { method: 'POST' })
+    expect(result).toEqual({ data: { success: true } })
+    // 1 csrf + 1 fail + 1 csrf refresh + 1 retry = 4 calls
+    expect(mockFetch).toHaveBeenCalledTimes(4)
+  })
+
+  it('throws on 419 retry failure', async () => {
+    mockFetch
+      .mockResolvedValueOnce(undefined) // CSRF bootstrap
+      .mockRejectedValueOnce({ data: { message: 'CSRF token mismatch.' }, status: 419 })
+      .mockResolvedValueOnce(undefined) // CSRF refresh
+      .mockRejectedValueOnce({ data: { message: 'CSRF token mismatch.' }, status: 419 }) // retry also fails
+    _resetCsrf()
+    try {
+      await apiFetch('/api/auth/logout', { method: 'POST' })
+      expect.unreachable('Should have thrown')
+    } catch (e) {
+      const err = e as ApiErrorResponse
+      expect(err.status).toBe(419)
+    }
+  })
+
+  it('does not retry 419 on GET requests', async () => {
+    mockFetch.mockRejectedValue({ data: { message: 'CSRF token mismatch.' }, status: 419 })
+    try {
+      await apiFetch('/api/movies')
+      expect.unreachable('Should have thrown')
+    } catch (e) {
+      const err = e as ApiErrorResponse
+      expect(err.status).toBe(419)
+    }
+    // Only 1 call — no retry for GET
+    expect(mockFetch).toHaveBeenCalledTimes(1)
+  })
 })

@@ -3,6 +3,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 vi.mock('~/utils/api', () => ({
   apiFetch: vi.fn(),
   useApiFetch: vi.fn(),
+  _resetCsrf: vi.fn(),
 }))
 
 import { apiFetch } from '~/utils/api'
@@ -85,14 +86,38 @@ describe('useAuth', () => {
     })
   })
 
-  it('logout clears user even if API fails', async () => {
-    mockApiFetch.mockRejectedValue(new Error('Network error'))
+  it('logout clears user on success', async () => {
+    mockApiFetch.mockResolvedValue({ data: { success: true } })
 
     const { user, logout } = useAuth()
     user.value = MOCK_USER
 
     await logout()
 
+    expect(user.value).toBeNull()
+  })
+
+  it('logout clears user on 401 (session already gone)', async () => {
+    mockApiFetch.mockRejectedValue({ errors: [{ message: 'Unauthenticated' }], status: 401 })
+
+    const { user, logout } = useAuth()
+    user.value = MOCK_USER
+
+    await logout()
+
+    expect(user.value).toBeNull()
+  })
+
+  it('logout clears user but throws on transport failure', async () => {
+    mockApiFetch.mockRejectedValue({ errors: [{ message: 'Network error' }], status: 0 })
+
+    const { user, logout } = useAuth()
+    user.value = MOCK_USER
+
+    await expect(logout()).rejects.toEqual(
+      expect.objectContaining({ status: 0 }),
+    )
+    // Still clears local state — user sees logged-out UI
     expect(user.value).toBeNull()
   })
 

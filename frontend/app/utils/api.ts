@@ -24,7 +24,7 @@ export interface ApiErrorResponse {
 // Module-level CSRF state
 let csrfBootstrapped = false
 
-/** Reset CSRF state — exposed for testing only */
+/** Reset CSRF state — call on auth transitions (login/logout) and exposed for testing */
 export function _resetCsrf() {
   csrfBootstrapped = false
 }
@@ -33,6 +33,11 @@ async function ensureCsrf(baseURL: string): Promise<void> {
   if (csrfBootstrapped) return
   await $fetch('/sanctum/csrf-cookie', { baseURL, credentials: 'include' })
   csrfBootstrapped = true
+}
+
+async function refreshCsrf(baseURL: string): Promise<void> {
+  csrfBootstrapped = false
+  await ensureCsrf(baseURL)
 }
 
 function getXsrfToken(): string | null {
@@ -103,7 +108,30 @@ export async function apiFetch<T>(
       headers,
     })
   } catch (error: unknown) {
-    throw parseApiError(error)
+    const parsed = parseApiError(error)
+
+    // On 419 (CSRF token mismatch), refresh CSRF and retry once
+    if (parsed.status === 419 && method !== 'GET') {
+      await refreshCsrf(baseURL)
+      const freshToken = getXsrfToken()
+      if (freshToken) {
+        headers['X-XSRF-TOKEN'] = freshToken
+      }
+      try {
+        return await $fetch<T>(path, {
+          baseURL,
+          method,
+          body: options.body,
+          query: options.query,
+          credentials: 'include',
+          headers,
+        })
+      } catch (retryError: unknown) {
+        throw parseApiError(retryError)
+      }
+    }
+
+    throw parsed
   }
 }
 

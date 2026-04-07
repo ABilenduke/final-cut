@@ -1,6 +1,6 @@
 import type { User } from '~/types/user'
 import type { ApiErrorResponse } from '~/utils/api'
-import { apiFetch } from '~/utils/api'
+import { apiFetch, _resetCsrf } from '~/utils/api'
 
 export function useAuth() {
   const user = useState<User | null>('auth:user', () => null)
@@ -17,6 +17,7 @@ export function useAuth() {
         body: { email, password },
       })
       user.value = response.data
+      _resetCsrf()
     } catch (e) {
       error.value = e as ApiErrorResponse
       throw e
@@ -34,6 +35,7 @@ export function useAuth() {
         body: { name, email, password, password_confirmation: passwordConfirmation },
       })
       user.value = response.data
+      _resetCsrf()
     } catch (e) {
       error.value = e as ApiErrorResponse
       throw e
@@ -45,10 +47,20 @@ export function useAuth() {
   async function logout(): Promise<void> {
     try {
       await apiFetch('/api/auth/logout', { method: 'POST' })
-    } catch {
-      // Swallow errors — logout should always succeed client-side
-    } finally {
       user.value = null
+      _resetCsrf()
+    } catch (e) {
+      const err = e as ApiErrorResponse
+      // Server confirmed no session (401/419) — safe to clear locally
+      if (err.status === 401 || err.status === 419) {
+        user.value = null
+        _resetCsrf()
+        return
+      }
+      // Transport failure — session may still be alive server-side
+      user.value = null
+      _resetCsrf()
+      throw e
     }
   }
 
