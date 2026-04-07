@@ -1,14 +1,6 @@
 import type { Location } from '~/types/location'
+import { apiFetch } from '~/utils/api'
 
-/**
- * Location state composable stub.
- * Full implementation (fetchLocations with API call) will be added
- * when the data integration plan is executed.
- *
- * Currently exposes setLocation() and rehydrates from localStorage
- * so that when locations are populated (by a future fetch), the
- * previously selected location is automatically restored.
- */
 export function useLocations() {
   const locations = useState<Location[]>('locations', () => [])
   const activeLocation = useState<Location | null>('active-location', () => null)
@@ -55,9 +47,15 @@ export function useLocations() {
     rehydrate()
   }, { immediate: true })
 
+  async function fetchLocations(): Promise<void> {
+    const response = await apiFetch<{ data: Location[] }>('/api/locations')
+    locations.value = response.data
+  }
+
   return {
     locations,
     activeLocation,
     setLocation,
+    fetchLocations,
   }
 }
