@@ -31,6 +31,7 @@ const { activeLocation } = useLocations()
 const locationSelected = computed(() => !!activeLocation.value)
 const heroShowtime = ref<Showtime | null>(null)
 const heroLoading = ref(false)
+let fetchGeneration = 0 // Guards against stale async responses
 
 async function fetchHeroShowtime() {
   const locSlug = activeLocation.value?.slug
@@ -39,16 +40,24 @@ async function fetchHeroShowtime() {
     heroShowtime.value = null
     return
   }
+  const generation = ++fetchGeneration
   heroLoading.value = true
   try {
     const res = await apiFetch<{ data: Showtime[] }>(
       `/api/locations/${locSlug}/movies/${movSlug}/showtimes`,
     )
-    heroShowtime.value = res.data[0] ?? null
+    // Only commit if this is still the latest request
+    if (generation === fetchGeneration) {
+      heroShowtime.value = res.data[0] ?? null
+    }
   } catch {
-    heroShowtime.value = null
+    if (generation === fetchGeneration) {
+      heroShowtime.value = null
+    }
   } finally {
-    heroLoading.value = false
+    if (generation === fetchGeneration) {
+      heroLoading.value = false
+    }
   }
 }
 
@@ -61,6 +70,11 @@ const { show: showToast } = useToast()
 
 function handleNotify() {
   showToast({ message: 'We\'ll let you know when tickets are available.', type: 'success' })
+}
+
+function openLocationSelector() {
+  // Focus the SiteHeader's location <select> to prompt the user to pick a location
+  document.getElementById('location-select')?.focus()
 }
 
 // --- SEO ---
@@ -84,10 +98,11 @@ useHead({
       :next-showtime="heroShowtime"
       :location-selected="locationSelected"
       :loading="heroLoading"
+      @choose-location="openLocationSelector"
     />
 
     <!-- 2. Quick Showtime Strip: Intent-first fast path -->
-    <QuickShowtimeStrip :location="activeLocation" />
+    <QuickShowtimeStrip :location="activeLocation" @change-location="openLocationSelector" />
 
     <!-- 3. Now Showing: Active browsing -->
     <section v-if="nowShowingMovies.length > 0" class="home-page__section" aria-labelledby="now-showing">

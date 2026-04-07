@@ -1,12 +1,15 @@
 <script setup lang="ts">
 import type { Showtime } from '~/types/showtime'
 
-// Get slug from route params
+// Get slug reactively so param-only navigation updates the page
 const route = useRoute()
-const slug = route.params.slug as string
+const slug = computed(() => route.params.slug as string)
 
 // Fetch movie detail (SSR/ISR compatible)
-const { data: movieData, error: movieError } = useMovies().getMovie(slug)
+// useApiFetch with computed URL re-fetches when slug changes
+const { data: movieData, error: movieError } = useApiFetch<{ data: import('~/types/movie').Movie }>(
+  computed(() => `/api/movies/${slug.value}`),
+)
 const movie = computed(() => movieData.value?.data ?? null)
 
 // Handle 404
@@ -14,32 +17,41 @@ if (movieError.value) {
   throw createError({ statusCode: 404, statusMessage: 'Movie not found' })
 }
 
-// Client-only showtime fetch (location-dependent)
+// Client-only showtime fetch (location + slug dependent)
 const { activeLocation } = useLocations()
 const showtimes = ref<Showtime[]>([])
 const showtimesLoading = ref(false)
+let fetchGeneration = 0 // Guards against stale async responses
 
 async function fetchShowtimes() {
   const locSlug = activeLocation.value?.slug
-  if (!locSlug) {
+  const movieSlug = slug.value
+  if (!locSlug || !movieSlug) {
     showtimes.value = []
     return
   }
+  const generation = ++fetchGeneration
   showtimesLoading.value = true
   try {
     const res = await apiFetch<{ data: Showtime[] }>(
-      `/api/locations/${locSlug}/movies/${slug}/showtimes`,
+      `/api/locations/${locSlug}/movies/${movieSlug}/showtimes`,
     )
-    showtimes.value = res.data
+    if (generation === fetchGeneration) {
+      showtimes.value = res.data
+    }
   } catch {
-    showtimes.value = []
+    if (generation === fetchGeneration) {
+      showtimes.value = []
+    }
   } finally {
-    showtimesLoading.value = false
+    if (generation === fetchGeneration) {
+      showtimesLoading.value = false
+    }
   }
 }
 
 if (import.meta.client) {
-  watch(activeLocation, () => fetchShowtimes(), { immediate: true })
+  watch([activeLocation, slug], () => fetchShowtimes(), { immediate: true })
 }
 
 // SEO
