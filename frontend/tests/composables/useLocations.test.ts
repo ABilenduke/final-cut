@@ -1,5 +1,15 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { nextTick } from 'vue'
+
+// Mock the API client module
+vi.mock('~/utils/api', () => ({
+  apiFetch: vi.fn(),
+  useApiFetch: vi.fn(),
+}))
+
+import { apiFetch } from '~/utils/api'
+const mockApiFetch = vi.mocked(apiFetch)
+
 import { useLocations } from '~/composables/useLocations'
 
 // Mock localStorage
@@ -92,5 +102,40 @@ describe('useLocations', () => {
     await nextTick()
 
     expect(activeLocation.value?.slug).toBe('downtown')
+  })
+
+  it('fetchLocations populates locations from API', async () => {
+    mockApiFetch.mockResolvedValue({ data: [DOWNTOWN, UPTOWN] })
+    const { locations, fetchLocations } = useLocations()
+    await fetchLocations()
+    expect(locations.value).toEqual([DOWNTOWN, UPTOWN])
+    expect(mockApiFetch).toHaveBeenCalledWith('/api/locations')
+  })
+
+  it('fetchLocations triggers rehydration from localStorage', async () => {
+    localStorageMock.setItem('active-location', 'uptown')
+    vi.clearAllMocks()
+    mockApiFetch.mockResolvedValue({ data: [DOWNTOWN, UPTOWN] })
+    const { activeLocation, fetchLocations } = useLocations()
+    activeLocation.value = null
+    await fetchLocations()
+    await nextTick()
+    expect(activeLocation.value?.slug).toBe('uptown')
+  })
+
+  it('fetchLocations with empty response keeps activeLocation null', async () => {
+    mockApiFetch.mockResolvedValue({ data: [] })
+    const { activeLocation, fetchLocations } = useLocations()
+    await fetchLocations()
+    await nextTick()
+    expect(activeLocation.value).toBeNull()
+  })
+
+  it('fetchLocations degrades gracefully on API error', async () => {
+    mockApiFetch.mockRejectedValue({ errors: [{ message: 'Network error' }], status: 0 })
+    const { locations, activeLocation, fetchLocations } = useLocations()
+    await fetchLocations()
+    expect(locations.value).toEqual([])
+    expect(activeLocation.value).toBeNull()
   })
 })

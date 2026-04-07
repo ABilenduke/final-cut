@@ -17,6 +17,58 @@
 
 ---
 
+## Plan 05: Composables & API Integration
+**Status:** ✅ Complete
+**Started:** 2026-04-07
+**Completed:** 2026-04-07
+
+### Work Done
+- [2026-04-07] Created `api.ts` — centralized API client with `apiFetch` (imperative) and `useApiFetch` (SSR-compatible). CSRF auto-bootstrap before first mutation. XSRF token read from `document.cookie`. Error envelope parsing. Idempotency-Key header support.
+- [2026-04-07] Completed `useLocations` — added `fetchLocations()` calling `GET /api/locations`, populating locations state which triggers existing localStorage rehydration
+- [2026-04-07] Created `useMovies` — `nowShowing`, `comingSoon`, `getMovie` via `useApiFetch`
+- [2026-04-07] Created `useShowtimes` — location-scoped `getShowtimes`, `getShowtime` via `useApiFetch`
+- [2026-04-07] Completed `useAuth` — `login`, `register`, `logout`, `fetchUser`, `forgotPassword`, `resetPassword` via `apiFetch`. Loading/error refs. Logout always clears user.
+- [2026-04-07] Created `useCart` — ephemeral `useState` cart with 15-minute session timer (10-min warning), seat/food/promo/gift card management, computed subtotal/total in cents
+- [2026-04-07] Created `useSeatSelection` — local `ref` state with grid keyboard navigation (wrap/clamp), conflict resolution on availability refresh with toast notifications
+- [2026-04-07] Created `useCalendarEvents` — `getEvents`, `getEvent` via `useApiFetch`
+- [2026-04-07] Created `useAccount` — profile CRUD, paginated orders, bookings, loyalty, payment methods. Mix of `useApiFetch` (reads) and `apiFetch` (mutations)
+- [2026-04-07] Created `useGiftCards` — purchase with idempotency key, confirm, balance check via `apiFetch`
+- [2026-04-07] `useToast` was already complete from Plan 04 — no changes needed
+
+### Decisions
+- [2026-04-07] Two API functions pattern: `apiFetch` for imperative calls (mutations, auth) and `useApiFetch` for SSR-compatible reads. Composables explicitly import from `~/utils/api`
+- [2026-04-07] XSRF token read from `document.cookie` (not `useCookie`) — avoids Nuxt auto-import mocking complexity in tests
+- [2026-04-07] Cart timer handles are module-scoped (not useState) — non-serializable, process-level
+- [2026-04-07] Seat selection uses `new Set()` reassignment on every mutation for Vue reactivity (Vue doesn't track Set mutations)
+- [2026-04-07] Cart returns `readonly()` wrappers on state refs — mutations only through named methods
+- [2026-04-07] All composables that use `apiFetch`/`useApiFetch` import explicitly (not auto-import) for clean test mocking via `vi.mock('~/utils/api')`
+- [2026-04-07] Configured `vitest.config.ts` `environmentOptions` was reverted — caused module resolution failures. Runtime config defaults to empty string in tests.
+
+### Files Changed
+- `frontend/app/utils/api.ts` — created (centralized API client)
+- `frontend/app/composables/useLocations.ts` — added fetchLocations()
+- `frontend/app/composables/useAuth.ts` — replaced stub with full implementation
+- `frontend/app/composables/useMovies.ts` — created
+- `frontend/app/composables/useShowtimes.ts` — created
+- `frontend/app/composables/useCalendarEvents.ts` — created
+- `frontend/app/composables/useCart.ts` — created
+- `frontend/app/composables/useSeatSelection.ts` — created
+- `frontend/app/composables/useAccount.ts` — created
+- `frontend/app/composables/useGiftCards.ts` — created
+- `frontend/vitest.config.ts` — unchanged (reverted)
+- `frontend/tests/utils/api.test.ts` — created (14 tests)
+- `frontend/tests/composables/useLocations.test.ts` — extended (9 tests)
+- `frontend/tests/composables/useAuth.test.ts` — created (12 tests)
+- `frontend/tests/composables/useMovies.test.ts` — created (4 tests)
+- `frontend/tests/composables/useShowtimes.test.ts` — created (3 tests)
+- `frontend/tests/composables/useCalendarEvents.test.ts` — created (4 tests)
+- `frontend/tests/composables/useAccount.test.ts` — created (9 tests)
+- `frontend/tests/composables/useGiftCards.test.ts` — created (3 tests)
+- `frontend/tests/composables/useCart.test.ts` — created (16 tests)
+- `frontend/tests/composables/useSeatSelection.test.ts` — created (14 tests)
+
+---
+
 ## Plan 04: Layouts & Shell Components
 **Status:** ✅ Complete
 **Started:** 2026-04-07
