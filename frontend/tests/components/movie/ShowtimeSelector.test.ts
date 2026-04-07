@@ -7,7 +7,7 @@ function makeShowtime(overrides: Partial<Showtime> = {}): Showtime {
   return {
     id: 'st-1',
     movieId: 1,
-    movieSlug: 'test',
+    movieSlug: 'test-REMOVED',
     movieTitle: 'Test',
     screenId: 's1',
     screenName: 'Screen 1',
@@ -28,7 +28,7 @@ describe('ShowtimeSelector', () => {
       makeShowtime({ id: 'st-3', startTime: '2026-04-08T19:00:00Z' }),
     ]
     const wrapper = await mountSuspended(ShowtimeSelector, {
-      props: { showtimes, movieSlug: 'test' },
+      props: { showtimes },
     })
     const tabs = wrapper.findAll('[role="tab"]')
     expect(tabs).toHaveLength(2)
@@ -40,7 +40,7 @@ describe('ShowtimeSelector', () => {
       makeShowtime({ id: 'st-2', startTime: '2026-04-08T19:00:00Z' }),
     ]
     const wrapper = await mountSuspended(ShowtimeSelector, {
-      props: { showtimes, movieSlug: 'test' },
+      props: { showtimes },
     })
     const tabs = wrapper.findAll('[role="tab"]')
     // The first tab should be active by default (assuming today is not one of these dates)
@@ -53,7 +53,7 @@ describe('ShowtimeSelector', () => {
       makeShowtime({ id: 'st-1', startTime: '2026-04-07T19:00:00Z' }),
     ]
     const wrapper = await mountSuspended(ShowtimeSelector, {
-      props: { showtimes, movieSlug: 'test' },
+      props: { showtimes },
     })
     // Should render a time element
     const timeEl = wrapper.find('time')
@@ -66,7 +66,7 @@ describe('ShowtimeSelector', () => {
       makeShowtime({ id: 'st-42', startTime: '2026-04-07T19:00:00Z' }),
     ]
     const wrapper = await mountSuspended(ShowtimeSelector, {
-      props: { showtimes, movieSlug: 'test' },
+      props: { showtimes },
     })
     const link = wrapper.find('.showtime-selector__slot')
     expect(link.exists()).toBe(true)
@@ -79,14 +79,14 @@ describe('ShowtimeSelector', () => {
       makeShowtime({ id: 'st-1', startTime: '2026-04-07T19:00:00Z', priceStandard: 1500 }),
     ]
     const wrapper = await mountSuspended(ShowtimeSelector, {
-      props: { showtimes, movieSlug: 'test' },
+      props: { showtimes },
     })
     expect(wrapper.text()).toContain('$15.00')
   })
 
   it('shows empty state when no showtimes', async () => {
     const wrapper = await mountSuspended(ShowtimeSelector, {
-      props: { showtimes: [], movieSlug: 'test' },
+      props: { showtimes: [] },
     })
     expect(wrapper.text()).toContain('No showtimes available')
   })
@@ -96,7 +96,7 @@ describe('ShowtimeSelector', () => {
       makeShowtime({ id: 'st-1', startTime: '2026-04-07T19:00:00Z' }),
     ]
     const wrapper = await mountSuspended(ShowtimeSelector, {
-      props: { showtimes, movieSlug: 'test' },
+      props: { showtimes },
     })
     const tablist = wrapper.find('[role="tablist"]')
     expect(tablist.exists()).toBe(true)
@@ -108,7 +108,7 @@ describe('ShowtimeSelector', () => {
       makeShowtime({ id: 'st-1', startTime: '2026-04-07T19:00:00Z' }),
     ]
     const wrapper = await mountSuspended(ShowtimeSelector, {
-      props: { showtimes, movieSlug: 'test' },
+      props: { showtimes },
     })
     const panel = wrapper.find('[role="tabpanel"]')
     expect(panel.exists()).toBe(true)
@@ -123,7 +123,7 @@ describe('ShowtimeSelector', () => {
       makeShowtime({ id: 'st-4', startTime: '2026-04-08T19:00:00Z' }),
     ]
     const wrapper = await mountSuspended(ShowtimeSelector, {
-      props: { showtimes, movieSlug: 'test' },
+      props: { showtimes },
     })
     const tabs = wrapper.findAll('[role="tab"]')
     expect(tabs).toHaveLength(2)

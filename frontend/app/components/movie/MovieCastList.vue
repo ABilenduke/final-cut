@@ -54,11 +54,6 @@ defineProps<{
   text-align: center;
 }
 
-.cast-list__member:focus-visible {
-  outline: 0.125rem solid var(--secondary);
-  outline-offset: 0.125rem;
-}
-
 .cast-list__avatar {
   width: 3rem;
   height: 3rem;

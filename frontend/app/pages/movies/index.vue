@@ -62,8 +62,11 @@ useHead({
       <!-- Tab bar -->
       <div class="movies-page__tabs" role="tablist" aria-label="Movie status">
         <button
+          id="tab-now-showing"
           role="tab"
           :aria-selected="status === 'now_showing'"
+          aria-controls="panel-movies"
+          :tabindex="status === 'now_showing' ? 0 : -1"
           class="movies-page__tab headline-sm"
           :class="{ 'movies-page__tab--active': status === 'now_showing' }"
           @click="setStatus('now_showing')"
@@ -71,8 +74,11 @@ useHead({
           Now Showing
         </button>
         <button
+          id="tab-coming-soon"
           role="tab"
           :aria-selected="status === 'coming_soon'"
+          aria-controls="panel-movies"
+          :tabindex="status === 'coming_soon' ? 0 : -1"
           class="movies-page__tab headline-sm"
           :class="{ 'movies-page__tab--active': status === 'coming_soon' }"
           @click="setStatus('coming_soon')"
@@ -82,7 +88,12 @@ useHead({
       </div>
 
       <!-- Movie grid -->
-      <div class="ensemble" role="tabpanel">
+      <div
+        id="panel-movies"
+        role="tabpanel"
+        :aria-labelledby="status === 'now_showing' ? 'tab-now-showing' : 'tab-coming-soon'"
+        class="ensemble"
+      >
         <MovieCard
           v-for="movie in movies"
           :key="movie.id"

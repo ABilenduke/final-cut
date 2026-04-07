@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { Movie } from '~/types/movie'
 import type { Showtime } from '~/types/showtime'
-import { useApiFetch, apiFetch } from '~/utils/api'
+import { apiFetch } from '~/utils/api'
 
 // --- SSR/ISR data ---
 const { nowShowing, comingSoon } = useMovies()
@@ -16,11 +16,16 @@ const comingSoonMovies = computed(() => comingSoonData.value?.data ?? [])
 const featuredListing = computed(() => selectFeaturedMovie(nowShowingMovies.value))
 
 // Fetch full detail for featured movie (listing may omit tagline/synopsis).
-// useApiFetch accepts Ref<string> and refetches when the path changes.
-const featuredDetailUrl = computed(() =>
-  featuredListing.value ? `/api/movies/${featuredListing.value.slug}` : '',
+// useAsyncData with guard: returns null when no slug, preventing empty-URL requests.
+const { data: featuredDetailData } = useAsyncData(
+  'featured-movie-detail',
+  () => {
+    const slug = featuredListing.value?.slug
+    if (!slug) return Promise.resolve(null)
+    return apiFetch<{ data: Movie }>(`/api/movies/${slug}`)
+  },
+  { watch: [featuredListing] },
 )
-const { data: featuredDetailData } = useApiFetch<{ data: Movie }>(featuredDetailUrl)
 const featuredMovie = computed<Movie | null>(() => {
   // Prefer detail data; fall back to listing data while detail loads
   return featuredDetailData.value?.data ?? featuredListing.value ?? null
@@ -28,7 +33,6 @@ const featuredMovie = computed<Movie | null>(() => {
 
 // --- Client-only: hero showtime for CTA ---
 const { activeLocation } = useLocations()
-const locationSelected = computed(() => !!activeLocation.value)
 const heroShowtime = ref<Showtime | null>(null)
 const heroLoading = ref(false)
 let fetchGeneration = 0 // Guards against stale async responses
@@ -46,7 +50,6 @@ async function fetchHeroShowtime() {
     const res = await apiFetch<{ data: Showtime[] }>(
       `/api/locations/${locSlug}/movies/${movSlug}/showtimes`,
     )
-    // Only commit if this is still the latest request
     if (generation === fetchGeneration) {
       heroShowtime.value = res.data[0] ?? null
     }
@@ -73,7 +76,6 @@ function handleNotify() {
 }
 
 function openLocationSelector() {
-  // Focus the SiteHeader's location <select> to prompt the user to pick a location
   document.getElementById('location-select')?.focus()
 }
 
@@ -92,11 +94,16 @@ useHead({
 <template>
   <div class="home-page">
     <!-- 1. Hero: Immediate conversion -->
+    <!-- Location-dependent CTA is handled inside HomeFeaturedHero; the movie
+         backdrop/title/tagline render from ISR. The hero component renders
+         its CTA based on props, so no hydration mismatch — SSR gets the
+         initial state (locationSelected=false → "Choose a Location") which
+         is correct since activeLocation is null on the server. -->
     <HomeFeaturedHero
       v-if="featuredMovie"
       :movie="featuredMovie"
       :next-showtime="heroShowtime"
-      :location-selected="locationSelected"
+      :location-selected="!!activeLocation"
       :loading="heroLoading"
       @choose-location="openLocationSelector"
     />

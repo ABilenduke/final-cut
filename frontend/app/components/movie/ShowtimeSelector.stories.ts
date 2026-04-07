@@ -47,7 +47,7 @@ export const Default: Story = {
         makeShowtime({ id: 'st-8', startTime: '2026-04-09T22:30:00Z', endTime: '2026-04-10T00:30:00Z' }),
       ],
     }),
-    template: '<ShowtimeSelector :showtimes="showtimes" movie-slug="blade-runner-2099" />',
+    template: '<ShowtimeSelector :showtimes="showtimes" />',
   }),
 }
 
@@ -62,14 +62,14 @@ export const SingleDate: Story = {
         makeShowtime({ id: 'st-4', startTime: '2026-04-10T22:00:00Z', endTime: '2026-04-11T00:00:00Z', priceStandard: 1800 }),
       ],
     }),
-    template: '<ShowtimeSelector :showtimes="showtimes" movie-slug="blade-runner-2099" />',
+    template: '<ShowtimeSelector :showtimes="showtimes" />',
   }),
 }
 
 export const Empty: Story = {
   render: () => ({
     components: { ShowtimeSelector },
-    template: '<ShowtimeSelector :showtimes="[]" movie-slug="blade-runner-2099" />',
+    template: '<ShowtimeSelector :showtimes="[]" />',
   }),
 }
 
@@ -91,6 +91,6 @@ export const ManyDates: Story = {
         makeShowtime({ id: 'st-11', startTime: '2026-04-13T19:00:00Z', endTime: '2026-04-13T21:00:00Z' }),
       ],
     }),
-    template: '<ShowtimeSelector :showtimes="showtimes" movie-slug="blade-runner-2099" />',
+    template: '<ShowtimeSelector :showtimes="showtimes" />',
   }),
 }

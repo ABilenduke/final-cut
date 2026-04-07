@@ -3,7 +3,6 @@ import type { Showtime } from '~/types/showtime'
 
 const props = defineProps<{
   showtimes: Showtime[]
-  movieSlug: string
 }>()
 
 /**
@@ -41,16 +40,17 @@ const dates = computed(() => [...groupedByDate.value.keys()])
 const today = toLocalDateKey(new Date())
 const activeDate = ref('')
 
+// Only set a default when activeDate is empty or no longer valid in the current date set.
+// Preserves user's manual tab selection across showtime data refreshes.
 watchEffect(() => {
   if (dates.value.length === 0) {
     activeDate.value = ''
     return
   }
-  if (dates.value.includes(today)) {
-    activeDate.value = today
-  } else {
-    activeDate.value = dates.value[0]
-  }
+  // If user's current selection is still valid, keep it
+  if (activeDate.value && dates.value.includes(activeDate.value)) return
+  // Otherwise default to today or first available
+  activeDate.value = dates.value.includes(today) ? today : dates.value[0]
 })
 
 const activeShowtimes = computed(() => {

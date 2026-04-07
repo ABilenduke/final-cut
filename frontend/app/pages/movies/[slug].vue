@@ -12,10 +12,16 @@ const { data: movieData, error: movieError } = useApiFetch<{ data: import('~/typ
 )
 const movie = computed(() => movieData.value?.data ?? null)
 
-// Handle 404
-if (movieError.value) {
-  throw createError({ statusCode: 404, statusMessage: 'Movie not found' })
-}
+// Handle 404 — watch error ref so async client-side navigation failures are caught
+watch(
+  movieError,
+  (error) => {
+    if (error) {
+      throw createError({ statusCode: 404, statusMessage: 'Movie not found' })
+    }
+  },
+  { immediate: true },
+)
 
 // Client-only showtime fetch (location + slug dependent)
 const { activeLocation } = useLocations()
@@ -94,9 +100,10 @@ useHead({
             <MovieRatingBadge :rating="movie.rating" />
 
             <ClientOnly>
+              <CvSkeletonLoader v-if="showtimesLoading" variant="text" :lines="4" />
               <ShowtimeSelector
+                v-else
                 :showtimes="showtimes"
-                :movie-slug="movie.slug"
               />
               <template #fallback>
                 <CvSkeletonLoader variant="text" :lines="4" />
