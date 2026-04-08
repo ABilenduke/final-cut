@@ -175,6 +175,7 @@ function onKeydown(event: KeyboardEvent) {
         </div>
       </Transition>
     </Teleport>
+    <template #fallback />
   </ClientOnly>
 </template>
 

@@ -21,6 +21,32 @@ export interface ApiErrorResponse {
   status: number
 }
 
+function shouldUseRelativeApiPath(path: string): boolean {
+  return import.meta.server && path.startsWith('/')
+}
+
+function resolveApiBaseUrl(): string {
+  const config = useRuntimeConfig()
+  const configuredBaseUrl = String(config.public.apiBaseUrl ?? '').trim()
+
+  if (configuredBaseUrl) {
+    return configuredBaseUrl
+  }
+
+  // Same-origin fallback keeps local dev working when requests are meant to
+  // flow through the public domain/reverse proxy and no explicit API base URL
+  // has been configured yet.
+  if (import.meta.server) {
+    return useRequestURL().origin
+  }
+
+  if (import.meta.client) {
+    return window.location.origin
+  }
+
+  return ''
+}
+
 // Module-level CSRF state
 let csrfBootstrapped = false
 let csrfPromise: Promise<void> | null = null
@@ -87,8 +113,7 @@ export async function apiFetch<T>(
     idempotencyKey?: string
   } = {},
 ): Promise<T> {
-  const config = useRuntimeConfig()
-  const baseURL = config.public.apiBaseUrl as string
+  const baseURL = shouldUseRelativeApiPath(path) ? '' : resolveApiBaseUrl()
   const method = options.method ?? 'GET'
 
   // CSRF bootstrap for state-changing requests
@@ -159,9 +184,11 @@ export function useApiFetch<T>(
     immediate?: boolean
   } = {},
 ) {
-  const config = useRuntimeConfig()
+  const resolvedPath = typeof path === 'string' ? path : path.value
+  const baseURL = shouldUseRelativeApiPath(resolvedPath) ? undefined : resolveApiBaseUrl()
+
   return useFetch<T>(path, {
-    baseURL: config.public.apiBaseUrl as string,
+    ...(baseURL ? { baseURL } : {}),
     credentials: 'include',
     headers: { Accept: 'application/json' },
     ...options,

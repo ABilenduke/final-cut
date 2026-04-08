@@ -31,6 +31,25 @@ describe('apiFetch', () => {
     expect(opts.baseURL).toBeDefined()
   })
 
+  it('falls back to the current origin when apiBaseUrl is unset', async () => {
+    const originalLocation = window.location
+
+    Object.defineProperty(window, 'location', {
+      value: { origin: 'https://finalcut.test' },
+      configurable: true,
+    })
+
+    await apiFetch('/api/movies')
+
+    const [, opts] = mockFetch.mock.calls[0]
+    expect(opts.baseURL).toBe('https://finalcut.test')
+
+    Object.defineProperty(window, 'location', {
+      value: originalLocation,
+      configurable: true,
+    })
+  })
+
   it('does not fetch CSRF cookie before GET requests', async () => {
     await apiFetch('/api/movies')
     expect(mockFetch).toHaveBeenCalledTimes(1)

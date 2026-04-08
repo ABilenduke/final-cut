@@ -5,7 +5,7 @@ export interface Movie {
   tagline: string
   synopsis: string
   runtime: number
-  rating: number
+  rating: number | null
   releaseDate: string
   genres: Genre[]
   cast: CastMember[]

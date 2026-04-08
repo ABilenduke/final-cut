@@ -119,6 +119,72 @@
 
 ---
 
+## Plan 06: Movie Feature Domain
+**Status:** 🟡 In Progress
+**Started:** 2026-04-07
+
+### Work Done
+- [2026-04-07] Created MovieRatingBadge — accent CvBadge, rating formatted to one decimal
+- [2026-04-07] Created MovieCard — poster, title, genres (capped at 3), rating badge or release date based on `showShowtimes` prop, "View Showtimes" or "Notify Me" CTA
+- [2026-04-07] Created MovieHero — full-bleed backdrop with vignette bloom, title, tagline, cinematic reveal animation, reduced-motion safe
+- [2026-04-07] Created MovieDetail — Establishing Shot 65/35 layout with movie info left, ShowtimeSelector right
+- [2026-04-07] Created MovieCastList — horizontal scroll, circular profile photos, actor/character labels
+- [2026-04-07] Created MovieTrailerEmbed — responsive 16:9 YouTube iframe, lazy-loaded
+- [2026-04-07] Created ShowtimeSelector — date tabs (horizontally scrollable), time slot buttons, links to `/purchase/:showtimeId`
+- [2026-04-07] Created HomeFeaturedHero — backdrop hero with "Get Tickets" CTA linking to movie detail
+- [2026-04-07] Created HomeEventStrip — week's special events/loyalty exclusives, cross-month fetch, truncated descriptions, max 5
+- [2026-04-07] Created home page (`/`) — hero, now showing ensemble, event strip, coming soon ensemble
+- [2026-04-07] Created movies listing page (`/movies`) — tab bar (now showing / coming soon), ensemble grid; genre filtering still TODO
+- [2026-04-07] Created movie detail page (`/movies/:slug`) — hero, detail, cast, trailer, showtime selector
+- [2026-04-07] Created `selectFeaturedMovie` utility — picks the most recently released now-showing movie with a backdrop for hero
+- [2026-04-07] Created `weekRange` utility — computes Mon-Sun week range with cross-month support
+- [2026-04-07] Created `formatTime`/`formatWeekdayDate` helpers in formatDate utility
+- [2026-04-07] Added locations plugin (`locations.ts`) — calls `initializeLocations()` on app:mounted
+- [2026-04-07] Added `locationsReady` + `initializeLocations()` to useLocations composable
+- [2026-04-07] Added `resolveApiBaseUrl()` to api.ts — origin fallback for SSR
+- [2026-04-07] Added `pathPrefix: false` to nuxt.config.ts components config
+- [2026-04-07] Added CvToastContainer component for layout toast rendering
+- [2026-04-07] Updated MovieSeeder to use real TMDB IDs for richer dev data
+- [2026-04-07] Updated nginx CSP to allow TMDB images and YouTube trailer embeds
+
+### Decisions
+- [2026-04-07] HomeFeaturedHero simplified to link to movie detail page — location-dependent "Get Tickets at 7:00 PM" CTA deferred to Plan 08 (purchase flow) when the full location→showtime→purchase pipeline is built
+- [2026-04-07] MovieCard uses `showShowtimes: boolean` prop (matches COMPONENT_INVENTORY spec) — showtime time pills require a batched showtimes endpoint not yet available; "View Showtimes" link serves as functional CTA until then
+- [2026-04-07] Removed QuickShowtimeStrip (not in any spec, date pills were non-functional UI)
+- [2026-04-07] Removed useAppRoutes composable (premature abstraction, broke all layout components) — hardcoded nav items restored; route-enabled filtering deferred to Plan 13
+- [2026-04-07] MovieRatingBadge accepts `rating?: number | null` — backend column is nullable (un-enriched movies), badge hides when null
+- [2026-04-07] Locations initialized via Nuxt plugin (`app:mounted` hook) instead of watch-based auto-rehydrate — explicit lifecycle, `locationsReady` flag prevents flash of empty state
+
+### Files Changed
+- `frontend/app/components/movie/MovieRatingBadge.vue` — created
+- `frontend/app/components/movie/MovieCard.vue` — created
+- `frontend/app/components/movie/MovieHero.vue` — created
+- `frontend/app/components/movie/MovieDetail.vue` — created
+- `frontend/app/components/movie/MovieCastList.vue` — created
+- `frontend/app/components/movie/MovieTrailerEmbed.vue` — created
+- `frontend/app/components/movie/ShowtimeSelector.vue` — created
+- `frontend/app/components/home/HomeFeaturedHero.vue` — created
+- `frontend/app/components/home/HomeEventStrip.vue` — created
+- `frontend/app/components/ui/CvToastContainer.vue` — created
+- `frontend/app/pages/index.vue` — created (home page)
+- `frontend/app/pages/movies/index.vue` — created (movie listings)
+- `frontend/app/pages/movies/[slug].vue` — created (movie detail)
+- `frontend/app/utils/selectFeaturedMovie.ts` — created
+- `frontend/app/utils/weekRange.ts` — created
+- `frontend/app/utils/formatDate.ts` — extended (formatTime, formatWeekdayDate)
+- `frontend/app/plugins/locations.ts` — created
+- `frontend/app/composables/useLocations.ts` — added locationsReady, initializeLocations
+- `frontend/app/utils/api.ts` — added resolveApiBaseUrl
+- `frontend/nuxt.config.ts` — added pathPrefix: false
+- `frontend/.env.example` — created
+- `backend/database/seeders/MovieSeeder.php` — updated to real TMDB IDs
+- `nginx/templates/conf.d/default.conf.template` — updated CSP
+- `Makefile` — added artisan target
+- Storybook stories for all new components
+- Tests for MovieRatingBadge, MovieCard, HomeEventStrip, useLocations, api.ts, locations plugin
+
+---
+
 ## Plan 02: Design System CSS Foundation
 **Status:** ✅ Complete
 **Started:** 2026-04-06
