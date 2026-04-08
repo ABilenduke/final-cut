@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import type { AccessibilityTag } from '~/types/calendar-event'
+import type { AccessibilityTag, CalendarEvent } from '~/types/calendar-event'
+import { useApiFetch } from '~/utils/api'
 
 const route = useRoute()
 
@@ -46,13 +47,17 @@ const activeAccessibilityFilters = computed<AccessibilityTag[]>(() => {
 const typeQuery = computed(() => activeFilters.value.join(',') || undefined)
 const accessibilityQuery = computed(() => activeAccessibilityFilters.value.join(',') || undefined)
 
-// Fetch events
-const { getEvents } = useCalendarEvents()
-const { data: eventsData } = getEvents(month.value, year.value, typeQuery.value, accessibilityQuery.value)
+// Fetch events — reactive query ensures re-fetch on param change
+const apiQuery = computed(() => ({
+  month: month.value,
+  year: year.value,
+  ...(typeQuery.value ? { type: typeQuery.value } : {}),
+  ...(accessibilityQuery.value ? { accessibility: accessibilityQuery.value } : {}),
+}))
 
-// Re-fetch when query params change
-watch([month, year, typeQuery, accessibilityQuery], () => {
-  // navigateTo handles the re-render via route change
+const { data: eventsData } = useApiFetch<{ data: CalendarEvent[] }>('/api/calendar/events', {
+  query: apiQuery,
+  watch: [apiQuery],
 })
 
 const events = computed(() => eventsData.value?.data ?? [])

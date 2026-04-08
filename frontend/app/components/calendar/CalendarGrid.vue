@@ -180,11 +180,11 @@ function handleKeydown(e: KeyboardEvent) {
       break
     case 'Home':
       e.preventDefault()
-      newDate = new Date(props.year, props.month - 1, 1)
+      newDate = new Date(Date.UTC(props.year, props.month - 1, 1, 12))
       break
     case 'End':
       e.preventDefault()
-      newDate = new Date(props.year, props.month, 0)
+      newDate = new Date(Date.UTC(props.year, props.month, 0, 12))
       break
     case 'PageDown':
       e.preventDefault()
