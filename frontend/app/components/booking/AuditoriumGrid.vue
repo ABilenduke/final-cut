@@ -137,7 +137,9 @@ function handleGridKeydown(event: KeyboardEvent) {
         emit('seat-toggled', { seatId: id, selected: false })
       }
       announce('All seats deselected.')
-      gridRef.value?.focus()
+      // Focus first available seat (grid container isn't focusable)
+      const firstAvailableId = findFirstAvailableSeatId()
+      if (firstAvailableId) focusedSeatId.value = firstAvailableId
       break
     }
   }
@@ -152,12 +154,20 @@ watch(focusedSeatId, (newId) => {
   })
 })
 
+function findFirstAvailableSeatId(): string | null {
+  for (const row of sortedRows.value) {
+    const seats = seatsByRow.value.get(row) ?? []
+    const seat = seats.find(s => s.status === 'available')
+    if (seat) return seat.id
+  }
+  return null
+}
+
 // Initialize focus on first available seat
 onMounted(() => {
-  const firstRow = sortedRows.value[0]
-  const firstSeats = seatsByRow.value.get(firstRow)
-  if (firstSeats?.[0]) {
-    focusedSeatId.value = firstSeats[0].id
+  const firstAvailableId = findFirstAvailableSeatId()
+  if (firstAvailableId) {
+    focusedSeatId.value = firstAvailableId
   }
 })
 </script>

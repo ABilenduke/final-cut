@@ -47,7 +47,6 @@ function handleKeydown(event: KeyboardEvent) {
     :aria-label="seatLabel"
     :aria-selected="selected || undefined"
     :aria-disabled="isTaken || undefined"
-    :disabled="isTaken"
     @click="handleClick"
     @keydown="handleKeydown"
   >
@@ -98,12 +97,11 @@ function handleKeydown(event: KeyboardEvent) {
   }
 }
 
-/* Taken */
+/* Taken — no native disabled so it stays focusable for roving tabindex */
 .auditorium-seat--taken {
   background-color: var(--surface-container-low);
   opacity: 0.4;
   cursor: not-allowed;
-  pointer-events: none;
 }
 
 /* Accessible */

@@ -15,7 +15,7 @@ const isExpanded = ref(false)
       <ul class="cart-summary__list">
         <li
           v-for="(item, index) in items"
-          :key="index"
+          :key="`${item.label}-${item.price}`"
           class="cart-summary__item"
         >
           <span class="cart-summary__item-label">{{ item.label }}</span>
@@ -47,7 +47,7 @@ const isExpanded = ref(false)
         <ul class="cart-summary__list">
           <li
             v-for="(item, index) in items"
-            :key="index"
+            :key="`${item.label}-${item.price}`"
             class="cart-summary__item"
           >
             <span class="cart-summary__item-label">{{ item.label }}</span>

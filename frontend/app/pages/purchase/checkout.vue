@@ -34,22 +34,35 @@ onMounted(() => {
 const selectedFoodItems = ref<Array<{ itemId: string; quantity: number }>>([])
 
 function handleFoodUpdate(items: Array<{ itemId: string; quantity: number }>) {
-  // Clear existing food items from cart
-  for (const existing of [...cart.foodItems.value]) {
-    let qty = existing.quantity
-    while (qty > 0) {
-      cart.removeFoodItem(existing.itemId)
-      qty--
+  const currentQuantities = new Map<string, number>()
+  for (const existing of cart.foodItems.value) {
+    currentQuantities.set(existing.itemId, existing.quantity)
+  }
+
+  const nextQuantities = new Map<string, number>()
+  for (const item of items) {
+    nextQuantities.set(item.itemId, item.quantity)
+  }
+
+  // Remove quantities that were reduced or deleted
+  for (const [itemId, currentQty] of currentQuantities) {
+    const nextQty = nextQuantities.get(itemId) ?? 0
+    for (let i = 0; i < currentQty - nextQty; i++) {
+      cart.removeFoodItem(itemId)
     }
   }
 
-  // Add new items
-  for (const item of items) {
-    const menuItem = menuData.find(m => m.id === item.itemId)
-    if (menuItem) {
-      for (let i = 0; i < item.quantity; i++) {
-        cart.addFoodItem(menuItem.id, menuItem.name, menuItem.price)
-      }
+  // Add quantities that are new or increased
+  for (const [itemId, nextQty] of nextQuantities) {
+    const currentQty = currentQuantities.get(itemId) ?? 0
+    const addCount = nextQty - currentQty
+    if (addCount <= 0) continue
+
+    const menuItem = menuData.find(m => m.id === itemId)
+    if (!menuItem) continue
+
+    for (let i = 0; i < addCount; i++) {
+      cart.addFoodItem(menuItem.id, menuItem.name, menuItem.price)
     }
   }
 
@@ -58,8 +71,16 @@ function handleFoodUpdate(items: Array<{ itemId: string; quantity: number }>) {
 
 // Promo code handling
 function handlePromoApply(code: string) {
-  cart.applyPromoCode(code, 0)
-  showToast({ message: `Promo code "${code}" applied.`, type: 'success' })
+  const normalizedCode = code.trim()
+  if (!normalizedCode) {
+    showToast({ message: 'Please enter a promo code.', type: 'error' })
+    return
+  }
+  cart.applyPromoCode(normalizedCode, 0)
+  showToast({
+    message: `Promo code "${normalizedCode}" saved — will be validated at checkout.`,
+    type: 'info',
+  })
 }
 
 function handlePromoRemove() {
@@ -99,6 +120,18 @@ async function handleCheckoutSubmit(payload: { paymentMethodId: string; email?: 
       case 409: {
         showToast({ message: 'Some seats are no longer available.', type: 'error' })
         await navigateTo(`/purchase/${cart.showtime.value!.id}`)
+        break
+      }
+      case 400: {
+        // Validation errors (invalid promo code, gift card, etc.)
+        const fieldError = apiError.errors.find(e => e.field === 'promoCode')
+        if (fieldError) {
+          cart.removePromoCode()
+          showToast({ message: fieldError.message, type: 'error' })
+        } else {
+          const message = apiError.errors[0]?.message ?? 'Please check your order and try again.'
+          showToast({ message, type: 'error' })
+        }
         break
       }
       case 402:

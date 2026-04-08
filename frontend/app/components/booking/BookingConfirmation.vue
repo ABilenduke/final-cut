@@ -23,6 +23,15 @@ onMounted(async () => {
   }
 })
 
+/** Escape text per RFC 5545 — backslashes, semicolons, commas, newlines */
+function escapeIcsText(text: string): string {
+  return text
+    .replace(/\\/g, '\\\\')
+    .replace(/;/g, '\\;')
+    .replace(/,/g, '\\,')
+    .replace(/\n/g, '\\n')
+}
+
 function generateIcs() {
   const start = new Date(props.booking.startTime)
   const pad = (n: number) => n.toString().padStart(2, '0')
@@ -40,8 +49,8 @@ function generateIcs() {
     'BEGIN:VEVENT',
     `DTSTART:${formatIcsDate(start)}`,
     `DTEND:${formatIcsDate(end)}`,
-    `SUMMARY:${props.booking.movieTitle} at Final Cut`,
-    `DESCRIPTION:Screen: ${props.booking.screenName}\\nSeats: ${seatList}\\nBooking: ${props.booking.confirmationCode}`,
+    `SUMMARY:${escapeIcsText(props.booking.movieTitle + ' at Final Cut')}`,
+    `DESCRIPTION:${escapeIcsText(`Screen: ${props.booking.screenName}\nSeats: ${seatList}\nBooking: ${props.booking.confirmationCode}`)}`,
     'END:VEVENT',
     'END:VCALENDAR',
   ].join('\r\n')
@@ -52,7 +61,8 @@ function generateIcs() {
   a.href = url
   a.download = `final-cut-${props.booking.confirmationCode}.ics`
   a.click()
-  URL.revokeObjectURL(url)
+  // Delay revocation to ensure download completes in all browsers
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 
 function handlePrint() {

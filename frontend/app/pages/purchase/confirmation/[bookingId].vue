@@ -63,8 +63,15 @@ async function handleLookup() {
     })
     booking.value = response.data
     error.value = ''
-  } catch {
-    lookupError.value = 'Booking not found. Please check your confirmation code and email.'
+  } catch (err) {
+    const apiErr = err as import('~/utils/api').ApiErrorResponse
+    if (apiErr.status === 404 || apiErr.status === 422) {
+      lookupError.value = 'Booking not found. Please check your confirmation code and email.'
+    } else if (apiErr.status === 0) {
+      lookupError.value = 'Network error. Please check your connection and try again.'
+    } else {
+      lookupError.value = 'Something went wrong. Please try again.'
+    }
   } finally {
     lookupLoading.value = false
   }

@@ -108,8 +108,10 @@ function removeItem(itemId: string) {
         <button
           v-for="cat in categories"
           :key="cat"
+          :id="`food-tab-${cat}`"
           role="tab"
           :aria-selected="activeCategory === cat"
+          :aria-controls="`food-panel-${cat}`"
           class="food-panel__tab"
           :class="{ 'food-panel__tab--active': activeCategory === cat }"
           @click="activeCategory = cat"
@@ -119,7 +121,12 @@ function removeItem(itemId: string) {
       </div>
 
       <!-- Item grid -->
-      <div class="food-panel__grid" role="tabpanel">
+      <div
+        :id="`food-panel-${activeCategory}`"
+        class="food-panel__grid"
+        role="tabpanel"
+        :aria-labelledby="`food-tab-${activeCategory}`"
+      >
         <div
           v-for="item in filteredItems"
           :key="item.id"
