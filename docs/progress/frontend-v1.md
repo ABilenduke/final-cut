@@ -119,6 +119,46 @@
 
 ---
 
+## Plan 07: Calendar & Events Domain
+**Status:** ✅ Complete
+**Started:** 2026-04-08
+**Completed:** 2026-04-08
+
+### Work Done
+- [2026-04-08] Created CalendarFilters — view toggle (month/week/list) as radiogroup, event type checkboxes, accessibility filter checkboxes with plain language labels
+- [2026-04-08] Created CalendarDayCell — day number, event indicator dots (color-coded by type), selected/today/outsideMonth states, accessibility indicator, aria-label with event count
+- [2026-04-08] Created CalendarGrid — month view (6×7 grid with weekday headers), week view (7-day strip), list view (events sorted by date grouped by date). Navigation prev/next with year wrapping. Keyboard navigation (arrows, Home/End, PageUp/Down). Roving tabindex.
+- [2026-04-08] Created CalendarEventList — events for selected day grouped by type (showtimes, special events, loyalty exclusives), with time, title, type badge, accessibility badges, Members Only badge. NuxtLink for events with URLs, empty state.
+- [2026-04-08] Created EventListCard — CvCard with 4:3 event image, date/type/loyalty badges, truncated description, "Learn More" link to /events/:slug
+- [2026-04-08] Created EventDetail — full event content with title, formatted date/time range, description, accessibility badges, loyalty badge, includes list, pricing section, Get Tickets/RSVP CTA
+- [2026-04-08] Created /whats-on page — CalendarFilters + CalendarGrid + CalendarEventList, URL query param state (month, year, view, date, type, accessibility), deep link support for accessibility filters
+- [2026-04-08] Created /events listing page — featured event hero (Wide Frame), upcoming events ensemble grid
+- [2026-04-08] Created /events/:slug detail page — Wide Frame hero image, Close-Up EventDetail body, 404 error state
+
+### Decisions
+- [2026-04-08] CalendarEventList uses `NuxtLink` with `v-if` instead of dynamic `resolveComponent()` — test environment doesn't resolve components via resolveComponent but auto-imports work in templates
+- [2026-04-08] Month grid always renders 42 cells (6 weeks) for consistent layout
+- [2026-04-08] Week view calculates Monday-based week from selected date
+- [2026-04-08] CalendarDayCell uses UTC parsing for date-only strings to avoid timezone day-shift
+- [2026-04-08] Events listing fetches current + next month to show upcoming events across month boundary
+- [2026-04-08] whats-on page defaults to current month/year, month view, and today's date when no query params present
+
+### Files Changed
+- `frontend/app/components/calendar/CalendarFilters.vue` — created
+- `frontend/app/components/calendar/CalendarDayCell.vue` — created
+- `frontend/app/components/calendar/CalendarGrid.vue` — created
+- `frontend/app/components/calendar/CalendarEventList.vue` — created
+- `frontend/app/components/content/EventListCard.vue` — created
+- `frontend/app/components/content/EventDetail.vue` — created
+- `frontend/app/pages/whats-on.vue` — created
+- `frontend/app/pages/events/index.vue` — created
+- `frontend/app/pages/events/[slug].vue` — created
+- Storybook stories for all 6 components (6 files)
+- Vitest tests for all 6 components (6 files)
+- Tests: 69 new tests (54 component tests + 15 CalendarGrid tests), 392 total passing
+
+---
+
 ## Plan 06: Movie Feature Domain
 **Status:** 🟡 In Progress
 **Started:** 2026-04-07
