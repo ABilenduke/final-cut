@@ -159,6 +159,49 @@
 
 ---
 
+## Plan 08: Purchase Flow Domain
+**Status:** 🟡 In Progress
+**Started:** 2026-04-08
+
+### Work Done
+- [2026-04-08] Wave 1 — Created 5 leaf components: AuditoriumScreenBar (decorative screen bar), AuditoriumLegend (5-swatch seat key), AuditoriumSeat (interactive seat cell with 5 visual states, selection animation, roving tabindex), CartSummary (sticky desktop sidebar + collapsible mobile bottom sheet with aria-live total), PromoCode (input + apply/remove flow)
+- [2026-04-08] Wave 2 — Created AuditoriumGrid (WAI-ARIA grid with keyboard navigation, row labels, max 10 seat limit, live region announcements), CheckoutForm (Stripe Elements placeholder, billing name, guest email, loyalty opt-in checkbox, validation)
+- [2026-04-08] Wave 3 — Created FoodPreOrderPanel (collapsed teaser + expanded category tabs + quantity controls), BookingConfirmation (QR code via `qrcode` npm, .ics calendar download, print tickets, booking details display)
+- [2026-04-08] Wave 4 — Created 3 purchase pages: `/purchase/[showtimeId]` (seat selection), `/purchase/checkout` (food + payment), `/purchase/confirmation/[bookingId]` (confirmation + booking lookup)
+- [2026-04-08] Created `usePurchaseStep` composable — shared purchase step state (currentStep, completedSteps, navigableSteps) used by pages and rendered by purchase layout
+- [2026-04-08] Updated purchase layout — renders PurchaseStepIndicator and CartSummary directly from composable state (no named slots needed)
+- [2026-04-08] Added 8 new icons: wheelchair, accessible, star, print, calendar-add, minus, plus, receipt
+- [2026-04-08] Installed `qrcode` + `@types/qrcode` for booking confirmation QR generation
+
+### Decisions
+- [2026-04-08] Purchase pages use `usePurchaseStep` composable instead of named layout slots — Nuxt pages can't reliably fill layout slots via `definePageMeta({ layout })`. Layout reads reactive composable state directly
+- [2026-04-08] CartSummary rendered in layout (not pages) — reads from global useCart state, avoids duplication across 3 pages
+- [2026-04-08] Stripe Elements is a placeholder (card input area with styled mount point) — actual Stripe.js integration deferred to when real Stripe keys are configured
+- [2026-04-08] Food pre-order fetches from `GET /api/locations/{slug}/food-menu`. Uses `watch(activeLocation)` to handle async location init. Response grouped by category is flattened to `MenuItem[]` for the panel
+- [2026-04-08] QR code uses dark theme colors (#E5E2E1 on #131313) matching design system tokens
+- [2026-04-08] Checkout error handling follows PURCHASE_FLOW.md spec: 409→redirect to seats, 402→stay on page, 410→clear cart, 500→generic toast
+
+### Files Changed
+- `frontend/app/components/booking/AuditoriumScreenBar.vue` — created
+- `frontend/app/components/booking/AuditoriumLegend.vue` — created
+- `frontend/app/components/booking/AuditoriumSeat.vue` — created
+- `frontend/app/components/booking/AuditoriumGrid.vue` — created
+- `frontend/app/components/booking/CartSummary.vue` — created
+- `frontend/app/components/booking/PromoCode.vue` — created
+- `frontend/app/components/booking/CheckoutForm.vue` — created
+- `frontend/app/components/booking/FoodPreOrderPanel.vue` — created
+- `frontend/app/components/booking/BookingConfirmation.vue` — created
+- `frontend/app/composables/usePurchaseStep.ts` — created
+- `frontend/app/pages/purchase/[showtimeId].vue` — created
+- `frontend/app/pages/purchase/checkout.vue` — created
+- `frontend/app/pages/purchase/confirmation/[bookingId].vue` — created
+- `frontend/app/layouts/purchase.vue` — updated (renders step indicator + cart from composable state)
+- `frontend/app/components/ui/icons.ts` — added 8 new icons
+- `frontend/package.json` — added qrcode, @types/qrcode
+- `frontend/deno.lock` — updated
+
+---
+
 ## Plan 06: Movie Feature Domain
 **Status:** 🟡 In Progress
 **Started:** 2026-04-07

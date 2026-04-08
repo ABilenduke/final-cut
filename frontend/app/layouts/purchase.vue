@@ -1,4 +1,49 @@
 <script setup lang="ts">
+const { currentStep, completedSteps, navigableSteps } = usePurchaseStep()
+const cart = useCart()
+
+// Cart items derived from global cart state
+const cartItems = computed(() => {
+  const items: Array<{ label: string; price: number }> = []
+
+  for (const seat of cart.seats.value) {
+    items.push({
+      label: `Seat ${seat.seatId} (${seat.section})`,
+      price: seat.price,
+    })
+  }
+
+  for (const food of cart.foodItems.value) {
+    items.push({
+      label: `${food.name} x${food.quantity}`,
+      price: food.unitPrice * food.quantity,
+    })
+  }
+
+  if (cart.promoDiscount.value > 0) {
+    items.push({
+      label: `Promo: ${cart.promoCode.value}`,
+      price: -cart.promoDiscount.value,
+    })
+  }
+
+  if (cart.giftCardAmount.value > 0) {
+    items.push({
+      label: 'Gift Card',
+      price: -cart.giftCardAmount.value,
+    })
+  }
+
+  return items
+})
+
+const hasCartItems = computed(() => cart.seats.value.length > 0)
+
+function handleStepNavigate(step: number) {
+  if (step === 1 && cart.showtime.value) {
+    navigateTo(`/purchase/${cart.showtime.value.id}`)
+  }
+}
 </script>
 
 <template>
@@ -10,13 +55,15 @@
           Final Cut
         </NuxtLink>
 
-        <!-- PurchaseStepIndicator is rendered by page components
-             which control currentStep, completedSteps, and navigableSteps -->
         <div class="layout-purchase__steps">
-          <slot name="step-indicator" />
+          <PurchaseStepIndicator
+            :current-step="currentStep"
+            :completed-steps="completedSteps"
+            :navigable-steps="navigableSteps"
+            @navigate="handleStepNavigate"
+          />
         </div>
 
-        <!-- Session timer placeholder (wired by purchase pages) -->
         <div class="layout-purchase__timer">
           <slot name="timer" />
         </div>
@@ -28,9 +75,11 @@
         <slot />
       </main>
 
-      <!-- CartSummary sidebar placeholder (built in Plan 08) -->
-      <aside v-if="$slots.cart" class="layout-purchase__cart" aria-label="Order summary">
-        <slot name="cart" />
+      <aside v-if="hasCartItems" class="layout-purchase__cart" aria-label="Order summary">
+        <CartSummary
+          :items="cartItems"
+          :total="cart.total.value"
+        />
       </aside>
     </div>
 

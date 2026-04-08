@@ -61,14 +61,14 @@ describe('apiFetch', () => {
     await apiFetch('/api/auth/login', { method: 'POST', body: { email: 'a@b.c' } })
     expect(mockFetch).toHaveBeenCalledTimes(2)
     const [csrfPath, csrfOpts] = mockFetch.mock.calls[0]
-    expect(csrfPath).toBe('/sanctum/csrf-cookie')
+    expect(csrfPath).toBe('/api/sanctum/csrf-cookie')
     expect(csrfOpts.credentials).toBe('include')
     expect(csrfOpts.baseURL).toBeDefined()
   })
 
   it('fetches CSRF cookie only once across multiple mutations', async () => {
     mockFetch.mockImplementation((path: string) => {
-      if (path === '/sanctum/csrf-cookie') {
+      if (path === '/api/sanctum/csrf-cookie') {
         // Simulate Sanctum setting the XSRF-TOKEN cookie
         Object.defineProperty(document, 'cookie', {
           value: 'XSRF-TOKEN=csrf-token-abc',
@@ -84,7 +84,7 @@ describe('apiFetch', () => {
     // 1 csrf + 2 actual = 3 total
     expect(mockFetch).toHaveBeenCalledTimes(3)
     // Only the first call should be csrf-cookie
-    expect(mockFetch.mock.calls[0][0]).toBe('/sanctum/csrf-cookie')
+    expect(mockFetch.mock.calls[0][0]).toBe('/api/sanctum/csrf-cookie')
     expect(mockFetch.mock.calls[1][0]).toBe('/api/auth/login')
     expect(mockFetch.mock.calls[2][0]).toBe('/api/auth/logout')
   })
@@ -92,7 +92,7 @@ describe('apiFetch', () => {
   it('re-bootstraps CSRF when cookie is cleared after initial bootstrap', async () => {
     // First call: bootstrap sets cookie
     mockFetch.mockImplementation((path: string) => {
-      if (path === '/sanctum/csrf-cookie') {
+      if (path === '/api/sanctum/csrf-cookie') {
         Object.defineProperty(document, 'cookie', {
           value: 'XSRF-TOKEN=csrf-token-abc',
           writable: true,
@@ -110,14 +110,14 @@ describe('apiFetch', () => {
     await apiFetch('/api/auth/logout', { method: 'POST' })
     // Should re-bootstrap: csrf + logout = 2 more calls
     expect(mockFetch).toHaveBeenCalledTimes(4)
-    expect(mockFetch.mock.calls[2][0]).toBe('/sanctum/csrf-cookie')
+    expect(mockFetch.mock.calls[2][0]).toBe('/api/sanctum/csrf-cookie')
     expect(mockFetch.mock.calls[3][0]).toBe('/api/auth/logout')
   })
 
   it('deduplicates concurrent CSRF bootstrap requests', async () => {
     let csrfCallCount = 0
     mockFetch.mockImplementation((path: string) => {
-      if (path === '/sanctum/csrf-cookie') {
+      if (path === '/api/sanctum/csrf-cookie') {
         csrfCallCount++
         Object.defineProperty(document, 'cookie', {
           value: 'XSRF-TOKEN=csrf-token-abc',
@@ -229,14 +229,14 @@ describe('apiFetch', () => {
     mockFetch.mockResolvedValue({ data: {} })
     _resetCsrf()
     await apiFetch('/api/account/profile', { method: 'PATCH', body: { name: 'New' } })
-    expect(mockFetch.mock.calls[0][0]).toBe('/sanctum/csrf-cookie')
+    expect(mockFetch.mock.calls[0][0]).toBe('/api/sanctum/csrf-cookie')
   })
 
   it('fetches CSRF before DELETE requests', async () => {
     mockFetch.mockResolvedValue({ data: { success: true } })
     _resetCsrf()
     await apiFetch('/api/account/payment-methods/pm-1', { method: 'DELETE' })
-    expect(mockFetch.mock.calls[0][0]).toBe('/sanctum/csrf-cookie')
+    expect(mockFetch.mock.calls[0][0]).toBe('/api/sanctum/csrf-cookie')
   })
 
   it('retries once on 419 CSRF mismatch for mutations', async () => {

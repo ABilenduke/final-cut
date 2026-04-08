@@ -62,7 +62,7 @@ async function ensureCsrf(baseURL: string): Promise<void> {
 
   if (!csrfPromise) {
     csrfPromise = (async () => {
-      await $fetch('/sanctum/csrf-cookie', { baseURL, credentials: 'include' })
+      await $fetch('/api/sanctum/csrf-cookie', { baseURL, credentials: 'include' })
       csrfBootstrapped = true
     })().finally(() => {
       csrfPromise = null

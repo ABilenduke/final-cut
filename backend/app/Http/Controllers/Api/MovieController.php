@@ -56,6 +56,7 @@ class MovieController extends Controller
             ->whereHas('auditorium', fn ($q) => $q->where('location_id', $location->id))
             ->with('movie', 'auditorium')
             ->whereDate('start_time', $date)
+            ->where('start_time', '>', now())
             ->orderBy('start_time')
             ->get();
 

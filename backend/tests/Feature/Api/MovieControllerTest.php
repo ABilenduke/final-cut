@@ -151,8 +151,8 @@ test('GET showtimes returns showtimes for movie at location', function () {
     Showtime::factory()->create([
         'movie_id' => $movie->id,
         'auditorium_id' => $auditorium->id,
-        'start_time' => now()->setTime(19, 0),
-        'end_time' => now()->setTime(21, 0),
+        'start_time' => now()->addHours(2),
+        'end_time' => now()->addHours(4),
     ]);
 
     getJson("/api/locations/{$location->slug}/movies/showtime-movie/showtimes?date=".now()->toDateString())
@@ -175,16 +175,16 @@ test('GET showtimes filters by date', function () {
     Showtime::factory()->create([
         'movie_id' => $movie->id,
         'auditorium_id' => $auditorium->id,
-        'start_time' => now()->setTime(19, 0),
-        'end_time' => now()->setTime(21, 0),
+        'start_time' => now()->addHours(2),
+        'end_time' => now()->addHours(4),
     ]);
 
     // Tomorrow's showtime
     Showtime::factory()->create([
         'movie_id' => $movie->id,
         'auditorium_id' => $auditorium->id,
-        'start_time' => now()->addDay()->setTime(19, 0),
-        'end_time' => now()->addDay()->setTime(21, 0),
+        'start_time' => now()->addDay()->addHours(2),
+        'end_time' => now()->addDay()->addHours(4),
     ]);
 
     getJson("/api/locations/{$location->slug}/movies/date-filter/showtimes?date=".now()->toDateString())
@@ -204,16 +204,16 @@ test('GET showtimes defaults to today', function () {
     Showtime::factory()->create([
         'movie_id' => $movie->id,
         'auditorium_id' => $auditorium->id,
-        'start_time' => now()->setTime(20, 0),
-        'end_time' => now()->setTime(22, 0),
+        'start_time' => now()->addHours(3),
+        'end_time' => now()->addHours(5),
     ]);
 
     // Tomorrow — should NOT appear
     Showtime::factory()->create([
         'movie_id' => $movie->id,
         'auditorium_id' => $auditorium->id,
-        'start_time' => now()->addDay()->setTime(20, 0),
-        'end_time' => now()->addDay()->setTime(22, 0),
+        'start_time' => now()->addDay()->addHours(3),
+        'end_time' => now()->addDay()->addHours(5),
     ]);
 
     getJson("/api/locations/{$location->slug}/movies/today-default/showtimes")
@@ -248,14 +248,14 @@ test('GET showtimes excludes showtimes from other locations', function () {
     Showtime::factory()->create([
         'movie_id' => $movie->id,
         'auditorium_id' => $aud1->id,
-        'start_time' => now()->setTime(19, 0),
-        'end_time' => now()->setTime(21, 0),
+        'start_time' => now()->addHours(2),
+        'end_time' => now()->addHours(4),
     ]);
     Showtime::factory()->create([
         'movie_id' => $movie->id,
         'auditorium_id' => $aud2->id,
-        'start_time' => now()->setTime(20, 0),
-        'end_time' => now()->setTime(22, 0),
+        'start_time' => now()->addHours(3),
+        'end_time' => now()->addHours(5),
     ]);
 
     // Location 1 sees only its showtime
