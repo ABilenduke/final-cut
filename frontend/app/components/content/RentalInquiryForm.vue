@@ -54,9 +54,9 @@ async function handleSubmit() {
     await apiFetch('/api/rentals/inquiry', {
       method: 'POST',
       body: {
-        event_type: payload.eventType,
-        preferred_date: payload.preferredDate,
-        guest_count: payload.guestCount,
+        eventType: payload.eventType,
+        preferredDate: payload.preferredDate,
+        guestCount: payload.guestCount,
         name: payload.name,
         email: payload.email,
         message: payload.message,

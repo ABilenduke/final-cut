@@ -18,7 +18,7 @@ defineProps<{
       </svg>
       <p v-if="address" class="contact-map__address body-md">{{ address }}</p>
       <p class="contact-map__coords label-sm">
-        {{ coordinates.lat.toFixed(4) }}°N, {{ coordinates.lng.toFixed(4) }}°W
+        {{ Math.abs(coordinates.lat).toFixed(4) }}°{{ coordinates.lat >= 0 ? 'N' : 'S' }}, {{ Math.abs(coordinates.lng).toFixed(4) }}°{{ coordinates.lng >= 0 ? 'E' : 'W' }}
       </p>
     </div>
   </div>

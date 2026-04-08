@@ -18,7 +18,7 @@ export const Default: Story = {
   render: () => ({
     components: { ContactMap },
     setup: () => ({
-      coordinates: { lat: 40.7128, lng: 73.9352 },
+      coordinates: { lat: 40.7128, lng: -73.9352 },
       address: '123 Cinema Boulevard, New York, NY 10001',
     }),
     template: '<ContactMap :coordinates="coordinates" :address="address" />',

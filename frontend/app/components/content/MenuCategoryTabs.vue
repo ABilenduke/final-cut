@@ -36,23 +36,22 @@ function handleKeydown(event: KeyboardEvent, index: number) {
 </script>
 
 <template>
-  <div class="menu-tabs" role="tablist" aria-label="Menu categories">
+  <nav class="menu-tabs" aria-label="Menu categories">
     <button
       v-for="(cat, index) in categories"
       :key="cat"
       :ref="(el) => { if (el) tabRefs[index] = el as HTMLButtonElement }"
-      role="tab"
       type="button"
       class="menu-tabs__tab"
       :class="{ 'menu-tabs__tab--active': active === cat }"
-      :aria-selected="active === cat"
+      :aria-pressed="active === cat"
       :tabindex="active === cat ? 0 : -1"
       @click="emit('select', cat)"
       @keydown="handleKeydown($event, index)"
     >
       {{ formatLabel(cat) }}
     </button>
-  </div>
+  </nav>
 </template>
 
 <style scoped>

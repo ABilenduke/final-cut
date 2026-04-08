@@ -27,7 +27,7 @@ useHead({
   ],
 })
 
-const coordinates = { lat: 40.7128, lng: 73.9352 }
+const coordinates = { lat: 40.7128, lng: -73.9352 }
 </script>
 
 <template>
