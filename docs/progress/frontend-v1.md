@@ -397,3 +397,47 @@
 - `frontend/app/assets/css/utilities.css` — created (utility classes)
 - `frontend/app/assets/css/print.css` — created (print stylesheet)
 - `frontend/app/assets/css/main.css` — updated (import aggregator)
+
+---
+
+## Plan 11: Blog & Static Content Pages
+**Status:** ✅ Complete
+**Started:** 2026-04-08
+**Completed:** 2026-04-08
+
+### Work Done
+- [2026-04-08] Added `@nuxt/content` v3 module and `better-sqlite3` dependency. Configured `content.config.ts` with blog collection schema (title, description, date, author, image, tags)
+- [2026-04-08] Created 3 sample blog posts in `content/blog/`: grand opening announcement, behind-the-screens feature, summer lineup preview
+- [2026-04-08] Created `BlogPostCard` component composing CvCard with 16:9 image, title, excerpt (3-line clamp), date + author footer
+- [2026-04-08] Created blog listing page (`/blog`) with Ensemble grid, `queryCollection` sorted by date DESC, Blog structured data
+- [2026-04-08] Created blog detail page (`/blog/[slug]`) with Close-Up composition, ContentRenderer for markdown body, related posts section, Article structured data
+- [2026-04-08] Created Careers page with job openings (Projectionist, Front of House, Kitchen & Bar), benefits list, application instructions, JobPosting structured data
+- [2026-04-08] Created Accessibility page with all 7 sections (assisted listening, wheelchair, open captions, audio description, sensory-friendly, service animals, contact) and calendar filter links
+- [2026-04-08] Added routeRules for `/blog/**` (ISR 600s), `/contact`, `/faq`, `/accessibility`, `/careers` (prerender)
+- [2026-04-08] Added `better-sqlite3` Deno compatibility patch script (`scripts/patch-better-sqlite3.ts`) to handle native addon incompatibility
+
+### Decisions
+- [2026-04-08] `@nuxt/content` v3 requires `better-sqlite3` native addon which crashes under Deno's Node compatibility layer. Created a postinstall patch script that replaces the native entry point with a pure JS no-op mock. This is safe because content is compiled to static JSON at build time — SQLite is only used during the build process, not at runtime in dev/test
+- [2026-04-08] Blog posts use `stem` field from `@nuxt/content` for slug construction (the filename without extension), avoiding a custom slug frontmatter field
+- [2026-04-08] Blog detail page hides the rendered h1 via `:deep(h1) { display: none }` since the title is already rendered in the page header above the markdown body
+
+### Blockers
+- [2026-04-08] `better-sqlite3` native Node.js addon incompatible with Deno runtime → resolved with postinstall patch script
+
+### Files Changed
+- `frontend/package.json` — added `@nuxt/content`, `better-sqlite3`
+- `frontend/nuxt.config.ts` — added `@nuxt/content` module, routeRules for blog/static pages
+- `frontend/deno.json` — added `allowScripts` for native deps, `postinstall` patch step
+- `frontend/content.config.ts` — new, blog collection definition
+- `frontend/content/blog/grand-opening-announcement.md` — new, sample post
+- `frontend/content/blog/behind-the-screens.md` — new, sample post
+- `frontend/content/blog/summer-lineup-preview.md` — new, sample post
+- `frontend/scripts/patch-better-sqlite3.ts` — new, Deno compatibility patch
+- `frontend/app/components/content/BlogPostCard.vue` — new component
+- `frontend/app/pages/blog/index.vue` — new, blog listing page
+- `frontend/app/pages/blog/[slug].vue` — new, blog post detail page
+- `frontend/app/pages/careers.vue` — new, static careers page
+- `frontend/app/pages/accessibility.vue` — new, static accessibility page
+- `frontend/tests/components/content/BlogPostCard.test.ts` — new, 8 tests
+- `frontend/tests/pages/blog.test.ts` — new, 2 tests
+- `frontend/tests/pages/static-pages.test.ts` — new, 13 tests

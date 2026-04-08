@@ -11,6 +11,8 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@nuxt/content": "^3.6.3",
+    "better-sqlite3": "^11.9.1",
     "@nuxt/fonts": "^0.14.0",
     "@stripe/stripe-js": "^9.0.1",
     "nuxt": "^4.4.2",
