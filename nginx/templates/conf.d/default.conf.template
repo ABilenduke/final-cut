@@ -93,7 +93,7 @@ server {
     #                                        (only effective in enforcing mode;
     #                                        add it back when switching from
     #                                        Report-Only to Content-Security-Policy)
-    add_header Content-Security-Policy-Report-Only "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://image.tmdb.org; font-src 'self'; connect-src 'self'; media-src 'self'; frame-src https://www.youtube.com https://www.youtube-nocookie.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'" always;
+    add_header Content-Security-Policy-Report-Only "default-src 'self'; script-src 'self' 'unsafe-inline' https://js.stripe.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://image.tmdb.org https://*.stripe.com; font-src 'self'; connect-src 'self' https://api.stripe.com https://m.stripe.network; media-src 'self'; frame-src https://www.youtube.com https://www.youtube-nocookie.com https://js.stripe.com https://hooks.stripe.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'" always;
 
     # ── Fail2Ban banned IPs ───────────────────
     # Written by the fail2ban sidecar via shared nginx-deny volume.
