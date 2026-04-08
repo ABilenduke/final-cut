@@ -100,7 +100,9 @@ async function handleCheckoutSubmit(payload: { paymentMethodId: string; email?: 
     const body = {
       showtimeId: cart.showtime.value.id,
       seatIds: cart.seats.value.map(s => s.seatId),
-      foodItems: cart.foodItems.value.map(f => ({ itemId: f.itemId, quantity: f.quantity })),
+      foodItems: cart.foodItems.value
+        .filter(f => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(f.itemId))
+        .map(f => ({ itemId: f.itemId, quantity: f.quantity })),
       paymentMethodId: payload.paymentMethodId,
       promoCode: cart.promoCode.value,
       giftCardCode: cart.giftCardCode.value,
