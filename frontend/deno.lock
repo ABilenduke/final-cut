@@ -8,6 +8,7 @@
     "npm:@types/qrcode@^1.5.6": "1.5.6",
     "npm:@vue/test-utils@^2.4.6": "2.4.6",
     "npm:happy-dom@^20.8.9": "20.8.9",
+    "npm:nuxi@*": "3.34.0",
     "npm:nuxt@*": "4.4.2_@babel+core@7.29.0_@emnapi+core@1.9.2_@emnapi+runtime@1.9.2_typescript@6.0.2_vite@7.3.1__jiti@2.6.1",
     "npm:nuxt@^4.4.2": "4.4.2_@babel+core@7.29.0_@emnapi+core@1.9.2_@emnapi+runtime@1.9.2_typescript@6.0.2_vite@7.3.1__jiti@2.6.1",
     "npm:qrcode@^1.5.4": "1.5.4",
@@ -4056,6 +4057,10 @@
       "dependencies": [
         "boolbase"
       ]
+    },
+    "nuxi@3.34.0": {
+      "integrity": "sha512-CeGPANsBStoutGt8adKunjZUy3OVquE8ESSeReT53SjVCXWGpMgt3R9HoJIBEz+1WYR3S06Xfi4foU3Ris7fVQ==",
+      "bin": true
     },
     "nuxt@4.4.2_@babel+core@7.29.0_@emnapi+core@1.9.2_@emnapi+runtime@1.9.2_typescript@6.0.2_vite@7.3.1__jiti@2.6.1": {
       "integrity": "sha512-iWVFpr/YEqVU/CenqIHMnIkvb2HE/9f+q8oxZ+pj2et+60NljGRClCgnmbvGPdmNFE0F1bEhoBCYfqbDOCim3Q==",
