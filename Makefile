@@ -1,4 +1,11 @@
-.PHONY: up down build shell migrate fresh certs trust-cert prod-up prod-down prod-build prod-logs local-prod-up local-prod-down local-prod-build local-prod-logs storybook storybook-logs e2e ci-e2e
+.PHONY: up down build shell artisan migrate fresh certs trust-cert prod-up prod-down prod-build prod-logs local-prod-up local-prod-down local-prod-build local-prod-logs storybook storybook-logs e2e ci-e2e
+
+ifeq (artisan,$(firstword $(MAKECMDGOALS)))
+ARTISAN_ARGS := $(wordlist 2,$(words $(MAKECMDGOALS)),$(MAKECMDGOALS))
+
+%:
+	@:
+endif
 
 up:
 	docker compose up -d
@@ -11,6 +18,10 @@ build:
 
 shell:
 	docker compose exec backend sh
+
+artisan:
+	@if [ -z "$(strip $(ARTISAN_ARGS))" ]; then echo 'Usage: make artisan <command> [args...]'; exit 1; fi
+	docker compose exec backend php artisan $(ARTISAN_ARGS)
 
 migrate:
 	docker compose exec backend php artisan migrate

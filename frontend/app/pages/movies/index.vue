@@ -23,9 +23,7 @@ const movies = computed(() => {
   return nowShowingData.value?.data ?? []
 })
 
-const cardVariant = computed(() =>
-  status.value === 'coming_soon' ? 'coming-soon' as const : 'now-showing' as const
-)
+const showShowtimes = computed(() => status.value !== 'coming_soon')
 
 // Tab navigation
 function setStatus(newStatus: 'now_showing' | 'coming_soon') {
@@ -98,7 +96,7 @@ useHead({
           v-for="movie in movies"
           :key="movie.id"
           :movie="movie"
-          :variant="cardVariant"
+          :show-showtimes="showShowtimes"
           @notify="handleNotify"
         />
       </div>

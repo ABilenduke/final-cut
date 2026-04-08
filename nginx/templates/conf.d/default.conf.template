@@ -73,22 +73,27 @@ server {
     #                                        (required for Nuxt SSR hydration)
     #   style-src   'self' 'unsafe-inline' — CSS from same origin + inline styles
     #                                        (Nuxt injects scoped <style> blocks)
-    #   img-src     'self' data: blob:     — images from same origin, data URIs,
-    #                                        and blob URLs (Nuxt image handling)
+    #   img-src     'self' data: blob: https://image.tmdb.org
+    #                                      — same-origin images, data/blob URLs,
+    #                                        and TMDB-hosted poster/backdrop art
     #   font-src    'self'                 — fonts from same origin only
-    #   connect-src 'self' https://api.${APP_DOMAIN} — XHR/fetch to same origin
-    #                                        and the Laravel API subdomain
+    #   connect-src 'self'                 — XHR/fetch to the same origin only.
+    #                                        The Laravel API is served through
+    #                                        /api on ${APP_DOMAIN}, not a
+    #                                        separate API subdomain.
     #   media-src   'self'                 — audio/video from same origin only
     #   object-src  'none'                 — block <object>, <embed>, <applet>
     #   base-uri    'self'                 — restrict <base> to same origin
     #   form-action 'self'                 — forms can only submit to same origin
+    #   frame-src   https://www.youtube.com https://www.youtube-nocookie.com
+    #                                      — allow the movie trailer embeds
     #   frame-ancestors 'self'             — only same origin can embed in iframe
     #                                        (replaces X-Frame-Options)
     #   upgrade-insecure-requests          — auto-upgrade http:// to https://
     #                                        (only effective in enforcing mode;
     #                                        add it back when switching from
     #                                        Report-Only to Content-Security-Policy)
-    add_header Content-Security-Policy-Report-Only "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://api.${APP_DOMAIN}; media-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'" always;
+    add_header Content-Security-Policy-Report-Only "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://image.tmdb.org; font-src 'self'; connect-src 'self'; media-src 'self'; frame-src https://www.youtube.com https://www.youtube-nocookie.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'" always;
 
     # ── Fail2Ban banned IPs ───────────────────
     # Written by the fail2ban sidecar via shared nginx-deny volume.

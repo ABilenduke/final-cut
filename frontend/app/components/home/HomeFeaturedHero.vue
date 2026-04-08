@@ -1,28 +1,12 @@
 <script setup lang="ts">
 import type { Movie } from '~/types/movie'
-import type { Showtime } from '~/types/showtime'
 
-const props = defineProps<{
+defineProps<{
   movie: Movie
-  nextShowtime: Showtime | null
-  locationSelected: boolean
-  loading: boolean
 }>()
-
-const emit = defineEmits<{
-  'choose-location': []
-  'track': [event: { action: string; movieSlug: string }]
-}>()
-
-const formattedTime = computed(() => {
-  if (!props.nextShowtime) return ''
-  return formatTime(props.nextShowtime.startTime)
-})
 
 useHead({
-  link: props.movie.backdropUrl
-    ? [{ rel: 'preload', as: 'image', href: props.movie.backdropUrl }]
-    : [],
+  // Preload is set dynamically — only when backdropUrl exists
 })
 </script>
 
@@ -47,52 +31,13 @@ useHead({
       <h1 class="home-hero__title display-lg">{{ movie.title }}</h1>
       <p v-if="movie.tagline" class="home-hero__tagline body-lg">{{ movie.tagline }}</p>
 
-      <!-- CTA area: depends on location state -->
       <div class="home-hero__cta">
-        <!-- State 1: No location selected -->
         <CvButton
-          v-if="!locationSelected"
-          variant="secondary"
-          @click="emit('choose-location'); emit('track', { action: 'choose-location', movieSlug: movie.slug })"
-        >
-          Choose a Location
-        </CvButton>
-
-        <!-- State 2: Loading showtimes -->
-        <CvSkeletonLoader
-          v-else-if="loading"
-          variant="text"
-          width="12rem"
-          height="3rem"
-        />
-
-        <!-- State 3: Has showtime -->
-        <template v-else-if="nextShowtime">
-          <CvButton
-            variant="primary"
-            :href="`/purchase/${nextShowtime.id}`"
-            :aria-label="`Get tickets for ${movie.title} at ${formattedTime}`"
-            @click="emit('track', { action: 'hero-cta', movieSlug: movie.slug })"
-          >
-            Get Tickets &mdash; {{ formattedTime }}
-          </CvButton>
-          <NuxtLink
-            :to="`/movies/${movie.slug}`"
-            class="home-hero__more-link body-sm"
-            @click="emit('track', { action: 'hero-more-showtimes', movieSlug: movie.slug })"
-          >
-            More showtimes
-          </NuxtLink>
-        </template>
-
-        <!-- State 4: No showtimes available -->
-        <CvButton
-          v-else
-          variant="secondary"
+          variant="primary"
           :href="`/movies/${movie.slug}`"
-          @click="emit('track', { action: 'hero-fallback', movieSlug: movie.slug })"
+          :aria-label="`Get tickets for ${movie.title}`"
         >
-          View Showtimes
+          Get Tickets
         </CvButton>
       </div>
     </div>
@@ -146,15 +91,6 @@ useHead({
   flex-direction: column;
   align-items: flex-start;
   gap: var(--space-sm);
-}
-
-.home-hero__more-link {
-  color: var(--secondary);
-  text-decoration: none;
-}
-
-.home-hero__more-link:hover {
-  text-decoration: underline;
 }
 
 @keyframes home-hero-reveal {

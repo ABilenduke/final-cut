@@ -27,7 +27,7 @@ class Movie extends Model
             'cast' => 'array',
             'release_date' => 'date',
             'status' => MovieStatus::class,
-            'rating' => 'decimal:1',
+            'rating' => 'float',
             'runtime' => 'integer',
             'tmdb_enriched_at' => 'datetime',
         ];

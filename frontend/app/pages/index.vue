@@ -1,7 +1,5 @@
 <script setup lang="ts">
 import type { Movie } from '~/types/movie'
-import type { Showtime } from '~/types/showtime'
-import { apiFetch } from '~/utils/api'
 
 // --- SSR/ISR data ---
 const { nowShowing, comingSoon } = useMovies()
@@ -13,58 +11,13 @@ const { data: comingSoonData } = comingSoon({ per_page: 6 })
 const comingSoonMovies = computed(() => comingSoonData.value?.data ?? [])
 
 // Select featured movie from listing data (pure function, ISR-safe)
-const featuredListing = computed(() => selectFeaturedMovie(nowShowingMovies.value))
-
-// The listing endpoint returns the full Movie shape (including tagline/backdropUrl),
-// so no separate detail fetch is needed.
-const featuredMovie = computed<Movie | null>(() => featuredListing.value ?? null)
-
-// --- Client-only: hero showtime for CTA ---
-const { activeLocation } = useLocations()
-const heroShowtime = ref<Showtime | null>(null)
-const heroLoading = ref(false)
-let fetchGeneration = 0 // Guards against stale async responses
-
-async function fetchHeroShowtime() {
-  const locSlug = activeLocation.value?.slug
-  const movSlug = featuredMovie.value?.slug
-  if (!locSlug || !movSlug) {
-    heroShowtime.value = null
-    return
-  }
-  const generation = ++fetchGeneration
-  heroLoading.value = true
-  try {
-    const res = await apiFetch<{ data: Showtime[] }>(
-      `/api/locations/${locSlug}/movies/${movSlug}/showtimes`,
-    )
-    if (generation === fetchGeneration) {
-      heroShowtime.value = res.data[0] ?? null
-    }
-  } catch {
-    if (generation === fetchGeneration) {
-      heroShowtime.value = null
-    }
-  } finally {
-    if (generation === fetchGeneration) {
-      heroLoading.value = false
-    }
-  }
-}
-
-if (import.meta.client) {
-  watch([activeLocation, featuredMovie], () => fetchHeroShowtime(), { immediate: true })
-}
+const featuredMovie = computed<Movie | null>(() => selectFeaturedMovie(nowShowingMovies.value) ?? null)
 
 // --- Handlers ---
 const { show: showToast } = useToast()
 
 function handleNotify() {
   showToast({ message: 'We\'ll let you know when tickets are available.', type: 'success' })
-}
-
-function openLocationSelector() {
-  document.getElementById('location-select')?.focus()
 }
 
 // --- SEO ---
@@ -81,25 +34,10 @@ useHead({
 
 <template>
   <div class="home-page">
-    <!-- 1. Hero: Immediate conversion -->
-    <!-- Location-dependent CTA is handled inside HomeFeaturedHero; the movie
-         backdrop/title/tagline render from ISR. The hero component renders
-         its CTA based on props, so no hydration mismatch — SSR gets the
-         initial state (locationSelected=false → "Choose a Location") which
-         is correct since activeLocation is null on the server. -->
-    <HomeFeaturedHero
-      v-if="featuredMovie"
-      :movie="featuredMovie"
-      :next-showtime="heroShowtime"
-      :location-selected="!!activeLocation"
-      :loading="heroLoading"
-      @choose-location="openLocationSelector"
-    />
+    <!-- 1. Hero: Featured now-showing film -->
+    <HomeFeaturedHero v-if="featuredMovie" :movie="featuredMovie" />
 
-    <!-- 2. Quick Showtime Strip: Intent-first fast path -->
-    <QuickShowtimeStrip :location="activeLocation" @change-location="openLocationSelector" />
-
-    <!-- 3. Now Showing: Active browsing -->
+    <!-- 2. Now Showing: Active browsing -->
     <section v-if="nowShowingMovies.length > 0" class="home-page__section" aria-labelledby="now-showing">
       <div class="container">
         <h2 id="now-showing" class="home-page__heading headline-lg">Now Showing</h2>
@@ -108,16 +46,15 @@ useHead({
             v-for="movie in nowShowingMovies"
             :key="movie.id"
             :movie="movie"
-            variant="now-showing"
           />
         </div>
       </div>
     </section>
 
-    <!-- 4. What's On This Week: Curated discovery -->
+    <!-- 3. What's On This Week: Curated discovery -->
     <HomeEventStrip />
 
-    <!-- 5. Coming Soon: Future intent capture -->
+    <!-- 4. Coming Soon: Future intent capture -->
     <section v-if="comingSoonMovies.length > 0" class="home-page__section" aria-labelledby="coming-soon">
       <div class="container">
         <h2 id="coming-soon" class="home-page__heading headline-lg">Coming Soon</h2>
@@ -126,7 +63,7 @@ useHead({
             v-for="movie in comingSoonMovies"
             :key="movie.id"
             :movie="movie"
-            variant="coming-soon"
+            :show-showtimes="false"
             @notify="handleNotify"
           />
         </div>

@@ -3,25 +3,20 @@ import type { Movie } from '~/types/movie'
 
 const props = withDefaults(defineProps<{
   movie: Movie
-  variant?: 'now-showing' | 'coming-soon'
+  showShowtimes?: boolean
 }>(), {
-  variant: 'now-showing',
+  showShowtimes: true,
 })
 
 const emit = defineEmits<{
   notify: [slug: string]
-  'track': [event: { action: string; movieSlug: string }]
 }>()
 </script>
 
 <template>
   <CvCard class="movie-card">
     <template #header>
-      <NuxtLink
-        :to="`/movies/${movie.slug}`"
-        class="movie-card__link"
-        @click="emit('track', { action: 'title-click', movieSlug: movie.slug })"
-      >
+      <NuxtLink :to="`/movies/${movie.slug}`" class="movie-card__link">
         <div class="movie-card__poster-container">
           <img
             v-if="movie.posterUrl"
@@ -35,7 +30,7 @@ const emit = defineEmits<{
       </NuxtLink>
     </template>
 
-    <template v-if="variant === 'now-showing'">
+    <template v-if="showShowtimes">
       <div class="movie-card__meta">
         <MovieRatingBadge :rating="movie.rating" />
         <div class="movie-card__genres">
@@ -59,17 +54,16 @@ const emit = defineEmits<{
 
     <template #footer>
       <CvButton
-        v-if="variant === 'now-showing'"
+        v-if="showShowtimes"
         variant="tertiary"
         :href="`/movies/${movie.slug}`"
-        @click="emit('track', { action: 'cta-click', movieSlug: movie.slug })"
       >
         View Showtimes
       </CvButton>
       <CvButton
         v-else
         variant="secondary"
-        @click="emit('notify', movie.slug); emit('track', { action: 'notify-click', movieSlug: movie.slug })"
+        @click="emit('notify', movie.slug)"
       >
         Notify Me
       </CvButton>

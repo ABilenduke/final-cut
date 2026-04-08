@@ -30,9 +30,8 @@ const meta: Meta<typeof MovieCard> = {
   title: 'Movie/MovieCard',
   component: MovieCard,
   argTypes: {
-    variant: {
-      control: 'select',
-      options: ['now-showing', 'coming-soon'],
+    showShowtimes: {
+      control: 'boolean',
     },
   },
   decorators: [
@@ -65,7 +64,7 @@ export const ComingSoon: Story = {
         rating: 0,
       }),
     }),
-    template: '<MovieCard :movie="movie" variant="coming-soon" />',
+    template: '<MovieCard :movie="movie" :show-showtimes="false" />',
   }),
 }
 

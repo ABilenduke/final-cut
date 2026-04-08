@@ -4,6 +4,7 @@ import { apiFetch } from '~/utils/api'
 export function useLocations() {
   const locations = useState<Location[]>('locations', () => [])
   const activeLocation = useState<Location | null>('active-location', () => null)
+  const locationsReady = useState<boolean>('locations-ready', () => false)
 
   function setLocation(slug: string) {
     const match = locations.value.find((l) => l.slug === slug)
@@ -15,16 +16,9 @@ export function useLocations() {
     }
   }
 
-  /**
-   * Rehydrate active location from localStorage after locations are populated.
-   * localStorage always wins over any existing value (including SSR fallback),
-   * ensuring returning users get their previously selected theater.
-   * Falls back to the first location only if no stored match exists.
-   */
   function rehydrate() {
     if (locations.value.length === 0) return
 
-    // Always check localStorage first — it represents the user's explicit choice
     if (import.meta.client) {
       const stored = localStorage.getItem('active-location')
       if (stored) {
@@ -42,24 +36,27 @@ export function useLocations() {
     }
   }
 
-  // Rehydrate whenever locations change
-  watch(locations, () => {
-    rehydrate()
-  }, { immediate: true })
-
   async function fetchLocations(): Promise<void> {
     try {
       const response = await apiFetch<{ data: Location[] }>('/api/locations')
       locations.value = response.data
+      rehydrate()
     } catch {
       // Graceful degradation — keep any previously loaded locations and activeLocation unchanged
     }
   }
 
+  async function initializeLocations(): Promise<void> {
+    await fetchLocations()
+    locationsReady.value = true
+  }
+
   return {
     locations,
     activeLocation,
+    locationsReady,
     setLocation,
     fetchLocations,
+    initializeLocations,
   }
 }

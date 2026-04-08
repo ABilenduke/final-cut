@@ -28,6 +28,7 @@ make up                 # Start dev environment (includes postgres, redis, story
 make down               # Stop all containers
 make build              # Build containers
 make shell              # Shell into backend container
+make artisan list       # Run an Artisan command in the backend container
 make migrate            # Run database migrations
 make fresh              # Reset database with fresh migrations + seeds
 make storybook          # Run Storybook inside its container

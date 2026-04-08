@@ -27,7 +27,7 @@ function makeMovie(overrides: Partial<Movie> = {}): Movie {
 }
 
 describe('MovieCard', () => {
-  it('renders rating badge in now-showing variant', async () => {
+  it('renders rating badge when showShowtimes is true (default)', async () => {
     const movie = makeMovie({ rating: 8.2 })
     const wrapper = await mountSuspended(MovieCard, {
       props: { movie },
@@ -35,32 +35,32 @@ describe('MovieCard', () => {
     expect(wrapper.text()).toContain('8.2')
   })
 
-  it('does not render rating badge in coming-soon variant', async () => {
+  it('does not render rating badge when showShowtimes is false', async () => {
     const wrapper = await mountSuspended(MovieCard, {
-      props: { movie: makeMovie({ rating: 8.2 }), variant: 'coming-soon' },
+      props: { movie: makeMovie({ rating: 8.2 }), showShowtimes: false },
     })
-    // Coming-soon variant should not include MovieRatingBadge
-    expect(wrapper.html()).not.toContain('variant="accent"')
+    // Coming-soon mode should not include MovieRatingBadge
+    expect(wrapper.html()).not.toContain('cv-badge--accent')
   })
 
-  it('renders release date in coming-soon variant', async () => {
+  it('renders release date when showShowtimes is false', async () => {
     const movie = makeMovie({ releaseDate: '2026-06-15' })
     const wrapper = await mountSuspended(MovieCard, {
-      props: { movie, variant: 'coming-soon' },
+      props: { movie, showShowtimes: false },
     })
     expect(wrapper.text()).toContain('Jun 15, 2026')
   })
 
   it('release date has secondary color class', async () => {
     const wrapper = await mountSuspended(MovieCard, {
-      props: { movie: makeMovie(), variant: 'coming-soon' },
+      props: { movie: makeMovie(), showShowtimes: false },
     })
     const releaseDate = wrapper.find('.movie-card__release-date')
     expect(releaseDate.exists()).toBe(true)
     expect(releaseDate.classes()).toContain('label-lg')
   })
 
-  it('does not render release date in now-showing variant', async () => {
+  it('does not render release date when showShowtimes is true', async () => {
     const wrapper = await mountSuspended(MovieCard, {
       props: { movie: makeMovie() },
     })
@@ -82,8 +82,7 @@ describe('MovieCard', () => {
     })
     const genreContainer = wrapper.find('.movie-card__genres')
     expect(genreContainer.exists()).toBe(true)
-    // CvBadge renders as <cvbadge> stub elements
-    const genreBadges = genreContainer.findAll('cvbadge')
+    const genreBadges = genreContainer.findAll('.cv-badge')
     expect(genreBadges).toHaveLength(3)
     expect(genreContainer.text()).toContain('Action')
     expect(genreContainer.text()).toContain('Drama')
@@ -103,7 +102,7 @@ describe('MovieCard', () => {
       props: { movie },
     })
     const genreContainer = wrapper.find('.movie-card__genres')
-    const genreBadges = genreContainer.findAll('cvbadge')
+    const genreBadges = genreContainer.findAll('.cv-badge')
     expect(genreBadges).toHaveLength(2)
   })
 
@@ -121,18 +120,17 @@ describe('MovieCard', () => {
     const wrapper = await mountSuspended(MovieCard, {
       props: { movie: makeMovie() },
     })
-    const card = wrapper.find('cvcard')
+    const card = wrapper.find('.cv-card')
     expect(card.exists()).toBe(true)
     expect(card.classes()).toContain('movie-card')
   })
 
-  it('defaults to now-showing variant', async () => {
+  it('defaults to showShowtimes true', async () => {
     const wrapper = await mountSuspended(MovieCard, {
       props: { movie: makeMovie() },
     })
-    // now-showing renders rating badge (accent variant)
-    expect(wrapper.html()).toContain('variant="accent"')
-    // now-showing does NOT render release date
+    expect(wrapper.html()).toContain('cv-badge--accent')
+    // showShowtimes=true does NOT render release date
     expect(wrapper.find('.movie-card__release-date').exists()).toBe(false)
   })
 

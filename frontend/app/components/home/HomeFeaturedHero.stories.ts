@@ -1,7 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/vue3'
 import HomeFeaturedHero from './HomeFeaturedHero.vue'
 import type { Movie } from '~/types/movie'
-import type { Showtime } from '~/types/showtime'
 
 const mockMovie: Movie = {
   id: 1,
@@ -23,20 +22,6 @@ const mockMovie: Movie = {
   status: 'now_showing',
 }
 
-const mockShowtime: Showtime = {
-  id: 'st-1',
-  movieId: 1,
-  movieSlug: 'blade-runner-2049',
-  movieTitle: 'Blade Runner 2049',
-  screenId: 's1',
-  screenName: 'Screen 1',
-  startTime: '2026-04-07T19:00:00Z',
-  endTime: '2026-04-07T21:00:00Z',
-  priceStandard: 1500,
-  pricePremium: 2000,
-  priceAccessible: 1200,
-}
-
 const meta: Meta<typeof HomeFeaturedHero> = {
   title: 'Home/HomeFeaturedHero',
   component: HomeFeaturedHero,
@@ -48,38 +33,11 @@ const meta: Meta<typeof HomeFeaturedHero> = {
 export default meta
 type Story = StoryObj<typeof HomeFeaturedHero>
 
-export const WithShowtime: Story = {
-  render: () => ({
-    components: { HomeFeaturedHero },
-    setup: () => ({
-      movie: mockMovie,
-      nextShowtime: mockShowtime,
-    }),
-    template: '<HomeFeaturedHero :movie="movie" :next-showtime="nextShowtime" :location-selected="true" :loading="false" />',
-  }),
-}
-
-export const Loading: Story = {
+export const Default: Story = {
   render: () => ({
     components: { HomeFeaturedHero },
     setup: () => ({ movie: mockMovie }),
-    template: '<HomeFeaturedHero :movie="movie" :next-showtime="null" :location-selected="true" :loading="true" />',
-  }),
-}
-
-export const NoShowtime: Story = {
-  render: () => ({
-    components: { HomeFeaturedHero },
-    setup: () => ({ movie: mockMovie }),
-    template: '<HomeFeaturedHero :movie="movie" :next-showtime="null" :location-selected="true" :loading="false" />',
-  }),
-}
-
-export const NoLocation: Story = {
-  render: () => ({
-    components: { HomeFeaturedHero },
-    setup: () => ({ movie: mockMovie }),
-    template: '<HomeFeaturedHero :movie="movie" :next-showtime="null" :location-selected="false" :loading="false" />',
+    template: '<HomeFeaturedHero :movie="movie" />',
   }),
 }
 
@@ -88,8 +46,17 @@ export const NoBackdrop: Story = {
     components: { HomeFeaturedHero },
     setup: () => ({
       movie: { ...mockMovie, backdropUrl: '' },
-      nextShowtime: mockShowtime,
     }),
-    template: '<HomeFeaturedHero :movie="movie" :next-showtime="nextShowtime" :location-selected="true" :loading="false" />',
+    template: '<HomeFeaturedHero :movie="movie" />',
+  }),
+}
+
+export const NoTagline: Story = {
+  render: () => ({
+    components: { HomeFeaturedHero },
+    setup: () => ({
+      movie: { ...mockMovie, tagline: '' },
+    }),
+    template: '<HomeFeaturedHero :movie="movie" />',
   }),
 }

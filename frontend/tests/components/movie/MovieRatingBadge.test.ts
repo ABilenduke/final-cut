@@ -36,6 +36,6 @@ describe('MovieRatingBadge', () => {
       props: { rating: 7.8 },
     })
     const html = wrapper.html()
-    expect(html).toContain('variant="accent"')
+    expect(html).toContain('cv-badge--accent')
   })
 })

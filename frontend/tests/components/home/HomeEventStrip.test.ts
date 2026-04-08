@@ -180,15 +180,15 @@ describe('HomeEventStrip', () => {
   it('shows "View full calendar" link', async () => {
     const wrapper = await mountSuspended(HomeEventStrip)
     expect(wrapper.text()).toContain('View full calendar')
-    const calendarLink = wrapper.find('cvbutton[href="/whats-on"]')
+    const calendarLink = wrapper.find('a[href="/whats-on"]')
     expect(calendarLink.exists()).toBe(true)
   })
 
   it('links events to their detail page', async () => {
     const wrapper = await mountSuspended(HomeEventStrip)
     // "kids-movie-night" slug should produce /events/kids-movie-night
-    const viewButton = wrapper.find('cvbutton[href="/events/kids-movie-night"]')
-    expect(viewButton.exists()).toBe(true)
+    const eventLink = wrapper.find('a[href="/events/kids-movie-night"]')
+    expect(eventLink.exists()).toBe(true)
   })
 
   it('truncates long descriptions', async () => {
