@@ -33,7 +33,7 @@ test('movie seeder fails fast when live tmdb seeding is enabled without api key'
     ]);
 
     expect(fn () => (new MovieSeeder)->run())
-        ->toThrow(\RuntimeException::class, 'TMDB_API_KEY is required');
+        ->toThrow(RuntimeException::class, 'TMDB_API_KEY is required');
 });
 
 test('movie seeder fails when live tmdb enrichment command fails', function () {
@@ -52,7 +52,7 @@ test('movie seeder fails when live tmdb enrichment command fails', function () {
         ->andReturn('TMDB API request failed');
 
     expect(fn () => (new MovieSeeder)->run())
-        ->toThrow(\RuntimeException::class, 'live TMDB enrichment did not complete successfully');
+        ->toThrow(RuntimeException::class, 'live TMDB enrichment did not complete successfully');
 });
 
 test('movie seeder runs live tmdb enrichment command when enabled', function () {
