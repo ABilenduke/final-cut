@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { loadStripe } from '@stripe/stripe-js'
 import type { Booking } from '~/types/booking'
 import type { ApiErrorResponse } from '~/utils/api'
 import { apiFetch } from '~/utils/api'
@@ -107,10 +108,38 @@ async function handleCheckoutSubmit(payload: { paymentMethodId: string; email?: 
       loyaltyOptIn: payload.loyaltyOptIn ?? false,
     }
 
-    const response = await apiFetch<{ data: Booking }>(
+    const response = await apiFetch<{
+      data: Booking
+      requiresAction?: boolean
+      clientSecret?: string
+    }>(
       `/api/locations/${activeLocation.value.slug}/bookings`,
       { method: 'POST', body },
     )
+
+    // 3DS required — handle client-side confirmation
+    if (response.requiresAction && response.clientSecret) {
+      const config = useRuntimeConfig()
+      const stripe = await loadStripe(config.public.stripePublishableKey as string)
+      if (!stripe) {
+        showToast({ message: 'Unable to verify payment. Please try again.', type: 'error' })
+        return
+      }
+
+      const { error: confirmError } = await stripe.handleCardAction(response.clientSecret)
+      if (confirmError) {
+        showToast({ message: confirmError.message ?? '3D Secure verification failed.', type: 'error' })
+        return
+      }
+
+      // Confirm booking after 3DS
+      const confirmResponse = await apiFetch<{ data: Booking }>(
+        `/api/locations/${activeLocation.value.slug}/bookings/confirm`,
+        { method: 'POST', body: { paymentIntentId: response.clientSecret.split('_secret_')[0] } },
+      )
+      await navigateTo(`/purchase/confirmation/${confirmResponse.data.id}`)
+      return
+    }
 
     await navigateTo(`/purchase/confirmation/${response.data.id}`)
   } catch (err) {

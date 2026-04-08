@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { loadStripe } from '@stripe/stripe-js'
+import type { Stripe, StripeCardElement } from '@stripe/stripe-js'
+
 const props = defineProps<{
   total: number
   isAuthenticated: boolean
@@ -14,15 +17,93 @@ const email = ref('')
 const loyaltyOptIn = ref(false)
 const isSubmitting = ref(false)
 const formError = ref('')
-
-// Stripe Elements will be initialized when Stripe is available
-const stripeReady = ref(false)
 const cardError = ref('')
 
-// Placeholder for Stripe integration — actual Stripe Elements initialization
-// requires @stripe/stripe-js to be installed and configured.
-// For now, we provide the form structure and validation.
-const hasCardInput = ref(false)
+// Stripe state
+const cardMountRef = ref<HTMLElement | null>(null)
+let stripe: Stripe | null = null
+let cardElement: StripeCardElement | null = null
+const stripeReady = ref(false)
+const stripeLoadError = ref('')
+
+onMounted(async () => {
+  const config = useRuntimeConfig()
+  const publishableKey = config.public.stripePublishableKey as string
+
+  if (!publishableKey) {
+    stripeLoadError.value = 'Payment is not configured. Please contact support.'
+    return
+  }
+
+  try {
+    stripe = await loadStripe(publishableKey)
+    if (!stripe) {
+      stripeLoadError.value = 'Unable to load payment system. Please try again.'
+      return
+    }
+
+    const elements = stripe.elements({
+      appearance: {
+        theme: 'night',
+        variables: {
+          colorPrimary: '#DAC769',
+          colorBackground: '#131313',
+          colorText: '#E5E2E1',
+          colorDanger: '#FFB4A8',
+          fontFamily: 'Newsreader, serif',
+          borderRadius: '0.125rem',
+          colorTextPlaceholder: '#A89F91',
+        },
+        rules: {
+          '.Input': {
+            border: 'none',
+            borderBottom: '0.0625rem solid #A58B86',
+            borderRadius: '0',
+            boxShadow: 'none',
+            padding: '0.5rem 0',
+          },
+          '.Input:focus': {
+            borderBottomColor: '#DAC769',
+            boxShadow: '0 0.125rem 0.5rem rgba(218, 199, 105, 0.3)',
+          },
+          '.Input--invalid': {
+            borderBottomColor: '#550000',
+          },
+        },
+      },
+    })
+
+    cardElement = elements.create('card', {
+      style: {
+        base: {
+          fontSize: '16px',
+          color: '#E5E2E1',
+          fontFamily: 'Newsreader, serif',
+          '::placeholder': { color: '#A89F91' },
+        },
+        invalid: {
+          color: '#FFB4A8',
+        },
+      },
+      hidePostalCode: true,
+    })
+
+    if (cardMountRef.value) {
+      cardElement.mount(cardMountRef.value)
+      stripeReady.value = true
+
+      cardElement.on('change', (event) => {
+        cardError.value = event.error?.message ?? ''
+      })
+    }
+  } catch {
+    stripeLoadError.value = 'Unable to load payment system. Please try again.'
+  }
+})
+
+onBeforeUnmount(() => {
+  cardElement?.destroy()
+})
 
 function validateForm(): boolean {
   if (!billingName.value.trim()) {
@@ -37,6 +118,10 @@ function validateForm(): boolean {
     formError.value = 'Please enter a valid email address'
     return false
   }
+  if (!stripeReady.value) {
+    formError.value = 'Payment system is not ready. Please wait or refresh.'
+    return false
+  }
   formError.value = ''
   return true
 }
@@ -44,15 +129,36 @@ function validateForm(): boolean {
 async function handleSubmit() {
   if (!validateForm()) return
   if (isSubmitting.value) return
+  if (!stripe || !cardElement) return
 
   isSubmitting.value = true
   formError.value = ''
+  cardError.value = ''
 
   try {
-    // In production, this would use stripe.createPaymentMethod()
-    // For now, emit with a placeholder paymentMethodId
+    const { paymentMethod, error: stripeError } = await stripe.createPaymentMethod({
+      type: 'card',
+      card: cardElement,
+      billing_details: {
+        name: billingName.value.trim(),
+        ...(props.isAuthenticated ? {} : { email: email.value.trim() }),
+      },
+    })
+
+    if (stripeError) {
+      cardError.value = stripeError.message ?? 'Card error. Please check your details.'
+      isSubmitting.value = false
+      return
+    }
+
+    if (!paymentMethod) {
+      formError.value = 'Unable to process card. Please try again.'
+      isSubmitting.value = false
+      return
+    }
+
     const payload: { paymentMethodId: string; email?: string; loyaltyOptIn?: boolean } = {
-      paymentMethodId: 'pm_placeholder',
+      paymentMethodId: paymentMethod.id,
     }
 
     if (!props.isAuthenticated) {
@@ -100,15 +206,22 @@ async function handleSubmit() {
         />
       </template>
 
-      <!-- Stripe Card Element placeholder -->
+      <!-- Stripe Card Element -->
       <div class="checkout-form__card-element">
         <label class="checkout-form__card-label">Card Details</label>
-        <div class="checkout-form__card-mount" aria-label="Credit card input">
-          <!-- Stripe Elements mounts here in production -->
-          <div class="checkout-form__card-placeholder">
-            Card input (Stripe Elements)
-          </div>
+        <div
+          v-if="stripeLoadError"
+          class="checkout-form__card-error"
+          role="alert"
+        >
+          {{ stripeLoadError }}
         </div>
+        <div
+          v-else
+          ref="cardMountRef"
+          class="checkout-form__card-mount"
+          aria-label="Credit card input"
+        />
         <p v-if="cardError" class="checkout-form__card-error" role="alert">
           {{ cardError }}
         </p>
@@ -128,7 +241,7 @@ async function handleSubmit() {
         variant="primary"
         size="lg"
         :loading="isSubmitting"
-        :disabled="isSubmitting"
+        :disabled="isSubmitting || !stripeReady"
         class="checkout-form__submit"
       >
         Complete Purchase
@@ -164,7 +277,7 @@ async function handleSubmit() {
 }
 
 .checkout-form__card-mount {
-  height: 3rem;
+  min-height: 3rem;
   padding: var(--space-sm) 0;
   border-bottom: 0.0625rem solid var(--outline);
   transition: border-color var(--duration-standard) var(--ease-standard);
@@ -173,13 +286,6 @@ async function handleSubmit() {
 .checkout-form__card-mount:focus-within {
   border-bottom-color: var(--secondary);
   box-shadow: 0 0.125rem 0.5rem rgba(218, 199, 105, 0.3);
-}
-
-.checkout-form__card-placeholder {
-  font-family: var(--font-body);
-  font-size: var(--type-body-sm);
-  color: var(--on-tertiary-fixed-variant);
-  line-height: 2;
 }
 
 .checkout-form__card-error {
