@@ -2,14 +2,28 @@ import type { UserProfile } from '~/types/user'
 import type { Booking } from '~/types/booking'
 import { apiFetch, useApiFetch } from '~/utils/api'
 
+export interface LoyaltyHistoryEntry {
+  description: string
+  points: number
+  date: string
+  bookingId: string
+}
+
+export interface LoyaltyData {
+  points: number
+  tier: 'member' | 'premier'
+  premierExpiry: string | null
+  history: LoyaltyHistoryEntry[]
+}
+
 export function useAccount() {
   const profile = () =>
     useApiFetch<{ data: UserProfile }>('/api/account/profile')
 
-  const updateProfile = (data: Partial<UserProfile>) =>
+  const updateProfile = (data: Record<string, unknown>) =>
     apiFetch<{ data: UserProfile }>('/api/account/profile', {
       method: 'PATCH',
-      body: data as Record<string, any>,
+      body: data,
     })
 
   const orders = (page?: number, perPage?: number) =>
@@ -24,7 +38,7 @@ export function useAccount() {
     })
 
   const loyalty = () =>
-    useApiFetch<{ data: { points: number; tier: string; premierExpiry: string | null; history: unknown[] } }>(
+    useApiFetch<{ data: LoyaltyData }>(
       '/api/account/loyalty',
     )
 

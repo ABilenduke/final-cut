@@ -1,13 +1,23 @@
 <script setup lang="ts">
 import type { UserProfile } from '~/types/user'
 
+export interface ProfileUpdatePayload {
+  name?: string
+  email?: string
+  phone?: string | null
+  date_of_birth?: string | null
+  current_password?: string
+  password?: string
+  password_confirmation?: string
+}
+
 const props = defineProps<{
   profile: UserProfile
   saving: boolean
 }>()
 
 const emit = defineEmits<{
-  save: [data: Partial<UserProfile> & { currentPassword?: string; newPassword?: string; confirmPassword?: string }]
+  save: [data: ProfileUpdatePayload]
 }>()
 
 const name = ref(props.profile.name)
@@ -18,6 +28,22 @@ const currentPassword = ref('')
 const newPassword = ref('')
 const confirmPassword = ref('')
 const passwordError = ref('')
+const currentPasswordError = ref('')
+
+watch(
+  () => props.profile,
+  (profile) => {
+    name.value = profile.name
+    email.value = profile.email
+    phone.value = profile.phone ?? ''
+    dateOfBirth.value = profile.dateOfBirth ?? ''
+    currentPassword.value = ''
+    newPassword.value = ''
+    confirmPassword.value = ''
+    passwordError.value = ''
+    currentPasswordError.value = ''
+  },
+)
 
 const avatarInitial = computed(() => {
   return props.profile.name.charAt(0).toUpperCase()
@@ -25,23 +51,29 @@ const avatarInitial = computed(() => {
 
 function handleSubmit() {
   passwordError.value = ''
+  currentPasswordError.value = ''
+
+  if (newPassword.value && !currentPassword.value) {
+    currentPasswordError.value = 'Current password is required to set a new password'
+    return
+  }
 
   if (newPassword.value && newPassword.value !== confirmPassword.value) {
     passwordError.value = 'Passwords do not match'
     return
   }
 
-  const changes: Record<string, unknown> = {}
+  const changes: ProfileUpdatePayload = {}
 
   if (name.value !== props.profile.name) changes.name = name.value
   if (email.value !== props.profile.email) changes.email = email.value
   if (phone.value !== (props.profile.phone ?? '')) changes.phone = phone.value || null
-  if (dateOfBirth.value !== (props.profile.dateOfBirth ?? '')) changes.dateOfBirth = dateOfBirth.value || null
+  if (dateOfBirth.value !== (props.profile.dateOfBirth ?? '')) changes.date_of_birth = dateOfBirth.value || null
 
   if (newPassword.value) {
-    changes.currentPassword = currentPassword.value
-    changes.newPassword = newPassword.value
-    changes.confirmPassword = confirmPassword.value
+    changes.current_password = currentPassword.value
+    changes.password = newPassword.value
+    changes.password_confirmation = confirmPassword.value
   }
 
   if (Object.keys(changes).length === 0) return
@@ -91,6 +123,7 @@ function handleSubmit() {
           v-model="currentPassword"
           type="password"
           label="Current Password"
+          :error="currentPasswordError"
         />
         <CvInput
           v-model="newPassword"

@@ -2,16 +2,25 @@
 definePageMeta({ layout: 'blank', middleware: 'guest' })
 useHead({ title: 'Reset Password — Final Cut', meta: [{ name: 'robots', content: 'noindex' }] })
 
+import type { ApiErrorResponse } from '~/utils/api'
+
 const route = useRoute()
-const { resetPassword, loading, error } = useAuth()
+const { resetPassword } = useAuth()
 const { show } = useToast()
 
-const token = route.query.token as string
-const email = route.query.email as string
+const token = typeof route.query.token === 'string' ? route.query.token : ''
+const email = typeof route.query.email === 'string' ? route.query.email : ''
+
+if (!token || !email) {
+  show({ message: 'Invalid reset link. Please request a new one.', type: 'error' })
+  await navigateTo('/auth/forgot-password')
+}
 
 const password = ref('')
 const passwordConfirmation = ref('')
 const passwordMismatchError = ref('')
+const loading = ref(false)
+const error = ref<ApiErrorResponse | null>(null)
 
 function getFieldError(field: string): string | undefined {
   return error.value?.errors.find(e => e.field === field)?.message
@@ -31,15 +40,23 @@ function validate(): boolean {
 async function handleSubmit() {
   if (!validate()) return
 
+  error.value = null
+  loading.value = true
   try {
     await resetPassword(token, email, password.value, passwordConfirmation.value)
     show({ message: 'Password reset successfully', type: 'success' })
     await navigateTo('/auth/login')
-  } catch {
+  } catch (e) {
+    const apiError = e as ApiErrorResponse | undefined
+    if (apiError?.errors) {
+      error.value = apiError
+    }
     const generic = error.value?.errors.find(e => !e.field)
     if (generic) {
       show({ message: generic.message, type: 'error' })
     }
+  } finally {
+    loading.value = false
   }
 }
 </script>

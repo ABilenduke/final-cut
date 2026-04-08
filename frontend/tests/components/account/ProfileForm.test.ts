@@ -76,6 +76,21 @@ describe('ProfileForm', () => {
     expect(emitted![0][0]).toEqual({ name: 'New Name' })
   })
 
+  it('shows error when new password entered without current password', async () => {
+    const wrapper = await mountSuspended(ProfileForm, {
+      props: { profile: mockProfile(), saving: false },
+    })
+
+    const passwordInputs = wrapper.findAll('input[type="password"]')
+    // currentPassword, newPassword, confirmPassword
+    await passwordInputs[1].setValue('newpass123')
+    await passwordInputs[2].setValue('newpass123')
+    await wrapper.find('form').trigger('submit')
+
+    expect(wrapper.emitted('save')).toBeUndefined()
+    expect(wrapper.text()).toContain('Current password is required')
+  })
+
   it('shows password mismatch error when passwords do not match', async () => {
     const wrapper = await mountSuspended(ProfileForm, {
       props: { profile: mockProfile(), saving: false },
@@ -83,6 +98,7 @@ describe('ProfileForm', () => {
 
     const passwordInputs = wrapper.findAll('input[type="password"]')
     // currentPassword, newPassword, confirmPassword
+    await passwordInputs[0].setValue('currentpass')
     await passwordInputs[1].setValue('newpass123')
     await passwordInputs[2].setValue('differentpass')
     await wrapper.find('form').trigger('submit')
@@ -91,7 +107,7 @@ describe('ProfileForm', () => {
     expect(wrapper.text()).toContain('Passwords do not match')
   })
 
-  it('includes password fields in emit when newPassword is filled', async () => {
+  it('includes password fields in emit with snake_case keys', async () => {
     const wrapper = await mountSuspended(ProfileForm, {
       props: { profile: mockProfile(), saving: false },
     })
@@ -105,9 +121,9 @@ describe('ProfileForm', () => {
     const emitted = wrapper.emitted('save')
     expect(emitted).toBeDefined()
     expect(emitted![0][0]).toEqual({
-      currentPassword: 'currentpass',
-      newPassword: 'newpass123',
-      confirmPassword: 'newpass123',
+      current_password: 'currentpass',
+      password: 'newpass123',
+      password_confirmation: 'newpass123',
     })
   })
 

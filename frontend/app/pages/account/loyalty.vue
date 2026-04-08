@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import type { LoyaltyHistoryEntry } from '~/composables/useAccount'
+
 definePageMeta({ layout: 'account', middleware: 'auth' })
 useHead({
   title: 'Loyalty Program — Final Cut',
@@ -17,7 +19,7 @@ const { data: loyaltyData } = await loyalty()
       <LoyaltyPointsCard
         v-if="loyaltyData?.data"
         :points="loyaltyData.data.points"
-        :tier="(loyaltyData.data.tier as 'member' | 'premier')"
+        :tier="loyaltyData.data.tier"
         :premier-expiry="loyaltyData.data.premierExpiry"
       />
 
@@ -25,19 +27,19 @@ const { data: loyaltyData } = await loyalty()
         <h2 class="loyalty-page__section-title">Points History</h2>
         <ul class="loyalty-page__history-list">
           <li
-            v-for="(entry, index) in loyaltyData.data.history"
+            v-for="(entry, index) in (loyaltyData.data.history as LoyaltyHistoryEntry[])"
             :key="index"
             class="loyalty-page__history-item"
           >
-            <span class="loyalty-page__history-description">{{ (entry as any).description }}</span>
+            <span class="loyalty-page__history-description">{{ entry.description }}</span>
             <span
               class="loyalty-page__history-points"
               :class="{
-                'loyalty-page__history-points--earned': (entry as any).points > 0,
-                'loyalty-page__history-points--redeemed': (entry as any).points < 0,
+                'loyalty-page__history-points--earned': entry.points > 0,
+                'loyalty-page__history-points--redeemed': entry.points < 0,
               }"
             >
-              {{ (entry as any).points > 0 ? '+' : '' }}{{ (entry as any).points }}
+              {{ entry.points > 0 ? '+' : '' }}{{ entry.points }}
             </span>
           </li>
         </ul>

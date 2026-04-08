@@ -31,7 +31,7 @@ const { data: loyaltyData } = await loyalty()
             :total="ordersData?.meta?.total ?? 0"
             :current-page="1"
             :per-page="5"
-            @page-change="navigateTo('/account/orders')"
+            @page-change="(page: number) => navigateTo(`/account/orders?page=${page}`)"
           />
         </section>
       </div>
@@ -48,7 +48,7 @@ const { data: loyaltyData } = await loyalty()
         <LoyaltyPointsCard
           v-if="loyaltyData?.data"
           :points="loyaltyData.data.points"
-          :tier="(loyaltyData.data.tier as 'member' | 'premier')"
+          :tier="loyaltyData.data.tier"
           :premier-expiry="loyaltyData.data.premierExpiry"
         />
 

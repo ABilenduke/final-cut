@@ -5,13 +5,15 @@ useHead({
   meta: [{ name: 'robots', content: 'noindex' }],
 })
 
+import type { ProfileUpdatePayload } from '~/components/account/ProfileForm.vue'
+
 const { profile, updateProfile } = useAccount()
 const { show } = useToast()
 
 const { data: profileData, refresh } = await profile()
 const saving = ref(false)
 
-async function handleSave(data: Record<string, unknown>) {
+async function handleSave(data: ProfileUpdatePayload) {
   saving.value = true
   try {
     await updateProfile(data)

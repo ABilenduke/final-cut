@@ -2,25 +2,37 @@
 definePageMeta({ layout: 'blank', middleware: 'guest' })
 useHead({ title: 'Forgot Password — Final Cut', meta: [{ name: 'robots', content: 'noindex' }] })
 
-const { forgotPassword, loading, error } = useAuth()
+import type { ApiErrorResponse } from '~/utils/api'
+
+const { forgotPassword } = useAuth()
 const { show } = useToast()
 
 const email = ref('')
 const sent = ref(false)
+const loading = ref(false)
+const error = ref<ApiErrorResponse | null>(null)
 
 function getFieldError(field: string): string | undefined {
   return error.value?.errors.find(e => e.field === field)?.message
 }
 
 async function handleSubmit() {
+  error.value = null
+  loading.value = true
   try {
     await forgotPassword(email.value)
     sent.value = true
-  } catch {
+  } catch (e) {
+    const apiError = e as ApiErrorResponse | undefined
+    if (apiError?.errors) {
+      error.value = apiError
+    }
     const generic = error.value?.errors.find(e => !e.field)
     if (generic) {
       show({ message: generic.message, type: 'error' })
     }
+  } finally {
+    loading.value = false
   }
 }
 </script>

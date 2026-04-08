@@ -15,10 +15,16 @@ const currentPage = computed(() => {
 
 const perPage = 10
 
-const { data: ordersData } = await orders(currentPage.value, perPage)
+const { data: initialOrdersData } = await orders(currentPage.value, perPage)
+const ordersData = ref(initialOrdersData.value)
+
+watch(currentPage, async (page) => {
+  const { data } = await orders(page, perPage)
+  ordersData.value = data.value
+})
 
 function handlePageChange(page: number) {
-  navigateTo({ query: { page } })
+  navigateTo({ query: { ...route.query, page } })
 }
 </script>
 
