@@ -178,7 +178,7 @@ test('login regenerates session to prevent fixation', function () {
     ]);
 
     // Establish a real session by hitting the CSRF cookie endpoint
-    $this->get('/sanctum/csrf-cookie')->assertNoContent();
+    $this->get('/api/sanctum/csrf-cookie')->assertNoContent();
 
     // Capture the pre-login session cookie value
     $preLoginSessionId = session()->getId();
@@ -371,7 +371,7 @@ test('full Sanctum SPA cookie flow works end-to-end', function () {
     ]);
 
     // Step 1: Fetch CSRF cookie
-    $csrfResponse = $this->get('/sanctum/csrf-cookie');
+    $csrfResponse = $this->get('/api/sanctum/csrf-cookie');
     $csrfResponse->assertNoContent();
 
     // Step 2: Login with CSRF token (Laravel test client carries cookies automatically)
