@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { loadStripe } from '@stripe/stripe-js'
 import type { Booking } from '~/types/booking'
+import type { MenuItem } from '~/types/menu-item'
 import type { ApiErrorResponse } from '~/utils/api'
-import { apiFetch } from '~/utils/api'
-import { menuData } from '~/data/menu'
+import { apiFetch, useApiFetch } from '~/utils/api'
 
 definePageMeta({
   layout: 'purchase',
@@ -30,6 +30,20 @@ onMounted(() => {
     navigateTo('/')
   }
 })
+
+// Fetch menu items from API (location is always set by this point in the purchase flow)
+// API returns items grouped by category: { data: { combos: [...], drinks: [...], ... } }
+const menuItems = ref<MenuItem[]>([])
+if (activeLocation.value) {
+  const { data: menuItemsData } = useApiFetch<{ data: Record<string, MenuItem[]> }>(
+    `/api/locations/${activeLocation.value.slug}/food-menu`,
+  )
+  watchEffect(() => {
+    if (menuItemsData.value?.data) {
+      menuItems.value = Object.values(menuItemsData.value.data).flat()
+    }
+  })
+}
 
 // Food pre-order state
 const selectedFoodItems = ref<Array<{ itemId: string; quantity: number }>>([])
@@ -59,7 +73,7 @@ function handleFoodUpdate(items: Array<{ itemId: string; quantity: number }>) {
     const addCount = nextQty - currentQty
     if (addCount <= 0) continue
 
-    const menuItem = menuData.find(m => m.id === itemId)
+    const menuItem = menuItems.value.find(m => m.id === itemId)
     if (!menuItem) continue
 
     for (let i = 0; i < addCount; i++) {
@@ -89,6 +103,18 @@ function handlePromoRemove() {
   showToast({ message: 'Promo code removed.', type: 'info' })
 }
 
+function buildConfirmationUrl(bookingData: Booking): string {
+  const base = `/purchase/confirmation/${bookingData.id}`
+  if (bookingData.guestEmail) {
+    const params = new URLSearchParams({
+      code: bookingData.confirmationCode,
+      email: bookingData.guestEmail,
+    })
+    return `${base}?${params.toString()}`
+  }
+  return base
+}
+
 // Checkout submission
 const submitting = ref(false)
 
@@ -100,9 +126,7 @@ async function handleCheckoutSubmit(payload: { paymentMethodId: string; email?: 
     const body = {
       showtimeId: cart.showtime.value.id,
       seatIds: cart.seats.value.map(s => s.seatId),
-      foodItems: cart.foodItems.value
-        .filter(f => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(f.itemId))
-        .map(f => ({ itemId: f.itemId, quantity: f.quantity })),
+      foodItems: cart.foodItems.value.map(f => ({ itemId: f.itemId, quantity: f.quantity })),
       paymentMethodId: payload.paymentMethodId,
       promoCode: cart.promoCode.value,
       giftCardCode: cart.giftCardCode.value,
@@ -139,11 +163,11 @@ async function handleCheckoutSubmit(payload: { paymentMethodId: string; email?: 
         `/api/locations/${activeLocation.value.slug}/bookings/confirm`,
         { method: 'POST', body: { paymentIntentId: response.clientSecret.split('_secret_')[0] } },
       )
-      await navigateTo(`/purchase/confirmation/${confirmResponse.data.id}`)
+      await navigateTo(buildConfirmationUrl(confirmResponse.data))
       return
     }
 
-    await navigateTo(`/purchase/confirmation/${response.data.id}`)
+    await navigateTo(buildConfirmationUrl(response.data))
   } catch (err) {
     const apiError = err as ApiErrorResponse
 
@@ -215,7 +239,7 @@ async function handleCheckoutSubmit(payload: { paymentMethodId: string; email?: 
         <!-- Food pre-order -->
         <section class="checkout-page__section">
           <FoodPreOrderPanel
-            :menu-items="menuData"
+            :menu-items="menuItems"
             :selected-items="selectedFoodItems"
             @update="handleFoodUpdate"
           />

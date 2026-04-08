@@ -21,6 +21,8 @@ const { setStep } = usePurchaseStep()
 // Set step indicator — final step, no navigation back
 setStep(3, [1, 2, 3], [])
 
+const { isAuthenticated } = useAuth()
+
 const booking = ref<Booking | null>(null)
 const loading = ref(true)
 const error = ref('')
@@ -35,8 +37,22 @@ onMounted(async () => {
   cart.clear()
 
   try {
-    const response = await apiFetch<{ data: Booking }>(`/api/bookings/${bookingId}`)
-    booking.value = response.data
+    if (isAuthenticated.value) {
+      // Authenticated users fetch by booking ID
+      const response = await apiFetch<{ data: Booking }>(`/api/bookings/${bookingId}`)
+      booking.value = response.data
+    } else {
+      // Guests use lookup with confirmation code + email from query params
+      const code = route.query.code as string | undefined
+      const email = route.query.email as string | undefined
+      if (code && email) {
+        const response = await apiFetch<{ data: Booking }>('/api/bookings/lookup', {
+          query: { confirmation_code: code, email },
+        })
+        booking.value = response.data
+      }
+      // If no query params, fall through to show the lookup form
+    }
   } catch {
     error.value = 'Unable to load booking details.'
     showToast({ message: 'Unable to load booking details.', type: 'error' })
