@@ -1,9 +1,5 @@
 <script setup lang="ts">
-const { data: posts } = await useAsyncData('blog-listing', () =>
-  queryCollection('blog')
-    .order('date', 'DESC')
-    .all()
-)
+import { blogPosts } from '~/data/blog'
 
 useHead({
   title: 'Blog — Final Cut',
@@ -29,18 +25,11 @@ useHead({
     <div class="container">
       <h1 class="blog-page__title display-sm">Blog</h1>
 
-      <div v-if="posts && posts.length > 0" class="ensemble">
+      <div v-if="blogPosts.length > 0" class="ensemble">
         <BlogPostCard
-          v-for="post in posts"
-          :key="post.path"
-          :post="{
-            title: post.title,
-            slug: post.stem,
-            excerpt: post.description,
-            date: post.date,
-            author: post.author,
-            imageUrl: post.image,
-          }"
+          v-for="post in blogPosts"
+          :key="post.slug"
+          :post="post"
         />
       </div>
 

@@ -4,14 +4,8 @@
     "build": "deno run -A npm:nuxt build",
     "generate": "deno run -A npm:nuxt generate",
     "preview": "deno run -A npm:nuxt preview",
-    "postinstall": "deno run -A npm:nuxt prepare && deno run -A scripts/patch-better-sqlite3.ts",
+    "postinstall": "deno run -A npm:nuxt prepare",
     "storybook": "storybook dev -p 6006 --host 0.0.0.0 --no-open"
   },
-  "nodeModulesDir": "auto",
-  "install": {
-    "allowScripts": [
-      "npm:better-sqlite3@11.10.0",
-      "npm:@parcel/watcher@2.5.6"
-    ]
-  }
+  "nodeModulesDir": "auto"
 }

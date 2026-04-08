@@ -34,7 +34,7 @@ export default defineNuxtConfig({
     },
   ],
 
-  modules: ['@nuxt/fonts', '@nuxt/content'],
+  modules: ['@nuxt/fonts'],
 
   fonts: {
     families: [
