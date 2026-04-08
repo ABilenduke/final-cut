@@ -49,13 +49,12 @@ describe('useGiftCards', () => {
     })
   })
 
-  it('checkBalance sends code in POST body (not query string)', async () => {
+  it('checkBalance sends code as query parameter', async () => {
     mockApiFetch.mockResolvedValue({ data: { balance: 5000, status: 'active' } })
     const { checkBalance } = useGiftCards()
     await checkBalance('GC-XYZ')
     expect(mockApiFetch).toHaveBeenCalledWith('/api/gift-cards/balance', {
-      method: 'POST',
-      body: { code: 'GC-XYZ' },
+      query: { code: 'GC-XYZ' },
     })
   })
 })

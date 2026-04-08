@@ -34,8 +34,7 @@ export function useGiftCards() {
 
   const checkBalance = (code: string) =>
     apiFetch<{ data: { balance: number; status: string } }>('/api/gift-cards/balance', {
-      method: 'POST',
-      body: { code },
+      query: { code },
     })
 
   return { purchase, confirm, checkBalance }

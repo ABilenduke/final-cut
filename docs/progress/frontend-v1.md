@@ -317,6 +317,54 @@
 
 ---
 
+## Plan 10: Content Domain
+**Status:** ✅ Complete
+**Started:** 2026-04-08
+**Completed:** 2026-04-08
+
+### Work Done
+- [2026-04-08] Created FaqAccordionGroup — renders category heading + CvAccordion per FAQ item, auto-generated IDs from category name
+- [2026-04-08] Created ContactForm — self-contained form with client-side validation, apiFetch POST to /api/contact, toast on success/error, loading state
+- [2026-04-08] Created ContactMap — styled placeholder div with location pin icon, address text, coordinates display (no third-party map dependency)
+- [2026-04-08] Created MenuItemCard — 4:3 image, name, description, dietary badges (CvBadge), allergen badges (warning variant for nuts), price via formatCurrency
+- [2026-04-08] Created MenuCategoryTabs — horizontal scrollable tabs with roving tabindex, ARIA tablist, arrow key navigation
+- [2026-04-08] Created GiftCardPurchase — preset amount buttons ($25/$50/$75/$100) + custom amount, recipient form, Stripe payment stub with info toast
+- [2026-04-08] Created BalanceChecker — gift card code input, calls useGiftCards().checkBalance(), displays balance with status badge
+- [2026-04-08] Created RentalInquiryForm — event type select, date/guest count/contact fields, apiFetch POST to /api/rentals/inquiry, validation, success toast
+- [2026-04-08] Created PackageCard — CvCard with package name, description, feature checklist with check icons, starting price
+- [2026-04-08] Created /faq page — Close-Up layout, FaqAccordionGroup per category from data/faq.ts, FAQPage JSON-LD structured data
+- [2026-04-08] Created /contact page — Establishing Shot 65/35, ContactMap + directions/accessibility left, hours/phone/ContactForm right, LocalBusiness JSON-LD
+- [2026-04-08] Created /food-drink page — MenuCategoryTabs + Ensemble grid of MenuItemCards, URL query param category state, static data from data/menu.ts
+- [2026-04-08] Created /gift-cards page — Establishing Shot 65/35, GiftCardPurchase left, BalanceChecker right
+- [2026-04-08] Created /private-screenings page — Rack Focus 35/65, RentalInquiryForm left, PackageCards (4 packages) right
+
+### Decisions
+- [2026-04-08] ContactMap uses a styled placeholder with coordinates instead of third-party map embed — avoids API key dependency for MVP
+- [2026-04-08] MenuItemCard named to avoid HTML `<menuitem>` element conflict (per plan)
+- [2026-04-08] GiftCardPurchase payment is a stub (shows info toast) — actual Stripe Elements integration deferred until keys are configured
+- [2026-04-08] Food & Drink page uses static menuData from data/menu.ts with URL query param for category — API integration can be wired later
+- [2026-04-08] Private screening packages are hardcoded in page component (static content per PAGE_SPECS)
+- [2026-04-08] MenuCategoryTabs uses `@media (pointer: coarse)` for 3rem touch targets on touch devices, 2.25rem on pointer-fine
+
+### Files Changed
+- `frontend/app/components/content/FaqAccordionGroup.vue` — created
+- `frontend/app/components/content/ContactForm.vue` — created
+- `frontend/app/components/content/ContactMap.vue` — created
+- `frontend/app/components/content/MenuItemCard.vue` — created
+- `frontend/app/components/content/MenuCategoryTabs.vue` — created
+- `frontend/app/components/content/GiftCardPurchase.vue` — created
+- `frontend/app/components/content/BalanceChecker.vue` — created
+- `frontend/app/components/content/RentalInquiryForm.vue` — created
+- `frontend/app/components/content/PackageCard.vue` — created
+- `frontend/app/pages/faq.vue` — created
+- `frontend/app/pages/contact.vue` — created
+- `frontend/app/pages/food-drink.vue` — created
+- `frontend/app/pages/gift-cards.vue` — created
+- `frontend/app/pages/private-screenings.vue` — created
+- Storybook stories for all 9 components (9 files)
+
+---
+
 ## Plan 02: Design System CSS Foundation
 **Status:** ✅ Complete
 **Started:** 2026-04-06
