@@ -1,13 +1,15 @@
 <script setup lang="ts">
 import type { Movie } from '~/types/movie'
 
-defineProps<{
+const props = defineProps<{
   movie: Movie
 }>()
 
-useHead({
-  // Preload is set dynamically — only when backdropUrl exists
-})
+useHead(() => ({
+  link: props.movie.backdropUrl
+    ? [{ rel: 'preload', as: 'image', href: props.movie.backdropUrl }]
+    : [],
+}))
 </script>
 
 <template>

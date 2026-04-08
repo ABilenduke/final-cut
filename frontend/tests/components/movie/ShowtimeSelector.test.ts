@@ -7,7 +7,7 @@ function makeShowtime(overrides: Partial<Showtime> = {}): Showtime {
   return {
     id: 'st-1',
     movieId: 1,
-    movieSlug: 'test-REMOVED',
+    movieSlug: 'test-movie',
     movieTitle: 'Test',
     screenId: 's1',
     screenName: 'Screen 1',

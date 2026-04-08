@@ -112,31 +112,36 @@ function handleTabKeydown(event: KeyboardEvent, index: number) {
         </button>
       </div>
 
-      <!-- Time slots panel -->
+      <!-- Time slots panels — one per date so aria-controls always resolves -->
       <div
-        :id="`panel-${activeDate}`"
+        v-for="date in dates"
+        :id="`panel-${date}`"
+        :key="`panel-${date}`"
+        v-show="date === activeDate"
         role="tabpanel"
-        :aria-labelledby="`tab-${activeDate}`"
+        :aria-labelledby="`tab-${date}`"
         class="showtime-selector__panel"
       >
-        <div v-if="activeShowtimes.length === 0" class="showtime-selector__empty body-sm">
-          No showtimes for this date
-        </div>
-        <div v-else class="showtime-selector__slots">
-          <NuxtLink
-            v-for="st in activeShowtimes"
-            :key="st.id"
-            :to="`/purchase/${st.id}`"
-            class="showtime-selector__slot"
-          >
-            <time :datetime="st.startTime" class="showtime-selector__time label-lg">
-              {{ formatTime(st.startTime) }}
-            </time>
-            <span class="showtime-selector__price label-md">
-              {{ formatCurrency(st.priceStandard) }}
-            </span>
-          </NuxtLink>
-        </div>
+        <template v-if="date === activeDate">
+          <div v-if="activeShowtimes.length === 0" class="showtime-selector__empty body-sm">
+            No showtimes for this date
+          </div>
+          <div v-else class="showtime-selector__slots">
+            <NuxtLink
+              v-for="st in activeShowtimes"
+              :key="st.id"
+              :to="`/purchase/${st.id}`"
+              class="showtime-selector__slot"
+            >
+              <time :datetime="st.startTime" class="showtime-selector__time label-lg">
+                {{ formatTime(st.startTime) }}
+              </time>
+              <span class="showtime-selector__price label-md">
+                {{ formatCurrency(st.priceStandard) }}
+              </span>
+            </NuxtLink>
+          </div>
+        </template>
       </div>
     </template>
   </div>

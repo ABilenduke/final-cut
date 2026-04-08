@@ -12,13 +12,24 @@ const { data: movieData, error: movieError } = useApiFetch<{ data: import('~/typ
 )
 const movie = computed(() => movieData.value?.data ?? null)
 
-// Handle 404 — watch error ref so async client-side navigation failures are caught
+// Handle fetch errors — watch so async client-side navigation failures are caught
 watch(
   movieError,
   (error) => {
-    if (error) {
+    if (!error) return
+
+    // Extract status from the fetch error (ofetch / Nuxt error shape)
+    const fetchError = error as { statusCode?: number; response?: { status?: number } }
+    const status = fetchError.statusCode ?? fetchError.response?.status
+
+    if (status === 404) {
       throw createError({ statusCode: 404, statusMessage: 'Movie not found' })
     }
+
+    throw createError({
+      statusCode: status ?? 500,
+      statusMessage: 'Failed to load movie',
+    })
   },
   { immediate: true },
 )

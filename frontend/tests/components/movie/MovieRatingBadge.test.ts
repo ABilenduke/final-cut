@@ -38,4 +38,18 @@ describe('MovieRatingBadge', () => {
     const html = wrapper.html()
     expect(html).toContain('cv-badge--accent')
   })
+
+  it('renders nothing when rating is null', async () => {
+    const wrapper = await mountSuspended(MovieRatingBadge, {
+      props: { rating: null },
+    })
+    expect(wrapper.find('.cv-badge').exists()).toBe(false)
+  })
+
+  it('renders nothing when rating is undefined', async () => {
+    const wrapper = await mountSuspended(MovieRatingBadge, {
+      props: {},
+    })
+    expect(wrapper.find('.cv-badge').exists()).toBe(false)
+  })
 })

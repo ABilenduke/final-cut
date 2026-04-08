@@ -134,9 +134,9 @@
 - [2026-04-07] Created HomeFeaturedHero — backdrop hero with "Get Tickets" CTA linking to movie detail
 - [2026-04-07] Created HomeEventStrip — week's special events/loyalty exclusives, cross-month fetch, truncated descriptions, max 5
 - [2026-04-07] Created home page (`/`) — hero, now showing ensemble, event strip, coming soon ensemble
-- [2026-04-07] Created movies listing page (`/movies`) — tab bar (now showing / coming soon), genre filter, ensemble grid
+- [2026-04-07] Created movies listing page (`/movies`) — tab bar (now showing / coming soon), ensemble grid; genre filtering still TODO
 - [2026-04-07] Created movie detail page (`/movies/:slug`) — hero, detail, cast, trailer, showtime selector
-- [2026-04-07] Created `selectFeaturedMovie` utility — picks highest-rated now-showing movie for hero
+- [2026-04-07] Created `selectFeaturedMovie` utility — picks the most recently released now-showing movie with a backdrop for hero
 - [2026-04-07] Created `weekRange` utility — computes Mon-Sun week range with cross-month support
 - [2026-04-07] Created `formatTime`/`formatWeekdayDate` helpers in formatDate utility
 - [2026-04-07] Added locations plugin (`locations.ts`) — calls `initializeLocations()` on app:mounted
@@ -152,7 +152,7 @@
 - [2026-04-07] MovieCard uses `showShowtimes: boolean` prop (matches COMPONENT_INVENTORY spec) — showtime time pills require a batched showtimes endpoint not yet available; "View Showtimes" link serves as functional CTA until then
 - [2026-04-07] Removed QuickShowtimeStrip (not in any spec, date pills were non-functional UI)
 - [2026-04-07] Removed useAppRoutes composable (premature abstraction, broke all layout components) — hardcoded nav items restored; route-enabled filtering deferred to Plan 13
-- [2026-04-07] MovieRatingBadge keeps strict `rating: number` prop — the Movie type guarantees number, no defensive string parsing needed
+- [2026-04-07] MovieRatingBadge accepts `rating?: number | null` — backend column is nullable (un-enriched movies), badge hides when null
 - [2026-04-07] Locations initialized via Nuxt plugin (`app:mounted` hook) instead of watch-based auto-rehydrate — explicit lifecycle, `locationsReady` flag prevents flash of empty state
 
 ### Files Changed

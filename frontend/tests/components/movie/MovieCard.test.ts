@@ -112,7 +112,7 @@ describe('MovieCard', () => {
       props: { movie },
     })
     const genreContainer = wrapper.find('.movie-card__genres')
-    const genreBadges = genreContainer.findAll('cvbadge')
+    const genreBadges = genreContainer.findAll('.cv-badge')
     expect(genreBadges).toHaveLength(0)
   })
 

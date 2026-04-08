@@ -107,16 +107,28 @@ describe('selectFeaturedMovie', () => {
     expect(result!.title).toBe('Later')
   })
 
-  it('handles movies with same releaseDate deterministically', () => {
+  it('handles movies with same releaseDate deterministically via slug tie-breaker', () => {
     const movies = [
-      makeMovie({ id: 1, title: 'First', releaseDate: '2026-03-01' }),
-      makeMovie({ id: 2, title: 'Second', releaseDate: '2026-03-01' }),
+      makeMovie({ id: 1, slug: 'alpha', title: 'Alpha', releaseDate: '2026-03-01' }),
+      makeMovie({ id: 2, slug: 'zulu', title: 'Zulu', releaseDate: '2026-03-01' }),
     ]
 
     const result = selectFeaturedMovie(movies)
 
     expect(result).not.toBeNull()
-    // Stable sort preserves input order for equal dates
-    expect(result!.title).toBe('First')
+    // Alphabetically later slug wins on tie
+    expect(result!.slug).toBe('zulu')
+  })
+
+  it('uses id as final tie-breaker when slug and releaseDate match', () => {
+    const movies = [
+      makeMovie({ id: 5, slug: 'same-slug', title: 'Lower ID', releaseDate: '2026-03-01' }),
+      makeMovie({ id: 10, slug: 'same-slug', title: 'Higher ID', releaseDate: '2026-03-01' }),
+    ]
+
+    const result = selectFeaturedMovie(movies)
+
+    expect(result).not.toBeNull()
+    expect(result!.id).toBe(10)
   })
 })

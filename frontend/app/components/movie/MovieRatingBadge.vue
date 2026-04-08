@@ -1,13 +1,15 @@
 <script setup lang="ts">
 const props = defineProps<{
-  rating: number
+  rating?: number | null
 }>()
 
-const formattedRating = computed(() => props.rating.toFixed(1))
+const formattedRating = computed(() =>
+  props.rating != null ? props.rating.toFixed(1) : null,
+)
 </script>
 
 <template>
-  <CvBadge variant="accent">{{ formattedRating }}</CvBadge>
+  <CvBadge v-if="formattedRating" variant="accent">{{ formattedRating }}</CvBadge>
 </template>
 
 <style scoped>
