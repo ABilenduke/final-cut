@@ -109,6 +109,21 @@ server {
         return 404;
     }
 
+    # ── Sanctum CSRF cookie (FastCGI → PHP-FPM) ──
+    location /sanctum {
+        fastcgi_pass $upstream_backend;
+        fastcgi_index index.php;
+        fastcgi_param SCRIPT_FILENAME /var/www/html/public/index.php;
+        fastcgi_param SCRIPT_NAME /index.php;
+        include fastcgi_params;
+        fastcgi_param HTTP_X_FORWARDED_PROTO $scheme;
+        fastcgi_param HTTP_X_FORWARDED_FOR   $proxy_add_x_forwarded_for;
+        fastcgi_param HTTP_X_REAL_IP         $remote_addr;
+
+        fastcgi_hide_header X-Powered-By;
+        fastcgi_hide_header X-Served-By;
+    }
+
     # ── Laravel API (FastCGI → PHP-FPM) ─────
     location /api {
         # Rate limit: 30 req/s with burst of 20
