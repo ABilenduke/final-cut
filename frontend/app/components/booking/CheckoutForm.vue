@@ -76,7 +76,7 @@ onMounted(async () => {
     cardElement = elements.create('card', {
       style: {
         base: {
-          fontSize: '16px',
+          fontSize: '1rem',
           color: '#E5E2E1',
           fontFamily: 'Newsreader, serif',
           '::placeholder': { color: '#A89F91' },

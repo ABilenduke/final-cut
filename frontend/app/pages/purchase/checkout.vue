@@ -3,7 +3,7 @@ import { loadStripe } from '@stripe/stripe-js'
 import type { Booking } from '~/types/booking'
 import type { MenuItem } from '~/types/menu-item'
 import type { ApiErrorResponse } from '~/utils/api'
-import { apiFetch, useApiFetch } from '~/utils/api'
+import { apiFetch } from '~/utils/api'
 
 definePageMeta({
   layout: 'purchase',
@@ -31,22 +31,33 @@ onMounted(() => {
   }
 })
 
-// Fetch menu items from API (location is always set by this point in the purchase flow)
+// Fetch menu items from API once location is available
 // API returns items grouped by category: { data: { combos: [...], drinks: [...], ... } }
 const menuItems = ref<MenuItem[]>([])
-if (activeLocation.value) {
-  const { data: menuItemsData } = useApiFetch<{ data: Record<string, MenuItem[]> }>(
-    `/api/locations/${activeLocation.value.slug}/food-menu`,
-  )
-  watchEffect(() => {
-    if (menuItemsData.value?.data) {
-      menuItems.value = Object.values(menuItemsData.value.data).flat()
-    }
-  })
-}
 
-// Food pre-order state
-const selectedFoodItems = ref<Array<{ itemId: string; quantity: number }>>([])
+watch(
+  activeLocation,
+  async (location) => {
+    if (!location) {
+      menuItems.value = []
+      return
+    }
+    try {
+      const response = await apiFetch<{ data: Record<string, MenuItem[]> }>(
+        `/api/locations/${location.slug}/food-menu`,
+      )
+      menuItems.value = Object.values(response.data).flat()
+    } catch {
+      menuItems.value = []
+    }
+  },
+  { immediate: true },
+)
+
+// Food pre-order state — derived from cart so it stays in sync on navigation
+const selectedFoodItems = computed(() =>
+  cart.foodItems.value.map(f => ({ itemId: f.itemId, quantity: f.quantity })),
+)
 
 function handleFoodUpdate(items: Array<{ itemId: string; quantity: number }>) {
   const currentQuantities = new Map<string, number>()
@@ -80,8 +91,6 @@ function handleFoodUpdate(items: Array<{ itemId: string; quantity: number }>) {
       cart.addFoodItem(menuItem.id, menuItem.name, menuItem.price)
     }
   }
-
-  selectedFoodItems.value = items
 }
 
 // Promo code handling

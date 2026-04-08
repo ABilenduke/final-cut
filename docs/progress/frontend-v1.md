@@ -177,7 +177,7 @@
 - [2026-04-08] Purchase pages use `usePurchaseStep` composable instead of named layout slots — Nuxt pages can't reliably fill layout slots via `definePageMeta({ layout })`. Layout reads reactive composable state directly
 - [2026-04-08] CartSummary rendered in layout (not pages) — reads from global useCart state, avoids duplication across 3 pages
 - [2026-04-08] Stripe Elements is a placeholder (card input area with styled mount point) — actual Stripe.js integration deferred to when real Stripe keys are configured
-- [2026-04-08] Food pre-order uses static `menuData` from `~/data/menu.ts` — API-backed menu deferred to when location-scoped food endpoint is wired
+- [2026-04-08] Food pre-order fetches from `GET /api/locations/{slug}/food-menu`. Uses `watch(activeLocation)` to handle async location init. Response grouped by category is flattened to `MenuItem[]` for the panel
 - [2026-04-08] QR code uses dark theme colors (#E5E2E1 on #131313) matching design system tokens
 - [2026-04-08] Checkout error handling follows PURCHASE_FLOW.md spec: 409→redirect to seats, 402→stay on page, 410→clear cart, 500→generic toast
 

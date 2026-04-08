@@ -42,11 +42,16 @@ function generateIcs() {
 
   const seatList = props.booking.seats.map(s => s.seatId).join(', ')
 
+  const now = new Date()
+  const uid = `${props.booking.confirmationCode}@finalcut.test`
+
   const ics = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
     'PRODID:-//Final Cut//Booking//EN',
     'BEGIN:VEVENT',
+    `UID:${uid}`,
+    `DTSTAMP:${formatIcsDate(now)}`,
     `DTSTART:${formatIcsDate(start)}`,
     `DTEND:${formatIcsDate(end)}`,
     `SUMMARY:${escapeIcsText(props.booking.movieTitle + ' at Final Cut')}`,

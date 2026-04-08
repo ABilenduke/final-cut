@@ -14,7 +14,7 @@ const isExpanded = ref(false)
       <h3 class="cart-summary__heading">Order Summary</h3>
       <ul class="cart-summary__list">
         <li
-          v-for="(item, index) in items"
+          v-for="item in items"
           :key="`${item.label}-${item.price}`"
           class="cart-summary__item"
         >
@@ -46,7 +46,7 @@ const isExpanded = ref(false)
       <div v-if="isExpanded" class="cart-summary__sheet">
         <ul class="cart-summary__list">
           <li
-            v-for="(item, index) in items"
+            v-for="item in items"
             :key="`${item.label}-${item.price}`"
             class="cart-summary__item"
           >

@@ -96,7 +96,9 @@ function removeItem(itemId: string) {
       <div class="food-panel__header">
         <h3 class="food-panel__title">Food & Drink</h3>
         <button
+          type="button"
           class="food-panel__collapse"
+          aria-label="Close menu"
           @click="isExpanded = false"
         >
           <CvIcon name="close" size="sm" />

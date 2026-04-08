@@ -34,6 +34,7 @@ function handleRemove() {
       <div class="promo-code__applied">
         <span class="promo-code__code">{{ appliedCode }}</span>
         <button
+          type="button"
           class="promo-code__remove"
           @click="handleRemove"
         >
