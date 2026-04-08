@@ -159,6 +159,55 @@
 
 ---
 
+## Plan 09: Auth & Account Domain
+**Status:** ✅ Complete
+**Started:** 2026-04-08
+**Completed:** 2026-04-08
+
+### Work Done
+- [2026-04-08] Created 5 account domain components: ProfileForm (avatar + form fields + password change with diff-only emit), OrderHistoryList (accordion per order with pagination), UpcomingBookings (card list with poster/seats/screen), LoyaltyPointsCard (tier badge, points, perks, upgrade CTA), SavedPaymentMethods (card list with remove, add CTA)
+- [2026-04-08] Created 4 auth pages: login, register, forgot-password, reset-password — all using blank layout, guest middleware, noindex, field-level error extraction from API error response
+- [2026-04-08] Created 6 account pages: dashboard (65/35 grid with profile card + loyalty + quick links), profile (ProfileForm with save/refresh), orders (paginated via URL query), loyalty (points card + history + upgrade), bookings (UpcomingBookings), payment-methods (SavedPaymentMethods with add/remove)
+- [2026-04-08] Created Storybook stories for all 5 account components
+- [2026-04-08] Created Vitest tests for all 5 account components
+
+### Decisions
+- [2026-04-08] Auth pages use `error.value?.errors.find(e => e.field === field)?.message` pattern for field-level error extraction — composable already stores full ApiErrorResponse
+- [2026-04-08] ProfileForm diffs changed fields against original props to avoid sending unchanged data — password fields only included when newPassword is non-empty
+- [2026-04-08] Dashboard uses 65/35 Establishing Shot layout on desktop, stacks on mobile
+- [2026-04-08] Account pages use `await profile()` / `await orders()` etc. from useAccount — returns useApiFetch (SSR-compatible)
+- [2026-04-08] Payment methods add flow is a stub (calls addPaymentMethod which returns clientSecret) — actual Stripe SetupIntent flow deferred until Stripe keys configured
+- [2026-04-08] Forgot-password shows inline success message (not toast) per plan spec — user stays on page to see confirmation
+
+### Files Changed
+- `frontend/app/components/account/ProfileForm.vue` — created
+- `frontend/app/components/account/OrderHistoryList.vue` — created
+- `frontend/app/components/account/UpcomingBookings.vue` — created
+- `frontend/app/components/account/LoyaltyPointsCard.vue` — created
+- `frontend/app/components/account/SavedPaymentMethods.vue` — created
+- `frontend/app/pages/auth/login.vue` — created
+- `frontend/app/pages/auth/register.vue` — created
+- `frontend/app/pages/auth/forgot-password.vue` — created
+- `frontend/app/pages/auth/reset-password.vue` — created
+- `frontend/app/pages/account/index.vue` — created (dashboard)
+- `frontend/app/pages/account/profile.vue` — created
+- `frontend/app/pages/account/orders.vue` — created
+- `frontend/app/pages/account/loyalty.vue` — created
+- `frontend/app/pages/account/bookings.vue` — created
+- `frontend/app/pages/account/payment-methods.vue` — created
+- `frontend/app/components/account/ProfileForm.stories.ts` — created
+- `frontend/app/components/account/OrderHistoryList.stories.ts` — created
+- `frontend/app/components/account/UpcomingBookings.stories.ts` — created
+- `frontend/app/components/account/LoyaltyPointsCard.stories.ts` — created
+- `frontend/app/components/account/SavedPaymentMethods.stories.ts` — created
+- `frontend/tests/components/account/ProfileForm.test.ts` — created
+- `frontend/tests/components/account/OrderHistoryList.test.ts` — created
+- `frontend/tests/components/account/UpcomingBookings.test.ts` — created
+- `frontend/tests/components/account/LoyaltyPointsCard.test.ts` — created
+- `frontend/tests/components/account/SavedPaymentMethods.test.ts` — created
+
+---
+
 ## Plan 08: Purchase Flow Domain
 **Status:** 🟡 In Progress
 **Started:** 2026-04-08
