@@ -2,65 +2,73 @@
 import { blogPosts } from '~/data/blog'
 
 const route = useRoute()
-const slug = route.params.slug as string
+const slug = computed(() => route.params.slug as string)
 
-const post = blogPosts.find(p => p.slug === slug)
+const post = computed(() => blogPosts.find(p => p.slug === slug.value))
 
-if (!post) {
-  throw createError({ statusCode: 404, statusMessage: 'Post not found' })
-}
+watchEffect(() => {
+  if (!post.value) {
+    throw createError({ statusCode: 404, statusMessage: 'Post not found' })
+  }
+})
 
-const relatedPosts = blogPosts.filter(p => p.slug !== slug).slice(0, 3)
+const relatedPosts = computed(() => blogPosts.filter(p => p.slug !== slug.value).slice(0, 3))
 
-useHead({
-  title: `${post.title} — Final Cut Blog`,
-  meta: [
-    { name: 'description', content: post.excerpt },
-  ],
-  script: [
-    {
-      type: 'application/ld+json',
-      innerHTML: JSON.stringify({
-        '@context': 'https://schema.org',
-        '@type': 'Article',
-        headline: post.title,
-        description: post.excerpt,
-        datePublished: post.date,
-        author: {
-          '@type': 'Person',
-          name: post.author,
-        },
-      }),
-    },
-  ],
+useHead(() => {
+  if (!post.value) return {}
+
+  return {
+    title: `${post.value.title} — Final Cut Blog`,
+    meta: [
+      { name: 'description', content: post.value.excerpt },
+    ],
+    script: [
+      {
+        type: 'application/ld+json',
+        innerHTML: JSON.stringify({
+          '@context': 'https://schema.org',
+          '@type': 'Article',
+          headline: post.value.title,
+          description: post.value.excerpt,
+          datePublished: post.value.date,
+          author: {
+            '@type': 'Person',
+            name: post.value.author,
+          },
+        }),
+      },
+    ],
+  }
 })
 </script>
 
 <template>
   <div class="blog-post-page">
     <div class="close-up">
-      <header class="blog-post-page__header">
-        <h1 class="blog-post-page__title display-sm">{{ post.title }}</h1>
-        <div class="blog-post-page__meta label-lg">
-          <span class="blog-post-page__date">{{ formatDate(post.date) }}</span>
-          <span>&middot;</span>
-          <span class="blog-post-page__author">{{ post.author }}</span>
+      <template v-if="post">
+        <header class="blog-post-page__header">
+          <h1 class="blog-post-page__title display-sm">{{ post.title }}</h1>
+          <div class="blog-post-page__meta label-lg">
+            <span class="blog-post-page__date">{{ formatDate(post.date) }}</span>
+            <span>&middot;</span>
+            <span class="blog-post-page__author">{{ post.author }}</span>
+          </div>
+        </header>
+
+        <div v-if="post.imageUrl" class="blog-post-page__image-container">
+          <img
+            :src="post.imageUrl"
+            :alt="post.title"
+            class="blog-post-page__image"
+          />
         </div>
-      </header>
 
-      <div v-if="post.imageUrl" class="blog-post-page__image-container">
-        <img
-          :src="post.imageUrl"
-          :alt="post.title"
-          class="blog-post-page__image"
-        />
-      </div>
-
-      <div class="blog-post-page__body body-md">
-        <p v-for="(paragraph, i) in post.body.split('\n\n')" :key="i">
-          {{ paragraph }}
-        </p>
-      </div>
+        <div class="blog-post-page__body body-md">
+          <p v-for="(paragraph, i) in post.body.split('\n\n')" :key="i">
+            {{ paragraph }}
+          </p>
+        </div>
+      </template>
 
       <section v-if="relatedPosts.length > 0" class="blog-post-page__related">
         <h2 class="blog-post-page__related-heading headline-md">More from the Blog</h2>

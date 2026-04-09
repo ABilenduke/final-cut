@@ -1,13 +1,8 @@
 <script setup lang="ts">
+import type { BlogPost } from '~/data/blog'
+
 defineProps<{
-  post: {
-    title: string
-    slug: string
-    excerpt: string
-    date: string
-    author: string
-    imageUrl?: string | null
-  }
+  post: Pick<BlogPost, 'title' | 'slug' | 'excerpt' | 'date' | 'author' | 'imageUrl'>
 }>()
 </script>
 
