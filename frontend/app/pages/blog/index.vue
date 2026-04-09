@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { blogPosts } from '~/data/blog'
 
+const sortedPosts = [...blogPosts].sort((a, b) => b.date.localeCompare(a.date))
+
 useHead({
   title: 'Blog — Final Cut',
   meta: [
@@ -25,9 +27,9 @@ useHead({
     <div class="container">
       <h1 class="blog-page__title display-sm">Blog</h1>
 
-      <div v-if="blogPosts.length > 0" class="ensemble">
+      <div v-if="sortedPosts.length > 0" class="ensemble">
         <BlogPostCard
-          v-for="post in blogPosts"
+          v-for="post in sortedPosts"
           :key="post.slug"
           :post="post"
         />

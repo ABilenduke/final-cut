@@ -4,7 +4,7 @@ export interface BlogPost {
   excerpt: string
   date: string
   author: string
-  imageUrl: string
+  imageUrl?: string
   body: string
 }
 
@@ -15,7 +15,7 @@ export const blogPosts: BlogPost[] = [
     excerpt: 'A preview of the films, special screenings, and events coming to Final Cut this summer.',
     date: '2026-04-05',
     author: 'Final Cut Staff',
-    imageUrl: '/images/blog/summer-lineup.jpg',
+    // imageUrl: placeholder until admin area provides real images
     body: `This summer brings several films that were made for the theatrical experience. Without spoiling any surprises, expect at least three releases where the sound design alone is worth the ticket price. We'll be running extended showtimes on our largest screen for opening weekends.
 
 Throughout June, we're screening the complete Studio Ghibli catalog in chronological order. One film per week, every Saturday afternoon. These are films that many people have only seen on small screens — seeing them projected in a proper theatre, with the detail and color they were designed for, is a genuinely different experience.
@@ -34,7 +34,7 @@ The best way to know what's coming is to create a free account. Members get earl
     excerpt: 'A look at the technology and philosophy behind Final Cut\'s auditorium design, from acoustic engineering to seat selection.',
     date: '2026-03-28',
     author: 'Marcus Chen',
-    imageUrl: '/images/blog/behind-the-screens.jpg',
+    // imageUrl: placeholder until admin area provides real images
     body: `Building a movie theatre sounds straightforward until you start thinking about the details. Every decision — from the rake angle of the seats to the thickness of the curtains — affects how a film looks and sounds. Here's how we approached it.
 
 We worked with acoustic engineers for six months before a single seat was installed. The goal was simple: every seat should sound like the best seat. That meant treating each auditorium as a unique acoustic environment rather than applying a one-size-fits-all template. The walls use a combination of absorptive and diffusive panels arranged in patterns specific to each room's dimensions. The result is sound that's immersive without being overwhelming — you hear the film, not the room.
@@ -51,7 +51,7 @@ A place where the technology disappears and the movie takes over. That's always 
     excerpt: 'We\'re thrilled to announce the grand opening of Final Cut, a theatre experience designed for people who love movies as much as we do.',
     date: '2026-03-15',
     author: 'Final Cut Staff',
-    imageUrl: '/images/blog/grand-opening.jpg',
+    // imageUrl: placeholder until admin area provides real images
     body: `After months of careful preparation, we're proud to open our doors. Final Cut isn't just another movie theatre — it's a space built by film lovers, for film lovers.
 
 From the moment you walk in, you'll notice the difference. Our auditoriums feature premium seating with generous spacing, state-of-the-art Dolby Atmos sound, and laser projection that delivers the picture quality directors intended. Every screen was calibrated by professional colorists. Every speaker was tuned to the specific dimensions of its room.

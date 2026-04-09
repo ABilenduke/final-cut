@@ -6,7 +6,7 @@ defineProps<{
     excerpt: string
     date: string
     author: string
-    imageUrl: string
+    imageUrl?: string | null
   }
 }>()
 </script>
