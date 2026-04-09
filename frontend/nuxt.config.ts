@@ -11,9 +11,13 @@ export default defineNuxtConfig({
 
   css: ['~/assets/css/main.css'],
 
-  // Route rules (ISR/SSR/prerender) deferred to Plan 13 (E2E & Polish).
-  // Target values documented in docs/architecture/SITE_ARCHITECTURE.md.
-  // For v1, all routes use default client-side rendering.
+  routeRules: {
+    '/blog/**': { isr: 600 },
+    '/contact': { prerender: true },
+    '/faq': { prerender: true },
+    '/accessibility': { prerender: true },
+    '/careers': { prerender: true },
+  },
 
   runtimeConfig: {
     public: {

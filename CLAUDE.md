@@ -104,6 +104,8 @@ See @docs/architecture/DATA_MODELS.md for full schema. Core entities: Movie (aut
 - **Currency**: All monetary values (prices, totals, discounts, balances) are stored, calculated, and transmitted as **positive integers in cents** (USD only). `$12.99` = `1299`. This follows Stripe's standard and avoids floating-point errors. Never use floats for money. The frontend `formatCurrency` utility converts cents to display strings. API responses return cents; the client formats for display
 - **Payments**: Stripe integration via `stripe/stripe-php` SDK. `StripeService` wraps `StripeClient` for PaymentIntent creation/confirmation. Configured via `STRIPE_SECRET_KEY` and `STRIPE_PUBLISHABLE_KEY` env vars in backend `.env` (mapped through `config/services.php`). Tests use `FakeStripeService` (in `tests/Helpers/`) which skips the real Stripe client — no API keys needed to run the test suite
 - **Auth**: nuxt-auth-utils
+- **Rendering**: `routeRules` in `nuxt.config.ts` control per-route rendering strategy — ISR for blog (`/blog/**`), prerender for static pages (`/contact`, `/faq`, `/accessibility`, `/careers`). See @docs/architecture/SITE_ARCHITECTURE.md for the full route map
+- **Blog content**: Static TypeScript data in `app/data/blog.ts` (placeholder — will be replaced by admin-managed API content)
 - **Commits**: conventional commits (`feat:`, `fix:`, `docs:`, etc.)
 
 ## Development Methodology

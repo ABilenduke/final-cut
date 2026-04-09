@@ -397,3 +397,37 @@
 - `frontend/app/assets/css/utilities.css` — created (utility classes)
 - `frontend/app/assets/css/print.css` — created (print stylesheet)
 - `frontend/app/assets/css/main.css` — updated (import aggregator)
+
+---
+
+## Plan 11: Blog & Static Content Pages
+**Status:** ✅ Complete
+**Started:** 2026-04-08
+**Completed:** 2026-04-08
+
+### Work Done
+- [2026-04-08] Created `BlogPostCard` component composing CvCard with 16:9 image, title, excerpt (3-line clamp), date + author footer
+- [2026-04-08] Created static blog data in `app/data/blog.ts` with 3 sample posts (grand opening, behind-the-screens, summer lineup)
+- [2026-04-08] Created blog listing page (`/blog`) with Ensemble grid, Blog structured data
+- [2026-04-08] Created blog detail page (`/blog/[slug]`) with Close-Up composition, paragraph rendering, related posts section, Article structured data
+- [2026-04-08] Created Careers page with job openings (Projectionist, Front of House, Kitchen & Bar), benefits list, application instructions, JobPosting structured data
+- [2026-04-08] Created Accessibility page with all 7 sections (assisted listening, wheelchair, open captions, audio description, sensory-friendly, service animals, contact) and calendar filter links
+- [2026-04-08] Added routeRules for `/blog/**` (ISR 600s), `/contact`, `/faq`, `/accessibility`, `/careers` (prerender)
+
+### Decisions
+- [2026-04-08] Initially used `@nuxt/content` v3 but dropped it — its `better-sqlite3` native addon crashes under Deno, and blog content will be managed dynamically via admin area in the future. Using static TypeScript data (`app/data/blog.ts`) as placeholder, consistent with FAQ and menu data patterns.
+
+### Blockers
+- None
+
+### Files Changed
+- `frontend/nuxt.config.ts` — added routeRules for blog/static pages
+- `frontend/app/data/blog.ts` — new, static blog post data
+- `frontend/app/components/content/BlogPostCard.vue` — new component
+- `frontend/app/pages/blog/index.vue` — new, blog listing page
+- `frontend/app/pages/blog/[slug].vue` — new, blog post detail page
+- `frontend/app/pages/careers.vue` — new, static careers page
+- `frontend/app/pages/accessibility.vue` — new, static accessibility page
+- `frontend/tests/components/content/BlogPostCard.test.ts` — new, 8 tests
+- `frontend/tests/pages/blog.test.ts` — new, 3 tests
+- `frontend/tests/pages/static-pages.test.ts` — new, 13 tests
