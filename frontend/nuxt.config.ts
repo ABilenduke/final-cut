@@ -19,6 +19,7 @@ export default defineNuxtConfig({
     '/whats-on': { isr: 900 },
     '/events': { isr: 900 },
     '/events/**': { isr: 900 },
+    '/blog': { isr: 600 },
     '/blog/**': { isr: 600 },
     '/contact': { prerender: true },
     '/faq': { prerender: true },

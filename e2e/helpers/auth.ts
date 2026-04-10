@@ -24,5 +24,8 @@ export async function login(
 export async function logout(page: Page): Promise<void> {
   // Click the user menu / logout button
   await page.getByRole('button', { name: /log\s?out|sign\s?out/i }).click()
-  await page.waitForURL((url) => !url.pathname.startsWith('/account/'), { timeout: 10_000 })
+  await page.waitForURL(
+    (url) => url.pathname !== '/account' && !url.pathname.startsWith('/account/'),
+    { timeout: 10_000 },
+  )
 }

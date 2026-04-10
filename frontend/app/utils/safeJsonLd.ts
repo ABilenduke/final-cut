@@ -8,8 +8,8 @@
 export function safeJsonLd(value: unknown): string {
   const json = JSON.stringify(value)
   // Replace characters that can break out of a <script> context:
-  // - `</`  → `<\/`   prevents `</script>` injection
-  // - U+2028 / U+2029  are valid JSON but act as line terminators in JS
+  // - `<`   → `\u003c` prevents `</script>` injection and other tag openings
+  // - U+2028 / U+2029 are valid JSON but act as line terminators in JS
   return json
     .replace(/</g, '\\u003c')
     .replace(/\u2028/g, '\\u2028')

@@ -20,7 +20,7 @@ test.describe('Responsive Layout', () => {
       expect(columnCount).toBeGreaterThan(1)
     })
 
-    test('mobile — movie grid collapses to single column', async ({ page }) => {
+    test('mobile — movie grid collapses to one or two columns', async ({ page }) => {
       await page.setViewportSize(VIEWPORTS.mobile)
       await page.goto('/')
       const grid = page.locator('.ensemble').first()
