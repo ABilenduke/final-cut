@@ -25,7 +25,6 @@ Build the calendar and events experience: 6 domain components and 3 pages. This 
 - **Complexity:** S
 - **Files:**
   - `frontend/app/components/calendar/CalendarFilters.vue`
-  - `frontend/app/components/calendar/CalendarFilters.stories.ts`
 - **Details:**
   View toggle (month/week/list) and filter controls.
 
@@ -51,7 +50,6 @@ Build the calendar and events experience: 6 domain components and 3 pages. This 
 - **Complexity:** S
 - **Files:**
   - `frontend/app/components/calendar/CalendarDayCell.vue`
-  - `frontend/app/components/calendar/CalendarDayCell.stories.ts`
 - **Details:**
   **Props:** `date`, `events`, `selected`, `today`
 
@@ -77,7 +75,6 @@ Build the calendar and events experience: 6 domain components and 3 pages. This 
 - **Complexity:** M
 - **Files:**
   - `frontend/app/components/calendar/CalendarGrid.vue`
-  - `frontend/app/components/calendar/CalendarGrid.stories.ts`
 - **Details:**
   Month/week grid with keyboard navigation.
 
@@ -102,7 +99,6 @@ Build the calendar and events experience: 6 domain components and 3 pages. This 
 - **Complexity:** S
 - **Files:**
   - `frontend/app/components/calendar/CalendarEventList.vue`
-  - `frontend/app/components/calendar/CalendarEventList.stories.ts`
 - **Details:**
   Events for a selected day, grouped by type.
 
@@ -198,10 +194,6 @@ Build the calendar and events experience: 6 domain components and 3 pages. This 
 
 ## Testing Requirements
 
-- **Storybook:** Stories for CalendarFilters, CalendarDayCell, CalendarGrid, CalendarEventList, EventListCard, EventDetail
-  - Calendar grid with various event distributions
-  - All filter states
-  - Responsive layouts
 - **E2E Tests:**
   - Navigate calendar: change month, select day, view events
   - Filter by event type and accessibility tag

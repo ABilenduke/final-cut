@@ -336,7 +336,7 @@ Build all 10 composables that form the frontend data layer. The frontend calls t
   - Composables successfully call Laravel API endpoints
   - Authenticated composables fail gracefully when unauthenticated
   - CORS and credentials work correctly between frontend and Laravel
-- **E2E Tests:** Deferred to Plan 13 (E2E & Polish)
+- **E2E Tests:** Deferred to Plan 12 (E2E & Polish)
 
 ## Dependencies Map
 

@@ -42,7 +42,6 @@ Add blog functionality via `@nuxt/content` and static informational pages (Caree
 - **Complexity:** XS
 - **Files:**
   - `frontend/app/components/content/BlogPostCard.vue`
-  - `frontend/app/components/content/BlogPostCard.stories.ts`
 - **Details:**
   CvCard with featured image (16:9), title, excerpt, date, author. Links to `/blog/:slug`.
 

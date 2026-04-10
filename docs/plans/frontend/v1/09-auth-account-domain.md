@@ -59,7 +59,6 @@ Build the authentication pages and account management dashboard: 5 domain compon
 - **Complexity:** S
 - **Files:**
   - `frontend/app/components/account/ProfileForm.vue`
-  - `frontend/app/components/account/ProfileForm.stories.ts`
 - **Details:**
   **Props:** `profile: User`
   **Events:** `save(Partial<User>)`
@@ -166,10 +165,6 @@ Build the authentication pages and account management dashboard: 5 domain compon
 
 ## Testing Requirements
 
-- **Storybook:** Stories for ProfileForm, OrderHistoryList, UpcomingBookings, LoyaltyPointsCard, SavedPaymentMethods
-  - Various data states (empty, single item, many items)
-  - Member vs Premier tier
-  - With and without saved payment methods
 - **E2E Tests:**
   - Login → dashboard → verify data loads
   - Edit profile → save → verify persistence

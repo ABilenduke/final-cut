@@ -58,7 +58,6 @@ Build the most complex feature in the application: the 3-step ticket purchase fl
 - **Complexity:** M
 - **Files:**
   - `frontend/app/components/booking/AuditoriumSeat.vue`
-  - `frontend/app/components/booking/AuditoriumSeat.stories.ts`
 - **Details:**
   Individual seat cell with 5 visual states.
 
@@ -92,7 +91,6 @@ Build the most complex feature in the application: the 3-step ticket purchase fl
 - **Complexity:** L
 - **Files:**
   - `frontend/app/components/booking/AuditoriumGrid.vue`
-  - `frontend/app/components/booking/AuditoriumGrid.stories.ts`
 - **Details:**
   The most complex component in the system. Interactive seat selection map with full WAI-ARIA grid pattern.
 
@@ -138,7 +136,6 @@ Build the most complex feature in the application: the 3-step ticket purchase fl
 - **Complexity:** M
 - **Files:**
   - `frontend/app/components/booking/CartSummary.vue`
-  - `frontend/app/components/booking/CartSummary.stories.ts`
 - **Details:**
   Running order total. Desktop: sidebar panel. Mobile: collapsible bottom sheet.
 
@@ -165,7 +162,6 @@ Build the most complex feature in the application: the 3-step ticket purchase fl
 - **Complexity:** M
 - **Files:**
   - `frontend/app/components/booking/FoodPreOrderPanel.vue`
-  - `frontend/app/components/booking/FoodPreOrderPanel.stories.ts`
 - **Details:**
   Inline food selection during checkout. Per PURCHASE_FLOW.md Section 4.
 
@@ -193,7 +189,6 @@ Build the most complex feature in the application: the 3-step ticket purchase fl
 - **Complexity:** S
 - **Files:**
   - `frontend/app/components/booking/PromoCode.vue`
-  - `frontend/app/components/booking/PromoCode.stories.ts`
 - **Details:**
   **PromoCode:** Input + "Apply" button. Client-side preview: mirrors promo config from `app/data/promoCodes.ts` to show estimated discount on 'Apply'. The preview is strictly non-authoritative — the server is the sole authority at booking time. Show an 'estimated' label on the preview discount. If the server returns a different discount at booking time, update the display. Applied state shows code + discount + "Remove". Error state shows message below input.
 
@@ -216,7 +211,6 @@ Build the most complex feature in the application: the 3-step ticket purchase fl
 - **Complexity:** L
 - **Files:**
   - `frontend/app/components/booking/CheckoutForm.vue`
-  - `frontend/app/components/booking/CheckoutForm.stories.ts`
 - **Details:**
   Payment form with Stripe Elements.
 
@@ -255,7 +249,6 @@ Build the most complex feature in the application: the 3-step ticket purchase fl
 - **Complexity:** M
 - **Files:**
   - `frontend/app/components/booking/BookingConfirmation.vue`
-  - `frontend/app/components/booking/BookingConfirmation.stories.ts`
 - **Details:**
   Post-purchase display. Per PURCHASE_FLOW.md Section 5.
 
@@ -404,13 +397,6 @@ Build the most complex feature in the application: the 3-step ticket purchase fl
 
 ## Testing Requirements
 
-- **Storybook:** Stories for all 10 components covering:
-  - AuditoriumGrid with various auditorium layouts (small, medium, large)
-  - All seat states (available, selected, taken, accessible, premium)
-  - CartSummary with 0, 1, many items
-  - CheckoutForm with guest and authenticated states
-  - BookingConfirmation with and without food items
-  - FoodPreOrderPanel collapsed and expanded
 - **E2E Tests (Critical — revenue path):**
   - Full purchase flow: select seats → add food → checkout → confirmation
   - Seat conflict scenario: select seat, simulate it becoming taken, verify deselection + toast

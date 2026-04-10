@@ -431,3 +431,43 @@
 - `frontend/tests/components/content/BlogPostCard.test.ts` — new, 8 tests
 - `frontend/tests/pages/blog.test.ts` — new, 3 tests
 - `frontend/tests/pages/static-pages.test.ts` — new, 13 tests
+
+---
+
+## Storybook Removal
+**Status:** ✅ Complete
+**Completed:** 2026-04-10
+
+### Work Done
+- [2026-04-10] Removed Storybook entirely from the project — deleted 48 story files, `.storybook/` config directory, Docker service/volume, nginx proxy block, Makefile targets, npm/deno dependencies, and all documentation references
+- [2026-04-10] Renumbered Plan 13 (E2E & Polish) to Plan 12 to fill the gap
+- [2026-04-10] Scrubbed remaining `.stories.ts` file references from plan task "Files:" sections (36 lines across 8 plan docs)
+
+### Decisions
+- [2026-04-10] Storybook was adding infrastructure overhead without proportional value at this stage — removed to simplify the stack
+
+### Blockers
+- None
+
+### Files Changed
+- `frontend/app/components/**/*.stories.ts` — deleted (48 files)
+- `frontend/.storybook/` — deleted (main.ts, preview.ts, preview-head.html)
+- `frontend/package.json` — removed storybook and @storybook/vue3-vite devDependencies
+- `frontend/deno.json` — removed storybook task
+- `docker-compose.override.yml` — removed storybook service, volume, nginx port/dependency
+- `nginx/templates/conf.d/default.conf.template` — removed Storybook proxy server block
+- `Makefile` — removed storybook and storybook-logs targets
+- `CLAUDE.md` — removed Storybook references
+- `.github/copilot-instructions.md` — removed .storybook/* watch pattern
+- `scripts/check-docs-staleness.sh` — removed .storybook/* glob
+- `docs/plans/frontend/v1/00-index.md` — removed plan 12 (Storybook), renumbered plan 13 → 12
+- `docs/plans/frontend/v1/12-storybook-comprehensive.md` — deleted
+- `docs/plans/frontend/v1/13-e2e-and-polish.md` — renamed to 12-e2e-and-polish.md
+- `docs/plans/frontend/v1/03-ui-primitives.md` — removed Storybook checklist items
+- `docs/plans/frontend/v1/04-layouts-and-shell.md` — removed Storybook testing section
+- `docs/plans/frontend/v1/06-movie-domain.md` — removed Storybook testing section
+- `docs/plans/frontend/v1/07-calendar-events-domain.md` — removed Storybook testing section
+- `docs/plans/frontend/v1/08-purchase-flow-domain.md` — removed Storybook testing section
+- `docs/plans/frontend/v1/09-auth-account-domain.md` — removed Storybook testing section
+- `docs/plans/frontend/v1/10-content-domain.md` — removed Storybook testing section
+- `docs/plans/frontend/v1/11-blog-and-static-pages.md` — removed .stories.ts file reference

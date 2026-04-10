@@ -10,7 +10,7 @@ Final Cut operates **two physical theater locations** (with potential for more) 
 
 ## Tech Stack
 
-- **Frontend**: Nuxt 4 (Vue 3, TypeScript), Tailwind CSS 4, Storybook, Playwright e2e tests
+- **Frontend**: Nuxt 4 (Vue 3, TypeScript), Tailwind CSS 4, Playwright e2e tests
 - **Backend**: Laravel 13 (PHP 8.4), Pest testing framework
 - **Database**: PostgreSQL 18 with TLS (database: `final_cut`, test db: `final_cut_test`)
 - **Cache/Sessions**: Redis with TLS
@@ -24,14 +24,13 @@ All commands run from the project root via Make:
 ```bash
 make certs              # Generate SSL certs for nginx, redis, postgres (run first)
 make trust-cert         # Trust CA cert in Windows (WSL2)
-make up                 # Start dev environment (includes postgres, redis, storybook)
+make up                 # Start dev environment (includes postgres, redis)
 make down               # Stop all containers
 make build              # Build containers
 make shell              # Shell into backend container
 make artisan list       # Run an Artisan command in the backend container
 make migrate            # Run database migrations
 make fresh              # Reset database with fresh migrations + seeds
-make storybook          # Run Storybook inside its container
 make e2e                # Run Playwright e2e tests
 ```
 

@@ -25,7 +25,6 @@ Build the movie browsing experience: 7 domain components and 3 pages. This is th
 - **Complexity:** XS
 - **Files:**
   - `frontend/app/components/movie/MovieRatingBadge.vue`
-  - `frontend/app/components/movie/MovieRatingBadge.stories.ts`
 - **Details:**
   Composes CvBadge with accent variant. Displays TMDB score formatted to one decimal (e.g., `7.8`).
 
@@ -44,7 +43,6 @@ Build the movie browsing experience: 7 domain components and 3 pages. This is th
 - **Complexity:** M
 - **Files:**
   - `frontend/app/components/movie/MovieCard.vue`
-  - `frontend/app/components/movie/MovieCard.stories.ts`
 - **Details:**
   Movie listing card used in Ensemble grids. Composes CvCard.
 
@@ -71,7 +69,6 @@ Build the movie browsing experience: 7 domain components and 3 pages. This is th
 - **Complexity:** M
 - **Files:**
   - `frontend/app/components/movie/MovieHero.vue`
-  - `frontend/app/components/movie/MovieHero.stories.ts`
 - **Details:**
   Full-bleed hero with movie backdrop. Uses Wide Frame composition.
 
@@ -125,7 +122,6 @@ Build the movie browsing experience: 7 domain components and 3 pages. This is th
 - **Complexity:** M
 - **Files:**
   - `frontend/app/components/movie/ShowtimeSelector.vue`
-  - `frontend/app/components/movie/ShowtimeSelector.stories.ts`
 - **Details:**
   Date tabs and time slot buttons. Used in movie detail page (Establishing Shot right column, 35%).
 
@@ -235,11 +231,6 @@ Build the movie browsing experience: 7 domain components and 3 pages. This is th
 
 ## Testing Requirements
 
-- **Storybook:** Stories for all 7 components: MovieRatingBadge, MovieCard, MovieHero, MovieDetail, MovieCastList, MovieTrailerEmbed, ShowtimeSelector
-  - All prop variants
-  - With and without showtime data
-  - Responsive states (desktop/mobile)
-  - Loading states with CvSkeletonLoader
 - **E2E Tests:**
   - Navigate from Home → Movie Listings → Movie Detail
   - Verify showtime links navigate to `/purchase/:showtimeId`

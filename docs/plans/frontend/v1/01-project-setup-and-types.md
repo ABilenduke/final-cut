@@ -35,7 +35,7 @@ Configure the Nuxt project for production use and define all TypeScript interfac
 
     css: ['~/assets/css/main.css'],
 
-    // Route rules (ISR/SSR/prerender) deferred to Plan 13 (E2E & Polish).
+    // Route rules (ISR/SSR/prerender) deferred to Plan 12 (E2E & Polish).
     // Target values documented in docs/architecture/SITE_ARCHITECTURE.md.
     // For v1, all routes use default client-side rendering.
 
@@ -59,7 +59,7 @@ Configure the Nuxt project for production use and define all TypeScript interfac
   ```
 
 - **Acceptance Criteria:**
-  - [ ] Route rules deferred to Plan 13 (comment placeholder present in config)
+  - [ ] Route rules deferred to Plan 12 (comment placeholder present in config)
   - [ ] Runtime config keys match environment variable spec (no sessionPassword)
   - [ ] `@nuxt/fonts` installed and configured with Noto Serif + Newsreader
   - [ ] CSS entry point registered (creates placeholder `main.css` if needed)
@@ -189,7 +189,7 @@ Configure the Nuxt project for production use and define all TypeScript interfac
   Install required packages per SITE_ARCHITECTURE.md:
   - `@stripe/stripe-js` — Client-side Stripe Elements for PCI-compliant card collection
 
-  nuxt-auth-utils deferred for v1 — SSR hydration not needed until SSR is enabled (Plan 13+). Auth state restored via `GET /api/auth/me` on app init.
+  nuxt-auth-utils deferred for v1 — SSR hydration not needed until SSR is enabled (Plan 12+). Auth state restored via `GET /api/auth/me` on app init.
 
   Dev dependencies (for later plans but install now):
   - `@nuxt/test-utils` — Component testing utilities

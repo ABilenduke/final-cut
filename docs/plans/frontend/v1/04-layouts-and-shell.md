@@ -25,7 +25,6 @@ Build the four Nuxt layouts and six layout components that form the persistent s
 - **Complexity:** XS
 - **Files:**
   - `frontend/app/components/layout/SkipNav.vue`
-  - `frontend/app/components/layout/SkipNav.stories.ts`
 - **Details:**
   First focusable element in DOM. Hidden via `transform: translateY(-100%)`, revealed on `:focus-visible`. Links to `#main-content`. z-index: `--z-skip-nav` (900). Background: `--primary-container`, text: `--secondary`.
 
@@ -43,7 +42,6 @@ Build the four Nuxt layouts and six layout components that form the persistent s
 - **Complexity:** M
 - **Files:**
   - `frontend/app/components/layout/SiteHeader.vue`
-  - `frontend/app/components/layout/SiteHeader.stories.ts`
 - **Details:**
   Fixed top nav bar. Height: 4rem. Background: `--surface-container`. z-index: `--z-sticky` (200).
 
@@ -76,7 +74,6 @@ Build the four Nuxt layouts and six layout components that form the persistent s
 - **Complexity:** S
 - **Files:**
   - `frontend/app/components/layout/SiteFooter.vue`
-  - `frontend/app/components/layout/SiteFooter.stories.ts`
 - **Details:**
   Background: `--surface-container-lowest` (#0e0e0e). Min height: 15rem.
 
@@ -100,7 +97,6 @@ Build the four Nuxt layouts and six layout components that form the persistent s
 - **Complexity:** M
 - **Files:**
   - `frontend/app/components/layout/NeuralTicker.vue`
-  - `frontend/app/components/layout/NeuralTicker.stories.ts`
 - **Details:**
   Horizontally scrolling ambient data feed. Height: 2rem. Background: `--surface-container`. Text: `label-sm`, Newsreader. Scroll speed: 2.5rem/second. z-index: `--z-ticker` (201).
 
@@ -128,7 +124,6 @@ Build the four Nuxt layouts and six layout components that form the persistent s
 - **Complexity:** S
 - **Files:**
   - `frontend/app/components/layout/MobileNav.vue`
-  - `frontend/app/components/layout/MobileNav.stories.ts`
 - **Details:**
   Fixed bottom bar below `screen-md`. Height: `calc(3.5rem + env(safe-area-inset-bottom, 0px))`. Background: `--surface-container`. 5 items: Home, Movies, What's On, Account, More.
 
@@ -151,7 +146,6 @@ Build the four Nuxt layouts and six layout components that form the persistent s
 - **Complexity:** S
 - **Files:**
   - `frontend/app/components/layout/SidebarNav.vue`
-  - `frontend/app/components/layout/SidebarNav.stories.ts`
 - **Details:**
   **Props:** `items: Array<{ label: string; href: string; icon: string }>`
 
@@ -178,7 +172,6 @@ Build the four Nuxt layouts and six layout components that form the persistent s
 - **Complexity:** S
 - **Files:**
   - `frontend/app/components/booking/PurchaseStepIndicator.vue`
-  - `frontend/app/components/booking/PurchaseStepIndicator.stories.ts`
 - **Details:**
   Per PURCHASE_FLOW.md and COMPONENT_INVENTORY.md.
 
@@ -294,11 +287,6 @@ Build the four Nuxt layouts and six layout components that form the persistent s
 
 ## Testing Requirements
 
-- **Storybook:** Stories for all 7 components (SkipNav, SiteHeader, SiteFooter, NeuralTicker, MobileNav, SidebarNav, PurchaseStepIndicator) showing:
-  - Desktop and mobile states
-  - Active/inactive navigation items
-  - Auth state variations (SiteHeader)
-  - All step states (PurchaseStepIndicator)
 - **E2E Tests:**
   - Skip nav: Tab to reveal, Enter to jump to main content
   - Mobile nav: visible below breakpoint, hidden above
