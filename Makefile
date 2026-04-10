@@ -1,4 +1,4 @@
-.PHONY: up down build shell artisan migrate fresh certs trust-cert prod-up prod-down prod-build prod-logs local-prod-up local-prod-down local-prod-build local-prod-logs storybook storybook-logs e2e ci-e2e
+.PHONY: up down build shell artisan migrate fresh certs trust-cert prod-up prod-down prod-build prod-logs local-prod-up local-prod-down local-prod-build local-prod-logs e2e ci-e2e
 
 ifeq (artisan,$(firstword $(MAKECMDGOALS)))
 ARTISAN_ARGS := $(wordlist 2,$(words $(MAKECMDGOALS)),$(MAKECMDGOALS))
@@ -70,12 +70,6 @@ trust-cert:
 		powershell.exe -Command "Start-Process powershell -Verb RunAs -ArgumentList '-Command Import-Certificate -FilePath \"$$WIN_CERT_PATH\" -CertStoreLocation Cert:\\LocalMachine\\Root'" && \
 		echo "CA certificate import requested (requires admin approval in Windows UAC dialog)" && \
 		echo "After approval, restart Chrome for the green padlock on https://$$APP_DOMAIN"
-
-storybook:
-	docker compose exec storybook bun run storybook
-
-storybook-logs:
-	docker compose logs -f storybook
 
 e2e:
 	docker compose run --rm --build playwright

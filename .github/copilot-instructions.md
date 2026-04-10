@@ -11,7 +11,6 @@ If a PR modifies any of the following and does **not** include a corresponding `
 - `Makefile` — command changes (make targets)
 - `docker-compose*.yml`, `Dockerfile*` — infrastructure, service topology, or port changes
 - `frontend/nuxt.config.ts` — Nuxt modules, route rules, or runtime config changes
-- `frontend/.storybook/*` — Storybook configuration changes
 - `frontend/package.json` — dependency or script changes
 - `backend/composer.json` — dependency or script changes
 - `backend/phpunit.xml` — test configuration changes

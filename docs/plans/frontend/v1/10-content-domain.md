@@ -25,7 +25,6 @@ Build the content pages that round out the site experience: FAQ, Contact, Food &
 - **Complexity:** S
 - **Files:**
   - `frontend/app/components/content/FaqAccordionGroup.vue`
-  - `frontend/app/components/content/FaqAccordionGroup.stories.ts`
 - **Details:**
   **Props:** `category: string`, `items: Array<{ question: string; answer: string }>`
 
@@ -172,7 +171,6 @@ Build the content pages that round out the site experience: FAQ, Contact, Food &
 
 ## Testing Requirements
 
-- **Storybook:** Stories for all content components
 - **E2E Tests:**
   - FAQ: accordion expand/collapse, all categories visible
   - Contact: form submission, validation errors

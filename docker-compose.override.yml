@@ -2,13 +2,6 @@ include:
   - docker-compose.stack.yml
 
 services:
-  nginx:
-    ports:
-      - "6006:6006"
-    depends_on:
-      storybook:
-        condition: service_healthy
-
   frontend:
     build:
       target: development
@@ -26,31 +19,6 @@ services:
       timeout: 5s
       retries: 5
       start_period: 120s
-
-  storybook:
-    build:
-      context: ./frontend
-      target: development
-      args:
-        DEV_UID: ${DEV_UID:-1000}
-        DEV_GID: ${DEV_GID:-1000}
-    volumes:
-      - ./frontend:/app
-      - storybook-deno-cache:/home/devuser/.cache/deno
-    environment:
-      - NODE_ENV=development
-      - STORYBOOK=true
-      - CACHE_DIR=/tmp/storybook-cache
-    expose:
-      - "6006"
-    command: ["deno", "task", "storybook"]
-    healthcheck:
-      test: ["CMD", "deno", "eval", "await fetch('http://127.0.0.1:6006/')"]
-      interval: 15s
-      timeout: 5s
-      retries: 5
-      start_period: 120s
-    restart: unless-stopped
 
   backend:
     build:
@@ -103,4 +71,3 @@ services:
 volumes:
   backend-vendor:
   frontend-deno-cache:
-  storybook-deno-cache:

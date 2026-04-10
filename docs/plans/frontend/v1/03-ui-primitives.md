@@ -24,7 +24,6 @@ Build the 11 global UI primitive components that form the design system's tangib
 - **Complexity:** M
 - **Files:**
   - `frontend/app/components/ui/CvButton.vue`
-  - `frontend/app/components/ui/CvButton.stories.ts`
 - **Details:**
   3 variants (primary, secondary, tertiary), 3 sizes (sm, default, lg), loading state with spinner, `href` renders as `<NuxtLink>`. Small variant gated behind `@media (pointer: fine)`.
 
@@ -48,7 +47,6 @@ Build the 11 global UI primitive components that form the design system's tangib
   - [ ] Loading state shows spinner and prevents clicks
   - [ ] `href` prop renders `<NuxtLink>` instead of `<button>`
   - [ ] Focus ring visible on keyboard navigation
-  - [ ] Storybook story shows all variants, sizes, states
 
 ---
 
@@ -58,7 +56,6 @@ Build the 11 global UI primitive components that form the design system's tangib
 - **Complexity:** S
 - **Files:**
   - `frontend/app/components/ui/CvCard.vue`
-  - `frontend/app/components/ui/CvCard.stories.ts`
 - **Details:**
   3 surface tier variants (low, default, high), interactive mode with hover lift, `href` mode as `<NuxtLink>`.
 
@@ -78,7 +75,6 @@ Build the 11 global UI primitive components that form the design system's tangib
   - [ ] Interactive card lifts on hover
   - [ ] `href` card is a `<NuxtLink>` with focus ring
   - [ ] No `border: 1px solid` — uses edge catch only
-  - [ ] Storybook story for all variants and interactive states
 
 ---
 
@@ -88,7 +84,6 @@ Build the 11 global UI primitive components that form the design system's tangib
 - **Complexity:** S
 - **Files:**
   - `frontend/app/components/ui/CvInput.vue`
-  - `frontend/app/components/ui/CvInput.stories.ts`
 - **Details:**
   Underline-only text input with gold focus glow. Supports v-model, error state, and multiple input types.
 
@@ -109,7 +104,6 @@ Build the 11 global UI primitive components that form the design system's tangib
   - [ ] Gold underline glow appears on focus
   - [ ] Error message displays below input with `aria-describedby` link
   - [ ] Label is always visible (not placeholder-only)
-  - [ ] Storybook story for default, focused, error, disabled states
 
 ---
 
@@ -119,7 +113,6 @@ Build the 11 global UI primitive components that form the design system's tangib
 - **Complexity:** XS
 - **Files:**
   - `frontend/app/components/ui/CvTextarea.vue`
-  - `frontend/app/components/ui/CvTextarea.stories.ts`
 - **Details:**
   Same pattern as CvInput but multi-line. Same underline styling and accessibility patterns.
 
@@ -138,7 +131,6 @@ Build the 11 global UI primitive components that form the design system's tangib
 - **Complexity:** S
 - **Files:**
   - `frontend/app/components/ui/CvSelect.vue`
-  - `frontend/app/components/ui/CvSelect.stories.ts`
 - **Details:**
   Native `<select>` with underline treatment. Dropdown panel on `surface-container-high`.
 
@@ -159,7 +151,6 @@ Build the 11 global UI primitive components that form the design system's tangib
 - **Complexity:** M
 - **Files:**
   - `frontend/app/components/ui/CvModal.vue`
-  - `frontend/app/components/ui/CvModal.stories.ts`
 - **Details:**
   Dialog overlay with focus trap, glassmorphism backdrop, and Teleport to body.
 
@@ -191,7 +182,6 @@ Build the 11 global UI primitive components that form the design system's tangib
 - **Complexity:** S
 - **Files:**
   - `frontend/app/components/ui/CvAccordion.vue`
-  - `frontend/app/components/ui/CvAccordion.stories.ts`
 - **Details:**
   Expandable section with `grid-template-rows: 0fr → 1fr` animation.
 
@@ -214,7 +204,6 @@ Build the 11 global UI primitive components that form the design system's tangib
 - **Complexity:** XS
 - **Files:**
   - `frontend/app/components/ui/CvBadge.vue`
-  - `frontend/app/components/ui/CvBadge.stories.ts`
 - **Details:**
   3 variants (default, accent, warning), 2 sizes (sm, default). Purely visual.
 
@@ -237,7 +226,6 @@ Build the 11 global UI primitive components that form the design system's tangib
 - **Complexity:** XS
 - **Files:**
   - `frontend/app/components/ui/CvIcon.vue`
-  - `frontend/app/components/ui/CvIcon.stories.ts`
 - **Details:**
   Icon wrapper with 4 sizes (sm 1rem, md 1.5rem, lg 3rem, xl 4rem). When `label` prop is set: `role="img"` + `aria-label`. When no label: `aria-hidden="true"`.
 
@@ -256,7 +244,6 @@ Build the 11 global UI primitive components that form the design system's tangib
 - **Complexity:** XS
 - **Files:**
   - `frontend/app/components/ui/CvSkeletonLoader.vue`
-  - `frontend/app/components/ui/CvSkeletonLoader.stories.ts`
 - **Details:**
   4 variants (text, card, image, circle). Shimmer animation (1500ms, linear, infinite). Reduced motion: solid fill.
 
@@ -278,7 +265,6 @@ Build the 11 global UI primitive components that form the design system's tangib
 - **Complexity:** S
 - **Files:**
   - `frontend/app/components/ui/CvToast.vue`
-  - `frontend/app/components/ui/CvToast.stories.ts`
 - **Details:**
   3 types (info, success, error). Auto-dismiss with configurable duration. Slide in/out animation.
 
@@ -308,11 +294,6 @@ Build the 11 global UI primitive components that form the design system's tangib
 
 ## Testing Requirements
 
-- **Storybook:** Every component has a `.stories.ts` file covering:
-  - All prop variants and combinations
-  - Interactive states (hover, focus, active, disabled, loading)
-  - Responsive behavior at mobile/desktop breakpoints
-  - Reduced motion behavior
 - **Unit Tests:** Component tests for interactive behavior:
   - CvModal: focus trap cycling, Escape key, backdrop click
   - CvAccordion: toggle state, keyboard interaction

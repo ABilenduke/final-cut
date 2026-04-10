@@ -1,4 +1,4 @@
-# Plan 13: E2E Testing & Integration Polish
+# Plan 12: E2E Testing & Integration Polish
 
 > **Priority:** Should Have
 > **Complexity:** M

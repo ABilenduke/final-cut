@@ -20,7 +20,6 @@ WATCHED_PATTERNS=(
   "Makefile"
   ":(glob)**/Dockerfile"
   ":(glob).github/workflows/*"
-  ":(glob)**/.storybook/*"
   ":(glob)**/phpstan.neon"
   ":(glob)**/eslint.config.*"
 )

@@ -21,8 +21,7 @@
 | 09 | [Auth & Account Domain](09-auth-account-domain.md) | Should Have | M | 03, 04, 05 | Pending |
 | 10 | [Content Domain](10-content-domain.md) | Should Have | M | 03, 04, 05 | Pending |
 | 11 | [Blog & Static Pages](11-blog-and-static-pages.md) | Could Have | S | 03, 04 | Pending |
-| 12 | [Storybook Comprehensive](12-storybook-comprehensive.md) | Should Have | M | 03–10 | Pending |
-| 13 | [E2E & Polish](13-e2e-and-polish.md) | Should Have | M | 06–10 | Pending |
+| 12 | [E2E & Polish](12-e2e-and-polish.md) | Should Have | M | 06–10 | Pending |
 
 ---
 
@@ -50,8 +49,7 @@
 │
 └── 11 Blog & Static Pages (Could)
 
-12 Storybook Comprehensive ←── all component plans
-13 E2E & Polish ←── all domain plans
+12 E2E & Polish ←── all domain plans
 ```
 
 ---
@@ -79,8 +77,8 @@ Movie browsing and ticket purchase — the application's reason to exist.
 ### Phase 3: Supporting Domains (Plans 07, 09, 10)
 Calendar, auth/account, and content pages that round out the experience.
 
-### Phase 4: Nice-to-Have & Polish (Plans 11–13)
-Blog, comprehensive Storybook coverage, and end-to-end test suite.
+### Phase 4: Nice-to-Have & Polish (Plans 11–12)
+Blog and end-to-end test suite.
 
 ---
 
