@@ -1,6 +1,6 @@
 services:
   nginx:
-    image: nginx:alpine
+    image: nginx:1.29.8-alpine
     container_name: nginx
     # Ensure banned-ips.conf exists before nginx reads the include.
     # Uses the default entrypoint (docker-entrypoint.sh) which handles
@@ -97,6 +97,7 @@ services:
       context: ./frontend
     environment:
       - NODE_ENV=${NODE_ENV:-production}
+    container_name: frontend
     healthcheck:
       test: ["CMD", "deno", "eval", "await fetch('http://127.0.0.1:3000/')"]
       interval: 30s
@@ -108,6 +109,7 @@ services:
   backend:
     build:
       context: ./backend
+    container_name: backend
     volumes:
       - ./redis/certs/ca.pem:/tls/redis/ca.pem:ro
       - ./postgres/certs/ca.pem:/tls/postgres/ca.pem:ro
