@@ -2,6 +2,7 @@ services:
   postgres:
     build:
       context: ./postgres
+    container_name: postgres
     ports:
       - "127.0.0.1:5432:5432"
     volumes:
@@ -24,6 +25,7 @@ services:
   redis:
     build:
       context: ./redis
+    container_name: redis
     ports:
       - "127.0.0.1:6379:6379"
     volumes:
