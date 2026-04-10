@@ -28,6 +28,7 @@ export default defineNuxtConfig({
     '/private-screenings': { prerender: true },
     '/gift-cards': { isr: 1800 },
     '/purchase/**': { ssr: false, headers: { 'X-Robots-Tag': 'noindex' } },
+    '/account': { ssr: false, headers: { 'X-Robots-Tag': 'noindex' } },
     '/account/**': { ssr: false, headers: { 'X-Robots-Tag': 'noindex' } },
     '/auth/**': { ssr: false, headers: { 'X-Robots-Tag': 'noindex' } },
   },

@@ -6,7 +6,7 @@
  * dangerous characters after serialization so the output is safe for `innerHTML`.
  */
 export function safeJsonLd(value: unknown): string {
-  const json = JSON.stringify(value)
+  const json = JSON.stringify(value) ?? 'null'
   // Replace characters that can break out of a <script> context:
   // - `<`   → `\u003c` prevents `</script>` injection and other tag openings
   // - U+2028 / U+2029 are valid JSON but act as line terminators in JS

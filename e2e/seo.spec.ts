@@ -34,9 +34,10 @@ test.describe('SEO', () => {
 
     for (const path of noindexPages) {
       test(`${path} has noindex`, async ({ page }) => {
-        await page.goto(path)
-        const robotsMeta = page.locator('meta[name="robots"]')
-        await expect(robotsMeta).toHaveAttribute('content', /noindex/)
+        const response = await page.goto(path)
+        const xRobotsTag = response?.headers()['x-robots-tag']
+        // Verify the route rule sets the X-Robots-Tag header
+        expect(xRobotsTag).toBe('noindex')
       })
     }
   })
