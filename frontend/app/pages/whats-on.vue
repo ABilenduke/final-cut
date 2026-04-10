@@ -112,6 +112,9 @@ useHead({
   title: 'What\'s On — Final Cut',
   meta: [
     { name: 'description', content: 'Browse showtimes, special events, and accessibility screenings at Final Cut.' },
+    { property: 'og:title', content: 'What\'s On — Final Cut' },
+    { property: 'og:description', content: 'Browse showtimes, special events, and accessibility screenings at Final Cut.' },
+    { property: 'og:type', content: 'website' },
   ],
 })
 </script>

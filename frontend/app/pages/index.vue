@@ -21,12 +21,38 @@ function handleNotify() {
 }
 
 // --- SEO ---
+// siteUrl must be set via NUXT_PUBLIC_SITE_URL; never derive from request on ISR pages
+const siteUrl = useRuntimeConfig().public.siteUrl as string
+
 useHead({
   title: 'Final Cut \u2014 Now Showing & Tickets',
   meta: [
     {
       name: 'description',
       content: 'Now showing at Final Cut. Get tickets, browse showtimes, and discover upcoming events.',
+    },
+    { property: 'og:title', content: 'Final Cut \u2014 Now Showing & Tickets' },
+    { property: 'og:description', content: 'Now showing at Final Cut. Get tickets, browse showtimes, and discover upcoming events.' },
+    ...(siteUrl ? [{ property: 'og:url', content: siteUrl }] : []),
+    { property: 'og:type', content: 'website' },
+  ],
+  script: [
+    {
+      type: 'application/ld+json',
+      innerHTML: computed(() => safeJsonLd({
+        '@context': 'https://schema.org',
+        '@type': 'ItemList',
+        name: 'Now Showing at Final Cut',
+        itemListElement: nowShowingMovies.value.slice(0, 8).map((movie, i) => ({
+          '@type': 'ListItem',
+          position: i + 1,
+          item: {
+            '@type': 'Movie',
+            name: movie.title,
+            ...(siteUrl ? { url: `${siteUrl}/movies/${movie.slug}` } : {}),
+          },
+        })),
+      })),
     },
   ],
 })

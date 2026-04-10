@@ -3,6 +3,9 @@ useHead({
   title: 'Gift Cards — Final Cut',
   meta: [
     { name: 'description', content: 'Purchase a Final Cut gift card for the movie lover in your life, or check your existing balance.' },
+    { property: 'og:title', content: 'Gift Cards — Final Cut' },
+    { property: 'og:description', content: 'Purchase a Final Cut gift card for the movie lover in your life, or check your existing balance.' },
+    { property: 'og:type', content: 'website' },
   ],
 })
 </script>

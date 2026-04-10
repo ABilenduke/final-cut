@@ -72,6 +72,16 @@ if (import.meta.client) {
 }
 
 // SEO
+// siteUrl must be set via NUXT_PUBLIC_SITE_URL; never derive from request on ISR pages
+const siteUrl = useRuntimeConfig().public.siteUrl as string
+
+const seoDescription = computed(() => {
+  if (!movie.value) return 'Get showtimes and tickets at Final Cut.'
+  const text = movie.value.tagline || movie.value.synopsis
+  const truncated = text.length > 150 ? text.slice(0, 150).trimEnd() + '…' : text
+  return `${truncated} Get showtimes and tickets at Final Cut.`
+})
+
 useHead({
   title: computed(() =>
     movie.value
@@ -79,13 +89,37 @@ useHead({
       : 'Movie — Final Cut',
   ),
   meta: [
+    { name: 'description', content: seoDescription },
+    { property: 'og:title', content: computed(() => movie.value ? `${movie.value.title} — Showtimes & Tickets` : 'Movie — Final Cut') },
+    { property: 'og:description', content: seoDescription },
+    ...(siteUrl ? [{ property: 'og:url', content: computed(() => `${siteUrl}/movies/${slug.value}`) }] : []),
+    { property: 'og:type', content: 'video.movie' },
+    { property: 'og:image', content: computed(() => movie.value?.posterUrl ?? '') },
+  ],
+  script: [
     {
-      name: 'description',
-      content: computed(() => {
-        if (!movie.value) return 'Get showtimes and tickets at Final Cut.'
-        const text = movie.value.tagline || movie.value.synopsis
-        const truncated = text.length > 150 ? text.slice(0, 150).trimEnd() + '…' : text
-        return `${truncated} Get showtimes and tickets at Final Cut.`
+      type: 'application/ld+json',
+      innerHTML: computed(() => {
+        if (!movie.value) return '{}'
+        return safeJsonLd({
+          '@context': 'https://schema.org',
+          '@type': 'Movie',
+          name: movie.value.title,
+          description: movie.value.synopsis,
+          image: movie.value.posterUrl,
+          datePublished: movie.value.releaseDate,
+          genre: movie.value.genres?.map(g => g.name) ?? [],
+          duration: movie.value.runtime ? `PT${movie.value.runtime}M` : undefined,
+          aggregateRating: movie.value.rating ? {
+            '@type': 'AggregateRating',
+            ratingValue: movie.value.rating,
+            bestRating: 10,
+          } : undefined,
+          actor: movie.value.cast?.slice(0, 5).map(c => ({
+            '@type': 'Person',
+            name: c.name,
+          })) ?? [],
+        })
       }),
     },
   ],

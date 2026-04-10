@@ -3,11 +3,14 @@ useHead({
   title: 'Visit Us — Final Cut',
   meta: [
     { name: 'description', content: 'Find directions, hours, and contact information for Final Cut theater.' },
+    { property: 'og:title', content: 'Visit Us — Final Cut' },
+    { property: 'og:description', content: 'Find directions, hours, and contact information for Final Cut theater.' },
+    { property: 'og:type', content: 'website' },
   ],
   script: [
     {
       type: 'application/ld+json',
-      innerHTML: JSON.stringify({
+      innerHTML: safeJsonLd({
         '@context': 'https://schema.org',
         '@type': 'LocalBusiness',
         name: 'Final Cut',

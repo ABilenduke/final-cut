@@ -27,6 +27,9 @@ useHead({
   title: 'Food & Drink — Final Cut',
   meta: [
     { name: 'description', content: 'Explore our menu of popcorn, drinks, snacks, combos, and specials at Final Cut.' },
+    { property: 'og:title', content: 'Food & Drink — Final Cut' },
+    { property: 'og:description', content: 'Explore our menu of popcorn, drinks, snacks, combos, and specials at Final Cut.' },
+    { property: 'og:type', content: 'website' },
   ],
 })
 </script>
