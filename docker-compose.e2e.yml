@@ -31,6 +31,11 @@ services:
   backend:
     build:
       target: production
+    volumes:
+      # Raise FPM worker headroom so parallel Playwright workers don't
+      # saturate the default 5-child pool, which otherwise causes Nuxt
+      # ISR renders to time out and cache incomplete pages.
+      - ./backend/php-fpm-e2e.conf:/usr/local/etc/php-fpm.d/zz-e2e.conf:ro
     environment:
       - APP_KEY=${APP_KEY:-base64:Ktj1Q0ICzknLQ4jhpPOAPELk7cHPk7LPJSImpY6sDjc=}
       - APP_ENV=testing
@@ -39,6 +44,10 @@ services:
       - FRONTEND_URL=https://${APP_DOMAIN:-finalcut.test}
       - SANCTUM_STATEFUL_DOMAINS=${APP_DOMAIN:-finalcut.test},nginx
       - DB_DATABASE=${DB_TEST_DATABASE:-final_cut_test}
+      # Effectively disable API rate limiting. Parallel Playwright workers
+      # drive SSR fetches from a single frontend-container IP; the 60 rpm
+      # default otherwise throttles Nuxt renders and produces 429 pages.
+      - API_THROTTLE=10000,1
     depends_on:
       postgres:
         condition: service_healthy
