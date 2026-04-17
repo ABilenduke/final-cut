@@ -32,10 +32,14 @@ export const COMING_SOON_SLUGS = {
   TOY_STORY: 'toy-story',
 } as const
 
-// Viewport sizes for responsive tests
+// Viewport sizes for responsive tests.
+// `tablet` is intentionally in the screen-md → screen-lg band (60rem–80rem)
+// because that is where the design system expects the icon-only sidebar
+// rail to appear. A 768px (48rem) width is below screen-md and therefore
+// rendered with the mobile bottom-bar treatment.
 export const VIEWPORTS = {
   desktop: { width: 1280, height: 800 },
-  tablet: { width: 768, height: 1024 },
+  tablet: { width: 1024, height: 1366 },
   mobile: { width: 375, height: 812 },
 } as const
 

@@ -3,7 +3,6 @@
 namespace Database\Seeders;
 
 use App\Enums\MovieStatus;
-use App\Models\Auditorium;
 use App\Models\Location;
 use App\Models\Movie;
 use App\Models\Showtime;
