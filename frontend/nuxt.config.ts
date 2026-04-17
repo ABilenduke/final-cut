@@ -11,6 +11,12 @@ export default defineNuxtConfig({
 
   css: ['~/assets/css/main.css'],
 
+  app: {
+    head: {
+      htmlAttrs: { lang: 'en' },
+    },
+  },
+
   routeRules: {
     '/': { isr: 1800 },
     '/movies': { isr: 1800 },

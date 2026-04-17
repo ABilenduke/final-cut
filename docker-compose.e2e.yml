@@ -32,7 +32,7 @@ services:
     build:
       target: production
     environment:
-      - APP_KEY=${APP_KEY:-base64:Y2ktdGVzdC1rZXktMzItYnl0ZXMtbG9uZy4uLi4=}
+      - APP_KEY=${APP_KEY:-base64:Ktj1Q0ICzknLQ4jhpPOAPELk7cHPk7LPJSImpY6sDjc=}
       - APP_ENV=testing
       - APP_DEBUG=true
       - APP_URL=https://${APP_DOMAIN:-finalcut.test}
@@ -59,7 +59,7 @@ services:
       - ./redis/certs/ca.pem:/tls/redis/ca.pem:ro
       - ./postgres/certs/ca.pem:/tls/postgres/ca.pem:ro
     environment:
-      - APP_KEY=${APP_KEY:-base64:Y2ktdGVzdC1rZXktMzItYnl0ZXMtbG9uZy4uLi4=}
+      - APP_KEY=${APP_KEY:-base64:Ktj1Q0ICzknLQ4jhpPOAPELk7cHPk7LPJSImpY6sDjc=}
       - APP_ENV=testing
       - APP_DEBUG=true
       - DB_CONNECTION=${DB_CONNECTION:-pgsql}
