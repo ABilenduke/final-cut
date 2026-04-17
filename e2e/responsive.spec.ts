@@ -86,11 +86,15 @@ test.describe('Responsive Layout', () => {
   })
 
   test.describe('Account sidebar', () => {
+    // Desktop and mobile sidebar navs share aria-label="Account" and
+    // both live in the DOM; CSS hides one or the other based on
+    // viewport. Scope the assertion to the variant expected to be
+    // visible for each viewport instead of tripping strict-mode.
     test('desktop — full sidebar rail visible', async ({ page }) => {
       await page.setViewportSize(VIEWPORTS.desktop)
       await login(page)
       await page.goto('/account')
-      const sidebar = page.locator('nav[aria-label="Account"]')
+      const sidebar = page.locator('nav.sidebar-nav[aria-label="Account"]')
       await expect(sidebar).toBeVisible()
 
       // Should show labels (not just icons)
@@ -102,7 +106,7 @@ test.describe('Responsive Layout', () => {
       await page.setViewportSize(VIEWPORTS.tablet)
       await login(page)
       await page.goto('/account')
-      const sidebar = page.locator('nav[aria-label="Account"]')
+      const sidebar = page.locator('nav.sidebar-nav[aria-label="Account"]')
       await expect(sidebar).toBeVisible()
     })
 
@@ -110,8 +114,8 @@ test.describe('Responsive Layout', () => {
       await page.setViewportSize(VIEWPORTS.mobile)
       await login(page)
       await page.goto('/account')
-      // Account nav should still be accessible on mobile (as bottom bar)
-      const nav = page.locator('nav[aria-label="Account"]')
+      // On mobile the bottom-bar variant is the one that renders.
+      const nav = page.locator('nav.sidebar-nav-mobile[aria-label="Account"]')
       await expect(nav).toBeVisible()
     })
   })

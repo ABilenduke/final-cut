@@ -85,8 +85,9 @@ test.describe('Accessibility', () => {
   test('accordion keyboard interaction on FAQ page', async ({ page }) => {
     await page.goto('/faq')
 
-    // Find the first accordion trigger
-    const firstTrigger = page.locator('button[aria-expanded]').first()
+    // Scope to the FAQ content — the site header also has a mobile
+    // hamburger with aria-expanded that would otherwise match first.
+    const firstTrigger = page.locator('main button[aria-expanded]').first()
     await expect(firstTrigger).toBeVisible()
 
     // Focus and activate with Enter

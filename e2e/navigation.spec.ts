@@ -106,8 +106,9 @@ test.describe('Navigation', () => {
     test('account page uses account layout with sidebar', async ({ page }) => {
       await login(page)
       await page.goto('/account')
-      // Account layout has sidebar nav
-      await expect(page.locator('nav[aria-label="Account"]')).toBeVisible()
+      // Desktop + mobile sidebar navs share this label; `.first()`
+      // avoids a strict-mode violation since both coexist in the DOM.
+      await expect(page.locator('nav[aria-label="Account"]').first()).toBeVisible()
     })
   })
 })
