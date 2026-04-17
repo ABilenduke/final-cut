@@ -84,6 +84,9 @@ test.describe('Accessibility', () => {
 
   test('accordion keyboard interaction on FAQ page', async ({ page }) => {
     await page.goto('/faq')
+    // Wait for hydration — Enter/Space before the Vue @click handler
+    // has attached does nothing, flaking the toggle assertion.
+    await page.waitForLoadState('networkidle')
 
     // Scope to the FAQ content — the site header also has a mobile
     // hamburger with aria-expanded that would otherwise match first.

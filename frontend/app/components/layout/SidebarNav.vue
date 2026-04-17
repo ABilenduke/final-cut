@@ -63,6 +63,15 @@ async function handleLogout(): Promise<void> {
       <CvIcon :name="item.icon" size="md" />
       <span class="sidebar-nav-mobile__label">{{ item.label }}</span>
     </NuxtLink>
+    <button
+      type="button"
+      class="sidebar-nav-mobile__item sidebar-nav-mobile__logout"
+      aria-label="Log Out"
+      @click="handleLogout"
+    >
+      <CvIcon name="logout" size="md" />
+      <span class="sidebar-nav-mobile__label">Log Out</span>
+    </button>
   </nav>
 </template>
 
@@ -197,6 +206,15 @@ async function handleLogout(): Promise<void> {
 
 .sidebar-nav-mobile__item--active {
   color: var(--secondary);
+}
+
+/* Logout on mobile is also a button; reset native chrome to match
+ * the link items it sits alongside. */
+.sidebar-nav-mobile__logout {
+  background: none;
+  border: 0;
+  cursor: pointer;
+  font: inherit;
 }
 
 .sidebar-nav-mobile__label {

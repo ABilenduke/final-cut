@@ -15,6 +15,9 @@ test.describe('Navigation', () => {
     for (const { name, path } of navLinks) {
       test(`clicking "${name}" navigates to ${path}`, async ({ page }) => {
         await page.goto('/')
+        // Wait for hydration — before NuxtLink's click handler attaches,
+        // a click can race with the router and leave the URL unchanged.
+        await page.waitForLoadState('networkidle')
         await page.getByRole('navigation', { name: 'Primary' }).getByRole('link', { name }).click()
         await expect(page).toHaveURL(new RegExp(path))
       })

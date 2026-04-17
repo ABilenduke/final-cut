@@ -50,7 +50,13 @@ class MovieController extends Controller
             return $this->errorResponse(['message' => 'Movie not found'], 404);
         }
 
-        $date = $request->input('date');
+        // Validate the optional date query param — without this an
+        // empty/malformed value (e.g. ?date= or ?date=not-a-date)
+        // would reach Postgres via whereDate() and raise a 500.
+        $validated = $request->validate([
+            'date' => ['nullable', 'date_format:Y-m-d'],
+        ]);
+        $date = $validated['date'] ?? null;
 
         $query = $movie->showtimes()
             ->whereHas('auditorium', fn ($q) => $q->where('location_id', $location->id))

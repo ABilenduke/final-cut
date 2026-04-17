@@ -8,6 +8,12 @@ use Illuminate\Support\Carbon;
 
 use function Pest\Laravel\getJson;
 
+afterEach(function () {
+    // Reset any frozen time so the setTestNow() calls inside individual
+    // tests don't leak into subsequent tests within the same process.
+    Carbon::setTestNow();
+});
+
 /*
 |--------------------------------------------------------------------------
 | GET /api/movies — Local DB is source of truth
@@ -235,6 +241,22 @@ test('GET showtimes defaults to upcoming 14-day window', function () {
     getJson("/api/locations/{$location->slug}/movies/upcoming-default/showtimes")
         ->assertOk()
         ->assertJsonCount(2, 'data');
+});
+
+test('GET showtimes rejects malformed date parameter with 422', function () {
+    $location = Location::factory()->create();
+    Movie::factory()->create(['slug' => 'invalid-date']);
+
+    // Empty string is normalized to null by ConvertEmptyStringsToNull,
+    // which matches the "no date supplied" path and succeeds — that is
+    // the documented behavior. Anything non-empty but non-ISO-date
+    // must be rejected rather than reaching whereDate() and raising a
+    // Postgres cast error.
+    getJson("/api/locations/{$location->slug}/movies/invalid-date/showtimes?date=not-a-date")
+        ->assertUnprocessable();
+
+    getJson("/api/locations/{$location->slug}/movies/invalid-date/showtimes?date=2026-13-40")
+        ->assertUnprocessable();
 });
 
 test('GET showtimes returns empty for no showtimes on date', function () {

@@ -24,9 +24,17 @@ services:
     command:
       ["run", "--allow-net", "--allow-read", "--allow-env",
        "--unsafely-ignore-certificate-errors", ".output/server/index.mjs"]
+    # The base image's healthcheck fetches `/`, which triggers SSR
+    # (useMovies() on the home page) and thus depends on nginx being
+    # up. nginx in turn depends on frontend being healthy — a cycle.
+    # For E2E we only need to know the Deno server has bound the
+    # port; the real readiness is covered by subsequent test steps.
     healthcheck:
+      test: ["CMD", "deno", "eval", "const s = await Deno.connect({ hostname: '127.0.0.1', port: 3000 }); s.close();"]
       interval: 5s
-      retries: 10
+      retries: 20
+      timeout: 3s
+      start_period: 15s
 
   backend:
     build:
@@ -135,4 +143,4 @@ services:
     command:
       - sh
       - -c
-      - npm install && npx playwright test
+      - npm ci && npx playwright test

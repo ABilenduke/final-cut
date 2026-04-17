@@ -141,8 +141,11 @@ USER root
 COPY --from=composer:2.9.5 /usr/bin/composer /usr/bin/composer
 
 # Install dev dependencies on top of the production vendor dir.
-# This gives us Faker for seeders without changing the production image.
-RUN composer install --no-interaction
+# --no-scripts skips Laravel's post-install hooks (package:discover
+# etc.) which would otherwise write bootstrap/cache/*.php as root
+# and block the www-data process that runs migrate:fresh --seed.
+RUN composer install --no-interaction --no-scripts \
+    && chown -R www-data:www-data /var/www/html/vendor /var/www/html/bootstrap/cache
 
 USER www-data
 

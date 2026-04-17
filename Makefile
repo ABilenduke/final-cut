@@ -73,10 +73,15 @@ trust-cert:
 
 E2E_COMPOSE = docker compose -f docker-compose.yml -f docker-compose.e2e.yml -f docker-compose.stack.yml
 
+# Run the whole sequence in a single shell so a trap guarantees the
+# stack is torn down even when the seeder or playwright step fails.
+# Without this, a failed step exits the recipe early and leaves
+# containers / volumes lying around.
 e2e:
-	$(E2E_COMPOSE) up -d --build --wait
-	$(E2E_COMPOSE) run --rm backend-seeder
+	@set -e; \
+	trap 'status=$$?; $(E2E_COMPOSE) down -v; exit $$status' EXIT INT TERM; \
+	$(E2E_COMPOSE) up -d --build --wait; \
+	$(E2E_COMPOSE) run --rm backend-seeder; \
 	$(E2E_COMPOSE) run --rm playwright
-	$(E2E_COMPOSE) down -v
 
 ci-e2e: e2e
