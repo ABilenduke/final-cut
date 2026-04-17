@@ -1,0 +1,129 @@
+# E2E overlay — production-mode services with seeded database.
+#
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.e2e.yml \
+#     -f docker-compose.stack.yml up -d --build --wait
+#   docker compose -f docker-compose.yml -f docker-compose.e2e.yml \
+#     -f docker-compose.stack.yml run --rm backend-seeder
+#   docker compose -f docker-compose.yml -f docker-compose.e2e.yml \
+#     -f docker-compose.stack.yml run --rm playwright
+#   docker compose -f docker-compose.yml -f docker-compose.e2e.yml \
+#     -f docker-compose.stack.yml down -v
+
+services:
+  # ── Production-mode app services ───────────
+  frontend:
+    build:
+      target: production
+    environment:
+      # Server-side ISR/SSR fetches need an absolute URL to reach the
+      # backend via nginx. Deno ignores NODE_TLS_REJECT_UNAUTHORIZED,
+      # so we also pass --unsafely-ignore-certificate-errors via the
+      # command override below.
+      - NUXT_PUBLIC_API_BASE_URL=https://nginx
+    command:
+      ["run", "--allow-net", "--allow-read", "--allow-env",
+       "--unsafely-ignore-certificate-errors", ".output/server/index.mjs"]
+    healthcheck:
+      interval: 5s
+      retries: 10
+
+  backend:
+    build:
+      target: production
+    environment:
+      - APP_KEY=${APP_KEY:-base64:Y2ktdGVzdC1rZXktMzItYnl0ZXMtbG9uZy4uLi4=}
+      - APP_ENV=testing
+      - APP_DEBUG=true
+      - APP_URL=https://${APP_DOMAIN:-finalcut.test}
+      - FRONTEND_URL=https://${APP_DOMAIN:-finalcut.test}
+      - SANCTUM_STATEFUL_DOMAINS=${APP_DOMAIN:-finalcut.test},nginx
+      - DB_DATABASE=${DB_TEST_DATABASE:-final_cut_test}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      interval: 5s
+      retries: 10
+
+  # ── One-shot seeder (runs migrate:fresh --seed, then exits) ──
+  # Profile prevents `up` from starting this; use `run --rm backend-seeder`.
+  backend-seeder:
+    profiles: [tools]
+    build:
+      context: ./backend
+      target: e2e-seeder
+    volumes:
+      - ./redis/certs/ca.pem:/tls/redis/ca.pem:ro
+      - ./postgres/certs/ca.pem:/tls/postgres/ca.pem:ro
+    environment:
+      - APP_KEY=${APP_KEY:-base64:Y2ktdGVzdC1rZXktMzItYnl0ZXMtbG9uZy4uLi4=}
+      - APP_ENV=testing
+      - APP_DEBUG=true
+      - DB_CONNECTION=${DB_CONNECTION:-pgsql}
+      - DB_HOST=${DB_HOST:-postgres}
+      - DB_PORT=${DB_PORT:-5432}
+      - DB_DATABASE=${DB_TEST_DATABASE:-final_cut_test}
+      - DB_USERNAME=${DB_USERNAME:-final_cut}
+      - DB_PASSWORD=${DB_PASSWORD:-secret}
+      - DB_SSLMODE=${DB_SSLMODE:-verify-full}
+      - DB_SSLROOTCERT=${DB_SSLROOTCERT:-/tls/postgres/ca.pem}
+      - REDIS_HOST=${REDIS_HOST:-redis}
+      - REDIS_PORT=${REDIS_PORT:-6379}
+      - REDIS_USERNAME=${REDIS_USERNAME:-app}
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-redissecret}
+      - REDIS_SCHEME=${REDIS_SCHEME:-tls}
+      - REDIS_TLS_CA_CERT=/tls/redis/ca.pem
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # ── Disable fail2ban for e2e ───────────────
+  fail2ban:
+    deploy:
+      replicas: 0
+
+  # ── Faster healthchecks + permissive rate limits ────
+  nginx:
+    volumes:
+      - ./nginx/nginx.e2e.conf:/etc/nginx/nginx.conf:ro
+    healthcheck:
+      interval: 5s
+      retries: 10
+      start_period: 10s
+
+  postgres:
+    healthcheck:
+      interval: 5s
+      retries: 10
+      start_period: 10s
+
+  redis:
+    healthcheck:
+      interval: 5s
+      retries: 10
+      start_period: 5s
+
+  # ── Playwright ─────────────────────────────
+  # Profile prevents `up` from starting this; use `run --rm playwright`.
+  playwright:
+    profiles: [tools]
+    image: mcr.microsoft.com/playwright:v1.58.0-noble
+    working_dir: /app
+    volumes:
+      - ./e2e:/app
+    depends_on:
+      nginx:
+        condition: service_healthy
+    environment:
+      - BASE_URL=https://nginx
+      - CI=true
+      - NODE_TLS_REJECT_UNAUTHORIZED=0
+    command:
+      - sh
+      - -c
+      - npm install && npx playwright test

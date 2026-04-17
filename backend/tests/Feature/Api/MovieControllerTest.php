@@ -4,6 +4,7 @@ use App\Models\Auditorium;
 use App\Models\Location;
 use App\Models\Movie;
 use App\Models\Showtime;
+use Illuminate\Support\Carbon;
 
 use function Pest\Laravel\getJson;
 
@@ -144,6 +145,10 @@ test('GET /api/movies/{slug} returns movie with persisted cast data', function (
 */
 
 test('GET showtimes returns showtimes for movie at location', function () {
+    // Freeze time in the morning so `now()->addHours(2)` stays on the
+    // same calendar day regardless of when the suite runs.
+    Carbon::setTestNow('2026-06-15 10:00:00');
+
     $location = Location::factory()->create();
     $movie = Movie::factory()->create(['slug' => 'showtime-movie']);
     $auditorium = Auditorium::factory()->create(['location_id' => $location->id]);
@@ -167,6 +172,8 @@ test('GET showtimes returns showtimes for movie at location', function () {
 });
 
 test('GET showtimes filters by date', function () {
+    Carbon::setTestNow('2026-06-15 10:00:00');
+
     $location = Location::factory()->create();
     $movie = Movie::factory()->create(['slug' => 'date-filter']);
     $auditorium = Auditorium::factory()->create(['location_id' => $location->id]);
@@ -196,11 +203,12 @@ test('GET showtimes filters by date', function () {
         ->assertJsonCount(1, 'data');
 });
 
-test('GET showtimes defaults to today', function () {
+test('GET showtimes defaults to upcoming 14-day window', function () {
     $location = Location::factory()->create();
-    $movie = Movie::factory()->create(['slug' => 'today-default']);
+    $movie = Movie::factory()->create(['slug' => 'upcoming-default']);
     $auditorium = Auditorium::factory()->create(['location_id' => $location->id]);
 
+    // Today — should appear
     Showtime::factory()->create([
         'movie_id' => $movie->id,
         'auditorium_id' => $auditorium->id,
@@ -208,7 +216,7 @@ test('GET showtimes defaults to today', function () {
         'end_time' => now()->addHours(5),
     ]);
 
-    // Tomorrow — should NOT appear
+    // Tomorrow — should also appear
     Showtime::factory()->create([
         'movie_id' => $movie->id,
         'auditorium_id' => $auditorium->id,
@@ -216,9 +224,17 @@ test('GET showtimes defaults to today', function () {
         'end_time' => now()->addDay()->addHours(5),
     ]);
 
-    getJson("/api/locations/{$location->slug}/movies/today-default/showtimes")
+    // 20 days out — outside the window, should NOT appear
+    Showtime::factory()->create([
+        'movie_id' => $movie->id,
+        'auditorium_id' => $auditorium->id,
+        'start_time' => now()->addDays(20)->addHours(3),
+        'end_time' => now()->addDays(20)->addHours(5),
+    ]);
+
+    getJson("/api/locations/{$location->slug}/movies/upcoming-default/showtimes")
         ->assertOk()
-        ->assertJsonCount(1, 'data');
+        ->assertJsonCount(2, 'data');
 });
 
 test('GET showtimes returns empty for no showtimes on date', function () {
@@ -238,6 +254,8 @@ test('GET showtimes returns 404 for unknown movie slug', function () {
 });
 
 test('GET showtimes excludes showtimes from other locations', function () {
+    Carbon::setTestNow('2026-06-15 10:00:00');
+
     $location1 = Location::factory()->create();
     $location2 = Location::factory()->create();
     $movie = Movie::factory()->create(['slug' => 'cross-location']);

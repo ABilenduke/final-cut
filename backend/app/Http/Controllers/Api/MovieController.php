@@ -50,15 +50,24 @@ class MovieController extends Controller
             return $this->errorResponse(['message' => 'Movie not found'], 404);
         }
 
-        $date = $request->input('date', now()->toDateString());
+        $date = $request->input('date');
 
-        $showtimes = $movie->showtimes()
+        $query = $movie->showtimes()
             ->whereHas('auditorium', fn ($q) => $q->where('location_id', $location->id))
             ->with('movie', 'auditorium')
-            ->whereDate('start_time', $date)
             ->where('start_time', '>', now())
-            ->orderBy('start_time')
-            ->get();
+            ->orderBy('start_time');
+
+        if ($date !== null) {
+            $query->whereDate('start_time', $date);
+        } else {
+            // Default: next 14 days of upcoming showtimes so the
+            // frontend ShowtimeSelector can render date tabs without
+            // needing a per-day fetch.
+            $query->where('start_time', '<=', now()->addDays(14));
+        }
+
+        $showtimes = $query->get();
 
         return $this->successResponse(ShowtimeResource::collection($showtimes));
     }

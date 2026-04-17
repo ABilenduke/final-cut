@@ -24,8 +24,10 @@ WORKDIR /var/www/html
 
 COPY composer.json composer.lock ./
 
+ARG INSTALL_DEV_DEPS=false
+
 RUN composer install \
-    --no-dev \
+    $([ "$INSTALL_DEV_DEPS" = "true" ] && echo "" || echo "--no-dev") \
     --no-scripts \
     --no-autoloader \
     --prefer-dist \
@@ -33,7 +35,7 @@ RUN composer install \
 
 COPY . .
 
-RUN composer dump-autoload --optimize --no-dev
+RUN composer dump-autoload --optimize $([ "$INSTALL_DEV_DEPS" = "true" ] && echo "" || echo "--no-dev")
 
 # ── Stage 2: Production image ────────────────
 FROM php:8.4.19-fpm-alpine3.23 AS production
@@ -128,6 +130,23 @@ USER www-data
 EXPOSE 9000
 
 CMD ["php-fpm"]
+
+# ── Stage 2b: E2E seeder (production + dev deps for seeding) ──
+# Extends production with Composer and dev dependencies so that
+# migrate:fresh --seed works (seeders need Faker). Used as a
+# one-shot sidecar container — not a runtime image.
+FROM production AS e2e-seeder
+
+USER root
+COPY --from=composer:2.9.5 /usr/bin/composer /usr/bin/composer
+
+# Install dev dependencies on top of the production vendor dir.
+# This gives us Faker for seeders without changing the production image.
+RUN composer install --no-interaction
+
+USER www-data
+
+CMD ["php", "artisan", "migrate:fresh", "--seed", "--force"]
 
 # ── Stage 3: Development image ────────────────
 FROM production AS development
