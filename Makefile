@@ -1,4 +1,4 @@
-.PHONY: up down build shell artisan migrate fresh certs trust-cert prod-up prod-down prod-build prod-logs local-prod-up local-prod-down local-prod-build local-prod-logs e2e ci-e2e
+.PHONY: up down build shell artisan migrate fresh test test-backend test-backend-unit test-backend-feature test-frontend certs trust-cert prod-up prod-down prod-build prod-logs local-prod-up local-prod-down local-prod-build local-prod-logs e2e ci-e2e
 
 ifeq (artisan,$(firstword $(MAKECMDGOALS)))
 ARTISAN_ARGS := $(wordlist 2,$(words $(MAKECMDGOALS)),$(MAKECMDGOALS))
@@ -28,6 +28,20 @@ migrate:
 
 fresh:
 	docker compose exec backend php artisan migrate:fresh --seed
+
+test: test-backend test-frontend
+
+test-backend:
+	docker compose exec backend php artisan test
+
+test-backend-unit:
+	docker compose exec backend php artisan test --testsuite=Unit
+
+test-backend-feature:
+	docker compose exec backend php artisan test --testsuite=Feature
+
+test-frontend:
+	docker compose exec frontend deno run -A npm:vitest run
 
 PROD_COMPOSE = APP_ENV=production APP_DEBUG=false NODE_ENV=production docker compose -f docker-compose.yml -f docker-compose.prod.yml
 LOCAL_PROD_COMPOSE = APP_ENV=production APP_DEBUG=false NODE_ENV=production docker compose -f docker-compose.yml -f docker-compose.local-prod.yml -f docker-compose.stack.yml
