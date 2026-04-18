@@ -25,6 +25,9 @@ useHead({
   title: 'Events — Final Cut',
   meta: [
     { name: 'description', content: 'Special events, screenings, and experiences at Final Cut.' },
+    { property: 'og:title', content: 'Events — Final Cut' },
+    { property: 'og:description', content: 'Special events, screenings, and experiences at Final Cut.' },
+    { property: 'og:type', content: 'website' },
   ],
 })
 </script>

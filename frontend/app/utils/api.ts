@@ -22,7 +22,15 @@ export interface ApiErrorResponse {
 }
 
 function shouldUseRelativeApiPath(path: string): boolean {
-  return import.meta.server && path.startsWith('/')
+  if (!import.meta.server || !path.startsWith('/')) {
+    return false
+  }
+  // When NUXT_PUBLIC_API_BASE_URL is explicitly configured, honor it
+  // server-side so SSR/ISR renders can reach the backend via the
+  // configured origin (e.g., through nginx) instead of looping back
+  // to the Nuxt server itself.
+  const configured = String(useRuntimeConfig().public.apiBaseUrl ?? '').trim()
+  return configured === ''
 }
 
 function resolveApiBaseUrl(): string {

@@ -12,10 +12,16 @@ defineProps<{
 }>()
 
 const route = useRoute()
+const { logout } = useAuth()
 
 function isActive(href: string): boolean {
   if (href === '/account') return route.path === '/account'
   return route.path.startsWith(href)
+}
+
+async function handleLogout(): Promise<void> {
+  await logout()
+  await navigateTo('/')
 }
 </script>
 
@@ -33,6 +39,14 @@ function isActive(href: string): boolean {
       <CvIcon :name="item.icon" size="md" />
       <span class="sidebar-nav__label">{{ item.label }}</span>
     </NuxtLink>
+    <button
+      type="button"
+      class="sidebar-nav__item sidebar-nav__logout"
+      @click="handleLogout"
+    >
+      <CvIcon name="logout" size="md" />
+      <span class="sidebar-nav__label">Log Out</span>
+    </button>
   </nav>
 
   <!-- Mobile bottom bar (below screen-md) -->
@@ -49,6 +63,15 @@ function isActive(href: string): boolean {
       <CvIcon :name="item.icon" size="md" />
       <span class="sidebar-nav-mobile__label">{{ item.label }}</span>
     </NuxtLink>
+    <button
+      type="button"
+      class="sidebar-nav-mobile__item sidebar-nav-mobile__logout"
+      aria-label="Log Out"
+      @click="handleLogout"
+    >
+      <CvIcon name="logout" size="md" />
+      <span class="sidebar-nav-mobile__label">Log Out</span>
+    </button>
   </nav>
 </template>
 
@@ -89,6 +112,18 @@ function isActive(href: string): boolean {
 
 .sidebar-nav__item--active {
   color: var(--secondary);
+}
+
+/* Logout is a button, not a link — reset native chrome so it shares
+ * the link treatment and sits at the bottom of the rail. */
+.sidebar-nav__logout {
+  background: none;
+  border: 0;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  width: 100%;
+  margin-top: auto;
 }
 
 .sidebar-nav__item--active::before {
@@ -171,6 +206,15 @@ function isActive(href: string): boolean {
 
 .sidebar-nav-mobile__item--active {
   color: var(--secondary);
+}
+
+/* Logout on mobile is also a button; reset native chrome to match
+ * the link items it sits alongside. */
+.sidebar-nav-mobile__logout {
+  background: none;
+  border: 0;
+  cursor: pointer;
+  font: inherit;
 }
 
 .sidebar-nav-mobile__label {

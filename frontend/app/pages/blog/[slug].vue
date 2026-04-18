@@ -25,7 +25,7 @@ useHead(() => {
     script: [
       {
         type: 'application/ld+json',
-        innerHTML: JSON.stringify({
+        innerHTML: safeJsonLd({
           '@context': 'https://schema.org',
           '@type': 'Article',
           headline: post.value.title,

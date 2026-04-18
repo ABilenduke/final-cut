@@ -11,7 +11,7 @@ useHead({
   script: [
     {
       type: 'application/ld+json',
-      innerHTML: JSON.stringify({
+      innerHTML: safeJsonLd({
         '@context': 'https://schema.org',
         '@type': 'Blog',
         name: 'Final Cut Blog',

@@ -70,6 +70,16 @@ export function useCart() {
   }
 
   function initializeCart(st: Showtime): void {
+    // Re-entering the seat page for the SAME showtime (e.g. after
+    // navigating back from checkout via the step indicator) should
+    // preserve the user's selections. Only reset when the showtime
+    // actually changes — switching showtimes logically invalidates
+    // the old selections.
+    if (showtime.value?.id === st.id) {
+      showtime.value = st
+      return
+    }
+
     stopTimers()
     showtime.value = st
     seats.value = []

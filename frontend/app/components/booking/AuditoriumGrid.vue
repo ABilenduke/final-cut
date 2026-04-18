@@ -247,10 +247,22 @@ onMounted(() => {
   font-family: var(--font-body);
   font-size: var(--type-label-md);
   color: var(--tertiary);
-  position: sticky;
-  left: 0;
-  z-index: var(--z-card);
   background-color: var(--surface);
+}
+
+/*
+ * Pin labels to the left edge only when the grid is horizontally
+ * scrolling (mobile). On desktop there is no scroll container, and
+ * `position: sticky` with a high z-index combined with stacking-
+ * context quirks can cause hit-testing to report the label at seat
+ * coordinates, breaking Playwright clicks.
+ */
+@media (max-width: 59.999rem) {
+  .auditorium__label {
+    position: sticky;
+    left: 0;
+    z-index: var(--z-card);
+  }
 }
 
 .auditorium__seats-row {

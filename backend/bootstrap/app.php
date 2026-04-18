@@ -18,7 +18,7 @@ return Application::configure(basePath: dirname(__DIR__))
             EnsureFrontendRequestsAreStateful::class,
         ]);
 
-        $middleware->throttleApi('60,1');
+        $middleware->throttleApi(env('API_THROTTLE', '60,1'));
 
         $middleware->statefulApi();
     })

@@ -5,11 +5,14 @@ useHead({
   title: 'FAQ — Final Cut',
   meta: [
     { name: 'description', content: 'Frequently asked questions about tickets, accessibility, food, and policies at Final Cut.' },
+    { property: 'og:title', content: 'FAQ — Final Cut' },
+    { property: 'og:description', content: 'Frequently asked questions about tickets, accessibility, food, and policies at Final Cut.' },
+    { property: 'og:type', content: 'website' },
   ],
   script: [
     {
       type: 'application/ld+json',
-      innerHTML: JSON.stringify({
+      innerHTML: safeJsonLd({
         '@context': 'https://schema.org',
         '@type': 'FAQPage',
         mainEntity: faqData.flatMap(category =>

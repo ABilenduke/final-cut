@@ -50,7 +50,12 @@ const pageDescription = computed(() =>
 
 useHead({
   title: pageTitle,
-  meta: [{ name: 'description', content: pageDescription }],
+  meta: [
+    { name: 'description', content: pageDescription },
+    { property: 'og:title', content: pageTitle },
+    { property: 'og:description', content: pageDescription },
+    { property: 'og:type', content: 'website' },
+  ],
 })
 </script>
 

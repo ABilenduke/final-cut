@@ -33,7 +33,7 @@ jobs:
               - 'backend/**'
               - 'docker-compose.yml'
               - 'docker-compose.stack.yml'
-              - 'docker-compose.ci.yml'
+              - 'docker-compose.e2e.yml'
               - 'nginx/**'
               - 'postgres/**'
               - 'redis/**'
@@ -64,17 +64,17 @@ jobs:
 
       - name: Build and start services
         run: |
-          docker compose -f docker-compose.yml -f docker-compose.stack.yml -f docker-compose.ci.yml \
+          docker compose -f docker-compose.yml -f docker-compose.e2e.yml -f docker-compose.stack.yml \
             up -d --build --wait
 
       - name: Run migrations and seed database
         run: |
-          docker compose -f docker-compose.yml -f docker-compose.stack.yml -f docker-compose.ci.yml \
-            exec -T backend php artisan migrate:fresh --seed
+          docker compose -f docker-compose.yml -f docker-compose.e2e.yml -f docker-compose.stack.yml \
+            run --rm backend-seeder
 
       - name: Run Playwright E2E tests
         run: |
-          docker compose -f docker-compose.yml -f docker-compose.stack.yml -f docker-compose.ci.yml \
+          docker compose -f docker-compose.yml -f docker-compose.e2e.yml -f docker-compose.stack.yml \
             run --rm playwright
 
       - name: Upload Playwright report
@@ -88,11 +88,11 @@ jobs:
       - name: Print service logs on failure
         if: failure()
         run: |
-          docker compose -f docker-compose.yml -f docker-compose.stack.yml -f docker-compose.ci.yml \
+          docker compose -f docker-compose.yml -f docker-compose.e2e.yml -f docker-compose.stack.yml \
             logs --tail=100
 
       - name: Tear down
         if: always()
         run: |
-          docker compose -f docker-compose.yml -f docker-compose.stack.yml -f docker-compose.ci.yml \
+          docker compose -f docker-compose.yml -f docker-compose.e2e.yml -f docker-compose.stack.yml \
             down -v

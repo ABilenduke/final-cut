@@ -114,50 +114,28 @@
 
 /* ——— 6. Auditorium — Seat Selection Grid ——— */
 
+/*
+ * The per-row markup (`.auditorium__row` with label + seats-row
+ * children) lives in AuditoriumGrid.vue with scoped styles. Only
+ * shared/global concerns stay here:
+ *   - cell-size CSS variable, so it can be referenced by other
+ *     auditorium-related components (seats, legend swatches).
+ *   - `.auditorium__screen` indicator bar rendered by the separate
+ *     AuditoriumScreenBar component.
+ *
+ * A previous two-column grid layout (`.auditorium__labels` column +
+ * `.auditorium__grid` column) was removed when the component
+ * refactored to per-row markup — the stale `display: grid;
+ * grid-template-columns: var(--space-xl) 1fr` was silently
+ * auto-placing the new row divs into two columns, overlapping rows
+ * visually and breaking seat-click hit-testing.
+ */
+
 .auditorium {
-  display: grid;
-  grid-template-columns: var(--space-xl) 1fr;
-  gap: 0;
+  --seat-size: 2.5rem;
 }
 
-/* Row labels — pinned left, never scroll */
-.auditorium__labels {
-  position: sticky;
-  left: 0;
-  z-index: var(--z-card);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-xs);
-  background-color: var(--auditorium-bg, var(--surface));
-}
-
-.auditorium__label {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: var(--seat-size, 2.5rem);
-  font-family: var(--font-body);
-  font-size: var(--type-label-md);
-  color: var(--tertiary);
-}
-
-/* Scrollable seat matrix */
-.auditorium__grid {
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  scroll-snap-type: x proximity;
-}
-
-.auditorium__seats {
-  display: grid;
-  grid-template-columns: repeat(var(--seats-per-row, 10), var(--seat-size, 2.5rem));
-  gap: var(--space-xs);
-  width: fit-content;
-}
-
-/* Screen indicator */
 .auditorium__screen {
-  grid-column: 1 / -1;
   height: 0.25rem;
   width: 60%;
   margin-inline: auto;
@@ -165,19 +143,9 @@
   background-color: var(--primary-container);
 }
 
-/* Desktop: 2.5rem cells */
-.auditorium {
-  --seat-size: 2.5rem;
-}
-
-/* Mobile: 3rem cells for touch targets */
 @media (max-width: 59.999rem) {
   .auditorium {
     --seat-size: 3rem;
-  }
-
-  .auditorium__grid {
-    scroll-snap-type: x proximity;
   }
 }
 

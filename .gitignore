@@ -27,3 +27,4 @@ nginx/certs/.domain
 
 # Git worktrees
 .worktrees
+.claude/

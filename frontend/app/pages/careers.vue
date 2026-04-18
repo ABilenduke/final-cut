@@ -36,7 +36,7 @@ useHead({
   ],
   script: openings.map(opening => ({
     type: 'application/ld+json',
-    innerHTML: JSON.stringify({
+    innerHTML: safeJsonLd({
       '@context': 'https://schema.org',
       '@type': 'JobPosting',
       title: opening.title,

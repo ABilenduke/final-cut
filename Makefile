@@ -71,13 +71,17 @@ trust-cert:
 		echo "CA certificate import requested (requires admin approval in Windows UAC dialog)" && \
 		echo "After approval, restart Chrome for the green padlock on https://$$APP_DOMAIN"
 
+E2E_COMPOSE = docker compose -f docker-compose.yml -f docker-compose.e2e.yml -f docker-compose.stack.yml
+
+# Run the whole sequence in a single shell so a trap guarantees the
+# stack is torn down even when the seeder or playwright step fails.
+# Without this, a failed step exits the recipe early and leaves
+# containers / volumes lying around.
 e2e:
-	docker compose run --rm --build playwright
+	@set -e; \
+	trap 'status=$$?; $(E2E_COMPOSE) down -v; exit $$status' EXIT INT TERM; \
+	$(E2E_COMPOSE) up -d --build --wait; \
+	$(E2E_COMPOSE) run --rm backend-seeder; \
+	$(E2E_COMPOSE) run --rm playwright
 
-CI_COMPOSE = docker compose -f docker-compose.yml -f docker-compose.ci.yml
-
-ci-e2e:
-	$(CI_COMPOSE) up -d --build --wait
-	$(CI_COMPOSE) exec -T backend php artisan migrate:fresh --seed
-	$(CI_COMPOSE) run --rm playwright
-	$(CI_COMPOSE) down -v
+ci-e2e: e2e
