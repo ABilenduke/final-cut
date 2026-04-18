@@ -47,6 +47,7 @@
             "@php artisan migrate --force"
         ],
         "dev": [
+            "Composer\\Config::disableProcessTimeout",
             "@php artisan serve"
         ],
         "dev:queue": [

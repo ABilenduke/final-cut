@@ -1,6 +1,8 @@
 <?php
 
 use App\Models\Movie;
+use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 use function Pest\Laravel\get;
@@ -29,6 +31,19 @@ test('unmatched non-api mutations also return JSON 404', function () {
         ->assertExactJson([
             'message' => 'Not Found',
         ]);
+});
+
+test('non-api catch-all POST routes exclude csrf middleware', function () {
+    $router = app('router');
+    $rootRoute = Route::getRoutes()->match(Request::create('/', 'POST'));
+    $fallbackRoute = Route::getRoutes()->match(Request::create('/definitely-not-a-real-page', 'POST'));
+
+    expect($rootRoute->uri())->toBe('/')
+        ->and($router->gatherRouteMiddleware($rootRoute))
+        ->not->toContain(PreventRequestForgery::class)
+        ->and($fallbackRoute->uri())->toBe('{fallbackPlaceholder}')
+        ->and($router->gatherRouteMiddleware($fallbackRoute))
+        ->not->toContain(PreventRequestForgery::class);
 });
 
 test('non-api framework and dev-tool routes are not registered', function () {
