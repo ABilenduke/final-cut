@@ -105,6 +105,13 @@ return [
             'processors' => [PsrLogMessageProcessor::class],
         ],
 
+        'testing' => [
+            'driver' => 'single',
+            'path' => env('LOG_TEST_PATH', rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR.'laravel-testing.log'),
+            'level' => env('LOG_LEVEL', 'debug'),
+            'replace_placeholders' => true,
+        ],
+
         'syslog' => [
             'driver' => 'syslog',
             'level' => env('LOG_LEVEL', 'debug'),

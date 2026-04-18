@@ -19,20 +19,27 @@ Final Cut operates **two physical theater locations** (with potential for more) 
 
 ## Development Commands
 
-All commands run from the project root via Make:
+Prefer running common workflows from the project root via Make:
 
 ```bash
 make certs              # Generate SSL certs for nginx, redis, postgres (run first)
 make trust-cert         # Trust CA cert in Windows (WSL2)
-make up                 # Start dev environment (includes postgres, redis)
+make up                 # Start dev environment
 make down               # Stop all containers
 make build              # Build containers
 make shell              # Shell into backend container
 make artisan list       # Run an Artisan command in the backend container
 make migrate            # Run database migrations
 make fresh              # Reset database with fresh migrations + seeds
+make test               # Run backend + frontend test suites
+make test-backend       # Run full backend test suite
+make test-backend-unit  # Run backend Unit suite only
+make test-backend-feature  # Run backend Feature suite only
+make test-frontend      # Run frontend Vitest suite
 make e2e                # Run Playwright e2e tests
 ```
+
+Use `make test` as the default verification command for changes that touch both apps. For backend-only work, prefer the targeted `make test-backend*` commands instead of dropping into the container unless you specifically need direct PHP/Composer access.
 
 ### Email (Mailpit)
 
@@ -50,10 +57,14 @@ make prod-build && make prod-up       # Production deployment
 make local-prod-build && make local-prod-up   # Local production (includes postgres/redis)
 ```
 
-### Backend (inside container via `make shell`)
+### Backend (`backend/` directly, or inside `make shell` when you need direct access)
 
 ```bash
-composer test            # Run Pest tests (clears config first)
+composer setup           # Install deps, create .env if missing, generate key, migrate
+composer dev             # Run php artisan serve (process timeout disabled)
+composer dev:queue       # Run the queue listener (process timeout disabled)
+composer dev:logs        # Stream logs with Laravel Pail
+composer test            # Clear config and run the full backend suite
 php artisan test --filter=SomeTest   # Run a single test
 php artisan pint         # Code style fixing (Laravel Pint)
 ```
@@ -67,7 +78,14 @@ npx playwright test      # Run e2e tests (prefer `make e2e` from host)
 
 ## Environment
 
-Root `.env` holds Docker Compose variables (`APP_DOMAIN`, database/Redis credentials). Backend `.env` is standard Laravel. Copy from `.env.example` files. Certs are domain-stamped — regenerate with `make certs` if `APP_DOMAIN` changes.
+Root `.env` holds Docker Compose variables (`APP_DOMAIN`, database/Redis credentials). Backend `.env` is standard Laravel plus a few API-surface toggles. Copy from `.env.example` files. Certs are domain-stamped — regenerate with `make certs` if `APP_DOMAIN` changes.
+
+Backend env vars worth knowing:
+
+- `BOOST_ENABLED=false` keeps browser-facing Laravel Boost routes disabled in local API development
+- `BOOST_BROWSER_LOGS_WATCHER=false` keeps the browser logs watcher off unless intentionally enabled
+
+`backend/phpunit.xml` forces the backend test environment to stay isolated: `APP_ENV=testing`, PostgreSQL points at `final_cut_test`, cache/session use in-memory array drivers, the queue is `sync`, and observability tooling like Pulse, Telescope, and Nightwatch is disabled during tests.
 
 ### Dev Containers & File Permissions
 
@@ -150,12 +168,12 @@ When executing any implementation plan, maintain a **progress journal** in `docs
 
 ### Testing Requirements
 
-- **Backend**: All tests **must** use [Pest](https://pestphp.com/) (not raw PHPUnit). Run with `composer test` inside the backend container. Uses `RefreshDatabase` trait for isolation against `final_cut_test`. See @docs/plans/backend/v1/08-testing-and-seeding.md.
+- **Backend**: All tests **must** use [Pest](https://pestphp.com/) (not raw PHPUnit). Prefer `make test-backend` from the project root, or `make test-backend-unit` / `make test-backend-feature` for targeted runs. `composer test` is the backend-local equivalent when working directly in `backend/` or inside the backend container. Uses `RefreshDatabase` trait for isolation against `final_cut_test`. See @docs/plans/backend/v1/08-testing-and-seeding.md.
 - **Backend test helpers**: `AuthHelper` trait (`actingAsUser()`, `actingAsPremierUser()`, `actingAsGuest()`) and `StripeHelper` trait (`mockStripeSuccess()`, `mockStripeDeclined()`, `mockStripe3DS()`).
-- **Frontend unit/component**: All tests **must** use [Vitest](https://vitest.dev/) with `@nuxt/test-utils`. Run with `npx vitest` inside the frontend container.
+- **Frontend unit/component**: All tests **must** use [Vitest](https://vitest.dev/) with `@nuxt/test-utils`. Prefer `make test-frontend` from the project root, or `npx vitest` inside the frontend container.
 - **Frontend E2E**: Playwright. Run with `make e2e` from host or `npx playwright test` inside the frontend container.
 - **No untested features** — Every new backend endpoint, service, or model behavior requires Pest tests. Every frontend component, composable, and user-facing flow requires Vitest and Playwright coverage.
-- **Zero failing tests** — The full test suite must pass before any work is considered complete. Never skip, ignore, or defer failing tests. If a change causes a test failure, fix it before moving on. Run `composer test` (backend) or the relevant test command after every meaningful change.
+- **Zero failing tests** — The full test suite must pass before any work is considered complete. Never skip, ignore, or defer failing tests. If a change causes a test failure, fix it before moving on. Run `make test` for cross-stack changes, or the relevant targeted command (`make test-backend`, `make test-backend-unit`, `make test-backend-feature`, `make test-frontend`, `make e2e`) after every meaningful change.
 
 ## Documentation
 
