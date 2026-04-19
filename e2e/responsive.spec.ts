@@ -4,34 +4,33 @@ import { VIEWPORTS, MOVIE_SLUGS } from './fixtures/test-data'
 
 test.describe('Responsive Layout', () => {
   test.describe('Home page', () => {
-    test('desktop — movie grid has multiple columns', async ({ page }) => {
+    // The Now Showing reel is a horizontal scroller on every viewport
+    // (grid-auto-flow: column). On desktop, multiple posters fit into
+    // view; on mobile the reel still renders multiple tracks, the user
+    // just scrolls horizontally. The semantic test is: the reel is
+    // present and contains more than one poster.
+    test('desktop — now-showing reel renders multiple posters', async ({ page }) => {
       await page.setViewportSize(VIEWPORTS.desktop)
       await page.goto('/')
-      const grid = page.locator('.ensemble').first()
-      await expect(grid).toBeVisible()
+      const reel = page.locator('.now-showing__reel').first()
+      await expect(reel).toBeVisible()
 
-      // Grid should have multiple columns at desktop width
-      const gridColumns = await grid.evaluate((el) => {
-        const style = window.getComputedStyle(el)
-        return style.gridTemplateColumns
-      })
-      // Multiple column values means multi-column layout
-      const columnCount = gridColumns.split(/\s+/).filter(Boolean).length
-      expect(columnCount).toBeGreaterThan(1)
+      const posters = reel.locator('.now-showing__poster')
+      const count = await posters.count()
+      expect(count).toBeGreaterThan(1)
     })
 
-    test('mobile — movie grid collapses to one or two columns', async ({ page }) => {
+    test('mobile — now-showing reel stays horizontally scrollable', async ({ page }) => {
       await page.setViewportSize(VIEWPORTS.mobile)
       await page.goto('/')
-      const grid = page.locator('.ensemble').first()
-      await expect(grid).toBeVisible()
+      const reel = page.locator('.now-showing__reel').first()
+      await expect(reel).toBeVisible()
 
-      const gridColumns = await grid.evaluate((el) => {
+      const isScrollable = await reel.evaluate((el) => {
         const style = window.getComputedStyle(el)
-        return style.gridTemplateColumns
+        return style.overflowX === 'auto' || style.overflowX === 'scroll'
       })
-      const columnCount = gridColumns.split(/\s+/).filter(Boolean).length
-      expect(columnCount).toBeLessThanOrEqual(2)
+      expect(isScrollable).toBe(true)
     })
   })
 

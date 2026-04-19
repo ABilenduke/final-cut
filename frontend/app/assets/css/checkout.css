@@ -1,6 +1,9 @@
 /* Checkout page styles — ported from Final Cut Checkout.html design handoff.
-   Scoped via .checkout prefix; imported globally so components can reference
-   structural classes without duplicating them in each <style scoped> block. */
+   Imported globally so components can reference shared structural classes
+   without duplicating them in each <style scoped> block. This file includes
+   both .checkout-page-scoped rules AND reusable primitives (.bay, .bay__*,
+   .checkout-row-*, .bay-eyebrow) that are intentionally global — they are
+   consumed on the movie detail page and other layouts, not just checkout. */
 
 /* ——— Page frame ——— */
 .checkout-page {

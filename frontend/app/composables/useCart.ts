@@ -31,6 +31,10 @@ export function useCart() {
   const pairing = useState<ProgrammePairing | null>('cart-pairing', () => null)
 
   function stopTimers(): void {
+    // Timer IDs live in module scope; they are only ever set on the client
+    // (see startTimers guard). On the server there is nothing to clear —
+    // short-circuit so we never leak an interval into a worker request.
+    if (!import.meta.client) return
     if (warningTimerId !== null) {
       clearTimeout(warningTimerId)
       warningTimerId = null
@@ -87,6 +91,10 @@ export function useCart() {
   }
 
   function startTimers(): void {
+    // Cart hold timers must only run in the browser. Module-scoped timer
+    // IDs would otherwise be shared across concurrent SSR requests and
+    // could keep the Node worker alive between renders.
+    if (!import.meta.client) return
     // Only start if not already running
     if (warningTimerId !== null) return
 

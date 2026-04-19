@@ -167,8 +167,8 @@ const rowCount = computed(() => new Set(props.seats.map(s => s.row)).size)
   inset: 0;
   background: repeating-linear-gradient(
     90deg,
-    transparent 0 3px,
-    rgba(0, 0, 0, 0.08) 3px 4px
+    transparent 0 0.1875rem,
+    rgba(0, 0, 0, 0.08) 0.1875rem 0.25rem
   );
 }
 

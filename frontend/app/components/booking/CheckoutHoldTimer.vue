@@ -42,7 +42,7 @@ const seatNumbers = computed<string>(() => {
     </span>
     <span class="hold-strip__sep" aria-hidden="true">·</span>
     <span class="hold-strip__text">
-      <template v-if="auditorium">Aud {{ auditorium }} · </template>
+      <template v-if="auditorium">{{ auditorium }} · </template>
       Row <b>{{ rowLabel }}</b> · Seats <b>{{ seatNumbers }}</b>
     </span>
     <span class="hold-strip__sep" aria-hidden="true">·</span>

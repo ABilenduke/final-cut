@@ -287,7 +287,10 @@ const rangeLabel = computed(() => {
 }
 
 .cal-strip__event--empty {
-  opacity: 0.5;
+  /* Must remain legible on both surface (#0e0e0e) and surface-container
+     (#201f1f) backgrounds. Using a dedicated dim token instead of
+     opacity keeps contrast at WCAG AA (4.5:1+) on either tier. */
+  color: var(--on-tertiary-fixed-variant);
   pointer-events: none;
 }
 

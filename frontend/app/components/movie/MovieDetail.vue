@@ -18,15 +18,16 @@ const synopsisParts = computed(() => {
   return { lead, body: paragraphs.length > 0 ? paragraphs : [remainder] }
 })
 
-// TODO(backend): replace with real crew fields when Movie schema adds them
+// TODO(backend): replace with real crew fields when the Movie schema adds them.
+// Until then, render neutral placeholders instead of misleading hard-coded credits.
 const STUB_CREDITS = {
-  director: 'Denis Villeneuve',
-  screenplay: 'Jon Spaihts & Denis Villeneuve',
-  cinematography: 'Greig Fraser, ACS ASC',
-  editor: 'Joe Walker, ACE',
-  composer: 'Hans Zimmer',
-  aspect: 'Digital · 2.39:1',
-  advisory: 'Intense thematic material · Rated PG-13',
+  director: '—',
+  screenplay: '—',
+  cinematography: '—',
+  editor: '—',
+  composer: '—',
+  aspect: '—',
+  advisory: '—',
 }
 
 const genreLabel = computed(() =>

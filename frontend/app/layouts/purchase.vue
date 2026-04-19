@@ -73,7 +73,9 @@ function handleStepNavigate(step: number) {
         </div>
 
         <div class="layout-purchase__header-extras">
-          <slot name="header-extras" />
+          <slot name="header-extras">
+            <slot name="timer" />
+          </slot>
         </div>
       </div>
     </header>

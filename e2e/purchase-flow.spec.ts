@@ -38,14 +38,20 @@ test.describe('Purchase Flow', () => {
     const totalDisplay = page.locator('[aria-live="polite"]').first()
     await expect(totalDisplay).toBeVisible()
 
-    // 8. Click Continue to Checkout
-    const continueBtn = page.getByRole('button', { name: /continue to checkout/i })
-    await expect(continueBtn).toBeEnabled()
-    await continueBtn.click()
+    // 8. Click Continue to concessions (step 2)
+    const continueToConcessions = page.getByRole('button', { name: /continue to concessions/i })
+    await expect(continueToConcessions).toBeEnabled()
+    await continueToConcessions.click()
+    await page.waitForURL(/\/purchase\/snacks/)
+
+    // 9. Skip concessions and land on checkout
+    const skipConcessions = page.getByRole('button', { name: /skip concessions/i })
+    await expect(skipConcessions).toBeVisible({ timeout: 10_000 })
+    await skipConcessions.click()
     await page.waitForURL(/\/purchase\/checkout/)
 
-    // 9. Verify checkout page shows order summary
-    await expect(page.locator('text=Order Summary').first()).toBeVisible({ timeout: 5_000 })
+    // 10. Verify checkout page has rendered the summary
+    await expect(page.locator('text=Order Summary').first()).toBeVisible({ timeout: 10_000 })
   })
 
   test('guest checkout shows email field', async ({ page }) => {
@@ -61,9 +67,10 @@ test.describe('Purchase Flow', () => {
     await expect(availableSeats.first()).toBeVisible({ timeout: 10_000 })
     await availableSeats.first().click()
 
-    // Continue to checkout
-    const continueBtn = page.getByRole('button', { name: /continue to checkout/i })
-    await continueBtn.click()
+    // Continue to concessions, then skip to checkout
+    await page.getByRole('button', { name: /continue to concessions/i }).click()
+    await page.waitForURL(/\/purchase\/snacks/)
+    await page.getByRole('button', { name: /skip concessions/i }).click()
     await page.waitForURL(/\/purchase\/checkout/)
 
     // Guest should see an email field
@@ -129,15 +136,16 @@ test.describe('Purchase Flow', () => {
     await availableSeats.nth(0).click()
     await availableSeats.nth(1).click()
 
-    // Continue to checkout
-    const continueBtn = page.getByRole('button', { name: /continue to checkout/i })
-    await continueBtn.click()
+    // Continue to concessions, then skip to checkout
+    await page.getByRole('button', { name: /continue to concessions/i }).click()
+    await page.waitForURL(/\/purchase\/snacks/)
+    await page.getByRole('button', { name: /skip concessions/i }).click()
     await page.waitForURL(/\/purchase\/checkout/)
 
-    // Navigate back via step indicator
+    // Navigate back via step indicator — step 1 is Pick Your Seats
     const step1 = page.locator('nav[aria-label="Purchase steps"]').getByText(/pick your seats/i)
     await step1.click()
-    await page.waitForURL(/\/purchase\/(?!checkout)/)
+    await page.waitForURL(/\/purchase\/(?!checkout|snacks)/)
 
     // Verify seats are still selected
     const selectedSeats = page.locator('button.auditorium-seat.auditorium-seat--selected')
