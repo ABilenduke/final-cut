@@ -27,12 +27,16 @@ test.describe('Purchase Flow', () => {
     const grid = page.locator('[role="grid"]')
     await expect(grid).toBeVisible({ timeout: 10_000 })
 
-    // 6. Select 2 available seats
-    const availableSeats = page.locator('button.auditorium-seat:not(.auditorium-seat--taken)')
+    // 6. Select 2 available seats. Use force: true + the held-state
+    // filter for the same reason as the other purchase-flow tests: the
+    // seat-select animation (translateY + scale) renders the button
+    // momentarily unstable, which occasionally defeats Playwright's
+    // actionability wait on A-row seats.
+    const availableSeats = page.locator('button.auditorium-seat:not(.auditorium-seat--taken):not(.auditorium-seat--held)')
     await expect(availableSeats.first()).toBeVisible()
 
-    await availableSeats.nth(0).click()
-    await availableSeats.nth(1).click()
+    await availableSeats.nth(0).click({ force: true })
+    await availableSeats.nth(1).click({ force: true })
 
     // 7. Verify cart updates
     const totalDisplay = page.locator('[aria-live="polite"]').first()
