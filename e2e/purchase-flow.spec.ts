@@ -30,13 +30,17 @@ test.describe('Purchase Flow', () => {
     // 6. Select 2 available seats. Use force: true + the held-state
     // filter for the same reason as the other purchase-flow tests: the
     // seat-select animation (translateY + scale) renders the button
-    // momentarily unstable, which occasionally defeats Playwright's
-    // actionability wait on A-row seats.
+    // momentarily unstable. Scroll each seat into view first — wider
+    // auditoriums push row A off the initial viewport on some seeds.
     const availableSeats = page.locator('button.auditorium-seat:not(.auditorium-seat--taken):not(.auditorium-seat--held)')
     await expect(availableSeats.first()).toBeVisible()
 
-    await availableSeats.nth(0).click({ force: true })
-    await availableSeats.nth(1).click({ force: true })
+    const seatA = availableSeats.nth(0)
+    await seatA.scrollIntoViewIfNeeded()
+    await seatA.click({ force: true })
+    const seatB = availableSeats.nth(1)
+    await seatB.scrollIntoViewIfNeeded()
+    await seatB.click({ force: true })
 
     // 7. Verify cart updates
     const totalDisplay = page.locator('[aria-live="polite"]').first()
@@ -68,11 +72,17 @@ test.describe('Purchase Flow', () => {
 
     // Select enough seats to meet the default party size (2). Force past
     // the actionability check — the seat-select animation intermittently
-    // defeats Playwright's stability wait on the first row.
+    // defeats Playwright's stability wait on the first row — and scroll
+    // each into view so the click lands even when the grid is wider
+    // than the viewport.
     const availableSeats = page.locator('button.auditorium-seat:not(.auditorium-seat--taken):not(.auditorium-seat--held)')
     await expect(availableSeats.first()).toBeVisible({ timeout: 10_000 })
-    await availableSeats.nth(0).click({ force: true })
-    await availableSeats.nth(1).click({ force: true })
+    const firstSeat = availableSeats.nth(0)
+    await firstSeat.scrollIntoViewIfNeeded()
+    await firstSeat.click({ force: true })
+    const secondSeat = availableSeats.nth(1)
+    await secondSeat.scrollIntoViewIfNeeded()
+    await secondSeat.click({ force: true })
 
     // Continue to concessions, then skip to checkout
     await page.getByRole('button', { name: /continue to concessions/i }).click()
@@ -151,11 +161,17 @@ test.describe('Purchase Flow', () => {
     // Select 2 seats. Use force: true to bypass the momentary instability
     // from the seat-select animation (translateY + scale) — the seat is
     // already confirmed visible, and the animation occasionally defeats
-    // Playwright's actionability wait on A-row seats.
+    // Playwright's actionability wait on A-row seats. Scroll each into
+    // view first because the MATRIX auditorium's grid is wider than the
+    // default viewport, so row A seat 1 sits off-screen on initial load.
     const availableSeats = page.locator('button.auditorium-seat:not(.auditorium-seat--taken):not(.auditorium-seat--held)')
     await expect(availableSeats.first()).toBeVisible({ timeout: 10_000 })
-    await availableSeats.nth(0).click({ force: true })
-    await availableSeats.nth(1).click({ force: true })
+    const seat0 = availableSeats.nth(0)
+    await seat0.scrollIntoViewIfNeeded()
+    await seat0.click({ force: true })
+    const seat1 = availableSeats.nth(1)
+    await seat1.scrollIntoViewIfNeeded()
+    await seat1.click({ force: true })
 
     // Continue to concessions, then skip to checkout
     await page.getByRole('button', { name: /continue to concessions/i }).click()
