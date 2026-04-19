@@ -212,6 +212,52 @@
 **Status:** 🟡 In Progress
 **Started:** 2026-04-08
 
+### Design port — Seat Selection (2026-04-18)
+Ported the `Final Cut Seat Selection.html` Claude Design handoff artifact into the existing `/purchase/[showtimeId]` route. Visual-fidelity rewrite that preserves the ARIA grid + roving-tabindex keyboard navigation and the `useCart` contract.
+
+**Added components:**
+- `SeatSelectionHero.vue` — Reel 01 eyebrow + italic-split headline (`<em>Pick your</em> vantage point.`) + right-aligned meta block with showtime + italic editorial lede
+- `SeatSelectionControls.vue` — party stepper (± with disabled min/max), preference chips (Seat together / Aisle / Centre frame / Wheelchair — visual toggle only for v1), gold-outline `◉ Pick for me` CTA. Emits `update:partySize`, `update:preferences`, `auto-pick`
+- `SeatAuditoriumStage.vue` — theatre panel: § 01 · Auditorium header with italic house name + seat-count info, clip-path screen bar with gold gradient, radial screen-bloom with italic `— house lights at 25% — the picture begins —` caption, floor-foot with entrance/exit arrows. Wraps `<AuditoriumGrid>`
+- `SeatSelectionLegend.vue` — 4-up grid (Standard / Premiere / Companion / Accessible) with tier swatch + title + description + `from $X.XX`, plus dashed-top states row (Selected ✓ / Sold / Held) and prices-include-tax caption. Accepts `standardFrom`, `premiereFrom`, `accessibleFrom` in cents (min price per tier from real seat data); companion shows a static informational entry since the backend has no companion tier
+- `SeatSightlineDiagram.vue` — § 02 · Sightline bay with editorial copy about the 1.4× sweet-spot rule, distance list, and inline SVG floor-plan diagram (screen, dashed sightline cone, arced rows, highlighted sweet-spot row, 22m vertical marker)
+- `SeatSelectionHouseRules.vue` — 4-column footer: Hold / Late arrival cutoff / Move within the tier / Exchanges. Static editorial copy with gold emphasis spans
+- `SeatSelectionRail.vue` — § Ω right rail: mini-poster (radial gradient hashed from movieId) + show title / screen / seats, `N of M` counter, perforated `SeatStub` list with empty state, totals (Seats / Booking fee Waived / Ticket total in gold), pay CTA with contextual label (`Pick seats to continue` / `Pick N more` / `Continue to concessions`) and right-aligned amount, hold note with mm:ss timer
+- `SeatStub.vue` — perforated ticket stub row (`::before`/`::after` cut-out dots), gold tag, seat label + italic tier sublabel, price + Remove link. Maps `premium` section → `Premiere recliner` copy
+- `SeatProjectionistPick.vue` — editorial bay: "Projectionist's pick" tag with gold underline rule, italic heading computed from passed seat ids, pilcrow paragraph, outline "Take these seats" CTA, M. Varga byline. Hidden when no pair can be found
+
+**Rewritten existing components (props / emits preserved):**
+- `AuditoriumSeat.vue` — new tier-aware swatches: standard (default grey), premiere (maroon-tinted, rounded-top), accessible (deep surface + ♿ glyph). Sold state now draws a decorative diagonal X overlay via `::before`; held state uses dashed warm-orange border. Visible seat numbers, hover-lifted `translateY(-0.125rem)` with gold border + tooltip on hover/focus showing `Row · Num` + price/status
+- `AuditoriumGrid.vue` — dual row labels (letter on both ends), mid-row aisle gap computed per-row (inserts a `1.5rem` spacer at `Math.floor(count/2)` for rows ≥6 seats), compact-mobile cells (1.5rem at ≤40rem via `--seat-size` custom property). ARIA grid + roving tabindex + full keyboard nav untouched
+
+**Touched:**
+- `pages/purchase/[showtimeId].vue` — template rewritten as `<NuxtLayout name="purchase">` wrapper composing the new bays, with `#below-header` (hold timer, shown once first seat selected), `#header-extras` (location pill), and `#rail` slots (rail + projectionist's pick). Local `partySize` ref (default 2) + preferences ref. Auto-pick greedy-scans row preference order (center-out) for a contiguous run of `partySize` available, non-accessible seats. Projectionist's pick is a live `computed` that finds the first pair of adjacent available seats in the center-most row. Mobile viewports get an inline rail below the main column (rendered in main, hidden at ≥60rem where the layout rail takes over)
+
+**Decisions:**
+- Kept the existing `Seat.type` union (`standard | premium | accessible`) — added `premiere`/`companion` tiers would require backend (Laravel `AuditoriumSeeder` + `SeatType` enum) changes out of scope for this visual port. The design's "Premiere recliner" visual maps cleanly to `premium`; "Companion pair" appears in the legend as an informational-only entry (no selectable seats on the map)
+- Preference chips are visual-only in v1 — they do not filter the seat map. Follow-up: wire `together`/`aisle`/`center` into the auto-pick search (`together` is already implicit since auto-pick requires a contiguous run; `aisle` should prefer seats adjacent to the computed mid-row gap; `center` should shrink the `rowPreferenceOrder` to the middle third)
+- Per-seat ticket type dropdown (Adult / Senior / Student / Child / Member multipliers from the prototype) was **cut from v1** — introducing ticket-type pricing requires a backend pricing API and booking POST shape change. Each stub shows a static `Adult` sublabel
+- Companion-pair forced selection (select both halves of a pair atomically) is **deferred** until the backend exposes a companion tier
+- Projectionist's pick is runtime-computed (not hard-coded `F9/F10` as in the prototype) so it adapts to whichever auditorium is fetched. If no contiguous pair exists, the bay is hidden
+- The hold strip is only rendered once `cart.seats.value.length > 0` (cart's existing timer starts on first `addSeat`). Existing `CheckoutHoldTimer` component is reused — no new timer UI needed
+- Sightline diagram SVG copy was made auditorium-agnostic ("middle row" / "front" / "back" instead of specific row letters) so it reads correctly for any auditorium layout
+
+**Files Changed**
+- `frontend/app/components/booking/SeatSelectionHero.vue` — created
+- `frontend/app/components/booking/SeatSelectionControls.vue` — created
+- `frontend/app/components/booking/SeatAuditoriumStage.vue` — created
+- `frontend/app/components/booking/SeatSelectionLegend.vue` — created
+- `frontend/app/components/booking/SeatSightlineDiagram.vue` — created
+- `frontend/app/components/booking/SeatSelectionHouseRules.vue` — created
+- `frontend/app/components/booking/SeatSelectionRail.vue` — created
+- `frontend/app/components/booking/SeatStub.vue` — created
+- `frontend/app/components/booking/SeatProjectionistPick.vue` — created
+- `frontend/app/components/booking/AuditoriumSeat.vue` — rewrote visuals (tier swatches, sold-X overlay, hover tooltip, ♿ glyph, visible seat number)
+- `frontend/app/components/booking/AuditoriumGrid.vue` — dual row labels + mid-row aisle gap + compact-mobile sizing (keeps ARIA + keyboard behaviour)
+- `frontend/app/pages/purchase/[showtimeId].vue` — full rewrite composing the new bays via `<NuxtLayout>` wrapper
+
+---
+
 ### Design port — Checkout (2026-04-18)
 Ported the `Final Cut Checkout.html` Claude Design handoff artifact into the existing `/purchase/checkout` route. Visual-fidelity rewrite that preserves all existing Stripe / 3DS / error-handling business logic.
 

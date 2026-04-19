@@ -34,6 +34,14 @@ const seatsByRow = computed(() => {
 
 const sortedRows = computed(() => [...seatsByRow.value.keys()].sort())
 
+/** Mid-row aisle position derived per-row from seat count — inserts a gap between
+ *  the two halves so the seat map reads as orchestra-left / orchestra-right. */
+function aisleAfter(row: string): number {
+  const count = seatsByRow.value.get(row)?.length ?? 0
+  if (count < 6) return -1
+  return Math.floor(count / 2)
+}
+
 const selectedCount = computed(() => props.selectedSeatIds.length)
 const selectedTotal = computed(() => {
   return props.seats
@@ -173,12 +181,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div
-    class="auditorium-grid-wrapper"
-    :style="{ '--seats-per-row': auditorium.seatsPerRow }"
-  >
-    <AuditoriumScreenBar />
-
+  <div class="auditorium-grid-wrapper">
     <div
       ref="gridRef"
       class="auditorium"
@@ -193,19 +196,28 @@ onMounted(() => {
         role="row"
         :aria-label="`Row ${row}`"
       >
-        <div class="auditorium__label" aria-hidden="true">{{ row }}</div>
+        <div class="auditorium__label auditorium__label--left" aria-hidden="true">{{ row }}</div>
         <div class="auditorium__seats-row">
-          <AuditoriumSeat
-            v-for="seat in seatsByRow.get(row)"
+          <template
+            v-for="(seat, idx) in seatsByRow.get(row)"
             :key="seat.id"
-            :seat="seat"
-            :selected="selectedSeatIds.includes(seat.id)"
-            :focused="focusedSeatId === seat.id"
-            :data-seat-id="seat.id"
-            role="gridcell"
-            @toggle="handleSeatToggle(seat)"
-          />
+          >
+            <AuditoriumSeat
+              :seat="seat"
+              :selected="selectedSeatIds.includes(seat.id)"
+              :focused="focusedSeatId === seat.id"
+              :data-seat-id="seat.id"
+              role="gridcell"
+              @toggle="handleSeatToggle(seat)"
+            />
+            <span
+              v-if="idx + 1 === aisleAfter(row) && idx + 1 < (seatsByRow.get(row)?.length ?? 0)"
+              class="auditorium__aisle"
+              aria-hidden="true"
+            />
+          </template>
         </div>
+        <div class="auditorium__label auditorium__label--right" aria-hidden="true">{{ row }}</div>
       </div>
     </div>
 
@@ -231,44 +243,56 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: var(--space-md);
+  align-items: center;
+}
+
+.auditorium {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  align-items: center;
 }
 
 .auditorium__row {
   display: flex;
-  gap: 0;
+  align-items: center;
+  gap: 0.3rem;
 }
 
 .auditorium__label {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--space-xl);
+  width: 1.5rem;
+  text-align: center;
+  font-family: var(--font-display);
+  font-size: 0.8125rem;
+  color: var(--on-tertiary-fixed-variant);
+  font-variant-numeric: tabular-nums;
   flex-shrink: 0;
-  font-family: var(--font-body);
-  font-size: var(--type-label-md);
-  color: var(--tertiary);
-  background-color: var(--surface);
 }
 
-/*
- * Pin labels to the left edge only when the grid is horizontally
- * scrolling (mobile). On desktop there is no scroll container, and
- * `position: sticky` with a high z-index combined with stacking-
- * context quirks can cause hit-testing to report the label at seat
- * coordinates, breaking Playwright clicks.
- */
+.auditorium__label--left {
+  /* Pin labels to the viewport edge when the grid scrolls horizontally so row
+     letters stay visible during panning on narrow viewports. */
+  background-color: transparent;
+}
+
 @media (max-width: 59.999rem) {
-  .auditorium__label {
+  .auditorium__label--left {
     position: sticky;
     left: 0;
     z-index: var(--z-card);
+    background-color: var(--surface-container-low);
   }
 }
 
 .auditorium__seats-row {
-  display: grid;
-  grid-template-columns: repeat(var(--seats-per-row, 10), var(--seat-size, 2.5rem));
-  gap: var(--space-xs);
+  display: flex;
+  gap: 0.3rem;
+  align-items: center;
+}
+
+.auditorium__aisle {
+  width: 1.5rem;
+  flex-shrink: 0;
 }
 
 @media (max-width: 59.999rem) {
@@ -276,6 +300,19 @@ onMounted(() => {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
     scroll-snap-type: x proximity;
+    align-items: flex-start;
+  }
+}
+
+@media (max-width: 40rem) {
+  /* Compact cells for very small viewports */
+  .auditorium {
+    --seat-size: 1.5rem;
+  }
+
+  .auditorium__label,
+  .auditorium__aisle {
+    width: 1.1rem;
   }
 }
 
