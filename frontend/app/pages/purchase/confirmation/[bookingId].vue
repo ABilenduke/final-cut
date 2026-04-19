@@ -18,8 +18,11 @@ const cart = useCart()
 const { show: showToast } = useToast()
 const { setStep } = usePurchaseStep()
 
-// Set step indicator — final step, no navigation back
-setStep(4, [1, 2, 3, 4], [])
+// Set step indicator — final step, no navigation back. The current
+// step is tracked via `currentStep`; it must not also appear in
+// `completedSteps` or the indicator will render the same step as both
+// "current" and "completed", muddying its styling/semantics.
+setStep(4, [1, 2, 3], [])
 
 const { isAuthenticated } = useAuth()
 

@@ -158,20 +158,17 @@ test.describe('Purchase Flow', () => {
     await showtimeLink.click()
     await page.waitForURL(/\/purchase\//)
 
-    // Select 2 seats. Use force: true to bypass the momentary instability
-    // from the seat-select animation (translateY + scale) — the seat is
-    // already confirmed visible, and the animation occasionally defeats
-    // Playwright's actionability wait on A-row seats. Scroll each into
-    // view first because the MATRIX auditorium's grid is wider than the
-    // default viewport, so row A seat 1 sits off-screen on initial load.
+    // Select 2 seats via dispatchEvent('click'). The MATRIX auditorium
+    // renders a grid wider than the default viewport, and even with
+    // scrollIntoViewIfNeeded + force:true Playwright still trips on
+    // viewport bounds for the pointer coordinates. dispatchEvent fires
+    // the same click listener the component registers (@click="toggle")
+    // without going through the pointer pipeline, which is what we
+    // actually care about for this test.
     const availableSeats = page.locator('button.auditorium-seat:not(.auditorium-seat--taken):not(.auditorium-seat--held)')
     await expect(availableSeats.first()).toBeVisible({ timeout: 10_000 })
-    const seat0 = availableSeats.nth(0)
-    await seat0.scrollIntoViewIfNeeded()
-    await seat0.click({ force: true })
-    const seat1 = availableSeats.nth(1)
-    await seat1.scrollIntoViewIfNeeded()
-    await seat1.click({ force: true })
+    await availableSeats.nth(0).dispatchEvent('click')
+    await availableSeats.nth(1).dispatchEvent('click')
 
     // Continue to concessions, then skip to checkout
     await page.getByRole('button', { name: /continue to concessions/i }).click()

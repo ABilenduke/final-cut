@@ -34,7 +34,12 @@ const seatNumbers = computed<string>(() => {
 </script>
 
 <template>
-  <div class="hold-strip" role="status" aria-live="polite">
+  <!-- The visible timer updates every second; announcing each tick
+       through aria-live would drown screen reader users in noise. Keep
+       the strip silent for live-region purposes — meaningful threshold
+       changes (5-min warning, expiry) are announced via toast, which
+       has its own polite region. -->
+  <div class="hold-strip" role="status" aria-live="off">
     <span class="hold-strip__dot" aria-hidden="true" />
     <span class="hold-strip__text">
       Seats held for
