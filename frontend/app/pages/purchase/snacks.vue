@@ -29,7 +29,9 @@ onMounted(async () => {
 })
 
 // Pairing for the current film, if curated.
-const pairing = computed(() => getPairingForMovie(cart.showtime.value?.movieSlug))
+const pairing = computed(() =>
+  getPairingForMovie(activeLocation.value?.slug ?? null, cart.showtime.value?.movieSlug ?? null),
+)
 const pairingAdded = computed<boolean>(() => cart.pairing.value?.id === pairing.value?.id && !!cart.pairing.value)
 
 // Cart shape for the catalog: { itemId: quantity }

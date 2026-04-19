@@ -1,29 +1,42 @@
 /**
  * Live wall-clock time as a reactive HH:MM:SS string.
- * SSR renders a static placeholder so hydration does not mismatch; the client
- * starts ticking in onMounted and cleans up in onUnmounted.
+ *
+ * SSR renders a static placeholder so hydration does not mismatch; the
+ * client starts ticking in onMounted and cleans up in onUnmounted.
+ *
+ * Shared singleton: the tick state lives in `useState` so every consumer
+ * reads the same ref, and the setInterval is reference-counted so we
+ * have at most one ticker running regardless of how many components
+ * call `useClock()` concurrently. The interval is torn down when the
+ * last subscriber unmounts.
  */
+let clockIntervalId: ReturnType<typeof setInterval> | null = null
+let clockSubscribers = 0
+
+const pad = (n: number) => String(n).padStart(2, '0')
+
 export function useClock() {
-  const time = ref('--:--:--')
+  const time = useState<string>('clock-time', () => '--:--:--')
 
   if (import.meta.client) {
-    const pad = (n: number) => String(n).padStart(2, '0')
     const tick = () => {
       const d = new Date()
       time.value = `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
     }
 
-    let intervalId: ReturnType<typeof setInterval> | null = null
-
     onMounted(() => {
+      clockSubscribers += 1
       tick()
-      intervalId = setInterval(tick, 1000)
+      if (clockIntervalId === null) {
+        clockIntervalId = setInterval(tick, 1000)
+      }
     })
 
     onUnmounted(() => {
-      if (intervalId !== null) {
-        clearInterval(intervalId)
-        intervalId = null
+      clockSubscribers = Math.max(0, clockSubscribers - 1)
+      if (clockSubscribers === 0 && clockIntervalId !== null) {
+        clearInterval(clockIntervalId)
+        clockIntervalId = null
       }
     })
   }

@@ -31,15 +31,21 @@ const seatNumbers = computed<string>(() => {
     .map(s => s.seatId.replace(/^[A-Z]+/, ''))
     .join(', ')
 })
+
+// Stable, non-live label so screen readers can identify the strip on
+// focus without announcing every tick. The container itself has no
+// role="status" / aria-live, so this is the only exposed description.
+const holdStripLabel = computed<string>(() => 'Seat hold status')
 </script>
 
 <template>
   <!-- The visible timer updates every second; announcing each tick
-       through aria-live would drown screen reader users in noise. Keep
-       the strip silent for live-region purposes — meaningful threshold
-       changes (5-min warning, expiry) are announced via toast, which
-       has its own polite region. -->
-  <div class="hold-strip" role="status" aria-live="off">
+       through a live region would drown screen reader users in noise.
+       Use role="group" (not "status") because role="status" implies a
+       polite live region that ATs may still announce even with an
+       explicit aria-live="off". Meaningful threshold changes (5-min
+       warning, expiry) are announced via the toast region instead. -->
+  <div class="hold-strip" role="group" :aria-label="holdStripLabel">
     <span class="hold-strip__dot" aria-hidden="true" />
     <span class="hold-strip__text">
       Seats held for
