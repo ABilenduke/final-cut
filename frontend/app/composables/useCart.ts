@@ -10,21 +10,13 @@ export interface CartFoodItem {
 
 const SESSION_TIMEOUT_MS = 15 * 60 * 1000
 const WARNING_TIMEOUT_MS = 10 * 60 * 1000
+const SESSION_TIMEOUT_SECONDS = Math.floor(SESSION_TIMEOUT_MS / 1000)
 
 // Module-scoped timer IDs (not useState — these are process-level, not SSR-safe state)
 let warningTimerId: ReturnType<typeof setTimeout> | null = null
 let expiryTimerId: ReturnType<typeof setTimeout> | null = null
-
-function stopTimers(): void {
-  if (warningTimerId !== null) {
-    clearTimeout(warningTimerId)
-    warningTimerId = null
-  }
-  if (expiryTimerId !== null) {
-    clearTimeout(expiryTimerId)
-    expiryTimerId = null
-  }
-}
+let tickIntervalId: ReturnType<typeof setInterval> | null = null
+let sessionStartedAt: number | null = null
 
 export function useCart() {
   const showtime = useState<Showtime | null>('cart-showtime', () => null)
@@ -34,6 +26,24 @@ export function useCart() {
   const promoDiscount = useState<number>('cart-promo-discount', () => 0)
   const giftCardCode = useState<string | null>('cart-gift-card-code', () => null)
   const giftCardAmount = useState<number>('cart-gift-card-amount', () => 0)
+  const timeRemaining = useState<number>('cart-time-remaining', () => 0)
+
+  function stopTimers(): void {
+    if (warningTimerId !== null) {
+      clearTimeout(warningTimerId)
+      warningTimerId = null
+    }
+    if (expiryTimerId !== null) {
+      clearTimeout(expiryTimerId)
+      expiryTimerId = null
+    }
+    if (tickIntervalId !== null) {
+      clearInterval(tickIntervalId)
+      tickIntervalId = null
+    }
+    sessionStartedAt = null
+    timeRemaining.value = 0
+  }
 
   const subtotal = computed<number>(() => {
     const seatsTotal = seats.value.reduce((sum, s) => sum + s.price, 0)
@@ -47,9 +57,19 @@ export function useCart() {
 
   const { show: showToast } = useToast()
 
+  function tick(): void {
+    if (sessionStartedAt === null) return
+    const elapsed = Math.floor((Date.now() - sessionStartedAt) / 1000)
+    timeRemaining.value = Math.max(0, SESSION_TIMEOUT_SECONDS - elapsed)
+  }
+
   function startTimers(): void {
     // Only start if not already running
     if (warningTimerId !== null) return
+
+    sessionStartedAt = Date.now()
+    timeRemaining.value = SESSION_TIMEOUT_SECONDS
+    tickIntervalId = setInterval(tick, 1000)
 
     warningTimerId = setTimeout(() => {
       showToast({
@@ -167,6 +187,7 @@ export function useCart() {
     promoDiscount: readonly(promoDiscount),
     giftCardCode: readonly(giftCardCode),
     giftCardAmount: readonly(giftCardAmount),
+    timeRemaining: readonly(timeRemaining),
     subtotal,
     total,
     initializeCart,

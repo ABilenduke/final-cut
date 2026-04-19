@@ -1,11 +1,16 @@
 <script setup lang="ts">
 const props = defineProps<{
   appliedCode: string | null
+  discount?: number
+  acceptTerms?: boolean
+  subscribeReel?: boolean
 }>()
 
 const emit = defineEmits<{
   apply: [code: string]
   remove: []
+  'update:acceptTerms': [value: boolean]
+  'update:subscribeReel': [value: boolean]
 }>()
 
 const codeInput = ref('')
@@ -18,90 +23,255 @@ function handleApply() {
     return
   }
   error.value = ''
+  codeInput.value = ''
   emit('apply', code)
 }
 
 function handleRemove() {
-  codeInput.value = ''
   error.value = ''
   emit('remove')
 }
+
+const termsModel = computed<boolean>({
+  get: () => props.acceptTerms ?? false,
+  set: (v) => emit('update:acceptTerms', v),
+})
+const subscribeModel = computed<boolean>({
+  get: () => props.subscribeReel ?? false,
+  set: (v) => emit('update:subscribeReel', v),
+})
+
+const showTerms = computed<boolean>(() => props.acceptTerms !== undefined)
 </script>
 
 <template>
-  <div class="promo-code">
-    <template v-if="appliedCode">
-      <div class="promo-code__applied">
-        <span class="promo-code__code">{{ appliedCode }}</span>
-        <button
-          type="button"
-          class="promo-code__remove"
-          @click="handleRemove"
-        >
-          Remove
-        </button>
+  <section class="bay bay--inset promo-bay">
+    <header class="bay__header promo-bay__header">
+      <div>
+        <div class="bay__number">§ 04</div>
+        <h2 class="bay__title">Promo &amp; <em>final consent.</em></h2>
       </div>
-    </template>
-    <template v-else>
-      <div class="promo-code__form">
-        <CvInput
-          v-model="codeInput"
-          label="Promo Code"
-          placeholder="Enter code"
-          :error="error"
-          size="sm"
-          @keydown.enter="handleApply"
-        />
-        <CvButton
-          variant="secondary"
-          size="sm"
-          @click="handleApply"
-        >
-          Apply
-        </CvButton>
-      </div>
-    </template>
-  </div>
+    </header>
+
+    <label class="promo-bay__label">Promo code or member offer</label>
+
+    <div class="promo-bay__row">
+      <input
+        v-model="codeInput"
+        type="text"
+        class="promo-bay__input"
+        placeholder="e.g. REEL2026"
+        :aria-invalid="Boolean(error)"
+        @keydown.enter.prevent="handleApply"
+      >
+      <button type="button" class="promo-bay__apply" @click="handleApply">
+        Apply
+      </button>
+    </div>
+    <p v-if="error" class="promo-bay__error" role="alert">{{ error }}</p>
+
+    <div v-if="appliedCode" class="promo-bay__applied">
+      <span>
+        <b>{{ appliedCode }}</b>
+        <template v-if="(discount ?? 0) > 0">
+          — {{ formatCurrency(discount ?? 0) }} discount applied
+        </template>
+        <template v-else>
+          — will be validated at checkout
+        </template>
+      </span>
+      <button type="button" class="promo-bay__remove" @click="handleRemove">Remove</button>
+    </div>
+
+    <div v-if="showTerms" class="promo-bay__terms">
+      <label class="promo-bay__check">
+        <input v-model="termsModel" type="checkbox" class="promo-bay__check-box">
+        <span>
+          I agree to the <a href="#" class="promo-bay__link">ticketing terms</a>
+          and the <a href="#" class="promo-bay__link">auditorium policy</a>.
+          No late entry after 10 minutes; phones silenced and stowed.
+        </span>
+      </label>
+      <label class="promo-bay__check">
+        <input v-model="subscribeModel" type="checkbox" class="promo-bay__check-box">
+        <span>
+          Email me a reel notice when a Final Cut programme matches my preferences.
+          <span class="promo-bay__check-muted">Low-volume, ~1 per month.</span>
+        </span>
+      </label>
+    </div>
+  </section>
 </template>
 
 <style scoped>
-.promo-code__form {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-sm);
+.promo-bay__header {
+  padding-bottom: 0;
+  border-bottom: none;
+  margin-bottom: var(--space-md);
 }
 
-.promo-code__form :deep(.cv-form-field) {
-  flex: 1;
-}
-
-.promo-code__applied {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  padding: var(--space-sm);
-  background-color: var(--surface-container-low);
-  border-radius: 0.125rem;
-}
-
-.promo-code__code {
+.promo-bay__label {
+  display: block;
   font-family: var(--font-body);
-  font-size: var(--type-body-sm);
-  color: var(--secondary);
-  flex: 1;
+  font-size: 0.6875rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--on-tertiary-fixed-variant);
+  margin-bottom: 0.4rem;
 }
 
-.promo-code__remove {
-  background: none;
-  border: none;
+.promo-bay__row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: var(--space-sm);
+}
+
+.promo-bay__input {
+  background-color: var(--surface-container-low);
+  color: var(--on-surface);
+  border: 0.0625rem solid rgba(87, 66, 62, 0.4);
+  border-radius: 0.125rem;
+  padding: 0.85rem 0.95rem;
+  font-family: var(--font-body);
+  font-size: 1rem;
+  width: 100%;
+  transition: border-color var(--duration-standard) var(--ease-standard);
+}
+
+.promo-bay__input::placeholder {
+  color: var(--on-tertiary-fixed-variant);
+  opacity: 0.6;
+}
+
+.promo-bay__input:focus-visible {
+  outline: none;
+  border-color: var(--secondary);
+  background-color: var(--surface-container);
+}
+
+.promo-bay__apply {
+  padding: 0 1.25rem;
+  background-color: var(--surface-container-high);
+  color: var(--on-surface);
+  border: 0.0625rem solid rgba(87, 66, 62, 0.4);
+  border-radius: 0.125rem;
+  font-family: var(--font-body);
+  font-size: 0.8125rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
   cursor: pointer;
+  transition:
+    border-color var(--duration-standard) var(--ease-standard),
+    color var(--duration-standard) var(--ease-standard);
+}
+
+.promo-bay__apply:hover,
+.promo-bay__apply:focus-visible {
+  border-color: var(--secondary);
+  color: var(--secondary);
+}
+
+.promo-bay__error {
+  margin: var(--space-xs) 0 0;
   font-family: var(--font-body);
   font-size: var(--type-label-md);
   color: var(--primary);
-  padding: var(--space-xs);
 }
 
-.promo-code__remove:hover {
+.promo-bay__applied {
+  margin-top: var(--space-sm);
+  padding: 0.65rem 0.85rem;
+  background-color: rgba(218, 199, 105, 0.06);
+  border: 0.0625rem solid rgba(218, 199, 105, 0.25);
+  border-radius: 0.125rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-md);
+  font-family: var(--font-body);
+  font-size: 0.8125rem;
+  color: var(--on-surface);
+}
+
+.promo-bay__applied b {
+  font-family: var(--font-display);
+  color: var(--secondary);
+  font-weight: 500;
+  letter-spacing: 0.04em;
+}
+
+.promo-bay__remove {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--on-tertiary-fixed-variant);
+  font-family: var(--font-body);
+  font-size: 0.6875rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.promo-bay__remove:hover,
+.promo-bay__remove:focus-visible {
+  color: var(--secondary);
+}
+
+.promo-bay__terms {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  margin-top: var(--space-md);
+}
+
+.promo-bay__check {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+  cursor: pointer;
+  padding: 0.55rem 0;
+  font-family: var(--font-body);
+  font-size: 0.8125rem;
+  color: var(--tertiary);
+  line-height: 1.5;
+}
+
+.promo-bay__check-box {
+  appearance: none;
+  width: 1.1rem;
+  height: 1.1rem;
+  border: 0.0625rem solid var(--outline);
+  border-radius: 0.125rem;
+  background-color: var(--surface-container-low);
+  flex-shrink: 0;
+  margin-top: 0.1rem;
+  position: relative;
+  cursor: pointer;
+}
+
+.promo-bay__check-box:checked {
+  background-color: var(--secondary);
+  border-color: var(--secondary);
+}
+
+.promo-bay__check-box:checked::after {
+  content: '';
+  position: absolute;
+  left: 0.25rem;
+  top: 0.0625rem;
+  width: 0.25rem;
+  height: 0.5rem;
+  border: solid var(--surface);
+  border-width: 0 0.125rem 0.125rem 0;
+  transform: rotate(45deg);
+}
+
+.promo-bay__link {
+  color: var(--secondary);
   text-decoration: underline;
+  text-underline-offset: 0.125rem;
+}
+
+.promo-bay__check-muted {
+  color: var(--on-tertiary-fixed-variant);
 }
 </style>

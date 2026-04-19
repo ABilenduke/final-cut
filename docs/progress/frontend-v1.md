@@ -212,6 +212,63 @@
 **Status:** 🟡 In Progress
 **Started:** 2026-04-08
 
+### Design port — Checkout (2026-04-18)
+Ported the `Final Cut Checkout.html` Claude Design handoff artifact into the existing `/purchase/checkout` route. Visual-fidelity rewrite that preserves all existing Stripe / 3DS / error-handling business logic.
+
+**Added components:**
+- `CheckoutHoldTimer.vue` — fixed strip under header: pulsing gold dot, live `{mm:ss}` countdown driven by `useCart.timeRemaining`, auditorium/row/seats summary, order ref, Change / Release links
+- `CheckoutOrderCard.vue` — poster placeholder with gradient + glyph, italic-accent title split (`Dune<em>: Part Three</em>`), 6-cell meta grid (Date / Time / Auditorium / Runtime / Doors / Seats), large gold seat callout with Change seats link
+- `CheckoutContactBay.vue` — §01 bay with sign-in / guest buttons (hidden when authenticated), divider, 2×2 field grid (name, email, phone, Reel Society ID); v-model-friendly
+- `CheckoutPaymentBay.vue` — §02 bay with 4 method tabs (Card active, PayPal / Gift Card / Pay on Arrival visually disabled), Stripe card element in designed chrome, billing ZIP + country, context-aware save-card / loyalty opt-in; exposes `submit()` via `defineExpose`
+- `CheckoutTotalsRail.vue` — § Ω right rail: itemized line items (tickets, concessions with live count, subtotal, booking fee, tax, discount, grand total in gold), disclosed booking fee (`$1.50`) + estimated CA tax (7.25%), gold `Confirm & pay` CTA, authorization note mirroring hold timer, TLS / PCI-DSS / 3-D Secure trust badges, Reel Society upsell card
+
+**Rewritten existing components (props / emits preserved):**
+- `FoodPreOrderPanel.vue` — §03 concessions grid: 3-column responsive card layout with gradient thumbnails, qty steppers, selected-item highlight. Dropped the collapsed teaser + category-tab flow per the design
+- `PromoCode.vue` — §04 inset bay with applied chip, Remove link, plus optional 2-checkbox terms block wired via `v-model:acceptTerms` / `v-model:subscribeReel`
+
+**Removed:**
+- `CheckoutForm.vue` — logic absorbed into `CheckoutPaymentBay.vue`; delete was safe (single consumer was `checkout.vue`)
+
+**Touched:**
+- `pages/purchase/checkout.vue` — template rewritten to compose the new bays + order card + hold timer via `<NuxtLayout name="purchase">` wrapper with named slots (`below-header`, `header-extras`, `rail`). Script-side logic unchanged except for adding a template-ref trigger path so the rail's gold CTA calls `paymentBay.value?.submit()` while Stripe state lives in the payment bay
+- `layouts/purchase.vue` — added `#below-header`, `#header-extras`, and `#rail` slots (`rail` defaults to the existing `<CartSummary>` so seat-selection page behavior is unchanged); cart aside width now responsive (`20rem` at ≥60rem, `25rem` at ≥68.75rem) so checkout can render the wider totals rail
+- `composables/useCart.ts` — added reactive `timeRemaining` (seconds) that ticks every 1s while the 15-minute session is active; cleanup in `stopTimers()`
+- `assets/css/checkout.css` — new page-scoped stylesheet for shared bay / field-row primitives; imported from `main.css`
+
+**Decisions:**
+- Wallet express row (Apple Pay / Google Pay) and functional PayPal / Gift Card / Pay on Arrival tabs are **out of scope** — they require Stripe Payment Request API work and a new booking-API shape. Tabs render as visually disabled with `Coming soon` brand marks to preserve the designed chrome
+- Live card-mockup preview was **cut** — the Stripe Card Element iframe does not expose keystrokes, so a mirroring card preview would require building our own card form and losing PCI-DSS compliance. Kept the Stripe Element inside the designed bay frame instead
+- Confirmation page ticket-style perforated layout is **deferred** — existing `BookingConfirmation.vue` is functional and retained
+- CheckoutPaymentBay owns Stripe state; the rail CTA triggers submit via `defineExpose({ submit })` + a template ref on the page. This keeps Card Element ownership clean and avoids lifting Stripe state into the page
+- Contact bay fields are rendered for design parity but not yet wired into the booking POST body (only `email` flows through to Stripe `billing_details`); a follow-up would map phone + Reel Society ID into a pre-purchase contact payload when the backend supports it
+- Booking fee (`$1.50`) and tax (7.25%) in the rail are **display-only estimates** — the backend remains authoritative for final pricing at `POST /api/locations/:location/bookings`
+
+**Tests added / updated:**
+- Added Vitest specs: `CheckoutHoldTimer.test.ts`, `CheckoutOrderCard.test.ts`, `CheckoutContactBay.test.ts`, `CheckoutPaymentBay.test.ts` (Stripe mocked via `vi.mock('@stripe/stripe-js')`), `CheckoutTotalsRail.test.ts`
+- Rewrote `PromoCode.test.ts` for the new bay-inset markup (selectors changed, props / emits unchanged plus new `update:acceptTerms` coverage)
+- `FoodPreOrderPanel` has no existing unit spec (only exercised via the Playwright E2E)
+
+**Files Changed**
+- `frontend/app/composables/useCart.ts` — added `timeRemaining` reactive ref + tick interval
+- `frontend/app/layouts/purchase.vue` — added slots, responsive rail width
+- `frontend/app/pages/purchase/checkout.vue` — template rewrite via `<NuxtLayout>` wrapper
+- `frontend/app/components/booking/CheckoutHoldTimer.vue` — created
+- `frontend/app/components/booking/CheckoutOrderCard.vue` — created
+- `frontend/app/components/booking/CheckoutContactBay.vue` — created
+- `frontend/app/components/booking/CheckoutPaymentBay.vue` — created
+- `frontend/app/components/booking/CheckoutTotalsRail.vue` — created
+- `frontend/app/components/booking/FoodPreOrderPanel.vue` — rewrote for concessions grid
+- `frontend/app/components/booking/PromoCode.vue` — rewrote for bay-inset chrome + terms
+- `frontend/app/components/booking/CheckoutForm.vue` — deleted (absorbed into `CheckoutPaymentBay`)
+- `frontend/app/assets/css/checkout.css` — created
+- `frontend/app/assets/css/main.css` — import checkout.css
+- `frontend/tests/components/booking/CheckoutHoldTimer.test.ts` — created
+- `frontend/tests/components/booking/CheckoutOrderCard.test.ts` — created
+- `frontend/tests/components/booking/CheckoutContactBay.test.ts` — created
+- `frontend/tests/components/booking/CheckoutPaymentBay.test.ts` — created
+- `frontend/tests/components/booking/CheckoutTotalsRail.test.ts` — created
+- `frontend/tests/components/booking/PromoCode.test.ts` — rewrote
+
 ### Work Done
 - [2026-04-08] Wave 1 — Created 5 leaf components: AuditoriumScreenBar (decorative screen bar), AuditoriumLegend (5-swatch seat key), AuditoriumSeat (interactive seat cell with 5 visual states, selection animation, roving tabindex), CartSummary (sticky desktop sidebar + collapsible mobile bottom sheet with aria-live total), PromoCode (input + apply/remove flow)
 - [2026-04-08] Wave 2 — Created AuditoriumGrid (WAI-ARIA grid with keyboard navigation, row labels, max 10 seat limit, live region announcements), CheckoutForm (Stripe Elements placeholder, billing name, guest email, loyalty opt-in checkbox, validation)

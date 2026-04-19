@@ -10,29 +10,27 @@ const emit = defineEmits<{
   update: [items: Array<{ itemId: string; quantity: number }>]
 }>()
 
-const isExpanded = ref(false)
-const activeCategory = ref<string>('combos')
-
-const categories = computed(() => {
-  const cats = new Set(props.menuItems.map(i => i.category))
-  return [...cats]
-})
-
-const categoryLabels: Record<string, string> = {
-  popcorn: 'Popcorn',
-  drinks: 'Drinks',
-  snacks: 'Snacks',
-  combos: 'Combos',
-  specials: 'Specials',
+/** Deterministic gradient per item category — evokes the curated-menu look of the design. */
+const CATEGORY_GRADIENTS: Record<string, string> = {
+  popcorn: 'radial-gradient(ellipse at 50% 40%, #d4a868 0%, #8a5a2a 55%, #2a1808 100%)',
+  drinks: 'radial-gradient(ellipse at 40% 45%, #8a2020 0%, #3a0a0a 55%, #180404 100%)',
+  snacks: 'radial-gradient(ellipse at 50% 50%, #a07840 0%, #502810 55%, #180a04 100%)',
+  combos: 'radial-gradient(ellipse at 40% 40%, #c88a30 0%, #6a4010 55%, #1a0a04 100%)',
+  specials: 'radial-gradient(ellipse at 50% 40%, #6a4020 0%, #2a1808 55%, #0a0402 100%)',
 }
 
-const filteredItems = computed(() =>
-  props.menuItems.filter(i => i.category === activeCategory.value && i.available),
-)
+const DEFAULT_GRADIENT = 'radial-gradient(ellipse at 50% 50%, #a07840 0%, #502810 55%, #180a04 100%)'
 
-// Show top combos in collapsed view
-const popularItems = computed(() =>
-  props.menuItems.filter(i => i.category === 'combos' && i.available).slice(0, 3),
+function gradientFor(item: MenuItem): string {
+  return CATEGORY_GRADIENTS[item.category] ?? DEFAULT_GRADIENT
+}
+
+function glyphFor(item: MenuItem): string {
+  return item.name.trim().charAt(0).toUpperCase() || '·'
+}
+
+const availableItems = computed<MenuItem[]>(() =>
+  props.menuItems.filter(i => i.available),
 )
 
 function getQuantity(itemId: string): number {
@@ -64,300 +62,230 @@ function removeItem(itemId: string) {
 </script>
 
 <template>
-  <div class="food-panel">
-    <!-- Collapsed state -->
-    <div
-      v-if="!isExpanded"
-      class="food-panel__teaser"
-    >
-      <div class="food-panel__teaser-content">
-        <h3 class="food-panel__teaser-title">Add snacks to your order?</h3>
-        <div class="food-panel__teaser-items">
-          <div
-            v-for="item in popularItems"
-            :key="item.id"
-            class="food-panel__teaser-item"
-          >
-            <span class="food-panel__teaser-name">{{ item.name }}</span>
-            <span class="food-panel__teaser-price">{{ formatCurrency(item.price) }}</span>
-          </div>
-        </div>
+  <section class="bay">
+    <header class="bay__header">
+      <div>
+        <div class="bay__number">§ 03</div>
+        <h2 class="bay__title">Add <em>concessions.</em></h2>
+        <p class="bay__sub">Pre-order now — collect at the bar with your seat reference.</p>
       </div>
-      <CvButton
-        variant="secondary"
-        @click="isExpanded = true"
-      >
-        Browse Menu
-      </CvButton>
-    </div>
+      <span class="bay__badge">Skip · Add later</span>
+    </header>
 
-    <!-- Expanded state -->
-    <div v-else class="food-panel__expanded">
-      <div class="food-panel__header">
-        <h3 class="food-panel__title">Food & Drink</h3>
-        <button
-          type="button"
-          class="food-panel__collapse"
-          aria-label="Close menu"
-          @click="isExpanded = false"
-        >
-          <CvIcon name="close" size="sm" />
-        </button>
-      </div>
+    <p v-if="availableItems.length === 0" class="concessions__empty">
+      The concessions menu is not available for this location yet.
+    </p>
 
-      <!-- Category tabs -->
-      <div class="food-panel__tabs" role="tablist" aria-label="Menu categories">
-        <button
-          v-for="cat in categories"
-          :key="cat"
-          :id="`food-tab-${cat}`"
-          role="tab"
-          :aria-selected="activeCategory === cat"
-          :aria-controls="`food-panel-${cat}`"
-          class="food-panel__tab"
-          :class="{ 'food-panel__tab--active': activeCategory === cat }"
-          @click="activeCategory = cat"
-        >
-          {{ categoryLabels[cat] ?? cat }}
-        </button>
-      </div>
-
-      <!-- Item grid -->
-      <div
-        :id="`food-panel-${activeCategory}`"
-        class="food-panel__grid"
-        role="tabpanel"
-        :aria-labelledby="`food-tab-${activeCategory}`"
+    <div v-else class="concessions__grid">
+      <article
+        v-for="item in availableItems"
+        :key="item.id"
+        class="conc"
+        :class="{ 'conc--on': getQuantity(item.id) > 0 }"
       >
         <div
-          v-for="item in filteredItems"
-          :key="item.id"
-          class="food-panel__item"
+          class="conc__thumb"
+          :style="{ background: gradientFor(item) }"
+          aria-hidden="true"
         >
-          <div class="food-panel__item-info">
-            <span class="food-panel__item-name">{{ item.name }}</span>
-            <span class="food-panel__item-price">{{ formatCurrency(item.price) }}</span>
-          </div>
-          <p class="food-panel__item-desc">{{ item.description }}</p>
-          <div class="food-panel__item-actions">
-            <template v-if="getQuantity(item.id) > 0">
-              <button
-                class="food-panel__qty-btn"
-                aria-label="Remove one"
-                @click="removeItem(item.id)"
-              >
-                <CvIcon name="minus" size="sm" />
-              </button>
-              <span class="food-panel__qty">{{ getQuantity(item.id) }}</span>
-              <button
-                class="food-panel__qty-btn"
-                aria-label="Add one more"
-                @click="addItem(item.id)"
-              >
-                <CvIcon name="plus" size="sm" />
-              </button>
-            </template>
-            <CvButton
-              v-else
-              variant="secondary"
-              size="sm"
+          <span class="conc__ic">{{ glyphFor(item) }}</span>
+        </div>
+        <h3 class="conc__name">{{ item.name }}</h3>
+        <p class="conc__dx">{{ item.description }}</p>
+        <div class="conc__foot">
+          <span class="conc__pr">{{ formatCurrency(item.price) }}</span>
+          <div class="conc__qty">
+            <button
+              type="button"
+              class="conc__qty-btn"
+              :aria-label="`Remove one ${item.name}`"
+              :disabled="getQuantity(item.id) === 0"
+              @click="removeItem(item.id)"
+            >
+              −
+            </button>
+            <span class="conc__qty-n" aria-live="polite">{{ getQuantity(item.id) }}</span>
+            <button
+              type="button"
+              class="conc__qty-btn"
+              :aria-label="`Add one ${item.name}`"
               @click="addItem(item.id)"
             >
-              Add
-            </CvButton>
+              +
+            </button>
           </div>
         </div>
-      </div>
+      </article>
     </div>
-  </div>
+  </section>
 </template>
 
 <style scoped>
-/* Collapsed teaser */
-.food-panel__teaser {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-md);
-  padding: var(--space-md);
-  background-color: var(--surface-container-high);
-  border-radius: 0.125rem;
+.concessions__grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-sm);
 }
 
-.food-panel__teaser-title {
-  font-family: var(--font-display);
-  font-size: var(--type-title-md);
-  color: var(--on-surface);
-  margin-bottom: var(--space-sm);
-}
-
-.food-panel__teaser-items {
-  display: flex;
-  gap: var(--space-lg);
-}
-
-.food-panel__teaser-item {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2xs);
-}
-
-.food-panel__teaser-name {
-  font-family: var(--font-body);
-  font-size: var(--type-label-md);
-  color: var(--tertiary);
-}
-
-.food-panel__teaser-price {
-  font-family: var(--font-body);
-  font-size: var(--type-label-md);
-  color: var(--secondary);
-}
-
-@media (max-width: 59.999rem) {
-  .food-panel__teaser {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .food-panel__teaser-items {
-    flex-direction: column;
-    gap: var(--space-sm);
-  }
-
-  .food-panel__teaser-item {
-    flex-direction: row;
-    justify-content: space-between;
-  }
-}
-
-/* Expanded panel */
-.food-panel__expanded {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-md);
-}
-
-.food-panel__header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.food-panel__title {
-  font-family: var(--font-display);
-  font-size: var(--type-headline-sm);
-  color: var(--on-surface);
-}
-
-.food-panel__collapse {
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: var(--tertiary);
-  padding: var(--space-xs);
-}
-
-/* Category tabs */
-.food-panel__tabs {
-  display: flex;
-  gap: var(--space-xs);
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-}
-
-.food-panel__tab {
-  background: none;
-  border: none;
-  padding: var(--space-sm) var(--space-md);
-  font-family: var(--font-body);
-  font-size: var(--type-label-lg);
-  color: var(--tertiary);
-  cursor: pointer;
-  white-space: nowrap;
-  border-bottom: 0.125rem solid transparent;
-  transition: color var(--duration-micro) var(--ease-standard),
-    border-color var(--duration-micro) var(--ease-standard);
-}
-
-.food-panel__tab--active {
-  color: var(--secondary);
-  border-bottom-color: var(--secondary);
-}
-
-/* Item grid */
-.food-panel__grid {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-md);
-}
-
-.food-panel__item {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-xs);
-  padding: var(--space-md);
-  background-color: var(--surface-container-low);
-  border-radius: 0.125rem;
-}
-
-.food-panel__item-info {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-}
-
-.food-panel__item-name {
-  font-family: var(--font-body);
-  font-size: var(--type-body-md);
-  color: var(--on-surface);
-}
-
-.food-panel__item-price {
-  font-family: var(--font-body);
-  font-size: var(--type-body-md);
-  color: var(--secondary);
-}
-
-.food-panel__item-desc {
+.concessions__empty {
   font-family: var(--font-body);
   font-size: var(--type-body-sm);
-  color: var(--tertiary);
+  color: var(--on-tertiary-fixed-variant);
+  padding: var(--space-md) 0;
   margin: 0;
 }
 
-.food-panel__item-actions {
+.conc {
   display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  align-self: flex-end;
-}
-
-.food-panel__qty-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 2.25rem;
-  height: 2.25rem;
-  background-color: var(--surface-container-high);
-  border: none;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: var(--space-md);
+  border: 0.0625rem solid rgba(87, 66, 62, 0.25);
   border-radius: 0.125rem;
-  color: var(--on-surface);
-  cursor: pointer;
+  background-color: var(--surface-container-low);
+  transition:
+    border-color var(--duration-standard) var(--ease-standard),
+    background-color var(--duration-standard) var(--ease-standard);
+  text-align: left;
+  position: relative;
 }
 
-@media (max-width: 59.999rem) {
-  .food-panel__qty-btn {
+.conc:hover {
+  border-color: rgba(218, 199, 105, 0.4);
+}
+
+.conc--on {
+  border-color: var(--secondary);
+  background-color: rgba(218, 199, 105, 0.06);
+}
+
+.conc__thumb {
+  aspect-ratio: 4 / 3;
+  border-radius: 0.125rem;
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 0.2rem;
+}
+
+.conc__thumb::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: repeating-linear-gradient(
+    0deg,
+    transparent 0 0.125rem,
+    rgba(0, 0, 0, 0.08) 0.125rem 0.1875rem
+  );
+  mix-blend-mode: multiply;
+}
+
+.conc__ic {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 3rem;
+  color: rgba(255, 255, 255, 0.14);
+  letter-spacing: -0.05em;
+}
+
+.conc__name {
+  font-family: var(--font-display);
+  font-size: 0.9375rem;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  line-height: 1.2;
+  color: var(--on-surface);
+  margin: 0;
+}
+
+.conc__dx {
+  font-family: var(--font-body);
+  font-size: 0.75rem;
+  color: var(--tertiary);
+  line-height: 1.35;
+  min-height: 2.7em;
+  margin: 0;
+}
+
+.conc__foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 0.4rem;
+  border-top: 0.0625rem solid rgba(87, 66, 62, 0.2);
+  margin-top: 0.2rem;
+}
+
+.conc__pr {
+  font-family: var(--font-display);
+  font-size: 0.9375rem;
+  color: var(--secondary);
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+}
+
+.conc__qty {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.9375rem;
+  color: var(--on-surface);
+}
+
+.conc__qty-btn {
+  width: 1.5rem;
+  height: 1.5rem;
+  border: 0.0625rem solid rgba(87, 66, 62, 0.4);
+  border-radius: 0.125rem;
+  display: grid;
+  place-items: center;
+  color: var(--on-surface);
+  background: none;
+  cursor: pointer;
+  font-family: var(--font-display);
+  font-size: 1rem;
+  line-height: 1;
+  transition:
+    border-color var(--duration-micro) var(--ease-standard),
+    color var(--duration-micro) var(--ease-standard);
+}
+
+.conc__qty-btn:hover:not(:disabled),
+.conc__qty-btn:focus-visible {
+  border-color: var(--secondary);
+  color: var(--secondary);
+}
+
+.conc__qty-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.conc__qty-n {
+  min-width: 1.2rem;
+  text-align: center;
+}
+
+@media (max-width: 68.75rem) {
+  .concessions__grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .conc__qty-btn {
     width: 3rem;
     height: 3rem;
   }
 }
 
-.food-panel__qty {
-  font-family: var(--font-body);
-  font-size: var(--type-body-md);
-  color: var(--on-surface);
-  min-width: 1.5rem;
-  text-align: center;
+@media (max-width: 40rem) {
+  .concessions__grid {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

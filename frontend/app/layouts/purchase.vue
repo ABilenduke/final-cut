@@ -64,22 +64,30 @@ function handleStepNavigate(step: number) {
           />
         </div>
 
-        <div class="layout-purchase__timer">
-          <slot name="timer" />
+        <div class="layout-purchase__header-extras">
+          <slot name="header-extras" />
         </div>
       </div>
     </header>
+
+    <slot name="below-header" />
 
     <div class="layout-purchase__body">
       <main id="main-content" tabindex="-1" class="layout-purchase__main">
         <slot />
       </main>
 
-      <aside v-if="hasCartItems" class="layout-purchase__cart" aria-label="Order summary">
-        <CartSummary
-          :items="cartItems"
-          :total="cart.total.value"
-        />
+      <aside
+        v-if="$slots.rail || hasCartItems"
+        class="layout-purchase__cart"
+        aria-label="Order summary"
+      >
+        <slot name="rail">
+          <CartSummary
+            :items="cartItems"
+            :total="cart.total.value"
+          />
+        </slot>
       </aside>
     </div>
 
@@ -143,8 +151,11 @@ function handleStepNavigate(step: number) {
   justify-content: center;
 }
 
-.layout-purchase__timer {
+.layout-purchase__header-extras {
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
   font-family: var(--font-body);
   font-size: var(--type-label-md);
   color: var(--tertiary);
@@ -185,10 +196,10 @@ function handleStepNavigate(step: number) {
   outline: none;
 }
 
-/* Cart sidebar (desktop) */
+/* Cart sidebar (desktop) — width is controlled by slotted content so that
+   pages can render a wider rail (e.g. checkout's 25rem totals panel). */
 .layout-purchase__cart {
   display: none;
-  width: 20rem;
   flex-shrink: 0;
   padding-top: var(--space-lg);
 }
@@ -196,6 +207,13 @@ function handleStepNavigate(step: number) {
 @media (min-width: 60rem) {
   .layout-purchase__cart {
     display: block;
+    width: 20rem;
+  }
+}
+
+@media (min-width: 68.75rem) {
+  .layout-purchase__cart {
+    width: 25rem;
   }
 }
 </style>
