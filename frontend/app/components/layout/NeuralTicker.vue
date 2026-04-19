@@ -20,7 +20,7 @@ const plainItems = computed(() => props.items.filter((item) => !item.href))
 </script>
 
 <template>
-  <aside class="neural-ticker" aria-label="Now showing updates" aria-live="off">
+  <aside class="neural-ticker" aria-label="Cinema updates" aria-live="off">
     <!-- Pulsing "On Air" signal -->
     <div class="neural-ticker__signal" aria-hidden="true">
       <span class="neural-ticker__signal-dot" />

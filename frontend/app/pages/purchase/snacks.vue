@@ -28,11 +28,6 @@ onMounted(async () => {
   await fetchMenu()
 })
 
-// Re-fetch when the active location swaps (e.g., user changes locations mid-session).
-watch(activeLocation, () => {
-  fetchMenu()
-})
-
 // Pairing for the current film, if curated.
 const pairing = computed(() => getPairingForMovie(cart.showtime.value?.movieSlug))
 const pairingAdded = computed<boolean>(() => cart.pairing.value?.id === pairing.value?.id && !!cart.pairing.value)

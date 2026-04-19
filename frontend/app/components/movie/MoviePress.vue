@@ -1,18 +1,38 @@
 <script setup lang="ts">
-// TODO(backend): replace with real press quotes & aggregate scores when a reviews model exists.
-const QUOTES = [
+// TODO(backend): replace with real press quotes & aggregate scores when a
+// reviews model exists. Each quote is modeled as ordered segments so we
+// can render italics (or other emphasis) without falling back to v-html.
+interface QuoteSegment {
+  text: string
+  emphasis?: boolean
+}
+interface PressQuote {
+  segments: readonly QuoteSegment[]
+  author: string
+  publication: string
+}
+
+const QUOTES: readonly PressQuote[] = [
   {
-    text: 'A trilogy closer of monastic restraint — Villeneuve has made his <em>Andrei Rublev</em>, shot on sand.',
+    segments: [
+      { text: 'A trilogy closer of monastic restraint — Villeneuve has made his ' },
+      { text: 'Andrei Rublev', emphasis: true },
+      { text: ', shot on sand.' },
+    ],
     author: 'Léa Ferrand',
     publication: 'Sight & Sound',
   },
   {
-    text: 'Florence Pugh walks in like weather. The third act is hers, and it is the best hour of film I have seen this year.',
+    segments: [
+      { text: 'Florence Pugh walks in like weather. The third act is hers, and it is the best hour of film I have seen this year.' },
+    ],
     author: 'Marcus Okafor',
     publication: 'The Guardian',
   },
   {
-    text: 'Projected on 70mm, the grain itself is a character. Do not watch this on a laptop. Do not watch this on a phone.',
+    segments: [
+      { text: 'Projected on 70mm, the grain itself is a character. Do not watch this on a laptop. Do not watch this on a phone.' },
+    ],
     author: 'Ana Ríos',
     publication: 'Film Comment',
   },
@@ -37,7 +57,12 @@ const SCORES = [
         :key="q.author"
         class="movie-press__quote"
       >
-        <p v-html="q.text" />
+        <p>
+          <template v-for="(seg, i) in q.segments" :key="i">
+            <em v-if="seg.emphasis">{{ seg.text }}</em>
+            <template v-else>{{ seg.text }}</template>
+          </template>
+        </p>
         <footer class="movie-press__foot">
           <b>{{ q.author }}</b>
           <span>{{ q.publication }}</span>

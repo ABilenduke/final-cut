@@ -1,5 +1,12 @@
 <script setup lang="ts">
-const RULES = [
+interface Rule {
+  n: string
+  h: string
+  body: string
+  emphasis: string
+}
+
+const RULES: readonly Rule[] = [
   {
     n: '§ 01',
     h: 'Hold, then decide',
@@ -25,6 +32,25 @@ const RULES = [
     emphasis: '30 minutes before',
   },
 ]
+
+/**
+ * Split a rule body around its emphasis marker. Returns an ordered list of
+ * { text, emphasis } segments so each rule renders as mixed plain + <em>
+ * fragments. If the emphasis string isn't present in the body, the rule
+ * gracefully renders as a single plain segment.
+ */
+function segmentsFor(rule: Rule): Array<{ text: string; emphasis: boolean }> {
+  const parts = rule.body.split(rule.emphasis)
+  if (parts.length === 1) {
+    return [{ text: rule.body, emphasis: false }]
+  }
+  const segments: Array<{ text: string; emphasis: boolean }> = []
+  parts.forEach((part, i) => {
+    if (part) segments.push({ text: part, emphasis: false })
+    if (i < parts.length - 1) segments.push({ text: rule.emphasis, emphasis: true })
+  })
+  return segments
+}
 </script>
 
 <template>
@@ -37,8 +63,9 @@ const RULES = [
       <span class="house-rules__n">{{ rule.n }}</span>
       <h4 class="house-rules__h">{{ rule.h }}</h4>
       <p>
-        <template v-for="(part, i) in rule.body.split(rule.emphasis)" :key="i">
-          {{ part }}<em v-if="i === 0">{{ rule.emphasis }}</em>
+        <template v-for="(seg, i) in segmentsFor(rule)" :key="i">
+          <em v-if="seg.emphasis">{{ seg.text }}</em>
+          <template v-else>{{ seg.text }}</template>
         </template>
       </p>
     </div>

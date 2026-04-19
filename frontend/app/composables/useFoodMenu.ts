@@ -63,6 +63,19 @@ export function useFoodMenu() {
     return grouped
   })
 
+  // Refetch when the user switches locations mid-session so the catalog
+  // always reflects the active location's inventory. Client-only — the
+  // watcher would otherwise fire during SSR hydration, which we don't
+  // want (fetchMenu() is called directly by the consuming page).
+  if (import.meta.client) {
+    watch(
+      () => activeLocation.value?.slug,
+      (slug, prev) => {
+        if (slug && slug !== prev) fetchMenu()
+      },
+    )
+  }
+
   return {
     items: readonly(items),
     loading: readonly(loading),
