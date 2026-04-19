@@ -5,6 +5,14 @@ const props = defineProps<{
   excludeSlug: string
 }>()
 
+// Movies themselves are shared across locations (see docs/architecture/
+// DATA_MODELS.md — only showtimes are location-scoped). The "Also
+// Showing" section is therefore a catalog-wide marquee, not a per-
+// location listing. If a future product decision ties movie availability
+// to a specific venue, pass `activeLocation.slug` into the API call and
+// filter here before rendering.
+// TODO(backend): add `GET /api/locations/:slug/movies` if per-location
+// marquees become a requirement.
 const { nowShowing } = useMovies()
 const { data } = nowShowing({ per_page: 6 })
 

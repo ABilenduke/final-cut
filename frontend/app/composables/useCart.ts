@@ -9,8 +9,14 @@ export interface CartFoodItem {
   unitPrice: number
 }
 
-const SESSION_TIMEOUT_MS = 15 * 60 * 1000
-const WARNING_TIMEOUT_MS = 10 * 60 * 1000
+// The seat-hold duration the UI promises ("eight minutes" — see
+// SeatSelectionHouseRules, SeatSelectionHero, MovieSeatPreview,
+// SeatSelectionRail's '08:00' fallback). Centralized here so the user-
+// visible copy and the actual timer can never drift.
+const SESSION_HOLD_MINUTES = 8
+const WARNING_LEAD_MINUTES = 2
+const SESSION_TIMEOUT_MS = SESSION_HOLD_MINUTES * 60 * 1000
+const WARNING_TIMEOUT_MS = Math.max(SESSION_HOLD_MINUTES - WARNING_LEAD_MINUTES, 0) * 60 * 1000
 const SESSION_TIMEOUT_SECONDS = Math.floor(SESSION_TIMEOUT_MS / 1000)
 
 // Module-scoped timer IDs (not useState — these are process-level, not SSR-safe state)
@@ -104,7 +110,7 @@ export function useCart() {
 
     warningTimerId = setTimeout(() => {
       showToast({
-        message: 'Your session expires in 5 minutes. Complete your purchase to keep your seats.',
+        message: `Your session expires in ${WARNING_LEAD_MINUTES} minutes. Complete your purchase to keep your seats.`,
         type: 'error',
         duration: 0,
       })

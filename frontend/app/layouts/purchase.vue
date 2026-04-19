@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import type { PurchaseStep } from '~/composables/usePurchaseStep'
+
 const { currentStep, completedSteps, navigableSteps } = usePurchaseStep()
 const cart = useCart()
 
@@ -39,7 +41,7 @@ const cartItems = computed(() => {
 
 const hasCartItems = computed(() => cart.seats.value.length > 0)
 
-function handleStepNavigate(step: number) {
+function handleStepNavigate(step: PurchaseStep) {
   if (step === 1 && cart.showtime.value) {
     navigateTo(`/purchase/${cart.showtime.value.id}`)
     return

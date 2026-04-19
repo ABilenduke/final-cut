@@ -8,13 +8,17 @@ export type PurchaseStep = 1 | 2 | 3 | 4
 
 export function usePurchaseStep() {
   const currentStep = useState<PurchaseStep>('purchase-step', () => 1)
-  const completedSteps = useState<number[]>('purchase-completed-steps', () => [])
-  const navigableSteps = useState<number[]>('purchase-navigable-steps', () => [])
+  const completedSteps = useState<PurchaseStep[]>('purchase-completed-steps', () => [])
+  const navigableSteps = useState<PurchaseStep[]>('purchase-navigable-steps', () => [])
 
-  function setStep(step: PurchaseStep, completed: number[] = [], navigable: number[] = []) {
+  function setStep(
+    step: PurchaseStep,
+    completed: readonly PurchaseStep[] = [],
+    navigable: readonly PurchaseStep[] = [],
+  ) {
     currentStep.value = step
-    completedSteps.value = completed
-    navigableSteps.value = navigable
+    completedSteps.value = [...completed]
+    navigableSteps.value = [...navigable]
   }
 
   return {

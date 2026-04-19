@@ -301,30 +301,31 @@ describe('useCart', () => {
     })
   })
 
-  it('shows warning toast at 10 minutes after first seat', () => {
+  // SESSION_HOLD_MINUTES = 8, WARNING_LEAD_MINUTES = 2 → warning at 6min, expiry at 8min
+  it('shows warning toast 2 minutes before the 8-minute hold expires', () => {
     const cart = useCart()
     cart.initializeCart(makeShowtime())
     cart.addSeat(makeSeat({ seatId: 'A1', price: 1200 }))
 
-    // Advance to just before 10 minutes
-    vi.advanceTimersByTime(10 * 60 * 1000 - 1)
+    // Advance to just before the 6-minute warning threshold
+    vi.advanceTimersByTime(6 * 60 * 1000 - 1)
     expect(mockToastShow).not.toHaveBeenCalled()
 
-    // Advance to 10 minutes
+    // Cross the threshold
     vi.advanceTimersByTime(1)
     expect(mockToastShow).toHaveBeenCalledWith({
-      message: 'Your session expires in 5 minutes. Complete your purchase to keep your seats.',
+      message: 'Your session expires in 2 minutes. Complete your purchase to keep your seats.',
       type: 'error',
       duration: 0,
     })
   })
 
-  it('clears cart at 15 minutes after first seat', () => {
+  it('clears cart at 8 minutes after the first seat was added', () => {
     const cart = useCart()
     cart.initializeCart(makeShowtime())
     cart.addSeat(makeSeat({ seatId: 'A1', price: 1200 }))
 
-    vi.advanceTimersByTime(15 * 60 * 1000)
+    vi.advanceTimersByTime(8 * 60 * 1000)
 
     expect(mockToastShow).toHaveBeenCalledWith({
       message: 'Your session has expired. Selected seats have been released.',
@@ -335,7 +336,7 @@ describe('useCart', () => {
     expect(cart.showtime.value).toBeNull()
   })
 
-  it('stops timer when all seats removed (no toast after 15min)', () => {
+  it('stops timer when all seats removed (no toast after 8min)', () => {
     const cart = useCart()
     cart.initializeCart(makeShowtime())
     cart.addSeat(makeSeat({ seatId: 'A1', price: 1200 }))
@@ -344,7 +345,7 @@ describe('useCart', () => {
     cart.removeSeat('A1')
 
     // Advance past both timeouts
-    vi.advanceTimersByTime(15 * 60 * 1000)
+    vi.advanceTimersByTime(8 * 60 * 1000)
 
     expect(mockToastShow).not.toHaveBeenCalled()
   })

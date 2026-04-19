@@ -315,13 +315,16 @@ export const menuData: MenuItem[] = [
 ]
 
 /**
- * Look up the editorial overlay (curator/size/flag/gradient/glyph) for an item by name.
- * Used to enrich live API data (which doesn't carry these display fields) without
- * touching the backend schema. Falls back to category defaults at render time.
+ * Look up the editorial overlay (curator/size/flag/gradient/glyph) for an
+ * item by its stable id (e.g. "pop-sm"). Keyed by id so copy edits,
+ * localization, or per-location renames don't drop the overlay. Used to
+ * enrich live API data (which doesn't carry these display fields) without
+ * touching the backend schema. Falls back to category defaults at render
+ * time.
  */
-const overlayByName = new Map(
+const overlayById = new Map(
   menuData.map(item => [
-    item.name.trim().toLowerCase(),
+    item.id,
     {
       size: item.size,
       curator: item.curator,
@@ -332,12 +335,12 @@ const overlayByName = new Map(
   ]),
 )
 
-export function editorialOverlayFor(name: string): {
+export function editorialOverlayFor(id: string): {
   size?: string
   curator?: string
   flag?: string
   gradient?: string
   glyph?: string
 } {
-  return overlayByName.get(name.trim().toLowerCase()) ?? {}
+  return overlayById.get(id) ?? {}
 }

@@ -15,7 +15,7 @@ export function useFoodMenu() {
   const error = useState<string | null>('food-menu-error', () => null)
 
   function enrich(item: MenuItem): MenuItem {
-    const overlay = editorialOverlayFor(item.name)
+    const overlay = editorialOverlayFor(item.id)
     return {
       ...item,
       size: item.size ?? overlay.size,

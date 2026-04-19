@@ -3,14 +3,14 @@ import type { PurchaseStep } from '~/composables/usePurchaseStep'
 
 const props = withDefaults(defineProps<{
   currentStep: PurchaseStep
-  completedSteps: number[]
-  navigableSteps?: number[]
+  completedSteps: readonly PurchaseStep[]
+  navigableSteps?: readonly PurchaseStep[]
 }>(), {
   navigableSteps: undefined,
 })
 
 const emit = defineEmits<{
-  navigate: [step: number]
+  navigate: [step: PurchaseStep]
 }>()
 
 const resolvedNavigableSteps = computed(() =>
@@ -24,27 +24,27 @@ const steps = [
   { number: 4, label: 'Confirmation' },
 ] as const
 
-function isCompleted(step: number): boolean {
+function isCompleted(step: PurchaseStep): boolean {
   return props.completedSteps.includes(step)
 }
 
-function isNavigable(step: number): boolean {
+function isNavigable(step: PurchaseStep): boolean {
   return resolvedNavigableSteps.value.includes(step)
 }
 
-function isCurrent(step: number): boolean {
+function isCurrent(step: PurchaseStep): boolean {
   return props.currentStep === step
 }
 
-function isFuture(step: number): boolean {
+function isFuture(step: PurchaseStep): boolean {
   return step > props.currentStep && !isCompleted(step)
 }
 
-function formatStepNumber(step: number): string {
+function formatStepNumber(step: PurchaseStep): string {
   return String(step).padStart(2, '0')
 }
 
-function handleClick(step: number) {
+function handleClick(step: PurchaseStep) {
   if (isNavigable(step) && !isCurrent(step)) {
     emit('navigate', step)
   }

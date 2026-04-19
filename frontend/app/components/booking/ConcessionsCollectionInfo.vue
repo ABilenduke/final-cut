@@ -1,25 +1,55 @@
 <script setup lang="ts">
 // Footer block describing how snacks are collected/served. Static editorial copy.
-const sections = [
+// Each body is modeled as ordered segments so emphasis renders via normal
+// template bindings instead of v-html — keeps the pattern consistent with
+// MoviePress/SeatSelectionHouseRules and prevents future API-sourced copy
+// from smuggling HTML into the page.
+interface Segment {
+  text: string
+  emphasis?: boolean
+}
+interface Section {
+  n: string
+  title: string
+  body: readonly Segment[]
+}
+
+const sections: readonly Section[] = [
   {
     n: '01',
     title: 'Collect at the bar',
-    body: 'From <em>45 minutes before</em> showtime. Show your order reference. Wines and draft beers are poured fresh on collection.',
+    body: [
+      { text: 'From ' },
+      { text: '45 minutes before', emphasis: true },
+      { text: ' showtime. Show your order reference. Wines and draft beers are poured fresh on collection.' },
+    ],
   },
   {
     n: '02',
     title: 'Delivered to seat',
-    body: 'Opt in at checkout. Runner arrives <em>before the programme begins</em>; no in-film service on 70mm engagements.',
+    body: [
+      { text: 'Opt in at checkout. Runner arrives ' },
+      { text: 'before the programme begins', emphasis: true },
+      { text: '; no in-film service on 70mm engagements.' },
+    ],
   },
   {
     n: '03',
     title: 'Glass, not plastic',
-    body: 'Beer is served in stems, wine in proper glassware. Please <em>return to the bar</em> on your way out.',
+    body: [
+      { text: 'Beer is served in stems, wine in proper glassware. Please ' },
+      { text: 'return to the bar', emphasis: true },
+      { text: ' on your way out.' },
+    ],
   },
   {
     n: '04',
     title: 'Auditorium quiet',
-    body: 'Late arrivals cut off at showtime — <em>food runs stop 5 minutes earlier</em>. Plan accordingly.',
+    body: [
+      { text: 'Late arrivals cut off at showtime — ' },
+      { text: 'food runs stop 5 minutes earlier', emphasis: true },
+      { text: '. Plan accordingly.' },
+    ],
   },
 ] as const
 </script>
@@ -29,9 +59,12 @@ const sections = [
     <article v-for="s in sections" :key="s.n" class="collect-info__item">
       <span class="collect-info__n">§ {{ s.n }}</span>
       <h4 class="collect-info__title">{{ s.title }}</h4>
-      <!-- Editorial copy uses <em> for emphasis; safe static content -->
-      <!-- eslint-disable-next-line vue/no-v-html -->
-      <p class="collect-info__body" v-html="s.body" />
+      <p class="collect-info__body">
+        <template v-for="(seg, i) in s.body" :key="i">
+          <em v-if="seg.emphasis">{{ seg.text }}</em>
+          <template v-else>{{ seg.text }}</template>
+        </template>
+      </p>
     </article>
   </section>
 </template>
