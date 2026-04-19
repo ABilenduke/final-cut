@@ -123,7 +123,7 @@ describe('ConcessionsTrayRail', () => {
     expect(withoutSavings.find('.tray__line--saving').exists()).toBe(false)
   })
 
-  it('computes the running total: seats + food + pairing - savings', async () => {
+  it('excludes the pairing from the charged-now total (bar-side tab)', async () => {
     const wrapper = await mountSuspended(ConcessionsTrayRail, {
       props: {
         showtime,
@@ -134,8 +134,28 @@ describe('ConcessionsTrayRail', () => {
         pairingSavings: 498,
       },
     })
-    // 3700 + (1998 + 2299) - 498 = 7499 = $74.99
-    expect(wrapper.find('.tray__grand-v').text()).toBe('$74.99')
+    // Programme pairings are paid at the bar on collection, so the
+    // running-total only tallies the seats + food the user is actually
+    // charged for on the checkout step. 3700 + 1998 = 5698 = $56.98.
+    expect(wrapper.find('.tray__grand-v').text()).toBe('$56.98')
+  })
+
+  it('lists the pairing price on its own row, flagged as bar-side', async () => {
+    const wrapper = await mountSuspended(ConcessionsTrayRail, {
+      props: {
+        showtime,
+        seats,
+        foodItems,
+        pairing,
+        pairingPrice: 2299,
+        pairingSavings: 498,
+      },
+    })
+    const pairingRow = wrapper.find('.tray__line--pairing')
+    expect(pairingRow.exists()).toBe(true)
+    expect(pairingRow.text()).toContain('Programme pairing')
+    expect(pairingRow.text()).toContain('pay at the bar')
+    expect(pairingRow.text()).toContain('$22.99')
   })
 
   it('emits removePairing when the pairing Remove link is clicked', async () => {

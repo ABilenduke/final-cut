@@ -28,12 +28,14 @@ const foodTotal = computed<number>(() =>
   props.foodItems.reduce((sum, f) => sum + f.unitPrice * f.quantity, 0),
 )
 
-/** Concessions sub-total displayed on the rail = food + pairing bundle.
- *  We surface savings separately on its own line. */
-const concessionsLine = computed<number>(() => foodTotal.value + props.pairingPrice)
-
+// Programme Pairings are charged at the bar on collection (see the
+// checkout summary copy "pay at the bar on collection"). They are
+// deliberately excluded from the authoritative running total so the
+// number the user sees here matches what Stripe will charge on the
+// checkout step. The pairing price and savings still render on their
+// own rows below as editorial context.
 const grandTotal = computed<number>(() =>
-  Math.max(0, seatsTotal.value + concessionsLine.value - props.pairingSavings),
+  Math.max(0, seatsTotal.value + foodTotal.value),
 )
 
 const itemCount = computed<number>(() => {
@@ -85,7 +87,7 @@ const isEmpty = computed<boolean>(() => props.foodItems.length === 0 && !props.p
           <span class="tray__q">1×</span>
           <div class="tray__nm">
             {{ props.pairing.title }}
-            <span class="tray__nm-sub">Pairing · {{ props.pairing.courses.length }} courses</span>
+            <span class="tray__nm-sub">Pairing · pay at the bar on collection</span>
           </div>
           <span class="tray__pr">{{ formatCurrency(props.pairingPrice) }}</span>
           <button
@@ -122,10 +124,17 @@ const isEmpty = computed<boolean>(() => props.foodItems.length === 0 && !props.p
       <dl class="tray__totals">
         <div class="tray__line">
           <span>Concessions</span>
-          <span class="tray__v">{{ formatCurrency(concessionsLine) }}</span>
+          <span class="tray__v">{{ formatCurrency(foodTotal) }}</span>
+        </div>
+        <div v-if="props.pairing" class="tray__line tray__line--pairing">
+          <span>
+            Programme pairing
+            <small>pay at the bar</small>
+          </span>
+          <span class="tray__v">{{ formatCurrency(props.pairingPrice) }}</span>
         </div>
         <div v-if="props.pairingSavings > 0" class="tray__line tray__line--saving">
-          <span>Programme pairing savings</span>
+          <span>Bundle savings vs à la carte</span>
           <span class="tray__v tray__v--saving">−{{ formatCurrency(props.pairingSavings) }}</span>
         </div>
         <div class="tray__line">
@@ -134,7 +143,7 @@ const isEmpty = computed<boolean>(() => props.foodItems.length === 0 && !props.p
         </div>
         <div class="tray__grand">
           <span>
-            Running total
+            Charged now
             <small>USD</small>
           </span>
           <span class="tray__grand-v">{{ formatCurrency(grandTotal) }}</span>

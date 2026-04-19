@@ -30,6 +30,8 @@
   --outline-variant-rgb: 87, 66, 62;
   --primary-container-rgb: 85, 0, 0;
   --secondary-rgb: 218, 199, 105;
+  --tertiary-rgb: 204, 198, 182;
+  --outline-rgb: 165, 139, 134;
 
   /* ——— Spacing ——— */
   --space-2xs: 0.125rem;  /* 2px  — optical adjustment only */

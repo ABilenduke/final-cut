@@ -72,12 +72,15 @@ export function useCart() {
     Math.max(0, pairingCoursesTotal.value - pairingPrice.value),
   )
 
-  // Note: `subtotal` deliberately excludes the pairing price. The Programme Pairing
-  // is currently a frontend-only construct (no backend table) — including it here
-  // would create a divergence between the displayed total and the backend's
-  // authoritative charge. The snacks rail composes its own display total that
-  // adds the pairing in for the editorial moment; once the user moves on to
-  // payment, totals revert to seats + foodItems. See plan §3 (out of scope).
+  // `subtotal` deliberately excludes the programme pairing price. A pairing
+  // is a bar-side tab — the user pays for it at the bar on collection (see
+  // the "pay at the bar on collection" copy on both the snacks tray rail
+  // and the checkout order card). The Stripe charge created at /purchase
+  // /checkout only covers seats + food, so the authoritative total the
+  // user sees on the snacks rail AND on checkout must match that scope.
+  // If/when a backend `programme_pairings` table exists and we move the
+  // pairing onto the card charge, include `pairingPrice` here in one
+  // place and the rest of the UI will follow.
   const subtotal = computed<number>(() => {
     const seatsTotal = seats.value.reduce((sum, s) => sum + s.price, 0)
     const foodTotal = foodItems.value.reduce((sum, f) => sum + f.unitPrice * f.quantity, 0)
