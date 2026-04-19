@@ -148,16 +148,14 @@ async function handleCheckoutSubmit(payload: { paymentMethodId: string; email?: 
       loyaltyOptIn: payload.loyaltyOptIn ?? false,
     }
 
-    const response = await apiFetch<{
-      data: Booking
-      requiresAction?: boolean
-      clientSecret?: string
-    }>(
+    type BookingAction = { requiresAction: true; clientSecret: string; paymentIntentId: string }
+    const response = await apiFetch<{ data: Booking | BookingAction }>(
       `/api/locations/${activeLocation.value.slug}/bookings`,
       { method: 'POST', body },
     )
 
-    if (response.requiresAction && response.clientSecret) {
+    if ('requiresAction' in response.data && response.data.requiresAction) {
+      const { clientSecret, paymentIntentId } = response.data
       const config = useRuntimeConfig()
       const stripe = await loadStripe(config.public.stripePublishableKey as string)
       if (!stripe) {
@@ -165,7 +163,7 @@ async function handleCheckoutSubmit(payload: { paymentMethodId: string; email?: 
         return
       }
 
-      const { error: confirmError } = await stripe.handleCardAction(response.clientSecret)
+      const { error: confirmError } = await stripe.handleCardAction(clientSecret)
       if (confirmError) {
         showToast({ message: confirmError.message ?? '3D Secure verification failed.', type: 'error' })
         return
@@ -173,7 +171,7 @@ async function handleCheckoutSubmit(payload: { paymentMethodId: string; email?: 
 
       const confirmResponse = await apiFetch<{ data: Booking }>(
         `/api/locations/${activeLocation.value.slug}/bookings/confirm`,
-        { method: 'POST', body: { paymentIntentId: response.clientSecret.split('_secret_')[0] } },
+        { method: 'POST', body: { paymentIntentId } },
       )
       await navigateTo(buildConfirmationUrl(confirmResponse.data))
       return

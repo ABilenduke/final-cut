@@ -24,25 +24,33 @@ describe('CheckoutTotalsRail', () => {
     expect(wrapper.find('.bay__number').text()).toBe('§ Ω')
   })
 
-  it('shows subtotal, booking fee, tax, and grand total lines', async () => {
+  it('shows subtotal and grand total matching the authoritative total prop', async () => {
     const wrapper = await mountSuspended(CheckoutTotalsRail, { props: baseProps })
     const text = wrapper.text()
     expect(text).toContain('Subtotal')
-    expect(text).toContain('Booking fee')
-    expect(text).toContain('Tax')
     expect(text).toContain('Total due')
-    // Grand = 4600 + 150 + round(4600*0.0725) = 4600 + 150 + 334 = 5084
-    expect(wrapper.find('.totals-rail__grand-v').text()).toBe('$50.84')
+    expect(text).not.toContain('Booking fee')
+    expect(text).not.toContain('Tax')
+    expect(wrapper.find('.totals-rail__grand-v').text()).toBe('$46.00')
   })
 
-  it('shows promo discount line when promoDiscount > 0', async () => {
+  it('reflects promo discount in the grand total via the total prop', async () => {
     const wrapper = await mountSuspended(CheckoutTotalsRail, {
-      props: { ...baseProps, promoCode: 'REEL', promoDiscount: 400 },
+      props: { ...baseProps, promoCode: 'REEL', promoDiscount: 400, total: 4200 },
     })
     const text = wrapper.text()
     expect(text).toContain('Member discount')
     expect(text).toContain('REEL')
     expect(wrapper.find('.totals-rail__v--neg').text()).toContain('−$4.00')
+    expect(wrapper.find('.totals-rail__grand-v').text()).toBe('$42.00')
+  })
+
+  it('reflects gift card redemption in the grand total via the total prop', async () => {
+    const wrapper = await mountSuspended(CheckoutTotalsRail, {
+      props: { ...baseProps, giftCardAmount: 1000, total: 3600 },
+    })
+    expect(wrapper.find('.totals-rail__grand-v').text()).toBe('$36.00')
+    expect(wrapper.text()).toContain('Gift card')
   })
 
   it('emits submit when the pay button is clicked', async () => {

@@ -33,17 +33,6 @@ const foodCount = computed<number>(() =>
   props.foodItems.reduce((sum, f) => sum + f.quantity, 0),
 )
 
-/** Fixed per-order booking fee, in cents (display-only; backend is authoritative). */
-const BOOKING_FEE = 150
-/** CA sales tax rate for display purposes. */
-const TAX_RATE = 0.0725
-
-const taxAmount = computed<number>(() => Math.round(props.subtotal * TAX_RATE))
-
-const grandTotal = computed<number>(() =>
-  Math.max(0, props.subtotal + BOOKING_FEE + taxAmount.value - props.promoDiscount - props.giftCardAmount),
-)
-
 const seatSectionLabel = computed<string>(() => {
   if (props.seats.length === 0) return 'No seats selected'
   const sections = new Set(props.seats.map(s => s.section))
@@ -89,14 +78,6 @@ const formattedHold = computed<string>(() => {
           <span>Subtotal</span>
           <span class="totals-rail__v">{{ formatCurrency(subtotal) }}</span>
         </div>
-        <div class="totals-rail__line">
-          <span>Booking fee<em>Per order</em></span>
-          <span class="totals-rail__v">{{ formatCurrency(BOOKING_FEE) }}</span>
-        </div>
-        <div class="totals-rail__line">
-          <span>Tax · estimated</span>
-          <span class="totals-rail__v">{{ formatCurrency(taxAmount) }}</span>
-        </div>
         <div v-if="promoDiscount > 0" class="totals-rail__line">
           <span>
             Member discount
@@ -110,7 +91,7 @@ const formattedHold = computed<string>(() => {
         </div>
         <div class="totals-rail__grand">
           <span>Total due<small>USD</small></span>
-          <span class="totals-rail__grand-v">{{ formatCurrency(grandTotal) }}</span>
+          <span class="totals-rail__grand-v">{{ formatCurrency(total) }}</span>
         </div>
       </dl>
 
@@ -121,7 +102,7 @@ const formattedHold = computed<string>(() => {
         @click="emit('submit')"
       >
         <span>{{ submitting ? 'Processing…' : 'Confirm & pay' }}</span>
-        <span class="totals-rail__pay-amt">{{ formatCurrency(grandTotal) }}</span>
+        <span class="totals-rail__pay-amt">{{ formatCurrency(total) }}</span>
       </button>
 
       <p class="totals-rail__note">
