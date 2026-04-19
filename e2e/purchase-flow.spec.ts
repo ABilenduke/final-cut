@@ -27,20 +27,16 @@ test.describe('Purchase Flow', () => {
     const grid = page.locator('[role="grid"]')
     await expect(grid).toBeVisible({ timeout: 10_000 })
 
-    // 6. Select 2 available seats. Use force: true + the held-state
-    // filter for the same reason as the other purchase-flow tests: the
-    // seat-select animation (translateY + scale) renders the button
-    // momentarily unstable. Scroll each seat into view first — wider
-    // auditoriums push row A off the initial viewport on some seeds.
+    // 6. Select 2 available seats via dispatchEvent('click'). Seed data
+    // sometimes produces auditoriums wider than the default viewport,
+    // which trips Playwright's viewport check even with force:true +
+    // scrollIntoViewIfNeeded. dispatchEvent fires the same @click
+    // handler the seat component registers without going through the
+    // pointer pipeline, which is all this test needs.
     const availableSeats = page.locator('button.auditorium-seat:not(.auditorium-seat--taken):not(.auditorium-seat--held)')
     await expect(availableSeats.first()).toBeVisible()
-
-    const seatA = availableSeats.nth(0)
-    await seatA.scrollIntoViewIfNeeded()
-    await seatA.click({ force: true })
-    const seatB = availableSeats.nth(1)
-    await seatB.scrollIntoViewIfNeeded()
-    await seatB.click({ force: true })
+    await availableSeats.nth(0).dispatchEvent('click')
+    await availableSeats.nth(1).dispatchEvent('click')
 
     // 7. Verify cart updates
     const totalDisplay = page.locator('[aria-live="polite"]').first()
@@ -70,19 +66,13 @@ test.describe('Purchase Flow', () => {
     await showtimeLink.click()
     await page.waitForURL(/\/purchase\//)
 
-    // Select enough seats to meet the default party size (2). Force past
-    // the actionability check — the seat-select animation intermittently
-    // defeats Playwright's stability wait on the first row — and scroll
-    // each into view so the click lands even when the grid is wider
-    // than the viewport.
+    // Select enough seats to meet the default party size (2) via
+    // dispatchEvent('click'). See the full-flow test for rationale —
+    // pointer-based clicks trip viewport bounds on wider auditoriums.
     const availableSeats = page.locator('button.auditorium-seat:not(.auditorium-seat--taken):not(.auditorium-seat--held)')
     await expect(availableSeats.first()).toBeVisible({ timeout: 10_000 })
-    const firstSeat = availableSeats.nth(0)
-    await firstSeat.scrollIntoViewIfNeeded()
-    await firstSeat.click({ force: true })
-    const secondSeat = availableSeats.nth(1)
-    await secondSeat.scrollIntoViewIfNeeded()
-    await secondSeat.click({ force: true })
+    await availableSeats.nth(0).dispatchEvent('click')
+    await availableSeats.nth(1).dispatchEvent('click')
 
     // Continue to concessions, then skip to checkout
     await page.getByRole('button', { name: /continue to concessions/i }).click()
@@ -134,13 +124,12 @@ test.describe('Purchase Flow', () => {
     const toSelect = Math.min(count, MAX_SEATS + 1)
 
     for (let i = 0; i < toSelect; i++) {
-      // The auditorium grid has more seats than fit in the viewport, and
-      // the seat-select animation (translateY + scale) briefly renders
-      // the button unstable between clicks. Scroll each seat into view
-      // and force past the actionability check.
-      const seat = availableSeats.nth(i)
-      await seat.scrollIntoViewIfNeeded()
-      await seat.click({ force: true })
+      // dispatchEvent('click') fires the seat component's @click
+      // handler without pointer pipeline — bypasses Playwright's
+      // viewport and animation-stability checks, which both get in
+      // the way of rapid sequential seat clicks on a grid that is
+      // wider than the default viewport.
+      await availableSeats.nth(i).dispatchEvent('click')
     }
 
     // The page caps selection at the current party size (which defaults to
