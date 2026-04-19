@@ -21,20 +21,20 @@ function makeShowtime(overrides: Partial<Showtime> = {}): Showtime {
 }
 
 describe('ShowtimeSelector', () => {
-  it('renders date tabs for each unique date', async () => {
+  it('renders a date strip tab for each day in the 7-day window', async () => {
     const showtimes = [
       makeShowtime({ id: 'st-1', startTime: '2026-04-07T14:00:00Z' }),
-      makeShowtime({ id: 'st-2', startTime: '2026-04-07T19:00:00Z' }),
-      makeShowtime({ id: 'st-3', startTime: '2026-04-08T19:00:00Z' }),
+      makeShowtime({ id: 'st-2', startTime: '2026-04-08T19:00:00Z' }),
     ]
     const wrapper = await mountSuspended(ShowtimeSelector, {
       props: { showtimes },
     })
-    const tabs = wrapper.findAll('[role="tab"]')
-    expect(tabs).toHaveLength(2)
+    // The date strip exposes 7 day buttons regardless of how many dates have data.
+    const days = wrapper.findAll('.showtime-selector__day')
+    expect(days).toHaveLength(7)
   })
 
-  it('active tab has aria-selected true', async () => {
+  it('active tab has aria-selected=true', async () => {
     const showtimes = [
       makeShowtime({ id: 'st-1', startTime: '2026-04-07T14:00:00Z' }),
       makeShowtime({ id: 'st-2', startTime: '2026-04-08T19:00:00Z' }),
@@ -43,89 +43,84 @@ describe('ShowtimeSelector', () => {
       props: { showtimes },
     })
     const tabs = wrapper.findAll('[role="tab"]')
-    // The first tab should be active by default (assuming today is not one of these dates)
-    const activeTab = tabs.find(t => t.attributes('aria-selected') === 'true')
-    expect(activeTab).toBeDefined()
+    const active = tabs.filter(t => t.attributes('aria-selected') === 'true')
+    expect(active).toHaveLength(1)
   })
 
-  it('renders time slot text', async () => {
-    const showtimes = [
-      makeShowtime({ id: 'st-1', startTime: '2026-04-07T19:00:00Z' }),
-    ]
+  it('date strip uses the tablist role with a descriptive aria-label', async () => {
     const wrapper = await mountSuspended(ShowtimeSelector, {
-      props: { showtimes },
-    })
-    // Should render a time element
-    const timeEl = wrapper.find('time')
-    expect(timeEl.exists()).toBe(true)
-    expect(timeEl.attributes('datetime')).toBe('2026-04-07T19:00:00Z')
-  })
-
-  it('time slots link to purchase page', async () => {
-    const showtimes = [
-      makeShowtime({ id: 'st-42', startTime: '2026-04-07T19:00:00Z' }),
-    ]
-    const wrapper = await mountSuspended(ShowtimeSelector, {
-      props: { showtimes },
-    })
-    const link = wrapper.find('.showtime-selector__slot')
-    expect(link.exists()).toBe(true)
-    // NuxtLink renders as an <a> in the test environment
-    expect(link.attributes('href')).toBe('/purchase/st-42')
-  })
-
-  it('shows formatted price', async () => {
-    const showtimes = [
-      makeShowtime({ id: 'st-1', startTime: '2026-04-07T19:00:00Z', priceStandard: 1500 }),
-    ]
-    const wrapper = await mountSuspended(ShowtimeSelector, {
-      props: { showtimes },
-    })
-    expect(wrapper.text()).toContain('$15.00')
-  })
-
-  it('shows empty state when no showtimes', async () => {
-    const wrapper = await mountSuspended(ShowtimeSelector, {
-      props: { showtimes: [] },
-    })
-    expect(wrapper.text()).toContain('No showtimes available')
-  })
-
-  it('tab container has tablist role', async () => {
-    const showtimes = [
-      makeShowtime({ id: 'st-1', startTime: '2026-04-07T19:00:00Z' }),
-    ]
-    const wrapper = await mountSuspended(ShowtimeSelector, {
-      props: { showtimes },
+      props: { showtimes: [makeShowtime()] },
     })
     const tablist = wrapper.find('[role="tablist"]')
     expect(tablist.exists()).toBe(true)
     expect(tablist.attributes('aria-label')).toBe('Showtime dates')
   })
 
-  it('panel has tabpanel role', async () => {
-    const showtimes = [
-      makeShowtime({ id: 'st-1', startTime: '2026-04-07T19:00:00Z' }),
-    ]
+  it('renders the Reserve your seat title', async () => {
     const wrapper = await mountSuspended(ShowtimeSelector, {
-      props: { showtimes },
+      props: { showtimes: [makeShowtime()] },
     })
-    const panel = wrapper.find('[role="tabpanel"]')
-    expect(panel.exists()).toBe(true)
-    expect(panel.attributes('aria-labelledby')).toBeTruthy()
+    expect(wrapper.find('.bay-title').text()).toContain('Reserve your')
   })
 
-  it('groups showtimes by date correctly', async () => {
-    const showtimes = [
-      makeShowtime({ id: 'st-1', startTime: '2026-04-07T14:00:00Z' }),
-      makeShowtime({ id: 'st-2', startTime: '2026-04-07T19:00:00Z' }),
-      makeShowtime({ id: 'st-3', startTime: '2026-04-08T14:00:00Z' }),
-      makeShowtime({ id: 'st-4', startTime: '2026-04-08T19:00:00Z' }),
-    ]
+  it('renders all 7 format filter chips', async () => {
     const wrapper = await mountSuspended(ShowtimeSelector, {
-      props: { showtimes },
+      props: { showtimes: [makeShowtime()] },
     })
-    const tabs = wrapper.findAll('[role="tab"]')
-    expect(tabs).toHaveLength(2)
+    const chips = wrapper.findAll('.showtime-selector__fmt')
+    expect(chips.length).toBe(7)
+    const labels = chips.map(c => c.text())
+    expect(labels).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining('All formats'),
+        expect.stringContaining('70mm'),
+        expect.stringContaining('IMAX'),
+        expect.stringContaining('Digital'),
+        expect.stringContaining('Late Show'),
+        expect.stringContaining('Members Only'),
+        expect.stringContaining('Closed Captions'),
+      ]),
+    )
+  })
+
+  it('toggles the active format chip on click', async () => {
+    const wrapper = await mountSuspended(ShowtimeSelector, {
+      props: { showtimes: [makeShowtime()] },
+    })
+    const chips = wrapper.findAll('.showtime-selector__fmt')
+    // First chip (All formats) is on by default
+    expect(chips[0].classes()).toContain('showtime-selector__fmt--on')
+    await chips[1].trigger('click')
+    expect(chips[1].classes()).toContain('showtime-selector__fmt--on')
+    expect(chips[0].classes()).not.toContain('showtime-selector__fmt--on')
+  })
+
+  it('slot links point to /purchase/:id', async () => {
+    const wrapper = await mountSuspended(ShowtimeSelector, {
+      props: {
+        showtimes: [makeShowtime({ id: 'st-42', startTime: '2026-04-07T19:00:00Z' })],
+      },
+    })
+    const slot = wrapper.find('.showtime-selector__slot')
+    expect(slot.exists()).toBe(true)
+    expect(slot.attributes('href')).toBe('/purchase/st-42')
+  })
+
+  it('shows an empty-state message when there are no showtimes at all', async () => {
+    const wrapper = await mountSuspended(ShowtimeSelector, {
+      props: { showtimes: [] },
+    })
+    expect(wrapper.text()).toContain('No showtimes')
+  })
+
+  it('renders the "From $X" price for the lowest-priced slot in each group', async () => {
+    const wrapper = await mountSuspended(ShowtimeSelector, {
+      props: {
+        showtimes: [
+          makeShowtime({ id: 'st-1', startTime: '2026-04-07T19:00:00Z', priceStandard: 1500 }),
+        ],
+      },
+    })
+    expect(wrapper.text()).toContain('$15.00')
   })
 })

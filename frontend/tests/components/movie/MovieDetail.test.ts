@@ -9,7 +9,7 @@ function makeMovie(overrides: Partial<Movie> = {}): Movie {
     slug: 'test-movie',
     title: 'Test Movie',
     tagline: 'A test tagline',
-    synopsis: 'A test synopsis',
+    synopsis: 'The first sentence is the lead. The remaining copy becomes body.',
     runtime: 120,
     rating: 7.5,
     releaseDate: '2026-04-03',
@@ -17,9 +17,7 @@ function makeMovie(overrides: Partial<Movie> = {}): Movie {
       { id: 1, name: 'Drama' },
       { id: 2, name: 'Thriller' },
     ],
-    cast: [
-      { id: 1, name: 'Actor One', character: 'Hero', profileUrl: 'https://example.com/actor.jpg' },
-    ],
+    cast: [],
     posterUrl: 'https://example.com/poster.jpg',
     backdropUrl: 'https://example.com/backdrop.jpg',
     trailerKey: 'abc123',
@@ -29,93 +27,85 @@ function makeMovie(overrides: Partial<Movie> = {}): Movie {
 }
 
 describe('MovieDetail', () => {
-  it('renders title', async () => {
+  it('splits synopsis into a lead sentence and body paragraphs', async () => {
     const wrapper = await mountSuspended(MovieDetail, {
       props: { movie: makeMovie() },
     })
-    const title = wrapper.find('.movie-detail__title')
-    expect(title.exists()).toBe(true)
-    expect(title.text()).toBe('Test Movie')
+    const lead = wrapper.find('.movie-detail__lead')
+    expect(lead.exists()).toBe(true)
+    expect(lead.text()).toBe('The first sentence is the lead.')
+
+    const paras = wrapper.findAll('.movie-detail__para')
+    expect(paras).toHaveLength(1)
+    expect(paras[0].text()).toBe('The remaining copy becomes body.')
   })
 
-  it('renders tagline', async () => {
+  it('falls back to a single lead when synopsis has no sentence boundary', async () => {
+    const wrapper = await mountSuspended(MovieDetail, {
+      props: { movie: makeMovie({ synopsis: 'One sentence synopsis' }) },
+    })
+    const lead = wrapper.find('.movie-detail__lead')
+    expect(lead.exists()).toBe(true)
+    expect(lead.text()).toBe('One sentence synopsis')
+    expect(wrapper.findAll('.movie-detail__para')).toHaveLength(0)
+  })
+
+  it('renders synopsis eyebrow and credits eyebrow', async () => {
     const wrapper = await mountSuspended(MovieDetail, {
       props: { movie: makeMovie() },
     })
-    const tagline = wrapper.find('.movie-detail__tagline')
-    expect(tagline.exists()).toBe(true)
-    expect(tagline.text()).toBe('A test tagline')
+    const eyebrows = wrapper.findAll('.bay-eyebrow').map(e => e.text())
+    expect(eyebrows).toContain('Synopsis · Reel 01')
+    expect(eyebrows).toContain('Credits · Programme Notes')
   })
 
-  it('hides tagline when empty', async () => {
-    const wrapper = await mountSuspended(MovieDetail, {
-      props: { movie: makeMovie({ tagline: '' }) },
-    })
-    expect(wrapper.find('.movie-detail__tagline').exists()).toBe(false)
-  })
-
-  it('renders synopsis', async () => {
-    const wrapper = await mountSuspended(MovieDetail, {
-      props: { movie: makeMovie() },
-    })
-    const synopsis = wrapper.find('.movie-detail__synopsis')
-    expect(synopsis.exists()).toBe(true)
-    expect(synopsis.text()).toBe('A test synopsis')
-  })
-
-  it('renders runtime via formatRuntime', async () => {
+  it('renders runtime in the credits table', async () => {
     const wrapper = await mountSuspended(MovieDetail, {
       props: { movie: makeMovie({ runtime: 120 }) },
     })
-    const runtime = wrapper.find('.movie-detail__runtime')
-    expect(runtime.exists()).toBe(true)
-    expect(runtime.text()).toBe('2h 0m')
+    const rows = wrapper.findAll('.movie-detail__row')
+    const runtimeRow = rows.find(r => r.find('.movie-detail__k').text() === 'Runtime')
+    expect(runtimeRow).toBeDefined()
+    expect(runtimeRow!.find('.movie-detail__v').text()).toBe('2h 0m')
   })
 
-  it('renders genre badges', async () => {
+  it('renders joined genre list in the credits table', async () => {
     const wrapper = await mountSuspended(MovieDetail, {
       props: { movie: makeMovie() },
     })
-    const genres = wrapper.find('.movie-detail__genres')
-    expect(genres.exists()).toBe(true)
-    expect(genres.text()).toContain('Drama')
-    expect(genres.text()).toContain('Thriller')
+    const rows = wrapper.findAll('.movie-detail__row')
+    const genresRow = rows.find(r => r.find('.movie-detail__k').text() === 'Genres')
+    expect(genresRow).toBeDefined()
+    expect(genresRow!.find('.movie-detail__v').text()).toBe('Drama, Thriller')
   })
 
-  it('hides genre section when no genres', async () => {
+  it('shows em-dash when there are no genres', async () => {
     const wrapper = await mountSuspended(MovieDetail, {
       props: { movie: makeMovie({ genres: [] }) },
     })
-    expect(wrapper.find('.movie-detail__genres').exists()).toBe(false)
+    const rows = wrapper.findAll('.movie-detail__row')
+    const genresRow = rows.find(r => r.find('.movie-detail__k').text() === 'Genres')
+    expect(genresRow!.find('.movie-detail__v').text()).toBe('—')
   })
 
-  it('includes MovieTrailerEmbed when trailerKey exists', async () => {
-    const wrapper = await mountSuspended(MovieDetail, {
-      props: { movie: makeMovie({ trailerKey: 'abc123' }) },
-    })
-    const trailer = wrapper.find('.trailer-embed')
-    expect(trailer.exists()).toBe(true)
-  })
-
-  it('excludes MovieTrailerEmbed when trailerKey is null', async () => {
-    const wrapper = await mountSuspended(MovieDetail, {
-      props: { movie: makeMovie({ trailerKey: null }) },
-    })
-    expect(wrapper.find('.trailer-embed').exists()).toBe(false)
-  })
-
-  it('includes MovieCastList', async () => {
+  it('includes stubbed crew fact rows', async () => {
     const wrapper = await mountSuspended(MovieDetail, {
       props: { movie: makeMovie() },
     })
-    const castList = wrapper.find('.cast-list')
-    expect(castList.exists()).toBe(true)
-  })
-
-  it('renders MovieRatingBadge', async () => {
-    const wrapper = await mountSuspended(MovieDetail, {
-      props: { movie: makeMovie({ rating: 8.5 }) },
-    })
-    expect(wrapper.text()).toContain('8.5')
+    const keys = wrapper.findAll('.movie-detail__k').map(k => k.text())
+    // Core credit keys from the design
+    expect(keys).toEqual(
+      expect.arrayContaining([
+        'Director',
+        'Screenplay',
+        'Cinematography',
+        'Editor',
+        'Composer',
+        'Runtime',
+        'Genres',
+        'Aspect',
+        'Advisory',
+      ]),
+    )
   })
 })

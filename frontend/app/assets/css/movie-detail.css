@@ -1,0 +1,187 @@
+/* Movie detail page primitives — scoped to .movie-page
+   Imported from main.css. These classes implement the "Final Cut Movie Detail"
+   design handoff and must not leak into global scope. */
+
+.movie-page {
+  /* Remove default layout-default max-width constraint so hero + sections
+     can go full-bleed where needed. */
+  min-height: 100vh;
+}
+
+/* ——— Section bay ——— */
+.movie-page .bay {
+  padding: var(--space-3xl) var(--space-2xl);
+}
+
+.movie-page .bay-inner {
+  max-width: 90rem;
+  margin-inline: auto;
+}
+
+.movie-page .bay-eyebrow {
+  font-size: 0.6875rem;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--on-tertiary-fixed-variant);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.movie-page .bay-eyebrow::before {
+  content: '—';
+  color: var(--secondary);
+}
+
+.movie-page .bay-title {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: clamp(1.75rem, 3.2vw, 2.75rem);
+  line-height: 1;
+  letter-spacing: -0.025em;
+  margin: 0;
+  color: var(--on-surface);
+  text-wrap: balance;
+}
+
+.movie-page .bay-title em {
+  font-style: italic;
+  color: var(--tertiary);
+}
+
+/* ——— Chips ——— */
+.movie-page .chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.7rem;
+  background: rgba(42, 42, 42, 0.6);
+  border: 0.0625rem solid rgba(var(--outline-variant-rgb), 0.25); /* token-exception: sub-pixel border */
+  border-radius: 62.5rem;
+  font-size: 0.75rem;
+  color: var(--tertiary);
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.movie-page .chip.gold {
+  color: var(--secondary);
+  border-color: rgba(var(--secondary-rgb, 218, 199, 105), 0.3);
+  background: rgba(var(--secondary-rgb, 218, 199, 105), 0.06);
+}
+
+.movie-page .chip.score {
+  color: var(--secondary);
+  font-family: var(--font-display);
+  font-weight: 500;
+}
+
+/* ——— Buttons ——— */
+.movie-page .btn-gold,
+.movie-page .btn-ghost,
+.movie-page .btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.625rem;
+  height: 3.25rem;
+  padding: 0 1.5rem;
+  border-radius: 0.125rem; /* token-exception: design system radius */
+  font-family: var(--font-body);
+  font-size: 1rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  border: none;
+  cursor: pointer;
+  text-decoration: none;
+  transition:
+    transform 150ms var(--ease-standard),
+    background-color 200ms,
+    color 200ms,
+    border-color 200ms;
+}
+
+.movie-page .btn-primary {
+  background: var(--primary-container);
+  color: var(--primary);
+}
+
+.movie-page .btn-primary:hover {
+  background: #6a0a0a; /* token-exception: mid-step between primary-container and its hover */
+}
+
+.movie-page .btn-primary:active {
+  transform: scale(0.98);
+}
+
+.movie-page .btn-gold {
+  background: var(--secondary);
+  color: var(--surface);
+}
+
+.movie-page .btn-gold:hover {
+  background: #e6d585; /* token-exception: lighter gold hover */
+}
+
+.movie-page .btn-ghost {
+  background: transparent;
+  color: var(--on-surface);
+  padding: 0 0.75rem;
+  border: 0.0625rem solid rgba(var(--outline-variant-rgb), 0.4); /* token-exception: sub-pixel border */
+}
+
+.movie-page .btn-ghost:hover {
+  color: var(--secondary);
+  border-color: var(--secondary);
+}
+
+.movie-page .icon-btn {
+  width: 3.25rem;
+  height: 3.25rem;
+  border-radius: 0.125rem; /* token-exception: design system radius */
+  border: 0.0625rem solid rgba(var(--outline-variant-rgb), 0.4); /* token-exception: sub-pixel border */
+  display: grid;
+  place-items: center;
+  color: var(--on-surface);
+  background: transparent;
+  cursor: pointer;
+  transition: color 200ms, border-color 200ms;
+}
+
+.movie-page .icon-btn:hover {
+  color: var(--secondary);
+  border-color: var(--secondary);
+}
+
+.movie-page .icon-btn svg {
+  width: 1.125rem;
+  height: 1.125rem;
+}
+
+/* ——— Film-grain overlay utility ——— */
+.movie-page .film-grain {
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent 0 0.125rem,
+    rgba(0, 0, 0, 0.08) 0.125rem 0.1875rem
+  );
+  mix-blend-mode: multiply;
+  pointer-events: none;
+}
+
+/* ——— Reduced motion ——— */
+@media (prefers-reduced-motion: reduce) {
+  .movie-page .btn-gold,
+  .movie-page .btn-ghost,
+  .movie-page .btn-primary,
+  .movie-page .icon-btn {
+    transition: none;
+  }
+
+  .movie-page .btn-primary:active {
+    transform: none;
+  }
+}

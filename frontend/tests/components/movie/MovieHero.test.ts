@@ -24,18 +24,21 @@ function makeMovie(overrides: Partial<Movie> = {}): Movie {
 }
 
 describe('MovieHero', () => {
-  it('renders movie title', async () => {
+  it('renders the film title', async () => {
     const wrapper = await mountSuspended(MovieHero, {
       props: { movie: makeMovie() },
     })
-    expect(wrapper.text()).toContain('Blade Runner 2049')
+    expect(wrapper.text()).toContain('Blade Runner')
+    expect(wrapper.text()).toContain('2049')
   })
 
-  it('renders tagline', async () => {
+  it('renders the tagline', async () => {
     const wrapper = await mountSuspended(MovieHero, {
       props: { movie: makeMovie() },
     })
-    expect(wrapper.text()).toContain('The key to the future is finally unearthed.')
+    const tagline = wrapper.find('.movie-hero__tagline')
+    expect(tagline.exists()).toBe(true)
+    expect(tagline.text()).toBe('The key to the future is finally unearthed.')
   })
 
   it('hides tagline when empty', async () => {
@@ -45,37 +48,95 @@ describe('MovieHero', () => {
     expect(wrapper.find('.movie-hero__tagline').exists()).toBe(false)
   })
 
-  it('backdrop image is decorative', async () => {
+  it('renders the backdrop image with empty alt and aria-hidden', async () => {
     const wrapper = await mountSuspended(MovieHero, {
       props: { movie: makeMovie() },
     })
-    const img = wrapper.find('img')
-    expect(img.exists()).toBe(true)
-    expect(img.attributes('aria-hidden')).toBe('true')
-    expect(img.attributes('alt')).toBe('')
+    const backdrop = wrapper.find('.movie-hero__backdrop-img')
+    expect(backdrop.exists()).toBe(true)
+    expect(backdrop.attributes('aria-hidden')).toBe('true')
+    expect(backdrop.attributes('alt')).toBe('')
   })
 
   it('does not render backdrop image when backdropUrl is empty', async () => {
     const wrapper = await mountSuspended(MovieHero, {
       props: { movie: makeMovie({ backdropUrl: '' }) },
     })
-    expect(wrapper.find('img').exists()).toBe(false)
+    expect(wrapper.find('.movie-hero__backdrop-img').exists()).toBe(false)
   })
 
-  it('uses wide-frame class', async () => {
+  it('renders poster image with descriptive alt text', async () => {
     const wrapper = await mountSuspended(MovieHero, {
       props: { movie: makeMovie() },
     })
-    const section = wrapper.find('section')
-    expect(section.classes()).toContain('wide-frame')
+    const poster = wrapper.find('.movie-hero__poster-img')
+    expect(poster.exists()).toBe(true)
+    expect(poster.attributes('alt')).toBe('Blade Runner 2049 poster')
   })
 
-  it('has no interactive elements', async () => {
+  it('falls back to a glyph when posterUrl is absent', async () => {
+    const wrapper = await mountSuspended(MovieHero, {
+      props: { movie: makeMovie({ posterUrl: '' }) },
+    })
+    expect(wrapper.find('.movie-hero__poster-img').exists()).toBe(false)
+    expect(wrapper.find('.movie-hero__poster-glyph').exists()).toBe(true)
+  })
+
+  it('renders the Get Tickets CTA', async () => {
     const wrapper = await mountSuspended(MovieHero, {
       props: { movie: makeMovie() },
     })
-    expect(wrapper.find('a').exists()).toBe(false)
-    expect(wrapper.find('button').exists()).toBe(false)
-    expect(wrapper.find('[role="button"]').exists()).toBe(false)
+    const buttons = wrapper.findAll('button')
+    expect(buttons.some(b => b.text().includes('Get Tickets'))).toBe(true)
+  })
+
+  it('renders Watch Trailer CTA only when trailerKey exists', async () => {
+    const withTrailer = await mountSuspended(MovieHero, {
+      props: { movie: makeMovie({ trailerKey: 'abc' }) },
+    })
+    expect(withTrailer.text()).toContain('Watch Trailer')
+
+    const withoutTrailer = await mountSuspended(MovieHero, {
+      props: { movie: makeMovie({ trailerKey: null }) },
+    })
+    expect(withoutTrailer.text()).not.toContain('Watch Trailer')
+  })
+
+  it('renders crew stat labels', async () => {
+    const wrapper = await mountSuspended(MovieHero, {
+      props: { movie: makeMovie() },
+    })
+    const text = wrapper.text()
+    expect(text).toContain('Director')
+    expect(text).toContain('Writer')
+    expect(text).toContain('Cinematographer')
+    expect(text).toContain('Composer')
+    expect(text).toContain('Studio')
+  })
+
+  it('status shows "Now Showing" for now_showing movies', async () => {
+    const wrapper = await mountSuspended(MovieHero, {
+      props: { movie: makeMovie({ status: 'now_showing' }) },
+    })
+    const meta = wrapper.find('.movie-hero__t-meta')
+    expect(meta.text()).toContain('Now Showing')
+  })
+
+  it('status shows "Coming Soon" for coming_soon movies', async () => {
+    const wrapper = await mountSuspended(MovieHero, {
+      props: { movie: makeMovie({ status: 'coming_soon' }) },
+    })
+    const meta = wrapper.find('.movie-hero__t-meta')
+    expect(meta.text()).toContain('Coming Soon')
+  })
+
+  it('clock placeholder is shown during SSR / first paint', async () => {
+    const wrapper = await mountSuspended(MovieHero, {
+      props: { movie: makeMovie() },
+    })
+    const clock = wrapper.find('.movie-hero__clock')
+    expect(clock.exists()).toBe(true)
+    // During the test harness the client tick may have fired already; accept either placeholder or HH:MM:SS
+    expect(clock.text()).toMatch(/^(--:--:--|\d{2}:\d{2}:\d{2})$/)
   })
 })

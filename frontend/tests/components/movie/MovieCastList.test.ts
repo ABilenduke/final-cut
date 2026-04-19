@@ -31,42 +31,34 @@ describe('MovieCastList', () => {
     expect(wrapper.text()).toContain('Villain')
   })
 
-  it('renders avatar photos', async () => {
+  it('renders portrait photos with name alt text', async () => {
     const wrapper = await mountSuspended(MovieCastList, {
       props: { cast: makeCast() },
     })
-    const photos = wrapper.findAll('.cast-list__photo')
+    const photos = wrapper.findAll('.movie-cast__photo')
     expect(photos).toHaveLength(2)
     expect(photos[0].attributes('src')).toBe('https://example.com/actor1.jpg')
     expect(photos[0].attributes('alt')).toBe('Actor One')
   })
 
-  it('hidden when cast is empty', async () => {
+  it('renders nothing when cast is empty', async () => {
     const wrapper = await mountSuspended(MovieCastList, {
       props: { cast: [] },
     })
-    expect(wrapper.find('.cast-list').exists()).toBe(false)
-  })
-
-  it('uses circular avatar class', async () => {
-    const wrapper = await mountSuspended(MovieCastList, {
-      props: { cast: makeCast() },
-    })
-    const avatar = wrapper.find('.cast-list__avatar')
-    expect(avatar.exists()).toBe(true)
+    expect(wrapper.find('.movie-cast').exists()).toBe(false)
   })
 
   it('photos have lazy loading', async () => {
     const wrapper = await mountSuspended(MovieCastList, {
       props: { cast: makeCast() },
     })
-    const photos = wrapper.findAll('.cast-list__photo')
+    const photos = wrapper.findAll('.movie-cast__photo')
     for (const photo of photos) {
       expect(photo.attributes('loading')).toBe('lazy')
     }
   })
 
-  it('does not render photo when profileUrl is null', async () => {
+  it('falls back to a glyph when profileUrl is null', async () => {
     const wrapper = await mountSuspended(MovieCastList, {
       props: {
         cast: [
@@ -74,8 +66,28 @@ describe('MovieCastList', () => {
         ],
       },
     })
-    expect(wrapper.find('.cast-list__photo').exists()).toBe(false)
-    // Avatar placeholder container should still exist
-    expect(wrapper.find('.cast-list__avatar').exists()).toBe(true)
+    expect(wrapper.find('.movie-cast__photo').exists()).toBe(false)
+    expect(wrapper.find('.movie-cast__glyph').exists()).toBe(true)
+    expect(wrapper.find('.movie-cast__glyph').text()).toBe('N')
+  })
+
+  it('limits to 6 principal cast members', async () => {
+    const many = Array.from({ length: 10 }, (_, i) => ({
+      id: i + 1,
+      name: `Actor ${i + 1}`,
+      character: `Role ${i + 1}`,
+      profileUrl: null,
+    }))
+    const wrapper = await mountSuspended(MovieCastList, {
+      props: { cast: many },
+    })
+    expect(wrapper.findAll('.movie-cast__card')).toHaveLength(6)
+  })
+
+  it('renders the section eyebrow', async () => {
+    const wrapper = await mountSuspended(MovieCastList, {
+      props: { cast: makeCast() },
+    })
+    expect(wrapper.find('.bay-eyebrow').text()).toBe('Cast · Principal')
   })
 })

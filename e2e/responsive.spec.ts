@@ -36,32 +36,31 @@ test.describe('Responsive Layout', () => {
   })
 
   test.describe('Movie detail', () => {
-    test('desktop — establishing shot has two columns', async ({ page }) => {
+    test('desktop — hero grid has two columns (poster + title)', async ({ page }) => {
       await page.setViewportSize(VIEWPORTS.desktop)
       await page.goto(`/movies/${MOVIE_SLUGS.FIGHT_CLUB}`)
-      const layout = page.locator('.establishing-shot')
+      const layout = page.locator('.movie-hero__inner')
       await expect(layout).toBeVisible()
 
       const columns = await layout.evaluate((el) => {
         const style = window.getComputedStyle(el)
         return style.gridTemplateColumns
       })
-      // Two column values for 65/35 split
+      // Poster column (340px) + title column (1fr) renders as two resolved column tracks
       const columnCount = columns.split(/\s+/).filter(Boolean).length
       expect(columnCount).toBe(2)
     })
 
-    test('mobile — establishing shot collapses to single column', async ({ page }) => {
+    test('mobile — hero grid collapses to single column', async ({ page }) => {
       await page.setViewportSize(VIEWPORTS.mobile)
       await page.goto(`/movies/${MOVIE_SLUGS.FIGHT_CLUB}`)
-      const layout = page.locator('.establishing-shot')
+      const layout = page.locator('.movie-hero__inner')
       await expect(layout).toBeVisible()
 
       const columns = await layout.evaluate((el) => {
         const style = window.getComputedStyle(el)
         return style.gridTemplateColumns || style.display
       })
-      // Single column — either one grid column or flex/block display
       if (columns.includes('px') || columns.includes('fr')) {
         const columnCount = columns.split(/\s+/).filter(Boolean).length
         expect(columnCount).toBeLessThanOrEqual(1)

@@ -471,3 +471,69 @@
 - `docs/plans/frontend/v1/09-auth-account-domain.md` — removed Storybook testing section
 - `docs/plans/frontend/v1/10-content-domain.md` — removed Storybook testing section
 - `docs/plans/frontend/v1/11-blog-and-static-pages.md` — removed .stories.ts file reference
+
+---
+
+## Movie Detail Visual Refresh
+**Status:** 🟡 In Progress
+**Started:** 2026-04-18
+**Completed:** —
+
+### Context
+A Claude Design (`claude.ai/design`) handoff bundle landed with a richly atmospheric "Final Cut Movie Detail" prototype. The v1 page was a functional-but-minimal MovieHero + establishing-shot split with a sticky ShowtimeSelector sidebar. This refresh re-composes the page as a sequence of editorial bay sections matching the design's cinematic direction.
+
+### Work Done
+- [2026-04-18] Added `--primary-container-rgb` and `--secondary-rgb` channel tokens so rgba() variants of the fill colors are available for translucent effects
+- [2026-04-18] Created `frontend/app/assets/css/movie-detail.css` — page-scoped primitives (`.bay`, `.bay-eyebrow`, `.bay-title`, `.chip`, `.chip.gold`, `.chip.score`, `.btn-primary`, `.btn-gold`, `.btn-ghost`, `.icon-btn`, `.film-grain`). Imported from `main.css`. All selectors nested under `.movie-page` to prevent global leakage.
+- [2026-04-18] Created `useClock` composable — SSR-safe live clock (renders `--:--:--` on server, ticks every second on client)
+- [2026-04-18] New `MovieBreadcrumb.vue` — thin strip below header with Home/Now Showing/title trail + Share/Print actions
+- [2026-04-18] Rebuilt `MovieHero.vue` — full atmospheric layout (radial vignette backgrounds, film-grain overlay, grain-label top-left, live telemetry clock top-right, 2-col grid with poster + meta card and title column with big italic-accent title, chips, 5-col stubbed crew stats, CTA row)
+- [2026-04-18] Refactored `MovieDetail.vue` — synopsis lead + body paragraphs (first sentence split) and 9-row credits fact table; removed trailer/cast blocks
+- [2026-04-18] Rebuilt `MovieTrailerEmbed.vue` — 2fr/1fr grid with styled trailer stage (glass play button, film grain, reel-loaded indicator, scrub bar) that swaps to YouTube iframe on play; clip list sidebar with 5 entries (trailer + 4 stub featurettes)
+- [2026-04-18] Refactored `MovieCastList.vue` — 6-col portrait grid (→ 3 at 1100px, → 2 at 640px) with 3:4 portraits, grain overlay, photo or seeded-gradient + first-letter glyph fallback
+- [2026-04-18] Rebuilt `ShowtimeSelector.vue` — full-width section with eyebrow/title header, location pill, 7 format filter chips (visual only), 7-day date strip with today dot + empty-day disabled state, showtime matrix grouped by stub format (4 formats, deterministic assignment by id hash), slot cards linking to `/purchase/:id` with stubbed availability + Members badge on first slot
+- [2026-04-18] New `MovieSeatPreview.vue` — static auditorium visualization (12 rows A-M with varying widths, center gap, deterministic taken/member/selected states) + order summary card with stub totals + Continue-to-Checkout button
+- [2026-04-18] New `MoviePress.vue` — 3-col quote grid + 4-cell scores row with progress bars (all quotes/scores from design HTML verbatim, stubbed)
+- [2026-04-18] New `MovieRelated.vue` — 4-col poster grid via `useMovies().nowShowing()`, filters current slug, seeded gradient posters with first-letter glyphs
+- [2026-04-18] Restructured `pages/movies/[slug].vue` — dropped establishing-shot+sidebar pattern, now renders MovieBreadcrumb → MovieHero → 6 bay sections (synopsis, trailer, cast, showtimes+seatpreview, press, related). SEO/JSON-LD block preserved.
+
+### Decisions
+- [2026-04-18] Decided **stub with placeholder data** over "drop the section" for design elements that lack backend support — user accepted the trade-off: ship the full design now, mark each stub site with a `TODO(backend)` comment so replacements are greppable when the API gains crew/format/review fields.
+- [2026-04-18] Showtimes section promoted from sidebar to full-width bay — matches the design, and the richer date strip + matrix needs the width to breathe.
+- [2026-04-18] Skipped adding a `gold` variant to `CvButton`; used page-scoped `.btn-primary`/`.btn-gold`/`.btn-ghost` in movie-detail.css instead. Keeps CvButton API stable and scopes the design's CTA treatments to this page.
+- [2026-04-18] `useClock` ticks client-only — server renders placeholder to avoid hydration mismatch, mirroring the home page's established pattern.
+- [2026-04-18] Dropped the prototype's "Cold Dawn / Void" hero vibe variants and the dev-only Tweaks panel; one reactor vibe only.
+
+### Stub registry
+All sites marked `TODO(backend)` — grep `rg 'TODO\(backend\)' frontend/app/` to enumerate:
+- `MovieHero.vue` — crew stats, grain label, poster format badge
+- `MovieDetail.vue` — credits fact rows (Director, Screenplay, Cinematography, Editor, Composer, Aspect, Advisory)
+- `MovieTrailerEmbed.vue` — clip/featurette list beyond the single real trailer
+- `ShowtimeSelector.vue` — format groups, format filter chips, pseudo-availability counts, Members badge assignment
+- `MovieSeatPreview.vue` — seat grid availability, order summary line items
+- `MoviePress.vue` — press quotes (3) and aggregate scores (4)
+
+### Blockers
+- None
+
+### Files Changed
+- `frontend/app/assets/css/main.css` — added `@import './movie-detail.css'`
+- `frontend/app/assets/css/tokens.css` — added `--primary-container-rgb` and `--secondary-rgb`
+- `frontend/app/assets/css/movie-detail.css` — new
+- `frontend/app/composables/useClock.ts` — new
+- `frontend/app/pages/movies/[slug].vue` — restructured as bay sections
+- `frontend/app/components/movie/MovieHero.vue` — full rebuild
+- `frontend/app/components/movie/MovieDetail.vue` — synopsis + credits table
+- `frontend/app/components/movie/MovieTrailerEmbed.vue` — trailer stage + clips
+- `frontend/app/components/movie/MovieCastList.vue` — 6-col portrait grid
+- `frontend/app/components/movie/ShowtimeSelector.vue` — date strip + matrix
+- `frontend/app/components/movie/MovieBreadcrumb.vue` — new
+- `frontend/app/components/movie/MovieSeatPreview.vue` — new
+- `frontend/app/components/movie/MoviePress.vue` — new
+- `frontend/app/components/movie/MovieRelated.vue` — new
+- [2026-04-18] Updated Vitest tests for refactored components (MovieDetail, MovieHero, MovieCastList, MovieTrailerEmbed, ShowtimeSelector) — old tests asserted on the V1 skeleton's DOM structure; new tests assert on the design's structure (synopsis lead/body split, credits fact rows, hero CTAs, clip sidebar, format chips, 7-day date strip). All 61 movie component tests pass.
+- [2026-04-18] Updated `e2e/responsive.spec.ts` movie detail assertions from `.establishing-shot` to `.movie-hero__inner` — the movie detail page no longer uses the establishing-shot composition (it's a sequence of bay sections instead).
+- [2026-04-18] Full Vitest suite green: 60 test files passed. No regressions outside the explicitly refactored set.
+
+**Status:** ✅ Complete
+**Completed:** 2026-04-18
