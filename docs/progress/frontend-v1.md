@@ -640,3 +640,70 @@ All sites marked `TODO(backend)` — grep `rg 'TODO\(backend\)' frontend/app/` t
 
 **Status:** ✅ Complete
 **Completed:** 2026-04-18
+
+---
+
+## Plan: Snacks & Concessions — Concessions design split + redesign
+**Status:** ✅ Complete
+**Started:** 2026-04-18
+**Completed:** 2026-04-18
+
+### Work Done
+- [2026-04-18] Implemented the Claude Design "Final Cut Concessions.html" handoff in two surfaces: a new dedicated `/purchase/snacks` checkout step and an editorial redesign of the public `/food-drink` page.
+- [2026-04-18] Split the purchase flow from 3 steps to 4: `Seats → Snacks & Bar → Payment → Confirmation`. Updated `PurchaseStepIndicator.vue` (4 steps, two-digit numeric badges, new label set), widened `usePurchaseStep` to `1 | 2 | 3 | 4`, updated step calls in all three existing purchase pages plus the layout's navigation handler.
+- [2026-04-18] New booking components: `ConcessionItemCard.vue`, `ConcessionsCatalog.vue`, `ProgrammePairingCard.vue`, `ConcessionsAllergenNotice.vue`, `ConcessionsCollectionInfo.vue`, `ConcessionsTrayRail.vue`. Composes the editorial design verbatim — film-reel `§ NN` numbering, italic display headlines, gradient thumb cards with category tag + flag + curator note, gold CTA buttons with `--shadow-float` only on floating elements, gold-on-dark filter chips with item counts.
+- [2026-04-18] New `Programme Pairing` concept — frontend-only static data (`app/data/pairings.ts`), keyed by movie slug, with editorial bundle (3 courses, savings vs à la carte). Two pairings seeded: Interstellar ("The Endurance flight"), The Dark Knight ("The Gotham short"). Tied into `useCart` via `pairing` state + `setPairing`/`clearPairing` + `pairingPrice`/`pairingSavings` computed.
+- [2026-04-18] Extended `MenuItem` type with optional editorial fields (`size`, `curator`, `flag`, `gradient`, `glyph`). Backfilled `app/data/menu.ts` with these fields; new `editorialOverlayFor(name)` lookup enriches live API data with frontend-only display metadata.
+- [2026-04-18] New `useFoodMenu` composable wraps `/api/locations/{slug}/food-menu` with location-aware fetch + graceful fallback to static `menuData` when the API is unreachable. Enriches each item with the editorial overlay before exposing.
+- [2026-04-18] Updated `/purchase/checkout.vue` — removed `FoodPreOrderPanel` (food moved to its own step), added a read-only "Your tray" snacks summary section with an "Edit snacks" link back to `/purchase/snacks`. Updated eyebrow from "Reel 02 · Checkout" to "Reel 03 · Payment".
+- [2026-04-18] Replaced `/food-drink.vue` with the editorial Concessions catalog in browse-only mode (no Add buttons, no rail), wrapped in a Reel-styled page-top + allergen notice + collection-info footer.
+- [2026-04-18] Tests: 4 new Vitest specs (`ConcessionItemCard`, `ConcessionsCatalog`, `ProgrammePairingCard`, `ConcessionsTrayRail`); extended `PurchaseStepIndicator`, `useCart`, and `usePurchaseStep` specs for 4-step flow + pairing methods. Full suite: **582/582 passing** (+21 from baseline 561).
+
+### Decisions
+- [2026-04-18] **Pairing excluded from `cart.subtotal`/`cart.total`** for backend correctness — the pairing has no backend representation yet. The snacks-step rail composes its own display total locally (seats + food + pairingPrice − savings) for the editorial moment; checkout's totals revert to seats + foodItems so the Stripe charge matches what the user is shown there. The pairing line is rendered on checkout's read-only snacks summary as informational ("pay at the bar on collection"). Promotion to a proper backend `programme_pairings` model is the obvious next step if the feature earns its keep.
+- [2026-04-18] **Pairings per-film, not per-location** — for the MVP, pairings are tied to `movieSlug` only. If/when this moves to a backend table it should also gain `location_id` so each theater can curate independently.
+- [2026-04-18] **Filter chip border-radius `999px` accepted** as a deliberate design exception to the "sm/none only" radius rule. The chips read as engineered tokens (with two-digit count badges) rather than soft consumer pills — the design's editorial register holds.
+- [2026-04-18] Deleted `FoodPreOrderPanel.vue` and `MenuItemCard.vue` outright (no compat shim) per the project's no-backwards-compat-pre-launch rule.
+
+### Stub registry
+- `cart.pairing` — frontend-only, not sent in `POST /api/locations/{location}/bookings`. Backend currently has no `programme_pairings` table. Grep `TODO\(backend\)` after the follow-up plan lands.
+
+### Blockers
+- None
+
+### Files Changed
+- `frontend/app/types/menu-item.ts` — additive optional editorial fields (size, curator, flag, gradient, glyph)
+- `frontend/app/types/programme-pairing.ts` — new
+- `frontend/app/data/pairings.ts` — new (Interstellar + Dark Knight pairings)
+- `frontend/app/data/menu.ts` — backfilled editorial metadata + new `editorialOverlayFor` lookup
+- `frontend/app/composables/useCart.ts` — pairing state + methods + computed values; subtotal documentation
+- `frontend/app/composables/useFoodMenu.ts` — new
+- `frontend/app/composables/usePurchaseStep.ts` — widened type to `1 | 2 | 3 | 4`
+- `frontend/app/components/booking/PurchaseStepIndicator.vue` — 4 steps, two-digit numeric badges, gold-circle styling
+- `frontend/app/components/booking/ConcessionItemCard.vue` — new
+- `frontend/app/components/booking/ConcessionsCatalog.vue` — new
+- `frontend/app/components/booking/ProgrammePairingCard.vue` — new
+- `frontend/app/components/booking/ConcessionsAllergenNotice.vue` — new
+- `frontend/app/components/booking/ConcessionsCollectionInfo.vue` — new
+- `frontend/app/components/booking/ConcessionsTrayRail.vue` — new
+- `frontend/app/layouts/purchase.vue` — `handleStepNavigate` now routes to `/purchase/snacks` (step 2) and `/purchase/checkout` (step 3)
+- `frontend/app/pages/purchase/snacks.vue` — new
+- `frontend/app/pages/purchase/[showtimeId].vue` — `handleContinue` → `/purchase/snacks`
+- `frontend/app/pages/purchase/checkout.vue` — `setStep(3, [1, 2], [1, 2])`, removed `FoodPreOrderPanel`, added read-only snacks summary, eyebrow "Reel 03 · Payment"
+- `frontend/app/pages/purchase/confirmation/[bookingId].vue` — `setStep(4, [1, 2, 3, 4], [])`
+- `frontend/app/pages/food-drink.vue` — swapped MenuItemCard grid for ConcessionsCatalog (browse-only)
+- `frontend/app/components/booking/FoodPreOrderPanel.vue` — **deleted**
+- `frontend/app/components/content/MenuItemCard.vue` — **deleted**
+- `frontend/tests/components/booking/ConcessionItemCard.test.ts` — new (12 tests)
+- `frontend/tests/components/booking/ConcessionsCatalog.test.ts` — new (10 tests)
+- `frontend/tests/components/booking/ProgrammePairingCard.test.ts` — new (8 tests)
+- `frontend/tests/components/booking/ConcessionsTrayRail.test.ts` — new (10 tests)
+- `frontend/tests/components/booking/PurchaseStepIndicator.test.ts` — rewritten for 4-step flow (15 tests)
+- `frontend/tests/composables/useCart.test.ts` — extended with pairing tests (22 tests total)
+- `frontend/tests/composables/usePurchaseStep.test.ts` — extended for steps 2/3/4 (9 tests total)
+
+### Doc follow-ups (out of scope this PR — flagged for next pass)
+- Update `docs/specs/PURCHASE_FLOW.md` for the 4-step flow + pairing/snacks step
+- Update `docs/specs/PAGE_SPECS.md` to add `/purchase/snacks`
+- Update `docs/specs/COMPONENT_INVENTORY.md` to register the six new booking components and remove the `FoodPreOrderPanel`/`MenuItemCard` entries
+- Backend `programme_pairings` table + endpoint + Pest tests when the feature graduates from frontend-only

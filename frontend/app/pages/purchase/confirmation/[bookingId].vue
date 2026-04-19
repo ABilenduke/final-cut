@@ -19,7 +19,7 @@ const { show: showToast } = useToast()
 const { setStep } = usePurchaseStep()
 
 // Set step indicator — final step, no navigation back
-setStep(3, [1, 2, 3], [])
+setStep(4, [1, 2, 3, 4], [])
 
 const { isAuthenticated } = useAuth()
 

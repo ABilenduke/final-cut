@@ -1,6 +1,8 @@
 <script setup lang="ts">
+import type { PurchaseStep } from '~/composables/usePurchaseStep'
+
 const props = withDefaults(defineProps<{
-  currentStep: 1 | 2 | 3
+  currentStep: PurchaseStep
   completedSteps: number[]
   navigableSteps?: number[]
 }>(), {
@@ -16,9 +18,10 @@ const resolvedNavigableSteps = computed(() =>
 )
 
 const steps = [
-  { number: 1, label: 'Pick Your Seats' },
-  { number: 2, label: 'Add Food & Pay' },
-  { number: 3, label: "You're In" },
+  { number: 1, label: 'Seats' },
+  { number: 2, label: 'Snacks & Bar' },
+  { number: 3, label: 'Payment' },
+  { number: 4, label: 'Confirmation' },
 ] as const
 
 function isCompleted(step: number): boolean {
@@ -35,6 +38,10 @@ function isCurrent(step: number): boolean {
 
 function isFuture(step: number): boolean {
   return step > props.currentStep && !isCompleted(step)
+}
+
+function formatStepNumber(step: number): string {
+  return String(step).padStart(2, '0')
 }
 
 function handleClick(step: number) {
@@ -79,7 +86,7 @@ function handleClick(step: number) {
               <CvIcon name="check" size="sm" />
             </template>
             <template v-else>
-              {{ step.number }}
+              {{ formatStepNumber(step.number) }}
             </template>
           </span>
           <span class="purchase-steps__label">{{ step.label }}</span>
@@ -107,15 +114,15 @@ function handleClick(step: number) {
 /* Connector line between steps */
 .purchase-steps__connector {
   display: block;
-  width: 3rem;
+  width: 1.5rem;
   height: 0.0625rem; /* token-exception: sub-pixel connector line */
-  background-color: rgb(var(--outline-variant-rgb) / 0.15);
+  background-color: rgb(var(--outline-variant-rgb) / 0.4);
   flex-shrink: 0;
 }
 
-@media (min-width: 40rem) {
+@media (min-width: 60rem) {
   .purchase-steps__connector {
-    width: 5rem;
+    width: 3rem;
   }
 }
 
@@ -127,35 +134,38 @@ function handleClick(step: number) {
 .purchase-steps__step {
   display: flex;
   align-items: center;
-  gap: var(--space-sm);
+  gap: 0.6rem;
   background: none;
   border: none;
   padding: var(--space-xs) 0;
   font-family: var(--font-body);
-  font-size: var(--type-label-lg);
+  font-size: 0.6875rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
   line-height: 1.4;
-  color: var(--outline-variant);
+  color: var(--on-tertiary-fixed-variant);
   cursor: default;
   white-space: nowrap;
+  transition: color var(--duration-standard) var(--ease-standard);
 }
 
 .purchase-steps__step--current {
-  color: var(--secondary);
-  position: relative;
+  color: var(--on-surface);
 }
 
-.purchase-steps__step--current::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 0.125rem; /* token-exception: decorative underline */
-  background-color: var(--secondary);
+.purchase-steps__step--current .purchase-steps__number {
+  border-color: var(--secondary);
+  color: var(--secondary);
 }
 
 .purchase-steps__step--completed {
   color: var(--secondary);
+}
+
+.purchase-steps__step--completed .purchase-steps__number {
+  background-color: var(--secondary);
+  color: var(--surface);
+  border-color: var(--secondary);
 }
 
 .purchase-steps__step--future {
@@ -175,10 +185,18 @@ function handleClick(step: number) {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 1.5rem;
-  height: 1.5rem;
-  font-size: var(--type-label-md);
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 50%;
+  border: 0.0625rem solid rgb(var(--outline-variant-rgb) / 0.4);
+  font-family: var(--font-display);
+  font-size: 0.75rem;
+  letter-spacing: 0;
   flex-shrink: 0;
+  transition:
+    border-color var(--duration-standard) var(--ease-standard),
+    background-color var(--duration-standard) var(--ease-standard),
+    color var(--duration-standard) var(--ease-standard);
 }
 
 /* Hide labels on very small screens, keep numbers */

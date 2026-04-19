@@ -1,5 +1,6 @@
 import type { Showtime } from '~/types/showtime'
 import type { BookingSeat } from '~/types/booking'
+import type { ProgrammePairing } from '~/types/programme-pairing'
 
 export interface CartFoodItem {
   itemId: string
@@ -27,6 +28,7 @@ export function useCart() {
   const giftCardCode = useState<string | null>('cart-gift-card-code', () => null)
   const giftCardAmount = useState<number>('cart-gift-card-amount', () => 0)
   const timeRemaining = useState<number>('cart-time-remaining', () => 0)
+  const pairing = useState<ProgrammePairing | null>('cart-pairing', () => null)
 
   function stopTimers(): void {
     if (warningTimerId !== null) {
@@ -45,6 +47,27 @@ export function useCart() {
     timeRemaining.value = 0
   }
 
+  /** À la carte sum of the pairing's three courses, in cents. Zero when no pairing. */
+  const pairingCoursesTotal = computed<number>(() =>
+    pairing.value
+      ? pairing.value.courses.reduce((sum, c) => sum + c.price, 0)
+      : 0,
+  )
+
+  /** What the bundle actually costs (already discounted), in cents. */
+  const pairingPrice = computed<number>(() => pairing.value?.bundlePrice ?? 0)
+
+  /** Discount the user gets for taking the bundle vs buying the courses separately. */
+  const pairingSavings = computed<number>(() =>
+    Math.max(0, pairingCoursesTotal.value - pairingPrice.value),
+  )
+
+  // Note: `subtotal` deliberately excludes the pairing price. The Programme Pairing
+  // is currently a frontend-only construct (no backend table) — including it here
+  // would create a divergence between the displayed total and the backend's
+  // authoritative charge. The snacks rail composes its own display total that
+  // adds the pairing in for the editorial moment; once the user moves on to
+  // payment, totals revert to seats + foodItems. See plan §3 (out of scope).
   const subtotal = computed<number>(() => {
     const seatsTotal = seats.value.reduce((sum, s) => sum + s.price, 0)
     const foodTotal = foodItems.value.reduce((sum, f) => sum + f.unitPrice * f.quantity, 0)
@@ -94,7 +117,8 @@ export function useCart() {
     // navigating back from checkout via the step indicator) should
     // preserve the user's selections. Only reset when the showtime
     // actually changes — switching showtimes logically invalidates
-    // the old selections.
+    // the old selections (including the curated pairing, which is
+    // tied to the film).
     if (showtime.value?.id === st.id) {
       showtime.value = st
       return
@@ -108,6 +132,7 @@ export function useCart() {
     promoDiscount.value = 0
     giftCardCode.value = null
     giftCardAmount.value = 0
+    pairing.value = null
   }
 
   function addSeat(seat: BookingSeat): void {
@@ -148,6 +173,14 @@ export function useCart() {
     }
   }
 
+  function setPairing(p: ProgrammePairing): void {
+    pairing.value = p
+  }
+
+  function clearPairing(): void {
+    pairing.value = null
+  }
+
   function applyPromoCode(code: string, discount: number): void {
     promoCode.value = code
     promoDiscount.value = discount
@@ -177,6 +210,7 @@ export function useCart() {
     promoDiscount.value = 0
     giftCardCode.value = null
     giftCardAmount.value = 0
+    pairing.value = null
   }
 
   return {
@@ -188,6 +222,10 @@ export function useCart() {
     giftCardCode: readonly(giftCardCode),
     giftCardAmount: readonly(giftCardAmount),
     timeRemaining: readonly(timeRemaining),
+    pairing: readonly(pairing),
+    pairingCoursesTotal,
+    pairingPrice,
+    pairingSavings,
     subtotal,
     total,
     initializeCart,
@@ -195,6 +233,8 @@ export function useCart() {
     removeSeat,
     addFoodItem,
     removeFoodItem,
+    setPairing,
+    clearPairing,
     applyPromoCode,
     removePromoCode,
     applyGiftCard,

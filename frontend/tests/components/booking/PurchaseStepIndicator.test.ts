@@ -3,12 +3,31 @@ import { mountSuspended } from '@nuxt/test-utils/runtime'
 import PurchaseStepIndicator from '~/components/booking/PurchaseStepIndicator.vue'
 
 describe('PurchaseStepIndicator', () => {
-  it('renders three steps', async () => {
+  it('renders four steps in the new flow', async () => {
     const wrapper = await mountSuspended(PurchaseStepIndicator, {
       props: { currentStep: 1, completedSteps: [] },
     })
     const items = wrapper.findAll('.purchase-steps__item')
-    expect(items).toHaveLength(3)
+    expect(items).toHaveLength(4)
+  })
+
+  it('renders the four step labels in order', async () => {
+    const wrapper = await mountSuspended(PurchaseStepIndicator, {
+      props: { currentStep: 1, completedSteps: [] },
+    })
+    const labels = wrapper.findAll('.purchase-steps__label').map(l => l.text())
+    expect(labels).toEqual(['Seats', 'Snacks & Bar', 'Payment', 'Confirmation'])
+  })
+
+  it('formats step numbers with two-digit padding (01, 02, …)', async () => {
+    const wrapper = await mountSuspended(PurchaseStepIndicator, {
+      props: { currentStep: 2, completedSteps: [1] },
+    })
+    const numbers = wrapper.findAll('.purchase-steps__number')
+    // Step 1 is completed → check icon (no digit). Step 2 current → "02".
+    expect(numbers[1].text()).toBe('02')
+    expect(numbers[2].text()).toBe('03')
+    expect(numbers[3].text()).toBe('04')
   })
 
   it('marks the current step with aria-current="step"', async () => {
@@ -19,6 +38,7 @@ describe('PurchaseStepIndicator', () => {
     expect(steps[1].attributes('aria-current')).toBe('step')
     expect(steps[0].attributes('aria-current')).toBeUndefined()
     expect(steps[2].attributes('aria-current')).toBeUndefined()
+    expect(steps[3].attributes('aria-current')).toBeUndefined()
   })
 
   it('applies current class to the active step', async () => {
@@ -31,10 +51,11 @@ describe('PurchaseStepIndicator', () => {
 
   it('applies completed class to completed non-current steps', async () => {
     const wrapper = await mountSuspended(PurchaseStepIndicator, {
-      props: { currentStep: 2, completedSteps: [1] },
+      props: { currentStep: 3, completedSteps: [1, 2] },
     })
     const steps = wrapper.findAll('.purchase-steps__step')
     expect(steps[0].classes()).toContain('purchase-steps__step--completed')
+    expect(steps[1].classes()).toContain('purchase-steps__step--completed')
     expect(steps[0].classes()).not.toContain('purchase-steps__step--current')
   })
 
@@ -45,37 +66,39 @@ describe('PurchaseStepIndicator', () => {
     const steps = wrapper.findAll('.purchase-steps__step')
     expect(steps[1].classes()).toContain('purchase-steps__step--future')
     expect(steps[2].classes()).toContain('purchase-steps__step--future')
+    expect(steps[3].classes()).toContain('purchase-steps__step--future')
   })
 
   it('renders navigable completed steps as buttons', async () => {
     const wrapper = await mountSuspended(PurchaseStepIndicator, {
-      props: { currentStep: 2, completedSteps: [1] },
+      props: { currentStep: 3, completedSteps: [1, 2] },
     })
     const steps = wrapper.findAll('.purchase-steps__step')
-    // Step 1 is completed and navigable (defaults to completedSteps)
     expect(steps[0].element.tagName).toBe('BUTTON')
-    // Step 2 is current — rendered as span
-    expect(steps[1].element.tagName).toBe('SPAN')
+    expect(steps[1].element.tagName).toBe('BUTTON')
+    // Step 3 is current → rendered as span
+    expect(steps[2].element.tagName).toBe('SPAN')
+    expect(steps[3].element.tagName).toBe('SPAN')
   })
 
-  it('renders non-navigable steps as spans', async () => {
+  it('renders all steps as spans on the confirmation page (final step, no navigation)', async () => {
     const wrapper = await mountSuspended(PurchaseStepIndicator, {
-      props: { currentStep: 3, completedSteps: [1, 2], navigableSteps: [] },
+      props: { currentStep: 4, completedSteps: [1, 2, 3, 4], navigableSteps: [] },
     })
     const steps = wrapper.findAll('.purchase-steps__step')
-    // On confirmation page, all steps are non-navigable
     expect(steps[0].element.tagName).toBe('SPAN')
     expect(steps[1].element.tagName).toBe('SPAN')
     expect(steps[2].element.tagName).toBe('SPAN')
+    expect(steps[3].element.tagName).toBe('SPAN')
   })
 
   it('emits navigate for navigable non-current steps on click', async () => {
     const wrapper = await mountSuspended(PurchaseStepIndicator, {
-      props: { currentStep: 2, completedSteps: [1] },
+      props: { currentStep: 3, completedSteps: [1, 2] },
     })
     const steps = wrapper.findAll('.purchase-steps__step')
-    await steps[0].trigger('click')
-    expect(wrapper.emitted('navigate')).toEqual([[1]])
+    await steps[1].trigger('click')
+    expect(wrapper.emitted('navigate')).toEqual([[2]])
   })
 
   it('does not emit navigate when clicking the current step', async () => {
@@ -89,44 +112,37 @@ describe('PurchaseStepIndicator', () => {
 
   it('does not emit navigate for non-navigable steps', async () => {
     const wrapper = await mountSuspended(PurchaseStepIndicator, {
-      props: { currentStep: 3, completedSteps: [1, 2], navigableSteps: [] },
+      props: { currentStep: 4, completedSteps: [1, 2, 3, 4], navigableSteps: [] },
     })
     const steps = wrapper.findAll('.purchase-steps__step')
     await steps[0].trigger('click')
     await steps[1].trigger('click')
+    await steps[2].trigger('click')
     expect(wrapper.emitted('navigate')).toBeUndefined()
   })
 
   it('shows check icon for completed non-current steps', async () => {
     const wrapper = await mountSuspended(PurchaseStepIndicator, {
-      props: { currentStep: 3, completedSteps: [1, 2] },
+      props: { currentStep: 4, completedSteps: [1, 2, 3] },
     })
     const numbers = wrapper.findAll('.purchase-steps__number')
-    // Steps 1 and 2 should have CvIcon (check), not step numbers
     expect(numbers[0].text()).not.toContain('1')
     expect(numbers[1].text()).not.toContain('2')
-    // Step 3 is current, shows number
-    expect(numbers[2].text()).toContain('3')
+    expect(numbers[2].text()).not.toContain('3')
+    // Step 4 is current → shows "04"
+    expect(numbers[3].text()).toBe('04')
   })
 
-  it('highlights connector when previous step is completed', async () => {
-    const wrapper = await mountSuspended(PurchaseStepIndicator, {
-      props: { currentStep: 2, completedSteps: [1] },
-    })
-    const connectors = wrapper.findAll('.purchase-steps__connector')
-    // Connector before step 2: step 1 is completed → highlighted
-    expect(connectors[0].classes()).toContain('purchase-steps__connector--completed')
-    // Connector before step 3: step 2 is not completed → not highlighted
-    expect(connectors[1].classes()).not.toContain('purchase-steps__connector--completed')
-  })
-
-  it('highlights both connectors when steps 1 and 2 are completed', async () => {
+  it('highlights connectors between completed steps', async () => {
     const wrapper = await mountSuspended(PurchaseStepIndicator, {
       props: { currentStep: 3, completedSteps: [1, 2] },
     })
     const connectors = wrapper.findAll('.purchase-steps__connector')
+    // 4 steps → 3 connectors
+    expect(connectors).toHaveLength(3)
     expect(connectors[0].classes()).toContain('purchase-steps__connector--completed')
     expect(connectors[1].classes()).toContain('purchase-steps__connector--completed')
+    expect(connectors[2].classes()).not.toContain('purchase-steps__connector--completed')
   })
 
   it('has correct nav landmark', async () => {

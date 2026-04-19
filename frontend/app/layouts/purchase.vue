@@ -42,6 +42,14 @@ const hasCartItems = computed(() => cart.seats.value.length > 0)
 function handleStepNavigate(step: number) {
   if (step === 1 && cart.showtime.value) {
     navigateTo(`/purchase/${cart.showtime.value.id}`)
+    return
+  }
+  if (step === 2) {
+    navigateTo('/purchase/snacks')
+    return
+  }
+  if (step === 3) {
+    navigateTo('/purchase/checkout')
   }
 }
 </script>

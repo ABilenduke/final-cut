@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { loadStripe } from '@stripe/stripe-js'
 import type { Booking } from '~/types/booking'
-import type { MenuItem } from '~/types/menu-item'
 import type { ApiErrorResponse } from '~/utils/api'
 import { apiFetch } from '~/utils/api'
 
@@ -10,7 +9,7 @@ definePageMeta({
 })
 
 useHead({
-  title: 'Checkout — Final Cut',
+  title: 'Payment — Final Cut',
   meta: [{ name: 'robots', content: 'noindex' }],
 })
 
@@ -20,7 +19,7 @@ const { isAuthenticated, user } = useAuth()
 const { show: showToast } = useToast()
 const { setStep } = usePurchaseStep()
 
-setStep(2, [1], [1])
+setStep(3, [1, 2], [1, 2])
 
 // Guard: redirect if no seats in cart
 onMounted(() => {
@@ -54,65 +53,11 @@ watchEffect(() => {
   if (user.value && !contactEmail.value) contactEmail.value = user.value.email
 })
 
-// Food menu fetch — unchanged from the previous implementation
-const menuItems = ref<MenuItem[]>([])
-
-watch(
-  activeLocation,
-  async (location) => {
-    if (!location) {
-      menuItems.value = []
-      return
-    }
-    try {
-      const response = await apiFetch<{ data: Record<string, MenuItem[]> }>(
-        `/api/locations/${location.slug}/food-menu`,
-      )
-      menuItems.value = Object.values(response.data).flat()
-    } catch {
-      menuItems.value = []
-    }
-  },
-  { immediate: true },
+// Snacks were chosen on /purchase/snacks; this page just shows what's in the cart.
+const snacksHref = '/purchase/snacks'
+const hasSnacks = computed<boolean>(() =>
+  cart.foodItems.value.length > 0 || cart.pairing.value !== null,
 )
-
-const selectedFoodItems = computed(() =>
-  cart.foodItems.value.map(f => ({ itemId: f.itemId, quantity: f.quantity })),
-)
-
-function handleFoodUpdate(items: Array<{ itemId: string; quantity: number }>) {
-  const currentQuantities = new Map<string, number>()
-  for (const existing of cart.foodItems.value) {
-    currentQuantities.set(existing.itemId, existing.quantity)
-  }
-
-  const nextQuantities = new Map<string, number>()
-  for (const item of items) {
-    nextQuantities.set(item.itemId, item.quantity)
-  }
-
-  // Remove quantities that were reduced or deleted
-  for (const [itemId, currentQty] of currentQuantities) {
-    const nextQty = nextQuantities.get(itemId) ?? 0
-    for (let i = 0; i < currentQty - nextQty; i++) {
-      cart.removeFoodItem(itemId)
-    }
-  }
-
-  // Add quantities that are new or increased
-  for (const [itemId, nextQty] of nextQuantities) {
-    const currentQty = currentQuantities.get(itemId) ?? 0
-    const addCount = nextQty - currentQty
-    if (addCount <= 0) continue
-
-    const menuItem = menuItems.value.find(m => m.id === itemId)
-    if (!menuItem) continue
-
-    for (let i = 0; i < addCount; i++) {
-      cart.addFoodItem(menuItem.id, menuItem.name, menuItem.price)
-    }
-  }
-}
 
 // Promo code handling
 function handlePromoApply(code: string) {
@@ -322,7 +267,7 @@ async function handleCheckoutSubmit(payload: { paymentMethodId: string; email?: 
     <div class="checkout-page">
     <header class="checkout-page__top">
       <div>
-        <div class="checkout-page__eyebrow">Reel 02 · Checkout</div>
+        <div class="checkout-page__eyebrow">Reel 03 · Payment</div>
         <h1 class="checkout-page__title">
           <em>Finish the</em> booking.
         </h1>
@@ -358,11 +303,40 @@ async function handleCheckoutSubmit(payload: { paymentMethodId: string; email?: 
         @error="(msg: string) => showToast({ message: msg, type: 'error' })"
       />
 
-      <FoodPreOrderPanel
-        :menu-items="menuItems"
-        :selected-items="selectedFoodItems"
-        @update="handleFoodUpdate"
-      />
+      <!-- Snacks summary — read-only echo of what was added on /purchase/snacks -->
+      <section class="snacks-summary" aria-label="Concessions summary">
+        <header class="snacks-summary__head">
+          <div>
+            <div class="snacks-summary__n">§ 03</div>
+            <h2 class="snacks-summary__title">Your <em>tray.</em></h2>
+          </div>
+          <NuxtLink :to="snacksHref" class="snacks-summary__edit">
+            ← Edit snacks
+          </NuxtLink>
+        </header>
+
+        <p v-if="!hasSnacks" class="snacks-summary__empty">
+          You skipped the bar. Add something to your tray on the snacks step before payment.
+        </p>
+
+        <ul v-else class="snacks-summary__list">
+          <li v-if="cart.pairing.value" class="snacks-summary__item snacks-summary__item--pairing">
+            <span class="snacks-summary__q">1×</span>
+            <div class="snacks-summary__nm">
+              {{ cart.pairing.value.title }}
+              <span class="snacks-summary__nm-sub">
+                Pairing · pay at the bar on collection
+              </span>
+            </div>
+            <span class="snacks-summary__pr">{{ formatCurrency(cart.pairingPrice.value) }}</span>
+          </li>
+          <li v-for="f in cart.foodItems.value" :key="f.itemId" class="snacks-summary__item">
+            <span class="snacks-summary__q">{{ f.quantity }}×</span>
+            <div class="snacks-summary__nm">{{ f.name }}</div>
+            <span class="snacks-summary__pr">{{ formatCurrency(f.unitPrice * f.quantity) }}</span>
+          </li>
+        </ul>
+      </section>
 
       <PromoCode
         v-model:accept-terms="acceptTerms"
@@ -498,5 +472,129 @@ async function handleCheckoutSubmit(payload: { paymentMethodId: string; email?: 
   .checkout-loc {
     display: none;
   }
+}
+
+/* Snacks summary (read-only echo of /purchase/snacks selections) */
+.snacks-summary {
+  background-color: var(--surface-container);
+  border-radius: var(--radius-card);
+  padding: var(--space-lg);
+  border: 0.0625rem solid rgb(var(--outline-variant-rgb) / 0.2);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.snacks-summary__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-md);
+  padding-bottom: var(--space-sm);
+  border-bottom: 0.0625rem solid rgb(var(--outline-variant-rgb) / 0.2);
+}
+
+.snacks-summary__n {
+  font-family: var(--font-display);
+  font-size: 0.8125rem;
+  color: var(--secondary);
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  font-variant-numeric: tabular-nums;
+}
+
+.snacks-summary__title {
+  font-family: var(--font-display);
+  font-size: 1.375rem;
+  font-weight: 500;
+  letter-spacing: -0.015em;
+  line-height: 1.1;
+  margin: 0.2rem 0 0;
+  color: var(--on-surface);
+}
+
+.snacks-summary__title em {
+  font-style: italic;
+  color: var(--tertiary);
+}
+
+.snacks-summary__edit {
+  font-family: var(--font-body);
+  font-size: 0.6875rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--secondary);
+  text-decoration: none;
+  align-self: center;
+}
+
+.snacks-summary__edit:hover,
+.snacks-summary__edit:focus-visible {
+  text-decoration: underline;
+  text-underline-offset: 0.125rem;
+}
+
+.snacks-summary__empty {
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  color: var(--on-tertiary-fixed-variant);
+  font-style: italic;
+  margin: 0;
+}
+
+.snacks-summary__list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  margin: 0;
+  padding: 0;
+}
+
+.snacks-summary__item {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: var(--space-sm);
+  align-items: center;
+  padding: 0.4rem 0;
+  border-bottom: 0.0625rem dashed rgb(var(--outline-variant-rgb) / 0.25);
+}
+
+.snacks-summary__item:last-child {
+  border-bottom: none;
+}
+
+.snacks-summary__q {
+  font-family: var(--font-display);
+  font-size: 0.875rem;
+  color: var(--secondary);
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  min-width: 1.5rem;
+  text-align: center;
+}
+
+.snacks-summary__nm {
+  font-family: var(--font-display);
+  font-size: 0.875rem;
+  color: var(--on-surface);
+  letter-spacing: -0.005em;
+}
+
+.snacks-summary__nm-sub {
+  font-family: var(--font-body);
+  font-size: 0.6875rem;
+  color: var(--on-tertiary-fixed-variant);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  display: block;
+  margin-top: 0.1rem;
+}
+
+.snacks-summary__pr {
+  font-family: var(--font-display);
+  font-size: 0.875rem;
+  color: var(--tertiary);
+  font-variant-numeric: tabular-nums;
 }
 </style>

@@ -211,7 +211,7 @@ const priceByTier = computed<{ standard?: number; premium?: number; accessible?:
 const canProceed = computed(() => cart.seats.value.length > 0)
 
 function handleContinue() {
-  if (canProceed.value) navigateTo('/purchase/checkout')
+  if (canProceed.value) navigateTo('/purchase/snacks')
 }
 
 function handleRemoveSeat(seatId: string) {
