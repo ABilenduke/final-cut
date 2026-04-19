@@ -62,11 +62,13 @@ test.describe('Purchase Flow', () => {
     await showtimeLink.click()
     await page.waitForURL(/\/purchase\//)
 
-    // Select enough seats to meet the default party size (2)
-    const availableSeats = page.locator('button.auditorium-seat:not(.auditorium-seat--taken)')
+    // Select enough seats to meet the default party size (2). Force past
+    // the actionability check — the seat-select animation intermittently
+    // defeats Playwright's stability wait on the first row.
+    const availableSeats = page.locator('button.auditorium-seat:not(.auditorium-seat--taken):not(.auditorium-seat--held)')
     await expect(availableSeats.first()).toBeVisible({ timeout: 10_000 })
-    await availableSeats.nth(0).click()
-    await availableSeats.nth(1).click()
+    await availableSeats.nth(0).click({ force: true })
+    await availableSeats.nth(1).click({ force: true })
 
     // Continue to concessions, then skip to checkout
     await page.getByRole('button', { name: /continue to concessions/i }).click()
@@ -74,8 +76,10 @@ test.describe('Purchase Flow', () => {
     await page.getByRole('button', { name: /skip concessions/i }).click()
     await page.waitForURL(/\/purchase\/checkout/)
 
-    // Guest should see an email field
-    const emailInput = page.getByLabel(/email/i)
+    // Guest should see an email field. Narrow to the textbox role — the
+    // promo-bay also exposes an "Email me a reel notice" checkbox which
+    // otherwise makes the /email/i accessible-name lookup ambiguous.
+    const emailInput = page.getByRole('textbox', { name: /email/i }).first()
     await expect(emailInput).toBeVisible()
   })
 
@@ -116,10 +120,13 @@ test.describe('Purchase Flow', () => {
     const toSelect = Math.min(count, MAX_SEATS + 1)
 
     for (let i = 0; i < toSelect; i++) {
-      // The seat selection animation (transform + scale) can render the
-      // button momentarily unstable between clicks. Force past Playwright's
-      // actionability check — we already asserted the first seat is visible.
-      await availableSeats.nth(i).click({ force: true })
+      // The auditorium grid has more seats than fit in the viewport, and
+      // the seat-select animation (translateY + scale) briefly renders
+      // the button unstable between clicks. Scroll each seat into view
+      // and force past the actionability check.
+      const seat = availableSeats.nth(i)
+      await seat.scrollIntoViewIfNeeded()
+      await seat.click({ force: true })
     }
 
     // The page caps selection at the current party size (which defaults to
@@ -137,11 +144,14 @@ test.describe('Purchase Flow', () => {
     await showtimeLink.click()
     await page.waitForURL(/\/purchase\//)
 
-    // Select 2 seats
-    const availableSeats = page.locator('button.auditorium-seat:not(.auditorium-seat--taken)')
+    // Select 2 seats. Use force: true to bypass the momentary instability
+    // from the seat-select animation (translateY + scale) — the seat is
+    // already confirmed visible, and the animation occasionally defeats
+    // Playwright's actionability wait on A-row seats.
+    const availableSeats = page.locator('button.auditorium-seat:not(.auditorium-seat--taken):not(.auditorium-seat--held)')
     await expect(availableSeats.first()).toBeVisible({ timeout: 10_000 })
-    await availableSeats.nth(0).click()
-    await availableSeats.nth(1).click()
+    await availableSeats.nth(0).click({ force: true })
+    await availableSeats.nth(1).click({ force: true })
 
     // Continue to concessions, then skip to checkout
     await page.getByRole('button', { name: /continue to concessions/i }).click()
