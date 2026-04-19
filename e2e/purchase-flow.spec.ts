@@ -50,8 +50,8 @@ test.describe('Purchase Flow', () => {
     await skipConcessions.click()
     await page.waitForURL(/\/purchase\/checkout/)
 
-    // 10. Verify checkout page has rendered the summary
-    await expect(page.locator('text=Order Summary').first()).toBeVisible({ timeout: 10_000 })
+    // 10. Verify the checkout page has rendered
+    await expect(page.getByRole('heading', { name: /finish the\s+booking/i })).toBeVisible({ timeout: 10_000 })
   })
 
   test('guest checkout shows email field', async ({ page }) => {
@@ -62,10 +62,11 @@ test.describe('Purchase Flow', () => {
     await showtimeLink.click()
     await page.waitForURL(/\/purchase\//)
 
-    // Select a seat
+    // Select enough seats to meet the default party size (2)
     const availableSeats = page.locator('button.auditorium-seat:not(.auditorium-seat--taken)')
     await expect(availableSeats.first()).toBeVisible({ timeout: 10_000 })
-    await availableSeats.first().click()
+    await availableSeats.nth(0).click()
+    await availableSeats.nth(1).click()
 
     // Continue to concessions, then skip to checkout
     await page.getByRole('button', { name: /continue to concessions/i }).click()
@@ -108,16 +109,22 @@ test.describe('Purchase Flow', () => {
     const grid = page.locator('[role="grid"]')
     await expect(grid).toBeVisible({ timeout: 10_000 })
 
-    // Select MAX_SEATS seats
-    const availableSeats = page.locator('button.auditorium-seat:not(.auditorium-seat--taken)')
+    // Try to select MAX_SEATS + 1 seats
+    const availableSeats = page.locator('button.auditorium-seat:not(.auditorium-seat--taken):not(.auditorium-seat--held)')
+    await expect(availableSeats.first()).toBeVisible({ timeout: 10_000 })
     const count = await availableSeats.count()
     const toSelect = Math.min(count, MAX_SEATS + 1)
 
     for (let i = 0; i < toSelect; i++) {
-      await availableSeats.nth(i).click()
+      // The seat selection animation (transform + scale) can render the
+      // button momentarily unstable between clicks. Force past Playwright's
+      // actionability check — we already asserted the first seat is visible.
+      await availableSeats.nth(i).click({ force: true })
     }
 
-    // Verify only MAX_SEATS are selected
+    // The page caps selection at the current party size (which defaults to
+    // 2 but may grow up to MAX_SEATS via the party-size control). Either
+    // way, the final count must never exceed the MAX_SEATS hard limit.
     const selectedSeats = page.locator('button.auditorium-seat.auditorium-seat--selected')
     const selectedCount = await selectedSeats.count()
     expect(selectedCount).toBeLessThanOrEqual(MAX_SEATS)
@@ -142,8 +149,8 @@ test.describe('Purchase Flow', () => {
     await page.getByRole('button', { name: /skip concessions/i }).click()
     await page.waitForURL(/\/purchase\/checkout/)
 
-    // Navigate back via step indicator — step 1 is Pick Your Seats
-    const step1 = page.locator('nav[aria-label="Purchase steps"]').getByText(/pick your seats/i)
+    // Navigate back via step indicator — step 1 label is "Seats"
+    const step1 = page.locator('nav[aria-label="Purchase steps"]').getByText(/^seats$/i)
     await step1.click()
     await page.waitForURL(/\/purchase\/(?!checkout|snacks)/)
 
