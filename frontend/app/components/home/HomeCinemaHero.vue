@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import type { Movie } from '~/types/movie'
-import type { Showtime } from '~/types/showtime'
 import { formatRuntime } from '~/utils/formatRuntime'
 import { placeholderShowtimeSlots, type HeroShowtimeSlot } from '~/data/homepage'
 
@@ -16,46 +15,7 @@ useHead(() => ({
     : [],
 }))
 
-// ——— Live data: first-party showtimes for the active location ———
-const { activeLocation } = useLocations()
-const { getShowtimes } = useShowtimes()
-
-const showtimes = ref<Showtime[]>([])
-
-// Fetch for today only; if no location yet, we render placeholders.
-watchEffect(async () => {
-  const loc = activeLocation.value
-  if (!loc) {
-    showtimes.value = []
-    return
-  }
-  const today = new Date().toISOString().slice(0, 10)
-  try {
-    const { data } = await getShowtimes(loc.slug, props.movie.slug, today)
-    showtimes.value = data.value?.data ?? []
-  } catch {
-    showtimes.value = []
-  }
-})
-
-// Map Showtime → hero slot, capped to 8.
-const liveSlots = computed<HeroShowtimeSlot[]>(() => {
-  return showtimes.value.slice(0, 8).map((st) => {
-    const d = new Date(st.startTime)
-    const hour = d.getHours()
-    const minute = d.getMinutes()
-    const h12 = hour % 12 === 0 ? 12 : hour % 12
-    const mer = hour >= 12 ? 'PM' : 'AM'
-    return {
-      time: `${h12}:${String(minute).padStart(2, '0')}`,
-      meridiem: mer,
-    }
-  })
-})
-
-const heroSlots = computed<HeroShowtimeSlot[]>(() =>
-  liveSlots.value.length > 0 ? liveSlots.value : placeholderShowtimeSlots,
-)
+const heroSlots = computed<HeroShowtimeSlot[]>(() => placeholderShowtimeSlots)
 
 // ——— Live telemetry clock ———
 const clock = ref('00:00:00')
