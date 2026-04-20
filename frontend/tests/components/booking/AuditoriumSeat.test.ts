@@ -24,21 +24,26 @@ describe('AuditoriumSeat', () => {
     expect(button.exists()).toBe(true)
     expect(button.classes()).not.toContain('auditorium-seat--selected')
     expect(button.classes()).not.toContain('auditorium-seat--taken')
+    expect(button.classes()).not.toContain('auditorium-seat--held')
   })
 
-  it('renders selected state with check icon', async () => {
+  it('renders the seat number as the default glyph', async () => {
+    const wrapper = await mountSuspended(AuditoriumSeat, {
+      props: { seat: makeSeat({ number: 7 }), selected: false, focused: false },
+    })
+    expect(wrapper.find('.auditorium-seat__num').text()).toBe('7')
+  })
+
+  it('renders selected state with --selected class', async () => {
     const wrapper = await mountSuspended(AuditoriumSeat, {
       props: { seat: makeSeat(), selected: true, focused: false },
     })
     const button = wrapper.find('button')
     expect(button.classes()).toContain('auditorium-seat--selected')
-    // Check icon is rendered via CvIcon with name="check"
-    const icon = wrapper.findComponent({ name: 'CvIcon' })
-    expect(icon.exists()).toBe(true)
-    expect(icon.props('name')).toBe('check')
+    expect(button.attributes('aria-selected')).toBe('true')
   })
 
-  it('renders taken state with aria-disabled and --taken class, NOT native disabled', async () => {
+  it('renders taken state with --taken class and aria-disabled, NOT native disabled', async () => {
     const wrapper = await mountSuspended(AuditoriumSeat, {
       props: { seat: makeSeat({ status: 'taken' }), selected: false, focused: false },
     })
@@ -49,32 +54,31 @@ describe('AuditoriumSeat', () => {
     expect(button.attributes('disabled')).toBeUndefined()
   })
 
-  it('renders held state the same as taken', async () => {
+  it('renders held state with its own --held class and aria-disabled', async () => {
     const wrapper = await mountSuspended(AuditoriumSeat, {
       props: { seat: makeSeat({ status: 'held' }), selected: false, focused: false },
     })
     const button = wrapper.find('button')
-    expect(button.classes()).toContain('auditorium-seat--taken')
+    expect(button.classes()).toContain('auditorium-seat--held')
+    expect(button.classes()).not.toContain('auditorium-seat--taken')
     expect(button.attributes('aria-disabled')).toBe('true')
   })
 
-  it('renders accessible seat with accessible icon', async () => {
+  it('renders accessible seat with ♿ glyph and --accessible class', async () => {
     const wrapper = await mountSuspended(AuditoriumSeat, {
       props: { seat: makeSeat({ type: 'accessible' }), selected: false, focused: false },
     })
     const button = wrapper.find('button')
     expect(button.classes()).toContain('auditorium-seat--accessible')
-    const icon = wrapper.findComponent({ name: 'CvIcon' })
-    expect(icon.exists()).toBe(true)
-    expect(icon.props('name')).toBe('accessible')
+    expect(wrapper.find('.auditorium-seat__glyph').text()).toBe('♿')
   })
 
-  it('renders premium seat with --premium class', async () => {
+  it('renders premium seat with --premiere (premiere recliner) visual class', async () => {
     const wrapper = await mountSuspended(AuditoriumSeat, {
       props: { seat: makeSeat({ type: 'premium' }), selected: false, focused: false },
     })
     const button = wrapper.find('button')
-    expect(button.classes()).toContain('auditorium-seat--premium')
+    expect(button.classes()).toContain('auditorium-seat--premiere')
   })
 
   it('emits toggle on click when available', async () => {
@@ -93,7 +97,15 @@ describe('AuditoriumSeat', () => {
     expect(wrapper.emitted('toggle')).toBeUndefined()
   })
 
-  it('has aria-label with seat info', async () => {
+  it('does NOT emit toggle on click when held', async () => {
+    const wrapper = await mountSuspended(AuditoriumSeat, {
+      props: { seat: makeSeat({ status: 'held' }), selected: false, focused: false },
+    })
+    await wrapper.find('button').trigger('click')
+    expect(wrapper.emitted('toggle')).toBeUndefined()
+  })
+
+  it('has aria-label with seat info using the tier label', async () => {
     const seat = makeSeat({ id: 'B3', row: 'B', number: 3, price: 1800, type: 'premium' })
     const wrapper = await mountSuspended(AuditoriumSeat, {
       props: { seat, selected: false, focused: false },
@@ -103,7 +115,7 @@ describe('AuditoriumSeat', () => {
     expect(label).toContain('available')
     expect(label).toContain('Row B')
     expect(label).toContain('seat 3')
-    expect(label).toContain('Premium')
+    expect(label).toContain('Premiere recliner')
     expect(label).toContain('$18.00')
   })
 
@@ -121,6 +133,14 @@ describe('AuditoriumSeat', () => {
     })
     const label = wrapper.find('button').attributes('aria-label')
     expect(label).toContain('unavailable')
+  })
+
+  it('aria-label reflects on-hold status for held seats', async () => {
+    const wrapper = await mountSuspended(AuditoriumSeat, {
+      props: { seat: makeSeat({ status: 'held' }), selected: false, focused: false },
+    })
+    const label = wrapper.find('button').attributes('aria-label')
+    expect(label).toContain('on hold')
   })
 
   it('focused prop sets tabindex to 0', async () => {

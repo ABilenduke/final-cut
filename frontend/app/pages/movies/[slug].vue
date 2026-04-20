@@ -6,7 +6,6 @@ const route = useRoute()
 const slug = computed(() => route.params.slug as string)
 
 // Fetch movie detail (SSR/ISR compatible)
-// useApiFetch with computed URL re-fetches when slug changes
 const { data: movieData, error: movieError } = useApiFetch<{ data: import('~/types/movie').Movie }>(
   computed(() => `/api/movies/${slug.value}`),
 )
@@ -18,7 +17,6 @@ watch(
   (error) => {
     if (!error) return
 
-    // Extract status from the fetch error (ofetch / Nuxt error shape)
     const fetchError = error as { statusCode?: number; response?: { status?: number } }
     const status = fetchError.statusCode ?? fetchError.response?.status
 
@@ -38,7 +36,7 @@ watch(
 const { activeLocation } = useLocations()
 const showtimes = ref<Showtime[]>([])
 const showtimesLoading = ref(false)
-let fetchGeneration = 0 // Guards against stale async responses
+let fetchGeneration = 0
 
 async function fetchShowtimes() {
   const locSlug = activeLocation.value?.slug
@@ -71,8 +69,7 @@ if (import.meta.client) {
   watch([activeLocation, slug], () => fetchShowtimes(), { immediate: true })
 }
 
-// SEO
-// siteUrl must be set via NUXT_PUBLIC_SITE_URL; never derive from request on ISR pages
+// SEO — siteUrl must be set via NUXT_PUBLIC_SITE_URL; never derive from request on ISR pages
 const siteUrl = useRuntimeConfig().public.siteUrl as string
 
 const seoDescription = computed(() => {
@@ -128,50 +125,86 @@ useHead({
 
 <template>
   <div v-if="movie" class="movie-page">
-    <!-- 1. Wide Frame Hero (atmospheric, no CTAs) -->
+    <!-- Breadcrumb strip -->
+    <MovieBreadcrumb :title="movie.title" />
+
+    <!-- Atmospheric hero with poster, telemetry, crew stats, CTAs -->
     <MovieHero :movie="movie" />
 
-    <!-- 2. Establishing Shot 65/35 -->
-    <div class="container movie-page__content">
-      <div class="establishing-shot">
-        <!-- Left 65%: Movie detail (synopsis, genres, runtime, rating, trailer, cast) -->
-        <div class="establishing-shot__primary">
-          <MovieDetail :movie="movie" />
-        </div>
-
-        <!-- Right 35%: Showtimes + Rating -->
-        <aside class="establishing-shot__secondary">
-          <div class="movie-page__sidebar">
-            <MovieRatingBadge :rating="movie.rating" />
-
-            <ClientOnly>
-              <CvSkeletonLoader v-if="showtimesLoading" variant="text" :lines="4" />
-              <ShowtimeSelector
-                v-else
-                :showtimes="showtimes"
-              />
-              <template #fallback>
-                <CvSkeletonLoader variant="text" :lines="4" />
-              </template>
-            </ClientOnly>
-          </div>
-        </aside>
+    <!-- Synopsis & credits -->
+    <section class="bay">
+      <div class="bay-inner">
+        <MovieDetail :movie="movie" />
       </div>
-    </div>
+    </section>
+
+    <!-- Trailer stage + clips sidebar -->
+    <section
+      v-if="movie.trailerKey"
+      id="trailer"
+      class="bay movie-page__trailer-bay"
+    >
+      <div class="bay-inner">
+        <MovieTrailerEmbed :trailer-key="movie.trailerKey" :title="movie.title" />
+      </div>
+    </section>
+
+    <!-- Cast strip -->
+    <section v-if="movie.cast.length > 0" class="bay">
+      <div class="bay-inner">
+        <MovieCastList :cast="movie.cast" />
+      </div>
+    </section>
+
+    <!-- Showtimes + seat preview -->
+    <section id="showtimes" class="bay movie-page__showtimes-bay">
+      <div class="bay-inner">
+        <ClientOnly>
+          <div v-if="showtimesLoading" class="movie-page__showtimes-loading">
+            <CvSkeletonLoader variant="text" :lines="5" />
+          </div>
+          <template v-else>
+            <ShowtimeSelector :showtimes="showtimes" />
+            <MovieSeatPreview :movie="movie" />
+          </template>
+          <template #fallback>
+            <div class="movie-page__showtimes-loading">
+              <CvSkeletonLoader variant="text" :lines="5" />
+            </div>
+          </template>
+        </ClientOnly>
+      </div>
+    </section>
+
+    <!-- Press quotes + scores -->
+    <section class="bay">
+      <div class="bay-inner">
+        <MoviePress />
+      </div>
+    </section>
+
+    <!-- Related movies -->
+    <section class="bay movie-page__related-bay">
+      <div class="bay-inner">
+        <MovieRelated :exclude-slug="movie.slug" />
+      </div>
+    </section>
   </div>
 </template>
 
 <style scoped>
-.movie-page__content {
-  padding-block: var(--space-3xl);
+/* The trailer and showtimes bays use the recessed surface to create
+   visual punctuation between bays (matches the design's dark-on-dark rhythm). */
+.movie-page__trailer-bay,
+.movie-page__showtimes-bay {
+  background: var(--surface-container-lowest);
 }
 
-.movie-page__sidebar {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-lg);
-  position: sticky;
-  top: 7rem; /* header (4rem) + ticker (2rem) + breathing room */
+.movie-page__related-bay {
+  padding-top: var(--space-xl);
 }
 
+.movie-page__showtimes-loading {
+  padding-block: var(--space-xl);
+}
 </style>

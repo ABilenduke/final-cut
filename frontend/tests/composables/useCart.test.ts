@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import type { Showtime } from '~/types/showtime'
 import type { BookingSeat } from '~/types/booking'
+import type { ProgrammePairing } from '~/types/programme-pairing'
 
 const mockToastShow = vi.fn()
 vi.mock('~/composables/useToast', () => ({
@@ -8,6 +9,29 @@ vi.mock('~/composables/useToast', () => ({
 }))
 
 import { useCart } from '~/composables/useCart'
+
+function makePairing(overrides: Partial<ProgrammePairing> = {}): ProgrammePairing {
+  return {
+    id: 'pairing-test',
+    movieSlug: 'interstellar',
+    number: '17',
+    tag: 'Programme Pairing No. 17',
+    title: 'The Endurance flight.',
+    titleAccent: 'Endurance',
+    titleTail: 'flight.',
+    curatorNote: 'note',
+    courses: [
+      { id: 'c1', name: 'Course 1', price: 999 },
+      { id: 'c2', name: 'Course 2', price: 1199 },
+      { id: 'c3', name: 'Course 3', price: 599 },
+    ],
+    bundlePrice: 2299,
+    curatorName: 'Curator',
+    curatorRole: 'Role',
+    glyph: 'E',
+    ...overrides,
+  }
+}
 
 function makeShowtime(overrides: Partial<Showtime> = {}): Showtime {
   return {
@@ -59,6 +83,10 @@ describe('useCart', () => {
     expect(cart.promoDiscount.value).toBe(0)
     expect(cart.giftCardCode.value).toBeNull()
     expect(cart.giftCardAmount.value).toBe(0)
+    expect(cart.pairing.value).toBeNull()
+    expect(cart.pairingPrice.value).toBe(0)
+    expect(cart.pairingSavings.value).toBe(0)
+    expect(cart.pairingCoursesTotal.value).toBe(0)
     expect(cart.subtotal.value).toBe(0)
     expect(cart.total.value).toBe(0)
   })
@@ -186,13 +214,14 @@ describe('useCart', () => {
     expect(cart.total.value).toBe(0)
   })
 
-  it('clear resets all state', () => {
+  it('clear resets all state including the pairing', () => {
     const cart = useCart()
     cart.initializeCart(makeShowtime())
     cart.addSeat(makeSeat({ seatId: 'A1', price: 1200 }))
     cart.addFoodItem('popcorn-1', 'Large Popcorn', 800)
     cart.applyPromoCode('SAVE10', 300)
     cart.applyGiftCard('GC-1234', 500)
+    cart.setPairing(makePairing())
     cart.clear()
 
     expect(cart.showtime.value).toBeNull()
@@ -202,34 +231,101 @@ describe('useCart', () => {
     expect(cart.promoDiscount.value).toBe(0)
     expect(cart.giftCardCode.value).toBeNull()
     expect(cart.giftCardAmount.value).toBe(0)
+    expect(cart.pairing.value).toBeNull()
     expect(cart.subtotal.value).toBe(0)
     expect(cart.total.value).toBe(0)
   })
 
-  it('shows warning toast at 10 minutes after first seat', () => {
+  describe('programme pairings', () => {
+    it('setPairing stores the pairing and exposes its price + savings', () => {
+      const cart = useCart()
+      cart.initializeCart(makeShowtime())
+      cart.setPairing(makePairing())
+
+      expect(cart.pairing.value?.id).toBe('pairing-test')
+      // Course sum: 999 + 1199 + 599 = 2797
+      expect(cart.pairingCoursesTotal.value).toBe(2797)
+      expect(cart.pairingPrice.value).toBe(2299)
+      expect(cart.pairingSavings.value).toBe(498)
+    })
+
+    it('clearPairing removes the pairing and resets derived values', () => {
+      const cart = useCart()
+      cart.initializeCart(makeShowtime())
+      cart.setPairing(makePairing())
+      cart.clearPairing()
+
+      expect(cart.pairing.value).toBeNull()
+      expect(cart.pairingCoursesTotal.value).toBe(0)
+      expect(cart.pairingPrice.value).toBe(0)
+      expect(cart.pairingSavings.value).toBe(0)
+    })
+
+    it('subtotal does NOT include the pairing price (backend correctness)', () => {
+      const cart = useCart()
+      cart.initializeCart(makeShowtime())
+      cart.addSeat(makeSeat({ seatId: 'A1', price: 1200 }))
+      cart.addFoodItem('popcorn-1', 'Large Popcorn', 800)
+      cart.setPairing(makePairing())
+
+      // 1200 (seat) + 800 (food) = 2000. Pairing is excluded.
+      expect(cart.subtotal.value).toBe(2000)
+      expect(cart.total.value).toBe(2000)
+    })
+
+    it('reports zero savings when bundlePrice is not actually discounted', () => {
+      const cart = useCart()
+      cart.initializeCart(makeShowtime())
+      cart.setPairing(makePairing({ bundlePrice: 2797 }))
+
+      expect(cart.pairingSavings.value).toBe(0)
+    })
+
+    it('initializeCart on a different showtime clears the pairing', () => {
+      const cart = useCart()
+      cart.initializeCart(makeShowtime({ id: 'st-1' }))
+      cart.setPairing(makePairing())
+      expect(cart.pairing.value).not.toBeNull()
+
+      cart.initializeCart(makeShowtime({ id: 'st-2' }))
+      expect(cart.pairing.value).toBeNull()
+    })
+
+    it('initializeCart on the SAME showtime preserves the pairing', () => {
+      const cart = useCart()
+      cart.initializeCart(makeShowtime({ id: 'st-1' }))
+      cart.setPairing(makePairing())
+
+      cart.initializeCart(makeShowtime({ id: 'st-1' }))
+      expect(cart.pairing.value?.id).toBe('pairing-test')
+    })
+  })
+
+  // SESSION_HOLD_MINUTES = 8, WARNING_LEAD_MINUTES = 2 → warning at 6min, expiry at 8min
+  it('shows warning toast 2 minutes before the 8-minute hold expires', () => {
     const cart = useCart()
     cart.initializeCart(makeShowtime())
     cart.addSeat(makeSeat({ seatId: 'A1', price: 1200 }))
 
-    // Advance to just before 10 minutes
-    vi.advanceTimersByTime(10 * 60 * 1000 - 1)
+    // Advance to just before the 6-minute warning threshold
+    vi.advanceTimersByTime(6 * 60 * 1000 - 1)
     expect(mockToastShow).not.toHaveBeenCalled()
 
-    // Advance to 10 minutes
+    // Cross the threshold
     vi.advanceTimersByTime(1)
     expect(mockToastShow).toHaveBeenCalledWith({
-      message: 'Your session expires in 5 minutes. Complete your purchase to keep your seats.',
+      message: 'Your session expires in 2 minutes. Complete your purchase to keep your seats.',
       type: 'error',
       duration: 0,
     })
   })
 
-  it('clears cart at 15 minutes after first seat', () => {
+  it('clears cart at 8 minutes after the first seat was added', () => {
     const cart = useCart()
     cart.initializeCart(makeShowtime())
     cart.addSeat(makeSeat({ seatId: 'A1', price: 1200 }))
 
-    vi.advanceTimersByTime(15 * 60 * 1000)
+    vi.advanceTimersByTime(8 * 60 * 1000)
 
     expect(mockToastShow).toHaveBeenCalledWith({
       message: 'Your session has expired. Selected seats have been released.',
@@ -240,7 +336,7 @@ describe('useCart', () => {
     expect(cart.showtime.value).toBeNull()
   })
 
-  it('stops timer when all seats removed (no toast after 15min)', () => {
+  it('stops timer when all seats removed (no toast after 8min)', () => {
     const cart = useCart()
     cart.initializeCart(makeShowtime())
     cart.addSeat(makeSeat({ seatId: 'A1', price: 1200 }))
@@ -249,7 +345,7 @@ describe('useCart', () => {
     cart.removeSeat('A1')
 
     // Advance past both timeouts
-    vi.advanceTimersByTime(15 * 60 * 1000)
+    vi.advanceTimersByTime(8 * 60 * 1000)
 
     expect(mockToastShow).not.toHaveBeenCalled()
   })

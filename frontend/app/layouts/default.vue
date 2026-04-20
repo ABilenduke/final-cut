@@ -1,8 +1,14 @@
 <script setup lang="ts">
 const tickerItems = [
-  { text: 'Now Showing: The Void Beyond, Neon Requiem, Midnight Parallax' },
-  { text: 'Coming Soon: Glass Meridian' },
-  { text: 'Premier members get early access to summer blockbusters' },
+  { label: 'Now Showing', text: 'Dune: Part Three · Screen 01 · 7:30' },
+  { label: 'Event', text: 'Kubrick Retrospective · Fri 9:00 PM' },
+  { label: 'Members', text: 'Bar opens 60 min before all screenings' },
+  { label: 'Reel 0047', text: 'Projection: 70mm · Auditorium 03' },
+  { label: 'Weather', text: 'Clear · 12°C · Valet open' },
+  { label: 'Arrivals', text: 'The Cold Dawn · Fri' },
+  { label: 'Late Show', text: 'Mulholland Drive · Sun 11:00 PM' },
+  { label: 'Food', text: 'Director\u2019s Flight · paired nightly' },
+  { label: 'Loyalty', text: 'Charter enrolment open through April' },
 ]
 </script>
 

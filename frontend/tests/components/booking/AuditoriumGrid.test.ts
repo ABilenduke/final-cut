@@ -31,7 +31,7 @@ function makeSeats(): Seat[] {
 }
 
 describe('AuditoriumGrid', () => {
-  it('renders rows with labels', async () => {
+  it('renders rows with labels on both sides', async () => {
     const wrapper = await mountSuspended(AuditoriumGrid, {
       props: {
         auditorium: makeAuditorium(),
@@ -39,10 +39,14 @@ describe('AuditoriumGrid', () => {
         selectedSeatIds: [],
       },
     })
-    const labels = wrapper.findAll('.auditorium__label')
-    expect(labels).toHaveLength(2)
-    expect(labels[0].text()).toBe('A')
-    expect(labels[1].text()).toBe('B')
+    const leftLabels = wrapper.findAll('.auditorium__label--left')
+    const rightLabels = wrapper.findAll('.auditorium__label--right')
+    expect(leftLabels).toHaveLength(2)
+    expect(rightLabels).toHaveLength(2)
+    expect(leftLabels[0].text()).toBe('A')
+    expect(leftLabels[1].text()).toBe('B')
+    expect(rightLabels[0].text()).toBe('A')
+    expect(rightLabels[1].text()).toBe('B')
   })
 
   it('renders correct number of seat cells', async () => {

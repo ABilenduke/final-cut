@@ -6,4 +6,6 @@
 @import './typography.css';
 @import './layouts.css';
 @import './utilities.css';
+@import './movie-detail.css';
+@import './checkout.css';
 @import './print.css';

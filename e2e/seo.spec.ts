@@ -5,7 +5,7 @@ test.describe('SEO', () => {
   test.describe('Title tags', () => {
     const pages = [
       { path: '/', expected: /Final Cut.*Now Showing/ },
-      { path: '/movies', expected: /Now Showing.*Final Cut|Coming Soon.*Final Cut/ },
+      { path: '/movies', expected: /Now Playing.*Final Cut|Coming Soon.*Final Cut|On the Marquee.*Final Cut/ },
       { path: `/movies/${MOVIE_SLUGS.FIGHT_CLUB}`, expected: /Fight Club.*Showtimes.*Final Cut/i },
       { path: '/faq', expected: /FAQ.*Final Cut/ },
       { path: '/contact', expected: /Visit Us.*Final Cut/ },
@@ -126,7 +126,7 @@ test.describe('SEO', () => {
   test.describe('OG tags', () => {
     const ogPages = [
       { path: '/', title: /Final Cut/ },
-      { path: '/movies', title: /Showing.*Final Cut|Coming Soon.*Final Cut/ },
+      { path: '/movies', title: /Now Playing.*Final Cut|Coming Soon.*Final Cut|On the Marquee.*Final Cut/ },
       { path: `/movies/${MOVIE_SLUGS.FIGHT_CLUB}`, title: /Fight Club/i },
     ]
 

@@ -1,27 +1,25 @@
 <script setup lang="ts">
 import { loadStripe } from '@stripe/stripe-js'
 import type { Booking } from '~/types/booking'
-import type { MenuItem } from '~/types/menu-item'
 import type { ApiErrorResponse } from '~/utils/api'
 import { apiFetch } from '~/utils/api'
 
 definePageMeta({
-  layout: 'purchase',
+  layout: false,
 })
 
 useHead({
-  title: 'Checkout — Final Cut',
+  title: 'Payment — Final Cut',
   meta: [{ name: 'robots', content: 'noindex' }],
 })
 
 const cart = useCart()
 const { activeLocation } = useLocations()
-const { isAuthenticated } = useAuth()
+const { isAuthenticated, user } = useAuth()
 const { show: showToast } = useToast()
 const { setStep } = usePurchaseStep()
 
-// Set step indicator
-setStep(2, [1], [1])
+setStep(3, [1, 2], [1, 2])
 
 // Guard: redirect if no seats in cart
 onMounted(() => {
@@ -31,67 +29,35 @@ onMounted(() => {
   }
 })
 
-// Fetch menu items from API once location is available
-// API returns items grouped by category: { data: { combos: [...], drinks: [...], ... } }
-const menuItems = ref<MenuItem[]>([])
+// Order reference — stable through the page lifecycle
+const orderRef = computed<string>(() => {
+  const id = cart.showtime.value?.id ?? ''
+  const short = id.slice(-5).toUpperCase() || '00000'
+  return `FC-${short}`
+})
 
-watch(
-  activeLocation,
-  async (location) => {
-    if (!location) {
-      menuItems.value = []
-      return
-    }
-    try {
-      const response = await apiFetch<{ data: Record<string, MenuItem[]> }>(
-        `/api/locations/${location.slug}/food-menu`,
-      )
-      menuItems.value = Object.values(response.data).flat()
-    } catch {
-      menuItems.value = []
-    }
-  },
-  { immediate: true },
+const changeSeatsHref = computed<string | null>(() => {
+  const showtimeId = cart.showtime.value?.id
+  return showtimeId ? `/purchase/${showtimeId}` : null
+})
+
+// Contact fields — rendered for design parity; not yet wired to the booking POST
+const contactName = ref('')
+const contactEmail = ref('')
+const contactPhone = ref('')
+const contactReelId = ref('')
+
+// Prefill from authenticated user when available
+watchEffect(() => {
+  if (user.value && !contactName.value) contactName.value = user.value.name
+  if (user.value && !contactEmail.value) contactEmail.value = user.value.email
+})
+
+// Snacks were chosen on /purchase/snacks; this page just shows what's in the cart.
+const snacksHref = '/purchase/snacks'
+const hasSnacks = computed<boolean>(() =>
+  cart.foodItems.value.length > 0 || cart.pairing.value !== null,
 )
-
-// Food pre-order state — derived from cart so it stays in sync on navigation
-const selectedFoodItems = computed(() =>
-  cart.foodItems.value.map(f => ({ itemId: f.itemId, quantity: f.quantity })),
-)
-
-function handleFoodUpdate(items: Array<{ itemId: string; quantity: number }>) {
-  const currentQuantities = new Map<string, number>()
-  for (const existing of cart.foodItems.value) {
-    currentQuantities.set(existing.itemId, existing.quantity)
-  }
-
-  const nextQuantities = new Map<string, number>()
-  for (const item of items) {
-    nextQuantities.set(item.itemId, item.quantity)
-  }
-
-  // Remove quantities that were reduced or deleted
-  for (const [itemId, currentQty] of currentQuantities) {
-    const nextQty = nextQuantities.get(itemId) ?? 0
-    for (let i = 0; i < currentQty - nextQty; i++) {
-      cart.removeFoodItem(itemId)
-    }
-  }
-
-  // Add quantities that are new or increased
-  for (const [itemId, nextQty] of nextQuantities) {
-    const currentQty = currentQuantities.get(itemId) ?? 0
-    const addCount = nextQty - currentQty
-    if (addCount <= 0) continue
-
-    const menuItem = menuItems.value.find(m => m.id === itemId)
-    if (!menuItem) continue
-
-    for (let i = 0; i < addCount; i++) {
-      cart.addFoodItem(menuItem.id, menuItem.name, menuItem.price)
-    }
-  }
-}
 
 // Promo code handling
 function handlePromoApply(code: string) {
@@ -112,6 +78,46 @@ function handlePromoRemove() {
   showToast({ message: 'Promo code removed.', type: 'info' })
 }
 
+// Terms consent — required before submit
+const acceptTerms = ref(false)
+const subscribeReel = ref(false)
+
+// Release seats link in hold timer
+function handleRelease() {
+  if (!cart.showtime.value) {
+    cart.clear()
+    navigateTo('/')
+    return
+  }
+  const showtimeId = cart.showtime.value.id
+  cart.clear()
+  showToast({ message: 'Seats released. Starting over.', type: 'info' })
+  navigateTo(`/purchase/${showtimeId}`)
+}
+
+// Payment bay — page holds the ref so the rail's CTA can trigger submission
+const paymentBay = ref<{
+  submit: () => Promise<void>
+  isSubmitting: boolean
+  stripeReady: boolean
+} | null>(null)
+
+function requestSubmit() {
+  if (!acceptTerms.value) {
+    showToast({
+      message: 'Please accept the ticketing terms before paying.',
+      type: 'error',
+    })
+    return
+  }
+  paymentBay.value?.submit()
+}
+
+function handleSignInClick() {
+  const redirect = encodeURIComponent('/purchase/checkout')
+  navigateTo(`/auth/login?redirect=${redirect}`)
+}
+
 function buildConfirmationUrl(bookingData: Booking): string {
   const base = `/purchase/confirmation/${bookingData.id}`
   if (bookingData.guestEmail) {
@@ -124,7 +130,6 @@ function buildConfirmationUrl(bookingData: Booking): string {
   return base
 }
 
-// Checkout submission
 const submitting = ref(false)
 
 async function handleCheckoutSubmit(payload: { paymentMethodId: string; email?: string; loyaltyOptIn?: boolean }) {
@@ -139,21 +144,18 @@ async function handleCheckoutSubmit(payload: { paymentMethodId: string; email?: 
       paymentMethodId: payload.paymentMethodId,
       promoCode: cart.promoCode.value,
       giftCardCode: cart.giftCardCode.value,
-      email: payload.email ?? null,
+      email: payload.email ?? contactEmail.value ?? null,
       loyaltyOptIn: payload.loyaltyOptIn ?? false,
     }
 
-    const response = await apiFetch<{
-      data: Booking
-      requiresAction?: boolean
-      clientSecret?: string
-    }>(
+    type BookingAction = { requiresAction: true; clientSecret: string; paymentIntentId: string }
+    const response = await apiFetch<{ data: Booking | BookingAction }>(
       `/api/locations/${activeLocation.value.slug}/bookings`,
       { method: 'POST', body },
     )
 
-    // 3DS required — handle client-side confirmation
-    if (response.requiresAction && response.clientSecret) {
+    if ('requiresAction' in response.data && response.data.requiresAction) {
+      const { clientSecret, paymentIntentId } = response.data
       const config = useRuntimeConfig()
       const stripe = await loadStripe(config.public.stripePublishableKey as string)
       if (!stripe) {
@@ -161,16 +163,15 @@ async function handleCheckoutSubmit(payload: { paymentMethodId: string; email?: 
         return
       }
 
-      const { error: confirmError } = await stripe.handleCardAction(response.clientSecret)
+      const { error: confirmError } = await stripe.handleCardAction(clientSecret)
       if (confirmError) {
         showToast({ message: confirmError.message ?? '3D Secure verification failed.', type: 'error' })
         return
       }
 
-      // Confirm booking after 3DS
       const confirmResponse = await apiFetch<{ data: Booking }>(
         `/api/locations/${activeLocation.value.slug}/bookings/confirm`,
-        { method: 'POST', body: { paymentIntentId: response.clientSecret.split('_secret_')[0] } },
+        { method: 'POST', body: { paymentIntentId } },
       )
       await navigateTo(buildConfirmationUrl(confirmResponse.data))
       return
@@ -187,13 +188,12 @@ async function handleCheckoutSubmit(payload: { paymentMethodId: string; email?: 
         break
       }
       case 400: {
-        // Validation errors (invalid promo code, gift card, etc.)
-        const fieldError = apiError.errors.find(e => e.field === 'promoCode')
+        const fieldError = apiError.errors?.find(e => e.field === 'promoCode')
         if (fieldError) {
           cart.removePromoCode()
           showToast({ message: fieldError.message, type: 'error' })
         } else {
-          const message = apiError.errors[0]?.message ?? 'Please check your order and try again.'
+          const message = apiError.errors?.[0]?.message ?? 'Please check your order and try again.'
           showToast({ message, type: 'error' })
         }
         break
@@ -219,141 +219,380 @@ async function handleCheckoutSubmit(payload: { paymentMethodId: string; email?: 
 </script>
 
 <template>
-  <div class="checkout-page">
-    <div class="checkout-page__layout">
-      <!-- Left column (65%) -->
-      <div class="checkout-page__main">
-        <!-- Order summary -->
-        <section class="checkout-page__section">
-          <h2 class="checkout-page__section-title">Order Summary</h2>
-          <div v-if="cart.showtime.value" class="checkout-page__showtime">
-            <h3 class="checkout-page__movie">{{ cart.showtime.value.movieTitle }}</h3>
-            <p class="checkout-page__meta">
-              <time :datetime="cart.showtime.value.startTime">{{ formatDateTime(cart.showtime.value.startTime) }}</time>
-              · {{ cart.showtime.value.screenName }}
-            </p>
+  <NuxtLayout name="purchase">
+    <!-- Hold timer lives outside main so it can render below the fixed header -->
+    <template #below-header>
+      <CheckoutHoldTimer
+        v-if="cart.showtime.value && cart.seats.value.length > 0"
+        :time-remaining="cart.timeRemaining.value"
+        :auditorium="cart.showtime.value.screenName"
+        :seats="cart.seats.value"
+        :order-ref="orderRef"
+        :change-seats-href="changeSeatsHref"
+        @release="handleRelease"
+      />
+    </template>
+
+    <!-- Header extras: secure-checkout badge + location pill -->
+    <template #header-extras>
+      <div class="checkout-secure">
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z" /></svg>
+        Secure Checkout
+      </div>
+      <div v-if="activeLocation" class="checkout-loc">
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 010-5 2.5 2.5 0 010 5z" /></svg>
+        <b>{{ activeLocation.name }}</b>
+      </div>
+    </template>
+
+    <!-- Right rail replaces the default CartSummary -->
+    <template #rail>
+      <CheckoutTotalsRail
+        :seats="cart.seats.value"
+        :food-items="cart.foodItems.value"
+        :promo-code="cart.promoCode.value"
+        :promo-discount="cart.promoDiscount.value"
+        :gift-card-amount="cart.giftCardAmount.value"
+        :subtotal="cart.subtotal.value"
+        :total="cart.total.value"
+        :time-remaining="cart.timeRemaining.value"
+        :submitting="submitting"
+        :disabled="!paymentBay?.stripeReady"
+        @submit="requestSubmit"
+      />
+    </template>
+
+    <div class="checkout-page">
+    <header class="checkout-page__top">
+      <div>
+        <div class="checkout-page__eyebrow">Reel 03 · Payment</div>
+        <h1 class="checkout-page__title">
+          <em>Finish the</em> booking.
+        </h1>
+      </div>
+      <div v-if="cart.showtime.value" class="checkout-page__meta">
+        <b>{{ formatDateTime(cart.showtime.value.startTime) }}</b>
+        {{ cart.showtime.value.screenName }} · {{ cart.seats.value.length }} seat{{ cart.seats.value.length === 1 ? '' : 's' }}
+      </div>
+    </header>
+
+    <div class="checkout-page__main">
+      <CheckoutOrderCard
+        v-if="cart.showtime.value"
+        :showtime="cart.showtime.value"
+        :seats="cart.seats.value"
+        :change-seats-href="changeSeatsHref"
+      />
+
+      <CheckoutContactBay
+        v-model:full-name="contactName"
+        v-model:email="contactEmail"
+        v-model:phone="contactPhone"
+        v-model:reel-society-id="contactReelId"
+        :is-authenticated="isAuthenticated"
+        @sign-in="handleSignInClick"
+      />
+
+      <CheckoutPaymentBay
+        ref="paymentBay"
+        :email="contactEmail"
+        :is-authenticated="isAuthenticated"
+        @submit="handleCheckoutSubmit"
+        @error="(msg: string) => showToast({ message: msg, type: 'error' })"
+      />
+
+      <!-- Snacks summary — read-only echo of what was added on /purchase/snacks -->
+      <section class="snacks-summary" aria-label="Concessions summary">
+        <header class="snacks-summary__head">
+          <div>
+            <div class="snacks-summary__n">§ 03</div>
+            <h2 class="snacks-summary__title">Your <em>tray.</em></h2>
           </div>
-          <ul class="checkout-page__seats">
-            <li
-              v-for="seat in cart.seats.value"
-              :key="seat.seatId"
-              class="checkout-page__seat-item"
-            >
-              <span>Seat {{ seat.seatId }} ({{ seat.section }})</span>
-              <span>{{ formatCurrency(seat.price) }}</span>
-            </li>
-          </ul>
-        </section>
+          <NuxtLink :to="snacksHref" class="snacks-summary__edit">
+            ← Edit snacks
+          </NuxtLink>
+        </header>
 
-        <!-- Food pre-order -->
-        <section class="checkout-page__section">
-          <FoodPreOrderPanel
-            :menu-items="menuItems"
-            :selected-items="selectedFoodItems"
-            @update="handleFoodUpdate"
-          />
-        </section>
+        <p v-if="!hasSnacks" class="snacks-summary__empty">
+          You skipped the bar. Add something to your tray on the snacks step before payment.
+        </p>
 
-        <!-- Promo code -->
-        <section class="checkout-page__section">
-          <PromoCode
-            :applied-code="cart.promoCode.value"
-            @apply="handlePromoApply"
-            @remove="handlePromoRemove"
-          />
-        </section>
-      </div>
+        <ul v-else class="snacks-summary__list">
+          <li v-if="cart.pairing.value" class="snacks-summary__item snacks-summary__item--pairing">
+            <span class="snacks-summary__q">1×</span>
+            <div class="snacks-summary__nm">
+              {{ cart.pairing.value.title }}
+              <span class="snacks-summary__nm-sub">
+                Pairing · pay at the bar on collection
+              </span>
+            </div>
+            <span class="snacks-summary__pr">{{ formatCurrency(cart.pairingPrice.value) }}</span>
+          </li>
+          <li v-for="f in cart.foodItems.value" :key="f.itemId" class="snacks-summary__item">
+            <span class="snacks-summary__q">{{ f.quantity }}×</span>
+            <div class="snacks-summary__nm">{{ f.name }}</div>
+            <span class="snacks-summary__pr">{{ formatCurrency(f.unitPrice * f.quantity) }}</span>
+          </li>
+        </ul>
+      </section>
 
-      <!-- Right column (35%) -->
-      <div class="checkout-page__sidebar">
-        <CheckoutForm
-          :total="cart.total.value"
-          :is-authenticated="isAuthenticated"
-          @submit="handleCheckoutSubmit"
-        />
-      </div>
+      <PromoCode
+        v-model:accept-terms="acceptTerms"
+        v-model:subscribe-reel="subscribeReel"
+        :applied-code="cart.promoCode.value"
+        :discount="cart.promoDiscount.value"
+        @apply="handlePromoApply"
+        @remove="handlePromoRemove"
+      />
     </div>
-  </div>
+    </div>
+  </NuxtLayout>
 </template>
 
 <style scoped>
-.checkout-page__layout {
+.checkout-page {
   display: flex;
   flex-direction: column;
   gap: var(--space-2xl);
+  padding-top: 2.5rem; /* Compensate for the hold-strip */
 }
 
-@media (min-width: 60rem) {
-  .checkout-page__layout {
-    display: grid;
-    grid-template-columns: 65fr 35fr;
-    gap: var(--space-2xl);
-  }
+.checkout-page__top {
+  padding: var(--space-xl) 0 var(--space-lg);
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: var(--space-lg);
+  flex-wrap: wrap;
+  border-bottom: 0.0625rem solid rgba(87, 66, 62, 0.2);
+}
+
+.checkout-page__eyebrow {
+  font-family: var(--font-body);
+  font-size: 0.6875rem;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--on-tertiary-fixed-variant);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.checkout-page__eyebrow::before {
+  content: '—';
+  color: var(--secondary);
+}
+
+.checkout-page__title {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: clamp(2rem, 4vw, 3.25rem);
+  line-height: 1;
+  letter-spacing: -0.03em;
+  text-wrap: balance;
+  color: var(--on-surface);
+  margin: 0;
+}
+
+.checkout-page__title em {
+  font-style: italic;
+  color: var(--tertiary);
+}
+
+.checkout-page__meta {
+  font-family: var(--font-body);
+  font-size: 0.75rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--on-tertiary-fixed-variant);
+  text-align: right;
+}
+
+.checkout-page__meta b {
+  font-family: var(--font-display);
+  color: var(--secondary);
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  font-size: 0.9375rem;
+  text-transform: none;
+  display: block;
+  margin-bottom: 0.2rem;
 }
 
 .checkout-page__main {
   display: flex;
   flex-direction: column;
   gap: var(--space-xl);
+  min-width: 0;
 }
 
-.checkout-page__section {
+.checkout-secure {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-family: var(--font-body);
+  font-size: 0.6875rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--secondary);
+}
+
+.checkout-secure svg {
+  width: 0.75rem;
+  height: 0.75rem;
+}
+
+.checkout-loc {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: var(--font-body);
+  color: var(--tertiary);
+  font-size: 0.8125rem;
+  padding: 0.375rem 0.625rem;
+  background-color: rgba(42, 42, 42, 0.5);
+  border-radius: 0.125rem;
+}
+
+.checkout-loc svg {
+  width: 0.875rem;
+  height: 0.875rem;
+}
+
+.checkout-loc b {
+  color: var(--on-surface);
+  font-weight: 500;
+}
+
+@media (max-width: 40rem) {
+  .checkout-secure,
+  .checkout-loc {
+    display: none;
+  }
+}
+
+/* Snacks summary (read-only echo of /purchase/snacks selections) */
+.snacks-summary {
+  background-color: var(--surface-container);
+  border-radius: var(--radius-card);
+  padding: var(--space-lg);
+  border: 0.0625rem solid rgb(var(--outline-variant-rgb) / 0.2);
   display: flex;
   flex-direction: column;
   gap: var(--space-md);
 }
 
-.checkout-page__section-title {
-  font-family: var(--font-display);
-  font-size: var(--type-headline-sm);
-  color: var(--on-surface);
-}
-
-.checkout-page__showtime {
-  padding: var(--space-md);
-  background-color: var(--surface-container-low);
-  border-radius: 0.125rem;
-}
-
-.checkout-page__movie {
-  font-family: var(--font-display);
-  font-size: var(--type-title-lg);
-  color: var(--on-surface);
-}
-
-.checkout-page__meta {
-  font-family: var(--font-body);
-  font-size: var(--type-body-sm);
-  color: var(--tertiary);
-  margin-top: var(--space-xs);
-}
-
-.checkout-page__seats {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-xs);
-}
-
-.checkout-page__seat-item {
+.snacks-summary__head {
   display: flex;
   justify-content: space-between;
-  font-family: var(--font-body);
-  font-size: var(--type-body-sm);
+  align-items: flex-start;
+  gap: var(--space-md);
+  padding-bottom: var(--space-sm);
+  border-bottom: 0.0625rem solid rgb(var(--outline-variant-rgb) / 0.2);
+}
+
+.snacks-summary__n {
+  font-family: var(--font-display);
+  font-size: 0.8125rem;
+  color: var(--secondary);
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  font-variant-numeric: tabular-nums;
+}
+
+.snacks-summary__title {
+  font-family: var(--font-display);
+  font-size: 1.375rem;
+  font-weight: 500;
+  letter-spacing: -0.015em;
+  line-height: 1.1;
+  margin: 0.2rem 0 0;
+  color: var(--on-surface);
+}
+
+.snacks-summary__title em {
+  font-style: italic;
   color: var(--tertiary);
 }
 
-.checkout-page__sidebar {
-  position: sticky;
-  top: 5rem;
-  align-self: start;
+.snacks-summary__edit {
+  font-family: var(--font-body);
+  font-size: 0.6875rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--secondary);
+  text-decoration: none;
+  align-self: center;
 }
 
-@media (max-width: 59.999rem) {
-  .checkout-page {
-    padding-bottom: 4.5rem;
-  }
+.snacks-summary__edit:hover,
+.snacks-summary__edit:focus-visible {
+  text-decoration: underline;
+  text-underline-offset: 0.125rem;
+}
+
+.snacks-summary__empty {
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  color: var(--on-tertiary-fixed-variant);
+  font-style: italic;
+  margin: 0;
+}
+
+.snacks-summary__list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  margin: 0;
+  padding: 0;
+}
+
+.snacks-summary__item {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: var(--space-sm);
+  align-items: center;
+  padding: 0.4rem 0;
+  border-bottom: 0.0625rem dashed rgb(var(--outline-variant-rgb) / 0.25);
+}
+
+.snacks-summary__item:last-child {
+  border-bottom: none;
+}
+
+.snacks-summary__q {
+  font-family: var(--font-display);
+  font-size: 0.875rem;
+  color: var(--secondary);
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  min-width: 1.5rem;
+  text-align: center;
+}
+
+.snacks-summary__nm {
+  font-family: var(--font-display);
+  font-size: 0.875rem;
+  color: var(--on-surface);
+  letter-spacing: -0.005em;
+}
+
+.snacks-summary__nm-sub {
+  font-family: var(--font-body);
+  font-size: 0.6875rem;
+  color: var(--on-tertiary-fixed-variant);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  display: block;
+  margin-top: 0.1rem;
+}
+
+.snacks-summary__pr {
+  font-family: var(--font-display);
+  font-size: 0.875rem;
+  color: var(--tertiary);
+  font-variant-numeric: tabular-nums;
 }
 </style>

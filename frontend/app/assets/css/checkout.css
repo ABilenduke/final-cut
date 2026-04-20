@@ -1,0 +1,218 @@
+/* Checkout page styles — ported from Final Cut Checkout.html design handoff.
+   Imported globally so components can reference shared structural classes
+   without duplicating them in each <style scoped> block. This file includes
+   both .checkout-page-scoped rules AND reusable primitives (.bay, .bay__*,
+   .checkout-row-*, .bay-eyebrow) that are intentionally global — they are
+   consumed on the movie detail page and other layouts, not just checkout. */
+
+/* ——— Page frame ——— */
+.checkout-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xl);
+}
+
+.checkout-page__top {
+  padding: var(--space-xl) 0 var(--space-lg);
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: var(--space-lg);
+  flex-wrap: wrap;
+  border-bottom: 0.0625rem solid rgba(87, 66, 62, 0.2);
+  margin-bottom: var(--space-md);
+}
+
+.checkout-page__eyebrow {
+  font-size: 0.6875rem;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--on-tertiary-fixed-variant);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.checkout-page__eyebrow::before {
+  content: '—';
+  color: var(--secondary);
+}
+
+.checkout-page__title {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: clamp(2rem, 4vw, 3.25rem);
+  line-height: 1;
+  letter-spacing: -0.03em;
+  text-wrap: balance;
+  color: var(--on-surface);
+  margin: 0;
+}
+
+.checkout-page__title em {
+  font-style: italic;
+  color: var(--tertiary);
+}
+
+.checkout-page__meta {
+  font-size: 0.75rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--on-tertiary-fixed-variant);
+  text-align: right;
+}
+
+.checkout-page__meta b {
+  font-family: var(--font-display);
+  color: var(--secondary);
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  font-size: 0.9375rem;
+  text-transform: none;
+  display: block;
+  margin-bottom: 0.2rem;
+}
+
+/* ——— Two-column grid ——— */
+.checkout-page__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 25rem;
+  gap: var(--space-2xl);
+  align-items: start;
+}
+
+.checkout-page__main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xl);
+  min-width: 0;
+}
+
+.checkout-page__rail {
+  position: sticky;
+  top: 8.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+@media (max-width: 68.75rem) {
+  .checkout-page__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .checkout-page__rail {
+    position: static;
+  }
+}
+
+/* ——— Section "bay" ——— */
+.bay {
+  background-color: var(--surface-container);
+  border-radius: 0.25rem;
+  padding: var(--space-xl);
+  border: 0.0625rem solid rgba(87, 66, 62, 0.15);
+  position: relative;
+}
+
+.bay--inset {
+  background-color: var(--surface-container-low);
+}
+
+.bay__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-md);
+  margin-bottom: var(--space-lg);
+  padding-bottom: var(--space-md);
+  border-bottom: 0.0625rem solid rgba(87, 66, 62, 0.2);
+}
+
+.bay__number {
+  font-family: var(--font-display);
+  font-size: 0.8125rem;
+  color: var(--secondary);
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  font-variant-numeric: tabular-nums;
+}
+
+.bay__title {
+  font-family: var(--font-display);
+  font-size: 1.625rem;
+  font-weight: 500;
+  letter-spacing: -0.015em;
+  line-height: 1.1;
+  margin: 0.2rem 0 0;
+}
+
+.bay__title em {
+  font-style: italic;
+  color: var(--tertiary);
+}
+
+.bay__sub {
+  font-size: 0.8125rem;
+  color: var(--tertiary);
+  margin-top: 0.25rem;
+}
+
+.bay__badge {
+  font-size: 0.625rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--on-tertiary-fixed-variant);
+  padding: 0.3rem 0.55rem;
+  border: 0.0625rem solid rgba(87, 66, 62, 0.3);
+  border-radius: 0.125rem;
+  white-space: nowrap;
+  align-self: flex-start;
+}
+
+/* Divider line used inside bays */
+.bay__divider {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  margin: var(--space-lg) 0;
+  font-size: 0.625rem;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--on-tertiary-fixed-variant);
+}
+
+.bay__divider::before,
+.bay__divider::after {
+  content: '';
+  flex: 1;
+  height: 0.0625rem;
+  background-color: rgba(87, 66, 62, 0.3);
+}
+
+/* ——— Shared field grid helpers ——— */
+.checkout-fields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.checkout-row-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-md);
+}
+
+.checkout-row-3 {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr 1fr;
+  gap: var(--space-md);
+}
+
+@media (max-width: 40rem) {
+  .checkout-row-2,
+  .checkout-row-3 {
+    grid-template-columns: 1fr;
+  }
+}

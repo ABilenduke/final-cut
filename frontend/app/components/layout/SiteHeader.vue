@@ -68,25 +68,11 @@ function onKeydown(event: KeyboardEvent) {
 <template>
   <header class="site-header" role="banner">
     <div class="site-header__inner">
-      <NuxtLink to="/" class="site-header__logo">
-        Final Cut
+      <NuxtLink to="/" class="site-header__wordmark" aria-label="Final Cut — home">
+        <span class="site-header__mark" aria-hidden="true">◉</span>
+        <span class="site-header__wordmark-name">Final Cut</span>
+        <span class="site-header__wordmark-est" aria-hidden="true">est. 2003</span>
       </NuxtLink>
-
-      <!-- Location Switcher (native select for full keyboard/AT accessibility) -->
-      <div v-if="locations.length > 0" class="site-header__location">
-        <CvIcon name="location" size="sm" aria-hidden="true" />
-        <label for="location-select" class="sr-only">Theater location</label>
-        <select
-          id="location-select"
-          class="site-header__location-select"
-          :value="activeLocation?.slug ?? ''"
-          @change="onLocationChange"
-        >
-          <option v-for="loc in locations" :key="loc.slug" :value="loc.slug">
-            {{ loc.name }}
-          </option>
-        </select>
-      </div>
 
       <!-- Desktop Nav -->
       <nav class="site-header__nav" aria-label="Primary">
@@ -101,18 +87,35 @@ function onKeydown(event: KeyboardEvent) {
         </NuxtLink>
       </nav>
 
-      <!-- Auth Controls -->
-      <div class="site-header__auth">
-        <template v-if="isAuthenticated">
-          <NuxtLink to="/account" class="site-header__avatar" :aria-label="`Account for ${user?.name}`">
-            <CvIcon name="account" size="md" />
-          </NuxtLink>
-        </template>
-        <template v-else>
-          <NuxtLink to="/auth/login" class="site-header__sign-in">
-            Sign In
-          </NuxtLink>
-        </template>
+      <!-- Right cluster: location pill + auth -->
+      <div class="site-header__right">
+        <div v-if="locations.length > 0" class="site-header__loc-pill">
+          <CvIcon name="location" size="sm" aria-hidden="true" />
+          <label for="location-select" class="sr-only">Theater location</label>
+          <select
+            id="location-select"
+            class="site-header__loc-select"
+            :value="activeLocation?.slug ?? ''"
+            @change="onLocationChange"
+          >
+            <option v-for="loc in locations" :key="loc.slug" :value="loc.slug">
+              {{ loc.name }}
+            </option>
+          </select>
+        </div>
+
+        <div class="site-header__auth">
+          <template v-if="isAuthenticated">
+            <NuxtLink to="/account" class="site-header__avatar" :aria-label="`Account for ${user?.name}`">
+              <CvIcon name="account" size="md" />
+            </NuxtLink>
+          </template>
+          <template v-else>
+            <NuxtLink to="/auth/login" class="site-header__sign-in">
+              Sign In
+            </NuxtLink>
+          </template>
+        </div>
       </div>
 
       <!-- Mobile Menu Toggle -->
@@ -186,7 +189,10 @@ function onKeydown(event: KeyboardEvent) {
   left: 0;
   right: 0;
   height: 4rem;
-  background-color: var(--surface-container);
+  background-color: rgb(14 14 14 / 0.72);
+  -webkit-backdrop-filter: blur(1.25rem);
+  backdrop-filter: blur(1.25rem);
+  border-bottom: 0.0625rem solid rgb(var(--outline-variant-rgb) / 0.2); /* token-exception: sub-pixel edge */
   z-index: var(--z-sticky);
 }
 
@@ -197,7 +203,7 @@ function onKeydown(event: KeyboardEvent) {
   max-width: 90rem;
   margin-inline: auto;
   padding-inline: var(--space-md);
-  gap: var(--space-lg);
+  gap: var(--space-xl);
 }
 
 @media (min-width: 40rem) {
@@ -212,42 +218,37 @@ function onKeydown(event: KeyboardEvent) {
   }
 }
 
-/* Logo */
-.site-header__logo {
+/* Wordmark */
+.site-header__wordmark {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.4em;
   font-family: var(--font-display);
-  font-size: var(--type-headline-sm);
-  line-height: 1.2;
+  font-size: 1.25rem;
+  font-weight: 600;
   letter-spacing: -0.02em;
+  line-height: 1;
   color: var(--on-surface);
   text-decoration: none;
   flex-shrink: 0;
 }
 
-/* Location Switcher */
-.site-header__location {
-  display: flex;
-  align-items: center;
-  gap: var(--space-xs);
-  flex-shrink: 0;
-  color: var(--tertiary);
+.site-header__mark {
+  color: var(--primary-container);
+  font-size: 0.9em;
 }
 
-.site-header__location-select {
-  background: none;
-  border: none;
-  border-bottom: 0.0625rem solid var(--outline); /* token-exception: underline input style */
+.site-header__wordmark-name {
   color: var(--on-surface);
-  font-family: var(--font-body);
-  font-size: var(--type-label-md);
-  padding: var(--space-xs) var(--space-sm);
-  cursor: pointer;
-  max-width: 12rem;
 }
 
-.site-header__location-select:focus-visible {
-  border-bottom-color: var(--secondary);
-  outline: none;
-  box-shadow: 0 0.0625rem 0 0 var(--secondary); /* token-exception: focus underline glow */
+.site-header__wordmark-est {
+  font-style: italic;
+  color: var(--tertiary);
+  font-weight: 400;
+  font-size: 0.625rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
 }
 
 /* Desktop Nav */
@@ -256,6 +257,7 @@ function onKeydown(event: KeyboardEvent) {
   align-items: center;
   gap: var(--space-lg);
   flex: 1;
+  margin-left: var(--space-md);
 }
 
 @media (min-width: 60rem) {
@@ -266,52 +268,97 @@ function onKeydown(event: KeyboardEvent) {
 
 .site-header__nav-link {
   font-family: var(--font-body);
-  font-size: var(--type-body-md);
+  font-size: 0.9375rem;
   line-height: 1;
   color: var(--on-surface);
   text-decoration: none;
   position: relative;
   padding-block: var(--space-xs);
-  transition: color var(--duration-micro) var(--ease-standard);
+  transition: color var(--duration-standard) var(--ease-standard);
+}
+
+.site-header__nav-link::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -0.125rem; /* token-exception: sub-pixel decorative underline */
+  height: 0.0625rem;
+  background-color: var(--secondary);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform var(--duration-standard) var(--ease-standard);
 }
 
 .site-header__nav-link:hover {
   color: var(--secondary);
 }
 
+.site-header__nav-link:hover::after,
+.site-header__nav-link--active::after {
+  transform: scaleX(1);
+}
+
 .site-header__nav-link--active {
   color: var(--secondary);
 }
 
-.site-header__nav-link--active::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 0.125rem; /* token-exception: decorative underline */
-  background-color: var(--secondary);
-}
-
-/* Auth Controls */
-.site-header__auth {
+/* Right cluster */
+.site-header__right {
   display: none;
   align-items: center;
+  gap: var(--space-md);
   margin-left: auto;
 }
 
 @media (min-width: 60rem) {
-  .site-header__auth {
+  .site-header__right {
     display: flex;
   }
 }
 
+/* Location pill */
+.site-header__loc-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-xs) var(--space-sm);
+  background-color: rgb(42 42 42 / 0.5);
+  border-radius: 0.125rem; /* token-exception: component-specific radius */
+  color: var(--tertiary);
+  font-size: 0.8125rem;
+}
+
+.site-header__loc-select {
+  background: none;
+  border: none;
+  color: var(--on-surface);
+  font-family: var(--font-body);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  padding: 0;
+  cursor: pointer;
+  max-width: 12rem;
+}
+
+.site-header__loc-select:focus-visible {
+  outline: 0.125rem solid var(--secondary);
+  outline-offset: 0.125rem;
+  border-radius: 0.125rem;
+}
+
+/* Auth */
+.site-header__auth {
+  display: flex;
+  align-items: center;
+}
+
 .site-header__sign-in {
   font-family: var(--font-body);
-  font-size: var(--type-body-md);
+  font-size: 0.9375rem;
   color: var(--secondary);
   text-decoration: none;
-  padding: var(--space-xs) var(--space-sm);
+  padding: var(--space-sm) var(--space-sm);
 }
 
 .site-header__sign-in:hover {

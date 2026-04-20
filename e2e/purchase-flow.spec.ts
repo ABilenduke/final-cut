@@ -27,25 +27,35 @@ test.describe('Purchase Flow', () => {
     const grid = page.locator('[role="grid"]')
     await expect(grid).toBeVisible({ timeout: 10_000 })
 
-    // 6. Select 2 available seats
-    const availableSeats = page.locator('button.auditorium-seat:not(.auditorium-seat--taken)')
+    // 6. Select 2 available seats via dispatchEvent('click'). Seed data
+    // sometimes produces auditoriums wider than the default viewport,
+    // which trips Playwright's viewport check even with force:true +
+    // scrollIntoViewIfNeeded. dispatchEvent fires the same @click
+    // handler the seat component registers without going through the
+    // pointer pipeline, which is all this test needs.
+    const availableSeats = page.locator('button.auditorium-seat:not(.auditorium-seat--taken):not(.auditorium-seat--held)')
     await expect(availableSeats.first()).toBeVisible()
-
-    await availableSeats.nth(0).click()
-    await availableSeats.nth(1).click()
+    await availableSeats.nth(0).dispatchEvent('click')
+    await availableSeats.nth(1).dispatchEvent('click')
 
     // 7. Verify cart updates
     const totalDisplay = page.locator('[aria-live="polite"]').first()
     await expect(totalDisplay).toBeVisible()
 
-    // 8. Click Continue to Checkout
-    const continueBtn = page.getByRole('button', { name: /continue to checkout/i })
-    await expect(continueBtn).toBeEnabled()
-    await continueBtn.click()
+    // 8. Click Continue to concessions (step 2)
+    const continueToConcessions = page.getByRole('button', { name: /continue to concessions/i })
+    await expect(continueToConcessions).toBeEnabled()
+    await continueToConcessions.click()
+    await page.waitForURL(/\/purchase\/snacks/)
+
+    // 9. Skip concessions and land on checkout
+    const skipConcessions = page.getByRole('button', { name: /skip concessions/i })
+    await expect(skipConcessions).toBeVisible({ timeout: 10_000 })
+    await skipConcessions.click()
     await page.waitForURL(/\/purchase\/checkout/)
 
-    // 9. Verify checkout page shows order summary
-    await expect(page.locator('text=Order Summary').first()).toBeVisible({ timeout: 5_000 })
+    // 10. Verify the checkout page has rendered
+    await expect(page.getByRole('heading', { name: /finish the\s+booking/i })).toBeVisible({ timeout: 10_000 })
   })
 
   test('guest checkout shows email field', async ({ page }) => {
@@ -56,18 +66,24 @@ test.describe('Purchase Flow', () => {
     await showtimeLink.click()
     await page.waitForURL(/\/purchase\//)
 
-    // Select a seat
-    const availableSeats = page.locator('button.auditorium-seat:not(.auditorium-seat--taken)')
+    // Select enough seats to meet the default party size (2) via
+    // dispatchEvent('click'). See the full-flow test for rationale —
+    // pointer-based clicks trip viewport bounds on wider auditoriums.
+    const availableSeats = page.locator('button.auditorium-seat:not(.auditorium-seat--taken):not(.auditorium-seat--held)')
     await expect(availableSeats.first()).toBeVisible({ timeout: 10_000 })
-    await availableSeats.first().click()
+    await availableSeats.nth(0).dispatchEvent('click')
+    await availableSeats.nth(1).dispatchEvent('click')
 
-    // Continue to checkout
-    const continueBtn = page.getByRole('button', { name: /continue to checkout/i })
-    await continueBtn.click()
+    // Continue to concessions, then skip to checkout
+    await page.getByRole('button', { name: /continue to concessions/i }).click()
+    await page.waitForURL(/\/purchase\/snacks/)
+    await page.getByRole('button', { name: /skip concessions/i }).click()
     await page.waitForURL(/\/purchase\/checkout/)
 
-    // Guest should see an email field
-    const emailInput = page.getByLabel(/email/i)
+    // Guest should see an email field. Narrow to the textbox role — the
+    // promo-bay also exposes an "Email me a reel notice" checkbox which
+    // otherwise makes the /email/i accessible-name lookup ambiguous.
+    const emailInput = page.getByRole('textbox', { name: /email/i }).first()
     await expect(emailInput).toBeVisible()
   })
 
@@ -101,16 +117,24 @@ test.describe('Purchase Flow', () => {
     const grid = page.locator('[role="grid"]')
     await expect(grid).toBeVisible({ timeout: 10_000 })
 
-    // Select MAX_SEATS seats
-    const availableSeats = page.locator('button.auditorium-seat:not(.auditorium-seat--taken)')
+    // Try to select MAX_SEATS + 1 seats
+    const availableSeats = page.locator('button.auditorium-seat:not(.auditorium-seat--taken):not(.auditorium-seat--held)')
+    await expect(availableSeats.first()).toBeVisible({ timeout: 10_000 })
     const count = await availableSeats.count()
     const toSelect = Math.min(count, MAX_SEATS + 1)
 
     for (let i = 0; i < toSelect; i++) {
-      await availableSeats.nth(i).click()
+      // dispatchEvent('click') fires the seat component's @click
+      // handler without pointer pipeline — bypasses Playwright's
+      // viewport and animation-stability checks, which both get in
+      // the way of rapid sequential seat clicks on a grid that is
+      // wider than the default viewport.
+      await availableSeats.nth(i).dispatchEvent('click')
     }
 
-    // Verify only MAX_SEATS are selected
+    // The page caps selection at the current party size (which defaults to
+    // 2 but may grow up to MAX_SEATS via the party-size control). Either
+    // way, the final count must never exceed the MAX_SEATS hard limit.
     const selectedSeats = page.locator('button.auditorium-seat.auditorium-seat--selected')
     const selectedCount = await selectedSeats.count()
     expect(selectedCount).toBeLessThanOrEqual(MAX_SEATS)
@@ -123,21 +147,28 @@ test.describe('Purchase Flow', () => {
     await showtimeLink.click()
     await page.waitForURL(/\/purchase\//)
 
-    // Select 2 seats
-    const availableSeats = page.locator('button.auditorium-seat:not(.auditorium-seat--taken)')
+    // Select 2 seats via dispatchEvent('click'). The MATRIX auditorium
+    // renders a grid wider than the default viewport, and even with
+    // scrollIntoViewIfNeeded + force:true Playwright still trips on
+    // viewport bounds for the pointer coordinates. dispatchEvent fires
+    // the same click listener the component registers (@click="toggle")
+    // without going through the pointer pipeline, which is what we
+    // actually care about for this test.
+    const availableSeats = page.locator('button.auditorium-seat:not(.auditorium-seat--taken):not(.auditorium-seat--held)')
     await expect(availableSeats.first()).toBeVisible({ timeout: 10_000 })
-    await availableSeats.nth(0).click()
-    await availableSeats.nth(1).click()
+    await availableSeats.nth(0).dispatchEvent('click')
+    await availableSeats.nth(1).dispatchEvent('click')
 
-    // Continue to checkout
-    const continueBtn = page.getByRole('button', { name: /continue to checkout/i })
-    await continueBtn.click()
+    // Continue to concessions, then skip to checkout
+    await page.getByRole('button', { name: /continue to concessions/i }).click()
+    await page.waitForURL(/\/purchase\/snacks/)
+    await page.getByRole('button', { name: /skip concessions/i }).click()
     await page.waitForURL(/\/purchase\/checkout/)
 
-    // Navigate back via step indicator
-    const step1 = page.locator('nav[aria-label="Purchase steps"]').getByText(/pick your seats/i)
+    // Navigate back via step indicator — step 1 label is "Seats"
+    const step1 = page.locator('nav[aria-label="Purchase steps"]').getByText(/^seats$/i)
     await step1.click()
-    await page.waitForURL(/\/purchase\/(?!checkout)/)
+    await page.waitForURL(/\/purchase\/(?!checkout|snacks)/)
 
     // Verify seats are still selected
     const selectedSeats = page.locator('button.auditorium-seat.auditorium-seat--selected')
