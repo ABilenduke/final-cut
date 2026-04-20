@@ -159,22 +159,18 @@ const trailerHref = computed(() =>
       </div>
 
       <!-- Showtime side panel -->
-      <aside class="cinema-hero__panel" aria-label="Tonight\u2019s showtimes">
+      <aside class="cinema-hero__panel" aria-label="Sample screening times">
         <div class="cinema-hero__panel-head">
-          <span class="cinema-hero__panel-label">Tonight · Screen 01</span>
-          <span class="cinema-hero__panel-live" aria-hidden="true">
-            <span class="cinema-hero__panel-live-dot" />
-            Live
-          </span>
+          <span class="cinema-hero__panel-label">Typical Programme</span>
         </div>
-        <div class="cinema-hero__panel-title">Select a Showtime</div>
+        <div class="cinema-hero__panel-title">Find a Showtime</div>
         <div class="cinema-hero__times">
           <template v-for="(slot, i) in heroSlots" :key="i">
             <NuxtLink
               v-if="!slot.soldOut"
               :to="ticketsHref"
               class="cinema-hero__time"
-              :aria-label="`Book ${slot.time} ${slot.meridiem} showtime`"
+              :aria-label="`See showtimes for ${movie.title}`"
             >
               <span class="cinema-hero__time-value">{{ slot.time }}</span>
               <span class="cinema-hero__time-mer">{{ slot.meridiem }}</span>
@@ -182,7 +178,7 @@ const trailerHref = computed(() =>
             <span
               v-else
               class="cinema-hero__time cinema-hero__time--sold"
-              :aria-label="`${slot.time} ${slot.meridiem} sold out`"
+              aria-hidden="true"
             >
               <span class="cinema-hero__time-value">{{ slot.time }}</span>
               <span class="cinema-hero__time-mer">{{ slot.meridiem }}</span>
@@ -547,24 +543,6 @@ const trailerHref = computed(() =>
   color: var(--on-tertiary-fixed-variant);
 }
 
-.cinema-hero__panel-live {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-xs);
-  font-size: 0.625rem;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  color: var(--secondary);
-}
-
-.cinema-hero__panel-live-dot {
-  width: 0.3125rem;
-  height: 0.3125rem;
-  border-radius: 50%; /* token-exception: signal dot */
-  background-color: var(--secondary);
-  animation: cinema-hero-pulse 1.6s ease-in-out infinite;
-}
-
 .cinema-hero__panel-title {
   font-family: var(--font-display);
   font-size: 1.5rem;
@@ -656,18 +634,10 @@ const trailerHref = computed(() =>
   }
 }
 
-@keyframes cinema-hero-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.3; }
-}
-
 @media (prefers-reduced-motion: reduce) {
   .cinema-hero__feature,
   .cinema-hero__cta,
   .cinema-hero__panel {
-    animation: none;
-  }
-  .cinema-hero__panel-live-dot {
     animation: none;
   }
 }

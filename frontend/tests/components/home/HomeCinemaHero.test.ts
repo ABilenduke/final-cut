@@ -95,6 +95,21 @@ describe('HomeCinemaHero', () => {
     expect(soldChips).toHaveLength(soldSlots.length)
   })
 
+  it('does not present the panel as live or screen-scoped', async () => {
+    const wrapper = await mountSuspended(HomeCinemaHero, {
+      props: { movie: makeMovie() },
+    })
+    const panel = wrapper.find('.cinema-hero__panel')
+    expect(panel.exists()).toBe(true)
+    expect(panel.attributes('aria-label')).toBe('Sample screening times')
+
+    // No stale "Live" dot / "Tonight · Screen N" copy
+    expect(wrapper.find('.cinema-hero__panel-live').exists()).toBe(false)
+    expect(wrapper.find('.cinema-hero__panel-live-dot').exists()).toBe(false)
+    expect(panel.text()).not.toContain('Live')
+    expect(panel.text()).not.toMatch(/Tonight\s*·\s*Screen/)
+  })
+
   it('does not call useLocations or useShowtimes', async () => {
     await mountSuspended(HomeCinemaHero, {
       props: { movie: makeMovie() },
