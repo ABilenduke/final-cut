@@ -9,44 +9,59 @@
 
 The second-most-complex plan. Build `ShowtimeResource` (MVP: standard Filament table + form with conflict detection), the bulk-create dialog (`"Add this movie to Aud 1, Mon–Fri, 7pm + 9:30pm, for two weeks"`), the cancellation workflow (soft-delete + flag affected bookings + stubbed email + follow-up queue page), and — optionally — the visual weekly schedule planner. Per-auditorium `cleanup_minutes` from Plan 05 drives the conflict detection math.
 
-Per spec § 2.6, all mutations route through `ShowtimeService`. Since this service likely does not exist in backend (booking-flow code handles showtimes today), this plan includes its extraction.
+All mutations route through `App\Services\ShowtimeService`, created in this plan and stored in `backend/app/Services/ShowtimeService.php` alongside the existing `TmdbService`, `SeatAvailabilityService`, `StripeService`, `LoyaltyService`, and the `MovieService` / `AuditoriumService` from Plans 04–05. Every write method accepts an optional `?AdminUser $actor = null` for audit attribution — Filament pages pass `auth('admin')->user()`; customer controllers pass `null`. The service writes `activity_log` rows when `$actor` is non-null and skips admin activity attribution otherwise.
+
+Filament Resources consume `App\Models\Showtime` and `App\Models\Booking` directly — there is no admin-side model mirror, no shared package, no cross-app boundary. Service and models live in the same codebase and autoload via PSR-4.
 
 ## Reference Documents
 
-- `docs/superpowers/specs/2026-04-20-admin-section-design.md` — § 5 Plan 06
+- `docs/superpowers/specs/2026-04-20-admin-section-design.md` — § 2.6 admin-to-domain-logic boundary, § 5 Plan 06
 - `docs/plans/backend/v1/04-booking-api.md` — existing showtime handling
 - `docs/architecture/DATA_MODELS.md` — Showtime schema
+- `docs/plans/admin/v1/03-shared-models-and-base-resources.md` — BaseResource, FormatsCurrency, TimestampColumns
+- `docs/plans/admin/v1/04-movie-catalog-management.md` — `MovieService` pattern, actor-argument convention
+- `docs/plans/admin/v1/05-locations-auditoriums-seats.md` — `cleanup_minutes` column on auditoriums
 - `backend/app/Http/Controllers/Api/BookingController.php` — likely source for extraction
+- `backend/app/Services/SeatAvailabilityService.php` — existing seat/showtime logic to draw from
 
 ---
 
 ## Tasks
 
-### Task 1: Extract ShowtimeService into the shared-domain package
+### Task 1: Create `ShowtimeService` in `backend/app/Services/`
 
 - **MoSCoW:** Must Have
 - **Complexity:** L
 - **Files:**
-  - `packages/shared-domain/src/Services/ShowtimeService.php` (new)
-  - `packages/shared-domain/src/Exceptions/MovieRuntimeMissingException.php` (new)
-  - `packages/shared-domain/src/Exceptions/ShowtimeAlreadyCancelledException.php` (new)
-  - `packages/shared-domain/tests/Feature/ShowtimeServiceTest.php` (new)
-  - `admin/app/Services/Backend/ShowtimeService.php` (new — admin facade)
+  - `backend/app/Services/ShowtimeService.php` (new)
+  - `backend/app/Exceptions/MovieRuntimeMissingException.php` (new)
+  - `backend/app/Exceptions/ShowtimeAlreadyCancelledException.php` (new)
+  - `backend/app/Exceptions/ShowtimeConflictException.php` (new)
+  - `backend/app/Http/Requests/BulkShowtimeRequest.php` (new — data object)
+  - `backend/tests/Unit/ShowtimeServiceTest.php` (new)
 - **Details:**
-  Per Plan 03's ADR, `ShowtimeService` lives in `packages/shared-domain/src/Services/` under the `FinalCut\Domain\Services` namespace. Every write method takes an explicit `Causer $causer` argument per the Plan 02 Task 4 contract.
+  Extract showtime write orchestration from the existing backend controllers and `SeatAvailabilityService` into a dedicated service. The customer API delegates to it; the admin panel (Task 3+) calls it too. Both call sites pass an optional `?AdminUser $actor`.
+
+  Required methods:
 
   ```php
-  namespace FinalCut\Domain\Services;
+  namespace App\Services;
 
-  use FinalCut\Domain\Audit\Causer;
-  use FinalCut\Domain\Models\Showtime;
+  use App\Exceptions\MovieRuntimeMissingException;
+  use App\Exceptions\ShowtimeAlreadyCancelledException;
+  use App\Exceptions\ShowtimeConflictException;
+  use App\Http\Requests\BulkShowtimeRequest;
+  use App\Models\AdminUser;
+  use App\Models\Showtime;
+  use Carbon\Carbon;
+  use Illuminate\Support\Collection;
 
   class ShowtimeService
   {
-      public function create(array $attributes, Causer $causer): Showtime;
-      public function update(Showtime $showtime, array $attributes, Causer $causer): Showtime;
-      public function cancel(Showtime $showtime, string $reason, Causer $causer): void; // Task 5
-      public function bulkCreate(BulkShowtimeRequest $request, Causer $causer): Collection; // Task 4
+      public function create(array $attributes, ?AdminUser $actor = null): Showtime;
+      public function update(Showtime $showtime, array $attributes, ?AdminUser $actor = null): Showtime;
+      public function cancel(Showtime $showtime, string $reason, ?AdminUser $actor = null): void; // Task 5
+      public function bulkCreate(BulkShowtimeRequest $request, ?AdminUser $actor = null): Collection; // Task 4
       public function detectConflicts(int $auditoriumId, Carbon $start, Carbon $end, ?int $ignoreShowtimeId = null): Collection;
   }
   ```
@@ -71,19 +86,24 @@ Per spec § 2.6, all mutations route through `ShowtimeService`. Since this servi
 
   **Runtime precondition (hard rule):** `movies.runtime` is nullable in the schema (enrichment-backfilled for TMDB-linked titles). A showtime **cannot** be scheduled against a movie with `runtime IS NULL` — conflict math is undefined without it. `ShowtimeService::create` and `::update` must throw a domain exception (`MovieRuntimeMissingException`) before attempting overlap detection. Surface this as a form-validation error at the UI layer (Task 3) with an actionable message linking to the movie edit page so staff can backfill runtime and retry. A companion rule in Plan 04 should warn (non-blocking) on movies lacking runtime so this surfaces before scheduling.
 
-  Update admin facade.
+  **Extraction principles:**
+  - Validation stays at the HTTP boundary (Laravel `FormRequest` or `$request->validate()`) — the service accepts pre-validated arrays and enforces only domain invariants (conflict, missing runtime, already-cancelled).
+  - Mutation and orchestration move into the service — create the model, compute `end_time`, translate DB exclusion violations, emit activity-log rows, coordinate cancellation side-effects.
+  - Existing customer API controllers continue to handle HTTP request parsing and response formatting; they pass `null` for `$actor` because customer API writes are not admin-attributed.
 
 - **Acceptance Criteria:**
-  - [ ] `FinalCut\Domain\Services\ShowtimeService` exists in `packages/shared-domain/src/Services/` with documented methods
-  - [ ] Every write method signature declares an explicit `Causer $causer` parameter
+  - [ ] `App\Services\ShowtimeService` exists with the documented methods
+  - [ ] Every write method signature accepts `?AdminUser $actor = null` (last parameter)
   - [ ] End-time computed from movie runtime + auditorium cleanup
   - [ ] `detectConflicts` uses the `start < other.end AND end > other.start` rule
   - [ ] `create` / `update` catch `PDOException` exclusion violations (`SQLSTATE 23P01`) and re-throw as `ShowtimeConflictException` with the conflicting row's details
   - [ ] Scheduling a movie with `runtime IS NULL` throws `MovieRuntimeMissingException`
   - [ ] Ignore-self logic for updates works
-  - [ ] Backend tests cover conflict edge cases — **back-to-back (no conflict), exact-overlap, nested, one-minute overlap at both boundaries, and missing-runtime rejection**
+  - [ ] When `$actor` is set, each write emits an `activity_log` row with `causer` resolving to the admin user
+  - [ ] When `$actor` is null, no `activity_log` row is written
+  - [ ] Unit tests cover conflict edge cases — **back-to-back (no conflict), exact-overlap, nested, one-minute overlap at both boundaries, and missing-runtime rejection**
   - [ ] **Concurrent-insert test:** two parallel transactions attempting to insert overlapping showtimes for the same auditorium — one succeeds, one fails with `ShowtimeConflictException`, no partial state written
-  - [ ] Admin facade at `admin/app/Services/Backend/ShowtimeService.php` delegates to the domain service, resolves `Causer` from `auth()->user()`, imports from `FinalCut\Domain` — no `Backend\` namespace references
+  - [ ] Existing backend test suite still green after the extraction
 
 ---
 
@@ -98,9 +118,7 @@ Per spec § 2.6, all mutations route through `ShowtimeService`. Since this servi
   - `backend/database/migrations/<timestamp>_create_dispatch_outbox_table.php` (new)
   - `backend/app/Models/Showtime.php` (modify — fillable, casts)
   - `backend/app/Models/Booking.php` (modify — fillable, casts)
-  - `packages/shared-domain/src/Models/DispatchOutbox.php` (new — shared model)
-  - `admin/app/Models/Showtime.php` (mirror)
-  - `admin/app/Models/Booking.php` (mirror)
+  - `backend/app/Models/DispatchOutbox.php` (new)
 - **Details:**
 
   **Migration strategy (environment-state guard — see CLAUDE.md "Pre-launch migrations"):** The in-place rule applies only while the project is pre-launch. Before editing the existing showtimes/bookings migrations:
@@ -109,7 +127,7 @@ Per spec § 2.6, all mutations route through `ShowtimeService`. Since this servi
   2. **If clean (still pre-launch):** edit the two migrations in place as shown below.
   3. **If post-launch or any shared environment has the old schema:** ship as an additive migration `2026_xx_xx_add_admin_showtime_booking_columns.php` (same columns, same indexes). Do not rewrite history that other people have already run.
 
-  The EXCLUDE constraint and `dispatch_outbox` migrations are **always additive** (new migrations in both branches) — they don't exist in any prior schema.
+  The EXCLUDE constraint and `dispatch_outbox` migrations are **always additive** (new migrations) — they don't exist in any prior schema.
 
   The rest of this task assumes the pre-launch clean case for the showtimes/bookings edits. Regardless of which path is taken, the **resulting schema** is identical.
 
@@ -127,7 +145,7 @@ Per spec § 2.6, all mutations route through `ShowtimeService`. Since this servi
   PostgreSQL's exclusion constraint is the authoritative guard against overlapping showtimes in the same auditorium. `detectConflicts` in Task 1 is a UX affordance; the DB is the source of truth.
 
   ```php
-  // database/migrations/2026_xx_xx_add_showtime_exclusion_constraint.php
+  // backend/database/migrations/2026_xx_xx_add_showtime_exclusion_constraint.php
   public function up(): void
   {
       DB::statement('CREATE EXTENSION IF NOT EXISTS btree_gist');
@@ -167,7 +185,7 @@ Per spec § 2.6, all mutations route through `ShowtimeService`. Since this servi
   This table is **generalized** from the start — not showtime-cancellation-specific — so future features (gift-card voids, loyalty notifications, menu-item availability changes) reuse it without a new migration each time.
 
   ```php
-  // database/migrations/2026_xx_xx_create_dispatch_outbox_table.php
+  // backend/database/migrations/2026_xx_xx_create_dispatch_outbox_table.php
   Schema::create('dispatch_outbox', function (Blueprint $table) {
       $table->id();
       $table->string('event_type', 100);           // e.g., 'showtime.cancelled'
@@ -184,13 +202,11 @@ Per spec § 2.6, all mutations route through `ShowtimeService`. Since this servi
   });
   ```
 
-  The corresponding shared-domain model `FinalCut\Domain\Models\DispatchOutbox` declares the columns as fillable (except `attempts` / `failed_at` / `last_error`, which only the worker writes) and provides `payload` JSON casting. A `dispatchable()` query scope returns rows ready for the worker: `processed_at IS NULL AND available_at <= now() AND attempts < 5`.
+  The corresponding model `App\Models\DispatchOutbox` declares the columns as fillable (except `attempts` / `failed_at` / `last_error`, which only the worker writes) and provides `payload` JSON casting. A `dispatchable()` query scope returns rows ready for the worker: `processed_at IS NULL AND available_at <= now() AND attempts < 5`.
 
   Using nullable timestamps (`cancelled_at`, `flagged_at`, `processed_at`, `failed_at`) instead of booleans follows project convention (CLAUDE.md "Booleans as timestamps").
 
   Update backend queries that list showtimes for customers to filter `whereNull('cancelled_at')` — ensure the customer API does not show cancelled showtimes. This touches `ShowtimeController` and `MovieController@showtimes`.
-
-  Update `ModelParityTest` — add `DispatchOutbox` to the mirrored models list so admin-side cast parity is enforced. No changes needed for the showtimes/bookings additions (test is column-generic).
 
 - **Acceptance Criteria:**
   - [ ] Environment-state check documented in PR description (pre-launch clean vs. additive path chosen for showtimes/bookings edits)
@@ -201,10 +217,9 @@ Per spec § 2.6, all mutations route through `ShowtimeService`. Since this servi
   - [ ] EXCLUDE constraint is partial (`WHERE cancelled_at IS NULL`) — cancelling a showtime frees its slot
   - [ ] `bookings.flagged_at`, `flag_reason`, and `notes` added
   - [ ] `dispatch_outbox` table created with documented columns and the pending-rows index
-  - [ ] `FinalCut\Domain\Models\DispatchOutbox` declares fillable / casts and a `dispatchable()` scope
+  - [ ] `App\Models\DispatchOutbox` declares fillable / casts and a `dispatchable()` scope
   - [ ] Customer-facing showtime queries filter cancelled
-  - [ ] Models expose new fields; `DispatchOutbox` added to `ModelParityTest` mirrored list
-  - [ ] `ModelParityTest` passes
+  - [ ] Models expose new fields
 
 ---
 
@@ -213,10 +228,41 @@ Per spec § 2.6, all mutations route through `ShowtimeService`. Since this servi
 - **MoSCoW:** Must Have
 - **Complexity:** M
 - **Files:**
-  - `admin/app/Filament/Resources/ShowtimeResource.php` (new)
-  - `admin/app/Filament/Resources/ShowtimeResource/Pages/*` (list, create, edit, view)
+  - `backend/app/Filament/Resources/ShowtimeResource.php` (new)
+  - `backend/app/Filament/Resources/ShowtimeResource/Pages/ListShowtimes.php` (new)
+  - `backend/app/Filament/Resources/ShowtimeResource/Pages/CreateShowtime.php` (new)
+  - `backend/app/Filament/Resources/ShowtimeResource/Pages/EditShowtime.php` (new)
+  - `backend/app/Filament/Resources/ShowtimeResource/Pages/ViewShowtime.php` (new)
 - **Details:**
   Extends `BaseResource` with `$permissionPrefix = 'showtimes'`.
+
+  ```php
+  namespace App\Filament\Resources;
+
+  use App\Models\Showtime;
+
+  class ShowtimeResource extends BaseResource
+  {
+      protected static ?string $model = Showtime::class;
+      protected static ?string $permissionPrefix = 'showtimes';
+      protected static ?string $navigationIcon = 'heroicon-o-calendar-days';
+      protected static ?string $navigationGroup = 'Catalog';
+      protected static ?int $navigationSort = 30;
+
+      public static function form(Form $form): Form { /* below */ }
+      public static function table(Table $table): Table { /* below */ }
+
+      public static function getPages(): array
+      {
+          return [
+              'index' => Pages\ListShowtimes::route('/'),
+              'create' => Pages\CreateShowtime::route('/create'),
+              'view' => Pages\ViewShowtime::route('/{record}'),
+              'edit' => Pages\EditShowtime::route('/{record}/edit'),
+          ];
+      }
+  }
+  ```
 
   **Form schema:** the cascading location → auditorium select is a real cascade, not just a label hint. `location_id` is a live form field (not persisted on the showtime — `auditorium_id` already resolves to a location via its foreign key) that filters the `auditorium_id` options as the user picks a location.
 
@@ -278,6 +324,24 @@ Per spec § 2.6, all mutations route through `ShowtimeService`. Since this servi
   **Form validation:**
   - Custom rule on submit: call `ShowtimeService::detectConflicts()` and fail validation with a friendly message listing conflicting showtimes if any.
 
+  Override `CreateShowtime::handleRecordCreation` and `EditShowtime::handleRecordUpdate` to call `ShowtimeService` instead of letting Filament persist directly:
+
+  ```php
+  // CreateShowtime.php
+  protected function handleRecordCreation(array $data): Model
+  {
+      return app(\App\Services\ShowtimeService::class)
+          ->create($data, auth('admin')->user());
+  }
+
+  // EditShowtime.php
+  protected function handleRecordUpdate(Model $record, array $data): Model
+  {
+      return app(\App\Services\ShowtimeService::class)
+          ->update($record, $data, auth('admin')->user());
+  }
+  ```
+
   **Table:**
   ```php
   TextColumn::make('movie.title')->searchable()->sortable(),
@@ -285,7 +349,9 @@ Per spec § 2.6, all mutations route through `ShowtimeService`. Since this servi
   TextColumn::make('auditorium.name')->label('Auditorium')->sortable(),
   TextColumn::make('start_time')->dateTime()->sortable(),
   TextColumn::make('end_time')->dateTime()->toggleable(isToggledHiddenByDefault: true),
-  TextColumn::make('price_standard')->formatStateUsing(fn ($s) => CurrencyFormatter::format($s))->label('Std'),
+  TextColumn::make('price_standard')
+      ->formatStateUsing(fn ($s) => self::centsToDisplay($s))
+      ->label('Std'),
   BadgeColumn::make('status')
       ->getStateUsing(fn ($r) => $r->cancelled_at ? 'cancelled' : ($r->start_time->isPast() ? 'past' : 'scheduled'))
       ->colors(['success' => 'scheduled', 'gray' => 'past', 'danger' => 'cancelled']),
@@ -303,8 +369,6 @@ Per spec § 2.6, all mutations route through `ShowtimeService`. Since this servi
   - Cancel (Task 5)
   - Bulk create (Task 4) — header action
 
-  `handleRecordCreation` / `handleRecordUpdate` call `ShowtimeService` facade.
-
 - **Acceptance Criteria:**
   - [ ] Resource lists showtimes with movie/location/auditorium/time
   - [ ] Form has a real `location_id` select that filters `auditorium_id` options on change
@@ -314,8 +378,9 @@ Per spec § 2.6, all mutations route through `ShowtimeService`. Since this servi
   - [ ] Scheduling a movie with no runtime is blocked with a message linking to the movie edit page
   - [ ] Conflict validation fails submission with readable error listing conflicting showtimes
   - [ ] Filters work (location, auditorium, movie, date range, status)
-  - [ ] Pricing stored/displayed in cents
+  - [ ] Pricing stored/displayed in cents via `FormatsCurrency::centsToDisplay`
   - [ ] Default sort: upcoming first
+  - [ ] `handleRecordCreation` and `handleRecordUpdate` call `ShowtimeService`, passing `auth('admin')->user()` as actor
 
 ---
 
@@ -324,8 +389,8 @@ Per spec § 2.6, all mutations route through `ShowtimeService`. Since this servi
 - **MoSCoW:** Must Have
 - **Complexity:** L
 - **Files:**
-  - `admin/app/Filament/Resources/ShowtimeResource/Pages/BulkCreateShowtimes.php` (new)
-  - `admin/app/Http/Requests/BulkShowtimeRequest.php` (data object)
+  - `backend/app/Filament/Resources/ShowtimeResource/Pages/BulkCreateShowtimes.php` (new)
+  - `backend/app/Http/Requests/BulkShowtimeRequest.php` (data object — see Task 1)
 - **Details:**
   Custom Filament page invoked from a header action on the showtime list. Generates many showtimes from a declarative config.
 
@@ -374,7 +439,7 @@ Per spec § 2.6, all mutations route through `ShowtimeService`. Since this servi
   3. If `conflicting` is non-empty:
       - Present an error modal listing every conflict (date, time, colliding showtime).
       - The admin's only choice is **"Skip conflicts and create the rest"** (confirms creating `creatable` only) or **Cancel**. There is no "force-create" path.
-  4. If the admin confirms (or there were no conflicts from the start), call `ShowtimeService::bulkCreate($creatable)` inside a **single DB transaction**.
+  4. If the admin confirms (or there were no conflicts from the start), call `ShowtimeService::bulkCreate($creatable, auth('admin')->user())` inside a **single DB transaction**.
       - The transaction's scope is exactly the `creatable` subset — nothing else.
       - If **any** creation inside the transaction fails (DB error, unexpected service exception, activity log failure), the **entire `creatable` subset rolls back** — no partial-success writes. Previously-skipped conflicts were never candidates for creation, so they are unaffected.
   5. Redirect to showtimes list with a notification: `"Created {N}, skipped {M} due to conflicts."` On transaction failure, stay on the page with an error notification and the form state preserved.
@@ -386,6 +451,7 @@ Per spec § 2.6, all mutations route through `ShowtimeService`. Since this servi
   - [ ] Admin can only proceed by skipping conflicts — no force-create
   - [ ] The transaction's scope is the `creatable` subset only
   - [ ] If any creation inside the transaction fails, the whole `creatable` subset rolls back; no partial writes land
+  - [ ] `ShowtimeService::bulkCreate` is called with `auth('admin')->user()` as actor
   - [ ] Activity log entry per successfully created showtime (inside the same transaction)
   - [ ] On rollback, the admin is returned to the form with state preserved and a clear error
 
@@ -396,11 +462,11 @@ Per spec § 2.6, all mutations route through `ShowtimeService`. Since this servi
 - **MoSCoW:** Must Have
 - **Complexity:** L
 - **Files:**
-  - `admin/app/Filament/Resources/ShowtimeResource.php` (modify — add cancel action)
+  - `backend/app/Filament/Resources/ShowtimeResource.php` (modify — add cancel action)
   - `backend/app/Jobs/NotifyCustomerOfShowtimeCancellation.php` (new)
   - `backend/app/Mail/ShowtimeCancelledMail.php` (new)
-  - `admin/resources/views/mail/showtime-cancelled.blade.php` (new)
-  - `admin/app/Services/Backend/ShowtimeService.php` (modify — add cancel)
+  - `backend/resources/views/mail/showtime-cancelled.blade.php` (new)
+  - `backend/app/Services/ShowtimeService.php` (modify — add cancel)
 - **Details:**
   Cancel action on ShowtimeResource row:
 
@@ -409,7 +475,7 @@ Per spec § 2.6, all mutations route through `ShowtimeService`. Since this servi
       ->label('Cancel Showtime')
       ->icon('heroicon-o-x-circle')
       ->color('danger')
-      ->visible(fn ($record) => auth()->user()->can('showtimes.cancel') && !$record->cancelled_at && $record->start_time->isFuture())
+      ->visible(fn ($record) => auth('admin')->user()->can('showtimes.cancel') && !$record->cancelled_at && $record->start_time->isFuture())
       ->form([
           Textarea::make('reason')->required()->label('Cancellation reason')
               ->helperText('Customers will not see this; it is logged for staff reference.'),
@@ -418,22 +484,22 @@ Per spec § 2.6, all mutations route through `ShowtimeService`. Since this servi
       ->modalDescription(fn ($record) =>
           'Cancelling this showtime will flag ' . $record->bookings()->count() . ' booking(s) for manual refund.')
       ->action(fn ($record, array $data) =>
-          app(ShowtimeService::class)->cancel($record, $data['reason']))
+          app(\App\Services\ShowtimeService::class)->cancel($record, $data['reason'], auth('admin')->user()))
       ->successNotificationTitle('Showtime cancelled. Follow-up queue updated.');
   ```
 
   **Service implementation (`ShowtimeService::cancel`):** the service must be idempotent — if a second admin submits cancellation while the first is still processing, the second call must be a no-op (or throw a domain exception the UI can render as "Already cancelled by {user} at {time}"). Customer email delivery uses the generalized `dispatch_outbox` (Task 2) — the cancellation row and the outbox row are written inside the same transaction, and Plan 09's worker drains the outbox to dispatch the actual jobs. This replaces the previous `DB::afterCommit` + direct `dispatch()` pattern, which silently dropped jobs when Redis was unreachable at the moment `afterCommit` fired.
 
   ```php
-  public function cancel(Showtime $showtime, string $reason, Causer $causer): void
+  public function cancel(Showtime $showtime, string $reason, ?AdminUser $actor = null): void
   {
-      DB::transaction(function () use ($showtime, $reason, $causer) {
+      DB::transaction(function () use ($showtime, $reason, $actor) {
           // Pessimistic lock + re-read so two concurrent admins can't both "cancel"
           $fresh = Showtime::whereKey($showtime->id)->lockForUpdate()->first();
 
           if ($fresh->cancelled_at !== null) {
               // Idempotent no-op — surface as a domain exception so the UI can show
-              // "Already cancelled by {causer} at {time}" and refresh the record.
+              // "Already cancelled by {actor} at {time}" and refresh the record.
               throw new ShowtimeAlreadyCancelledException($fresh);
           }
 
@@ -450,10 +516,13 @@ Per spec § 2.6, all mutations route through `ShowtimeService`. Since this servi
 
           $bookingIds = $fresh->bookings()->pluck('id');
 
-          activity()->performedOn($fresh)
-              ->causedBy($causer)
-              ->withProperties(['reason' => $reason, 'flagged_bookings' => $bookingIds->count()])
-              ->log('cancelled_showtime');
+          if ($actor !== null) {
+              activity('admin')
+                  ->performedOn($fresh)
+                  ->causedBy($actor)
+                  ->withProperties(['reason' => $reason, 'flagged_bookings' => $bookingIds->count()])
+                  ->log('cancelled_showtime');
+          }
 
           // Write one outbox row per booking to notify. The worker (Plan 09) drains
           // these and dispatches NotifyCustomerOfShowtimeCancellation jobs. Writing
@@ -479,7 +548,7 @@ Per spec § 2.6, all mutations route through `ShowtimeService`. Since this servi
 
   **Mail stub:**
   ```blade
-  {{-- resources/views/mail/showtime-cancelled.blade.php --}}
+  {{-- backend/resources/views/mail/showtime-cancelled.blade.php --}}
   @component('mail::message')
   Hi {{ $booking->customer_name ?? 'there' }},
 
@@ -508,7 +577,7 @@ Per spec § 2.6, all mutations route through `ShowtimeService`. Since this servi
   - [ ] One `dispatch_outbox` row written per flagged booking, inside the same transaction as the cancellation — transactional rollback removes the outbox rows along with everything else
   - [ ] Simulated Redis unavailability at the time of cancellation does not drop notifications — outbox rows persist, worker delivers when Redis returns
   - [ ] Mailpit captures the emails in dev once the worker processes the outbox row
-  - [ ] Activity log entry recorded with explicit `causedBy($causer)`
+  - [ ] When `$actor` is set, an activity log entry is recorded with `causer` resolving to the admin user; when `$actor` is null, no admin activity row is written
 
 ---
 
@@ -517,13 +586,22 @@ Per spec § 2.6, all mutations route through `ShowtimeService`. Since this servi
 - **MoSCoW:** Must Have
 - **Complexity:** M
 - **Files:**
-  - `admin/app/Filament/Pages/CancellationFollowupQueue.php` (new)
+  - `backend/app/Filament/Pages/CancellationFollowupQueue.php` (new)
 - **Details:**
   Dedicated page listing every booking with `flagged_at IS NOT NULL AND status != 'refunded'`. This is the manual finance queue. Staff work through it out-of-band until Stripe refund integration lands in v2.
 
   ```php
+  namespace App\Filament\Pages;
+
+  use App\Filament\Concerns\FormatsCurrency;
+  use App\Models\Booking;
+  use Filament\Pages\Page;
+  use Filament\Tables\Concerns\InteractsWithTable;
+  use Filament\Tables\Contracts\HasTable;
+
   class CancellationFollowupQueue extends Page implements HasTable
   {
+      use FormatsCurrency;
       use InteractsWithTable;
 
       protected static string $view = 'filament.pages.cancellation-followup-queue';
@@ -536,7 +614,7 @@ Per spec § 2.6, all mutations route through `ShowtimeService`. Since this servi
       {
           // Viewing the queue requires bookings.view; the resolution action below
           // requires the narrower bookings.resolve_refund permission.
-          return auth()->user()?->can('bookings.view') ?? false;
+          return auth('admin')->user()?->can('bookings.view') ?? false;
       }
 
       public static function getNavigationBadge(): ?string
@@ -559,7 +637,7 @@ Per spec § 2.6, all mutations route through `ShowtimeService`. Since this servi
                   TextColumn::make('showtime.movie.title')->label('Movie'),
                   TextColumn::make('showtime.start_time')->label('Originally scheduled')->dateTime(),
                   TextColumn::make('total_cents')->label('Amount')
-                      ->formatStateUsing(fn ($s) => CurrencyFormatter::format($s)),
+                      ->formatStateUsing(fn ($s) => self::centsToDisplay($s)),
                   TextColumn::make('flagged_at')->label('Flagged')->since(),
                   TextColumn::make('flag_reason'),
               ])
@@ -567,7 +645,7 @@ Per spec § 2.6, all mutations route through `ShowtimeService`. Since this servi
                   Action::make('mark_resolved')
                       ->label('Mark refunded (manual)')
                       ->icon('heroicon-o-check')
-                      ->visible(fn () => auth()->user()?->can('bookings.resolve_refund') ?? false)
+                      ->visible(fn () => auth('admin')->user()?->can('bookings.resolve_refund') ?? false)
                       ->requiresConfirmation()
                       ->modalDescription('This records a manual refund. It does not issue a Stripe refund — v1 refunds are handled out-of-band.')
                       ->form([
@@ -584,7 +662,9 @@ Per spec § 2.6, all mutations route through `ShowtimeService`. Since this servi
                               'status' => 'refunded',
                               'notes' => $data['notes'],
                           ]);
-                          activity()->performedOn($record)
+                          activity('admin')
+                              ->causedBy(auth('admin')->user())
+                              ->performedOn($record)
                               ->withProperties(['notes' => $data['notes']])
                               ->log('manually_marked_refunded');
                       }),
@@ -603,13 +683,13 @@ Per spec § 2.6, all mutations route through `ShowtimeService`. Since this servi
   `bookings.notes` is introduced in Task 2 — Task 6 depends on that migration having run.
 
 - **Acceptance Criteria:**
-  - [ ] Page at `/admin/cancelled-showtime-followup`
+  - [ ] Page at `/cancelled-showtime-followup` on the admin subdomain
   - [ ] Lists all flagged-and-not-yet-refunded bookings
   - [ ] Navigation badge shows pending count
   - [ ] "Mark refunded" action requires the new `bookings.resolve_refund` permission and is hidden for users without it
   - [ ] `bookings.resolve_refund` is registered in the Plan 02 permission seeder and assigned to the intended roles
   - [ ] Resolution notes are required, min 10 characters, and written to `bookings.notes`
-  - [ ] Activity log captures the resolution with the full note
+  - [ ] Activity log captures the resolution with the full note and `causer` = acting admin
 
 ---
 
@@ -618,8 +698,8 @@ Per spec § 2.6, all mutations route through `ShowtimeService`. Since this servi
 - **MoSCoW:** Could Have (ships only if budget allows)
 - **Complexity:** L
 - **Files:**
-  - `admin/app/Filament/Pages/SchedulePlanner.php` (new)
-  - `admin/resources/views/filament/pages/schedule-planner.blade.php` (new)
+  - `backend/app/Filament/Pages/SchedulePlanner.php` (new)
+  - `backend/resources/views/filament/pages/schedule-planner.blade.php` (new)
 - **Details:**
   Weekly calendar view per auditorium. Each auditorium is a column; days are rows. Drag a movie into an empty slot to create a showtime; click an existing showtime to edit.
 
@@ -628,9 +708,9 @@ Per spec § 2.6, all mutations route through `ShowtimeService`. Since this servi
   **Explicit non-goal in this plan if budget tight:** Document as "deferred to admin-v2" and remove from plan scope. The MVP resource (Task 3) + bulk create (Task 4) cover core operations.
 
 - **Acceptance Criteria (only if shipped):**
-  - [ ] Planner at `/admin/schedule`
+  - [ ] Planner at `/schedule` on the admin subdomain
   - [ ] Week navigation + auditorium filter
-  - [ ] Drag to create uses the same service
+  - [ ] Drag to create uses the same service, passing `auth('admin')->user()` as actor
   - [ ] Click to edit opens modal
   - [ ] Conflict visualization highlights collisions
 
@@ -641,20 +721,49 @@ Per spec § 2.6, all mutations route through `ShowtimeService`. Since this servi
 - **MoSCoW:** Must Have
 - **Complexity:** M
 - **Files:**
-  - `admin/tests/Feature/Resources/ShowtimeResourceTest.php` (new)
-  - `admin/tests/Feature/Resources/ShowtimeResourcePermissionTest.php` (new)
-  - `admin/tests/Feature/Pages/BulkCreateShowtimesTest.php` (new)
-  - `admin/tests/Feature/Pages/CancellationFollowupQueueTest.php` (new)
-  - `admin/tests/Feature/ShowtimeCancellationFlowTest.php` (new — integration)
+  - `backend/tests/Feature/Admin/Resources/ShowtimeResourceTest.php` (new)
+  - `backend/tests/Feature/Admin/Resources/ShowtimeResourcePermissionTest.php` (new)
+  - `backend/tests/Feature/Admin/Pages/BulkCreateShowtimesTest.php` (new)
+  - `backend/tests/Feature/Admin/Pages/CancellationFollowupQueueTest.php` (new)
+  - `backend/tests/Feature/Admin/ShowtimeCancellationFlowTest.php` (new — integration)
+  - `backend/tests/Feature/Admin/ShowtimeConflictConcurrencyTest.php` (new — integration)
+  - `backend/tests/Feature/Admin/Services/ShowtimeServiceIntegrationTest.php` (new)
 - **Details:**
-  **ShowtimeResourceTest:**
-  - List, create with conflict validation (success + failure), edit, delete hidden for past showtimes
+  Use Filament's Livewire test helpers. Tests split into two layers.
+
+  **Layer A — Resource tests (service mocked).** Verify the Resource wires form / actions / permissions to the service. Mock `\App\Services\ShowtimeService` via `$this->mock()` so no backend writes happen. These tests do not assert on `activity_log` — with a mocked service, no real mutation runs.
+
+  **ShowtimeResourceTest (service mocked):**
+  - admin can list showtimes
+  - admin can create a showtime via form submission → asserts `ShowtimeService::create` called with expected payload shape and `actor` = logged-in admin
+  - admin can update a showtime → asserts `ShowtimeService::update` called with actor
+  - **Conflict validation** on create: pre-submit `detectConflicts` returns non-empty → form fails validation with a readable error listing conflicting showtimes; no call to `create`
+  - **Missing-runtime guard:** choosing a movie with `runtime IS NULL` blocks submission and renders the actionable link to the movie edit page
+  - Edit / cancel actions hidden for past and cancelled showtimes
+  - Cancel action calls `ShowtimeService::cancel` with the reason and actor; modal description shows affected-booking count
+
+  **ShowtimeResourcePermissionTest (service mocked):**
+  - ops cannot access create form (`canCreate` returns false)
+  - ops cannot access edit page
+  - ops cannot see cancel action
+  - ops cannot trigger bulk create
+  - manager can perform all showtime actions except cancellation follow-up refund-resolution (that's gated by `bookings.resolve_refund` — see Task 6 test)
+  - nobody role cannot access list page
 
   **BulkCreateShowtimesTest:**
-  - Form submission creates correct number of showtimes
+  - Form submission creates correct number of showtimes (mocked service)
   - Conflict pre-check surfaces overlaps
   - "Skip conflicts" path creates non-conflicting subset
-  - **Partial-conflict + subset-transaction-failure:** seed the schedule so a bulk request produces both `conflicting` and `creatable` tuples; admin chooses "skip conflicts"; the first tuple of the `creatable` subset succeeds but the second triggers a simulated service failure (e.g., activity log write throws). Assert: the entire `creatable` subset rolled back (zero new showtimes in DB), the pre-existing conflicting showtimes are untouched, the admin lands back on the form with a clear error, and no activity log entries were persisted for the attempted batch.
+  - **Partial-conflict + subset-transaction-failure (integration):** seed the schedule so a bulk request produces both `conflicting` and `creatable` tuples; admin chooses "skip conflicts"; the first tuple of the `creatable` subset succeeds but the second triggers a simulated service failure (e.g., activity log write throws). Assert: the entire `creatable` subset rolled back (zero new showtimes in DB), the pre-existing conflicting showtimes are untouched, the admin lands back on the form with a clear error, and no activity log entries were persisted for the attempted batch.
+
+  **Layer B — Service integration tests (real service, real DB).** These tests exercise the real `ShowtimeService` end-to-end to verify activity-log attribution and the outbox pattern.
+
+  **ShowtimeServiceIntegrationTest:**
+  - Creating a showtime with `$actor` set writes an `activity_log` row with the expected description, causer, and subject
+  - Creating a showtime with `$actor = null` does NOT write an `activity_log` row
+  - Updating a showtime with `$actor` set writes an update activity row with the changed-attribute diff
+  - Cancelling a showtime with `$actor` set writes a cancellation activity row with the reason and flagged-booking count
+  - Conflict detection edge cases — back-to-back (no conflict), exact-overlap, nested, one-minute overlap at both boundaries, missing-runtime rejection
 
   **ShowtimeCancellationFlowTest (integration):**
   - Cancelling a showtime flags all its bookings
@@ -662,7 +771,7 @@ Per spec § 2.6, all mutations route through `ShowtimeService`. Since this servi
   - Forced transaction rollback (e.g., simulated activity log write failure) removes the outbox rows along with the cancellation — no orphaned outbox entries
   - With Redis unavailable at cancel time (simulated by pointing the queue connection at an unreachable host): outbox rows still persist, and when the worker (invoked manually in the test) runs with Redis restored, the jobs dispatch
   - Second `cancel()` call on the same showtime throws `ShowtimeAlreadyCancelledException`, bookings are not re-flagged, no duplicate outbox rows
-  - Cancelled showtime hidden from customer-facing API (backend integration)
+  - Cancelled showtime hidden from customer-facing API
   - Activity log entry created with `causer_id` = acting admin, `causer_type` = `AdminUser`
 
   **ShowtimeConflictConcurrencyTest (integration):**
@@ -673,25 +782,25 @@ Per spec § 2.6, all mutations route through `ShowtimeService`. Since this servi
 
   **CancellationFollowupQueueTest:**
   - Only shows flagged-not-refunded bookings
-  - "Mark refunded" transitions status, writes `notes`, and logs
+  - "Mark refunded" transitions status, writes `notes`, and logs with `causer` = acting admin
   - Users without `bookings.resolve_refund` cannot see or invoke the action even if they can view the queue
 
-  **Permission tests:** ops cannot cancel, cannot bulk create, cannot resolve refunds; manager can do all three.
-
 - **Acceptance Criteria:**
-  - [ ] All test files green
+  - [ ] Layer A Resource tests cover list, create, update, cancel, conflict validation, missing-runtime guard, and permission matrix — service is mocked; no `activity_log` assertions
+  - [ ] Layer B integration tests run the real `ShowtimeService` and verify `activity_log` writes (including the `$actor = null` skip case)
   - [ ] Cancellation integration covers every state transition, including outbox persistence and worker-driven dispatch under simulated Redis unavailability
   - [ ] Concurrency test (`ShowtimeConflictConcurrencyTest`) exercises the EXCLUDE constraint against parallel transactions — this is the TOCTOU guard
-  - [ ] Queue page tests verify filtering correctness
+  - [ ] Queue page tests verify filtering correctness and gated refund-resolution permission
   - [ ] Permission matrix covered
+  - [ ] `make admin-test` passes all showtime tests green
 
 ---
 
 ## Testing Requirements
 
-- **Pest Feature Tests:** CRUD, conflict detection, bulk create, cancellation flow, follow-up queue, permission matrix
-- **Integration:** cancellation end-to-end (service → DB → job → email → queue page)
-- **Backend service tests:** Task 1 ensures `ShowtimeService` has independent coverage
+- **Layer A (Resource, service mocked):** list / create / update / cancel / conflict validation / missing-runtime guard / bulk-create + full permission matrix. No `activity_log` assertions.
+- **Layer B (Service integration, real DB):** activity-log attribution with / without actor, conflict-detection edge cases, outbox persistence, worker-driven dispatch under simulated Redis unavailability, concurrent-insert TOCTOU guard via EXCLUDE constraint.
+- **Backend service tests (Task 1):** create / update / cancel / bulkCreate / detectConflicts paths independent of Filament.
 
 ## Dependencies Map
 
@@ -710,8 +819,9 @@ Task 8 (tests) ← needs all
 
 1. **Conflict detection cost.** On large schedules (500+ showtimes), the overlap query may be slow. Addressed in Task 2 by adding a composite `(auditorium_id, start_time)` index on `showtimes`. The `EXCLUDE USING gist` constraint has its own gist index and scales independently — a sequential `INSERT` cost of O(log n) per row rather than O(n). Revisit if query plans still show sequential scans under seeded load.
 2. **Email template review.** The stubbed cancellation email copy is functional but not marketing-approved. Plan 09 adds proper templates; Task 5's stub is placeholder text.
-3. **Queue + outbox worker.** Requires two workers running in admin-worker: `queue:work` for actual job execution and a scheduled/long-running outbox processor. Plan 09 wires both. Acceptance: outbox rows drained within 60s under normal load; rows with `attempts >= 5` and non-null `failed_at` page on-call.
+3. **Queue + outbox worker.** Requires two workers running in the admin queue: `queue:work` for actual job execution and a scheduled/long-running outbox processor. Plan 09 wires both. Acceptance: outbox rows drained within 60s under normal load; rows with `attempts >= 5` and non-null `failed_at` page on-call.
 4. **Backend showtime queries.** Task 2 requires updating multiple backend queries to filter `cancelled_at`. Miss one and cancelled showtimes still appear for customers. Add a Pest test in backend to assert customer-facing endpoints exclude cancelled showtimes.
 5. **Racing with live bookings.** If a customer books the last seat while admin is cancelling the showtime, the booking is created then immediately flagged. This is correct behavior but may confuse the customer (they get a confirmation and a cancellation email seconds apart). Document as acceptable v1 behavior; v2 could pre-lock the showtime during cancellation.
 6. **`btree_gist` availability.** The EXCLUDE constraint requires the `btree_gist` extension, which ships with PostgreSQL but isn't enabled by default. The migration enables it via `CREATE EXTENSION IF NOT EXISTS`. Confirm the database user has the `CREATE` privilege on the database (needed for extension installation) — in most setups this is true, but managed Postgres services sometimes require extensions to be pre-enabled via their control plane. Check at migration-run time, not in production.
 7. **Outbox table growth.** The `dispatch_outbox` table grows unboundedly if processed rows aren't pruned. Add a `dispatch_outbox:prune` scheduled command that deletes `processed_at < now() - 30 days` rows, wired in Plan 09 alongside `activitylog:clean`.
+8. **Write-boundary convention.** The rule that admin showtime writes go through `ShowtimeService` (for conflict translation, audit attribution, and outbox coordination) is enforced only by Layer A Resource tests, not by static analysis. A future contributor bypassing the service slips through to a direct `$record->update()` with no audit row and no outbox coordination. The Task 8 regression tests catch it before merge. If regressions happen repeatedly, escalate to a lint rule — but start with the test, keep tooling light.

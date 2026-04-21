@@ -1,21 +1,23 @@
-# Plan 09: Calendar Events, Testing & Deploy
+# Plan 09: Calendar Events, Testing & Hardening
 
 > **Priority:** Should Have
 > **Complexity:** L
-> **Depends On:** Plans 04–08 (every domain plan contributes resources that need testing). Tasks 6, 7, and 8 additionally inherit Plan 03's shared-code / backend classmap model — if that approach is revised, the Dockerfile, compose volumes, and CI checkout steps in this plan must be updated in lockstep.
+> **Depends On:** Plans 04–08 (every domain plan contributes resources that need testing and hardening)
 > **Unlocks:** Production admin deployment
 
 ## Overview
 
-The finisher. `CalendarEventResource` rounds out domain coverage. Then the deployment hardening layer: IP allowlist middleware, nginx rate limits on login, Fail2ban jail, queue worker + scheduler containers, CI workflow update to include admin, production compose file, Let's Encrypt cert automation. Finally the docs layer: `CLAUDE.md` admin section, `docs/progress/admin-v1.md` finalization, and a post-launch runbook.
+The finisher. `CalendarEventResource` rounds out domain coverage. Then the deployment hardening layer: nginx IP allowlist block, nginx rate limits on login, Fail2ban jail, a Laravel middleware that backs up the nginx allowlist (defense in depth), confirmation that the backend's queue worker + scheduler also service admin-dispatched work, CI workflow update to run admin tests, production nginx vhost rendering, and Let's Encrypt cert automation for the admin subdomain. Finally the docs layer: root `CLAUDE.md` admin section, `docs/README.md` entry, `docs/progress/admin-v1.md` finalization, and a post-launch runbook at `docs/runbooks/admin-operations.md`.
 
 This plan is the gate between "admin works in dev" and "admin is safe to ship to prod." The security posture must be **fail-closed by default** — a missing env var should never quietly expose the admin panel.
+
+No separate production Laravel app, no separate admin Docker service. Admin runs in the same `backend` PHP-FPM container as the customer API; isolation is the nginx vhost split and the Laravel route-domain scoping from Plan 01.
 
 ## Reference Documents
 
 - `docs/superpowers/specs/2026-04-20-admin-section-design.md` — § 7 Deployment
 - `docs/plans/backend/v1/08-testing-and-seeding.md` — backend CI reference
-- `docs/plans/admin/v1/01-admin-scaffold-and-docker.md` — Dockerfile/compose baseline
+- `docs/plans/admin/v1/01-admin-scaffold-and-docker.md` — nginx admin vhost + route-domain scoping baseline
 
 ---
 
@@ -26,12 +28,12 @@ This plan is the gate between "admin works in dev" and "admin is safe to ship to
 - **MoSCoW:** Must Have
 - **Complexity:** M
 - **Files:**
-  - `admin/app/Filament/Resources/CalendarEventResource.php` (new)
-  - `admin/app/Filament/Resources/CalendarEventResource/Pages/*`
+  - `backend/app/Filament/Resources/CalendarEventResource.php` (new)
+  - `backend/app/Filament/Resources/CalendarEventResource/Pages/*` (new)
 - **Details:**
-  `$permissionPrefix = 'events'`. Standard CRUD, no custom services required. Calendar events are **admin-authored editorial content** — not customer-owned operational data — so direct Eloquent writes are permitted per spec § 2.6 exception. This rationale is deliberately narrower than "no invariants today": scoping the exception to the *nature of the data* (editorial content with no customer-facing state transitions) rather than the *current absence of rules* makes it durable as the schema evolves.
+  `$permissionPrefix = 'events'`. Standard CRUD, no custom service required. Calendar events are **admin-authored editorial content** — not customer-owned operational data — so direct Eloquent writes are permitted per spec § 2.6. This rationale is deliberately narrower than "no invariants today": scoping the exception to the *nature of the data* (editorial content with no customer-facing state transitions) rather than the *current absence of rules* makes it durable as the schema evolves.
 
-  **Schema grounding:** All field names, types, and storage shapes — especially `accessibility_tags` (array/JSON column) and the `type` enum — must mirror the canonical `calendar_events` migration and `CalendarEvent` Eloquent model owned by the backend app. Before implementing the form schema, confirm the backend model's `$casts`, column types, and enum values, and adjust the Filament schema to match (e.g., if the model casts `accessibility_tags` to a specific array shape or uses a native Postgres enum for `type`). Do not assume storage shape — ground it against the backend migration.
+  **Schema grounding:** All field names, types, and storage shapes — especially `accessibility_tags` (array/JSON column) and the `type` enum — must mirror the canonical `calendar_events` migration and `App\Models\CalendarEvent` Eloquent model. Before implementing the form schema, confirm the model's `$casts`, column types, and enum values, and adjust the Filament schema to match. Do not assume storage shape — ground it against the backend migration.
 
   **Form schema:**
   ```php
@@ -103,47 +105,79 @@ This plan is the gate between "admin works in dev" and "admin is safe to ship to
 - **MoSCoW:** Must Have
 - **Complexity:** M
 - **Files:**
-  - `admin/tests/Feature/Resources/CalendarEventResourceTest.php` (new)
+  - `backend/tests/Feature/Admin/Resources/CalendarEventResourceTest.php` (new)
   - All existing admin test files (modify if needed)
 - **Details:**
-  Every Filament Resource created in Plans 04–08 should already have CRUD + policy tests. Plan 09 adds Calendar and makes sure the full suite passes end-to-end.
+  Every Filament Resource from Plans 04–08 should already have CRUD + policy tests under `backend/tests/Feature/Admin/`. Plan 09 adds Calendar and makes sure the full admin suite passes end-to-end.
 
   Checklist — must be green before shipping:
-  - [ ] `ModelParityTest` (Plan 03)
-  - [ ] `BaseResourceTest` (Plan 03)
-  - [ ] Plan 02 auth suite
-  - [ ] Plan 04 movie suite
+  - [ ] Plan 01 `RouteDomainScopingTest` — every API route bound to primary domain, every Filament route bound to admin domain, no route with null domain
+  - [ ] Plan 02 auth suite (LoginTest, PermissionEnforcementTest, RoleSeederTest, AuditLoggingTest, SessionCookieScopingTest, CreateAdminUserCommandTest)
+  - [ ] Plan 03 substrate suite (FormatsCurrencyTest, BaseResourceTest, LoyaltyAdjustmentTest)
+  - [ ] Plan 04 movie suite (MovieResourceTest, MovieResourcePermissionTest, MovieServiceIntegrationTest)
   - [ ] Plan 05 location/auditorium/seat-generator suite (+ visual editor if shipped)
   - [ ] Plan 06 showtime suite + cancellation flow integration
   - [ ] Plan 07 booking/user/loyalty suite
   - [ ] Plan 08 menu/promo/gift-card suite + gift card void integration
   - [ ] Plan 09 calendar event suite
 
-  Run `make admin-test` → zero failures. Any skipped/incomplete tests documented in the progress journal.
+  Run `make admin-test` → zero failures for the `Feature/Admin/` subset. Run `make test-backend` → zero failures across the full backend suite (customer API tests plus admin tests). Run `make test` → backend + frontend green.
 
 - **Acceptance Criteria:**
-  - [ ] All admin Pest tests green
-  - [ ] `make test-all` (backend + frontend + admin) green
+  - [ ] All admin Pest tests green under `make admin-test`
+  - [ ] `make test-backend` green (customer + admin)
+  - [ ] `make test` green (backend + frontend)
   - [ ] No skipped tests without documented rationale
 
 ---
 
-### Task 3: IP allowlist middleware
+### Task 3: Nginx IP allowlist + Laravel middleware (defense in depth)
 
 - **MoSCoW:** Must Have
-- **Complexity:** S
+- **Complexity:** M
 - **Files:**
-  - `admin/app/Http/Middleware/AdminIpAllowlist.php` (new)
-  - `admin/app/Providers/Filament/AdminPanelProvider.php` (modify — register middleware)
-  - `admin/config/admin.php` (new config)
+  - `nginx/templates/conf.d/admin.conf.template` (modify — add allow/deny block)
+  - `backend/app/Http/Middleware/AdminIpAllowlist.php` (new)
+  - `backend/config/admin.php` (new config)
+  - `backend/app/Providers/Filament/AdminPanelProvider.php` (modify — register middleware)
+  - `backend/.env.production.example` (new or extend)
 - **Details:**
-  Production-only middleware reading a CIDR list from env and blocking requests from IPs outside the list.
+  Two layers that must both be misconfigured before the admin panel becomes reachable from an unexpected IP:
 
-  **Security posture:** **Fail-closed by default.** A missing or empty `ADMIN_IP_ALLOWLIST` in production denies all requests. An explicit, separately-scoped env flag (`ADMIN_IP_ALLOWLIST_EMERGENCY_OPEN=true`) exists as a time-boxed deploy escape hatch; it is loud (error-level logging) and must be unset after bootstrap. This reverses the earlier draft's fail-open default — an admin hardening layer must never be silently disabled by a configuration mistake.
+  **Layer 1 — nginx allow/deny.** Runs before PHP-FPM, so unauthorized requests are rejected without Laravel booting. Inserted into `admin.conf.template` between the `server_name` directive and the `location` blocks. The CIDR list is rendered at container start via `envsubst`:
 
-  **IPv4 scope:** v1 matches IPv4 only. The production admin domain is served behind an IPv4 load balancer; IPv6 ingress is explicitly out of scope for v1. If IPv6 ingress is ever added, this middleware must be replaced with a dual-stack library (e.g., `symfony/http-foundation`'s `IpUtils::checkIp`), and the Fail2ban jail (Task 5) must gain an `ip6tables-multiport` variant at the same time — the two must be revisited together.
+  ```nginx
+  server {
+      listen 443 ssl;
+      http2 on;
+      server_name admin.${APP_DOMAIN};
+
+      # ... existing TLS + root config
+
+      ${ADMIN_ALLOWLIST_BLOCK}
+
+      location / {
+          # ...
+      }
+  }
+  ```
+
+  `${ADMIN_ALLOWLIST_BLOCK}` is one of:
+  - In dev (`APP_ENV=local`): rendered to the empty string — no allowlist, nginx allows everything, Laravel middleware (Layer 2) also skips.
+  - In prod: rendered to `allow 203.0.113.0/24; allow 198.51.100.10; deny all;` (or whatever the `ADMIN_IP_ALLOWLIST` env var specifies). A small shell wrapper at container start (e.g., extending the nginx image's `docker-entrypoint.d/` hooks) transforms `ADMIN_IP_ALLOWLIST=203.0.113.0/24,198.51.100.10` into the multi-line nginx block and exports `ADMIN_ALLOWLIST_BLOCK`. If `ADMIN_IP_ALLOWLIST` is unset or empty in a non-local environment, the wrapper exports `deny all;` — fail closed.
+
+  **Layer 2 — Laravel middleware.** Runs inside PHP on every admin request. If nginx is ever misconfigured to send a request through, the middleware re-checks the IP and denies if necessary. Also catches requests that bypassed nginx (direct container access during incident response, etc.).
+
+  **Security posture:** **Fail-closed by default.** A missing or empty `ADMIN_IP_ALLOWLIST` in production denies all requests at both layers. An explicit, separately-scoped env flag (`ADMIN_IP_ALLOWLIST_EMERGENCY_OPEN=true`) exists as a time-boxed deploy escape hatch; it is loud (error-level logging) and must be unset after bootstrap.
+
+  **IPv4 scope:** v1 matches IPv4 only. The production admin domain is served behind an IPv4 load balancer; IPv6 ingress is explicitly out of scope. If IPv6 ingress is ever added, both the nginx block and this middleware must be replaced with dual-stack handlers, and the Fail2ban jail (Task 5) must gain an `ip6tables-multiport` variant at the same time.
 
   ```php
+  namespace App\Http\Middleware;
+
+  use Closure;
+  use Illuminate\Http\Request;
+
   class AdminIpAllowlist
   {
       public function handle(Request $request, Closure $next)
@@ -154,9 +188,7 @@ This plan is the gate between "admin works in dev" and "admin is safe to ship to
 
           $clientIp = $request->ip();
 
-          // v1 is IPv4-only. Reject IPv6 explicitly rather than letting ip2long()
-          // silently return false and pattern-match as "not in allowlist" — the
-          // explicit rejection is both clearer in logs and honest about scope.
+          // v1 is IPv4-only. Reject IPv6 explicitly.
           if ($clientIp !== null && str_contains($clientIp, ':')) {
               logger()->warning('AdminIpAllowlist: IPv6 request rejected (v1 is IPv4-only)', [
                   'ip' => $clientIp,
@@ -168,15 +200,11 @@ This plan is the gate between "admin works in dev" and "admin is safe to ship to
 
           if (empty($allowlist)) {
               if (config('admin.ip_allowlist_emergency_open')) {
-                  // Explicit, logged, time-boxed escape hatch. Must be unset after
-                  // bootstrap; never leave true as a resting state.
                   logger()->error('AdminIpAllowlist: EMERGENCY_OPEN flag active — allowing all IPs', [
                       'ip' => $clientIp,
                   ]);
                   return $next($request);
               }
-
-              // Fail closed. An unset env var is a misconfiguration, not permission.
               logger()->error('AdminIpAllowlist: no allowlist configured and EMERGENCY_OPEN not set — denying request', [
                   'ip' => $clientIp,
               ]);
@@ -216,45 +244,48 @@ This plan is the gate between "admin works in dev" and "admin is safe to ship to
 
   Config:
   ```php
-  // config/admin.php
+  // backend/config/admin.php
   return [
       'ip_allowlist' => env('ADMIN_IP_ALLOWLIST', ''),
       'ip_allowlist_emergency_open' => env('ADMIN_IP_ALLOWLIST_EMERGENCY_OPEN', false),
   ];
   ```
 
-  Register middleware globally on the admin panel:
+  Register middleware at the top of the admin panel's middleware stack (so it runs before anything else):
   ```php
-  // AdminPanelProvider::panel()
+  // AdminPanelProvider::panel()->middleware([...])
   ->middleware([
       AdminIpAllowlist::class,
-      // ... existing middleware stack
+      ScopeAdminSession::class,
+      // ... existing Filament stack
   ]);
   ```
 
-  Document env configuration in `admin/.env.production.example`:
+  Document env configuration in `backend/.env.production.example`:
   ```
   # Comma-separated list of IPv4 addresses or CIDR blocks allowed to reach the admin panel.
   # REQUIRED in production. Empty = deny all (unless emergency flag is also set).
+  # Enforced at two layers: nginx (in admin.conf.template) and Laravel middleware.
   ADMIN_IP_ALLOWLIST=203.0.113.0/24,198.51.100.10
 
   # Emergency fail-open. Exists only to prevent lockout during initial deploy when
   # the allowlist has not yet been set. Allowed values:
-  #   false (default) — fail closed if allowlist empty. This is the production resting state.
+  #   false (default) — fail closed if allowlist empty. Production resting state.
   #   true            — allow all requests when allowlist empty. Logs error-level warning.
   # NEVER leave this true outside a bootstrap window. Unset it the moment real CIDRs are live.
   ADMIN_IP_ALLOWLIST_EMERGENCY_OPEN=false
   ```
 
 - **Acceptance Criteria:**
-  - [ ] Middleware blocks production requests from IPs outside the allowlist
-  - [ ] Dev/test environments bypass
+  - [ ] Nginx admin vhost renders `allow <cidr>; deny all;` block in prod from `ADMIN_IP_ALLOWLIST`
+  - [ ] Nginx admin vhost renders empty block (no allowlist, allow all) in dev
+  - [ ] `AdminIpAllowlist` middleware blocks production requests from IPs outside the allowlist
+  - [ ] Dev/test environments bypass the middleware
   - [ ] **Empty allowlist in production fails closed by default** — all requests return 403 with an error-level log line
   - [ ] `ADMIN_IP_ALLOWLIST_EMERGENCY_OPEN=true` with empty allowlist allows requests but emits an error-level log entry on every request
   - [ ] IPv4 CIDR matching works (e.g., `203.0.113.0/24` matches `203.0.113.42`; `/32` and `/0` edge cases handled)
-  - [ ] IPv6 requests are explicitly rejected with a logged warning (v1 scope)
-  - [ ] Malformed CIDRs (bits outside 0–32, non-numeric) do not crash the request and log a warning
-  - [ ] Rejected requests return 403, logged with IP
+  - [ ] IPv6 requests explicitly rejected with a logged warning (v1 scope)
+  - [ ] Malformed CIDRs do not crash the request and log a warning
   - [ ] Pest test covers: allowed IP, blocked IP, empty allowlist fail-closed, emergency-open bypass, IPv6 rejection
 
 ---
@@ -264,58 +295,58 @@ This plan is the gate between "admin works in dev" and "admin is safe to ship to
 - **MoSCoW:** Must Have
 - **Complexity:** S
 - **Files:**
-  - `nginx/conf.d/admin.finalcut.test.conf` (modify — tighten from Plan 01)
-  - `nginx/nginx.conf` or shared snippet (confirm `limit_req_zone` declared)
+  - `nginx/templates/conf.d/admin.conf.template` (modify)
+  - `nginx/nginx.conf` (confirm `limit_req_zone` declared — may need to be added)
 - **Details:**
-  Plan 01 Task 4 declared the zone; Plan 09 applies the limit. Final config:
+  Add the `limit_req_zone` declaration to the http block in `nginx/nginx.conf` (or an equivalent shared snippet loaded by the image):
 
   ```nginx
-  # nginx/nginx.conf or snippet
   http {
       limit_req_zone $binary_remote_addr zone=admin_login:10m rate=5r/m;
   }
+  ```
 
-  # nginx/conf.d/admin.finalcut.test.conf
-  server {
-      # ... existing TLS config
+  In `admin.conf.template`, add a location block matching the Filament login path:
 
-      location = /admin/login {
-          limit_req zone=admin_login burst=3 nodelay;
-          limit_req_status 429;
-          try_files $uri /index.php?$query_string;
-      }
-
-      location ~ \.php$ {
-          # ... existing fastcgi
-      }
+  ```nginx
+  location = /login {
+      limit_req zone=admin_login burst=3 nodelay;
+      limit_req_status 429;
+      try_files $uri /index.php?$query_string;
   }
   ```
+
+  The path is `/login` (not `/admin/login`) because Filament is mounted at the subdomain root (Plan 01 Task 2 sets `->path('/')`).
 
   Rate: 5 requests per minute per IP, burst 3. Exceeding returns 429 Too Many Requests.
 
 - **Acceptance Criteria:**
-  - [ ] `/admin/login` POST returns 429 after 5 rapid attempts
+  - [ ] `limit_req_zone` declared in the http block
+  - [ ] `/login` POST on admin subdomain returns 429 after 5 rapid attempts
   - [ ] Successful logins not penalized
   - [ ] Burst of 3 concurrent attempts allowed
-  - [ ] Manual test: curl against login 10 times in 30 seconds → last 5 return 429
+  - [ ] Manual test: curl against `https://admin.finalcut.test/login` 10 times in 30 seconds → last 5 return 429
 
 ---
 
-### Task 5: Fail2ban jail
+### Task 5: Fail2ban jail for admin login failures
 
 - **MoSCoW:** Should Have
 - **Complexity:** S
 - **Files:**
   - `fail2ban/jail.d/admin-login.conf` (new)
   - `fail2ban/filter.d/admin-login.conf` (new)
+  - `fail2ban/filter.d/admin-login.sample.log` (new — dev convenience)
+  - `backend/config/logging.php` (modify — add dedicated channel)
+  - `backend/app/Providers/AppServiceProvider.php` (modify — failed-login listener writes to dedicated channel)
 - **Details:**
-  Existing Fail2ban container (per project infrastructure) gets a new jail matching failed admin login attempts.
+  The existing Fail2ban container (already in `docker-compose.yml`) gets a new jail matching failed admin login attempts.
 
-  **Logging contract — the central guarantee of this task.** The Fail2ban filter and the Laravel log format are a tightly coupled pair. Rather than trying to regex against Laravel's *default* log channel (whose format depends on the stack, per-channel formatter, and Monolog version), the admin app ships a **dedicated logging channel** with a pinned Monolog JSON formatter. The filter matches that format exactly, and a sample log line is committed to the repo so the regex can be verified without running the full login flow.
+  **Logging contract — the central guarantee of this task.** The Fail2ban filter and the Laravel log format are a tightly coupled pair. Rather than regex against Laravel's default log channel (whose format depends on stack, per-channel formatter, and Monolog version), admin ships a **dedicated logging channel** with a pinned Monolog JSON formatter. The filter matches that format exactly, and a sample log line is regenerated in CI so drift surfaces before prod.
 
-  **Dedicated logging channel:**
+  **Dedicated logging channel** (additive change to backend config):
   ```php
-  // admin/config/logging.php — add to the 'channels' array
+  // backend/config/logging.php — add to the 'channels' array
   'admin_auth_events' => [
       'driver' => 'single',
       'path' => storage_path('logs/admin-auth-events.log'),
@@ -329,19 +360,19 @@ This plan is the gate between "admin works in dev" and "admin is safe to ship to
   ],
   ```
 
-  **Event listener — writes only to the dedicated channel:**
+  **Failed-login listener — writes to the dedicated channel** (extend the existing auth-event listener in `AppServiceProvider::boot()` from Plan 02 Task 5):
   ```php
-  // admin/app/Providers/EventServiceProvider.php
-  use Illuminate\Auth\Events\Failed;
-  use Illuminate\Support\Facades\Log;
+  Event::listen(Failed::class, function (Failed $e) {
+      if ($e->guard !== 'admin') return;
 
-  Event::listen(Failed::class, function (Failed $event) {
-      if ($event->guard === 'admin') {
-          Log::channel('admin_auth_events')->info('Failed admin login', [
-              'ip' => request()->ip(),
-              'email' => $event->credentials['email'] ?? null,
-          ]);
-      }
+      // Existing Plan 02 activity-log write stays as-is (activity-log has different consumers).
+      activity('auth')->withProperties(['email' => $e->credentials['email'] ?? null])->log('login_failed');
+
+      // NEW — dedicated channel for Fail2ban to parse.
+      Log::channel('admin_auth_events')->info('Failed admin login', [
+          'ip' => request()->ip(),
+          'email' => $e->credentials['email'] ?? null,
+      ]);
   });
   ```
 
@@ -360,23 +391,19 @@ This plan is the gate between "admin works in dev" and "admin is safe to ship to
   ignoreregex =
   ```
 
-  **Sample log line — CI-generated, not hand-written.** A committed static sample file will silently drift the first time Monolog changes its JSON output shape (a patch or major bump that reorders keys, renames fields, or adjusts `datetime` formatting). The filter would keep passing against the stale committed sample while the *actual* logs stop matching, and the gap only surfaces in production when a real attack isn't getting banned. To close that gap, CI generates the sample fresh on every run:
+  **Sample log line — CI-generated, not hand-trusted.** A committed static sample file will silently drift the first time Monolog changes its JSON output. To close that gap, CI regenerates the sample on every run:
 
-  - **CI step (`.github/workflows/ci.yml`, admin job):** spin up the admin container after migrations, fire a failed login via HTTP (`curl -X POST /admin/login --data 'email=nobody@example.com&password=wrong'` or the test-harness equivalent), tail `storage/logs/admin-auth-events.log` to capture the freshly-written line, write it to `/tmp/admin-login.sample.log`, and run `fail2ban-regex /tmp/admin-login.sample.log fail2ban/filter.d/admin-login.conf`. Any non-match fails CI.
-  - **Committed reference file (dev convenience only):** `fail2ban/filter.d/admin-login.sample.log` remains in the repo as a dev aid — easy to run `fail2ban-regex` locally without spinning up the container — but is marked `# NON-AUTHORITATIVE: regenerated by CI from a live failed login. Do not trust without the CI check.` at the top of the file. If it drifts from the CI-generated version, CI fails first, not prod.
+  - CI step (see Task 7): after backend migrations, fire a failed login via HTTP, tail `backend/storage/logs/admin-auth-events.log` to capture the freshly-written line, run `fail2ban-regex` against it. Non-match fails CI.
+  - Committed reference file (dev convenience only): `fail2ban/filter.d/admin-login.sample.log` carries a `NON-AUTHORITATIVE` header comment; CI regeneration is the real contract.
 
   ```
   # fail2ban/filter.d/admin-login.sample.log
   # NON-AUTHORITATIVE — dev convenience only. CI regenerates from a live failed
-  # login on every run; that is the authoritative sample. If CI fails on this
-  # check and the committed file is stale, regenerate locally:
-  #   make admin-fail2ban-sample  # dispatches a failed login, captures the log line
+  # login on every run; that is the authoritative sample.
   {"message":"Failed admin login","context":{"ip":"203.0.113.42","email":"attacker@example.com"},"level":200,"level_name":"INFO","channel":"admin_auth_events","datetime":"2026-04-21T12:34:56.000000+00:00","extra":[]}
   ```
 
-  Verify the filter against the sample during development: `fail2ban-regex fail2ban/filter.d/admin-login.sample.log fail2ban/filter.d/admin-login.conf`. This is local-only; the authoritative check runs in CI.
-
-  **Jail — logpath points at the dedicated file, not the catch-all Laravel log:**
+  **Jail:**
   ```ini
   # fail2ban/jail.d/admin-login.conf
   [admin-login]
@@ -389,284 +416,231 @@ This plan is the gate between "admin works in dev" and "admin is safe to ship to
   action = iptables-multiport[name=admin-login, port="80,443"]
   ```
 
-  5 failed logins in 10 minutes → 24 hour IP ban. The admin container must mount `storage/logs/admin-auth-events.log` into the Fail2ban container at `/var/log/admin/admin-auth-events.log` (update compose volumes accordingly).
+  Mount the backend container's `storage/logs/admin-auth-events.log` into the Fail2ban container at `/var/log/admin/admin-auth-events.log` via `docker-compose.yml` volumes.
 
 - **Acceptance Criteria:**
-  - [ ] `admin_auth_events` logging channel defined with Monolog `JsonFormatter` and a stable output shape
-  - [ ] Event listener writes failed admin logins to that channel (and *only* that channel)
+  - [ ] `admin_auth_events` logging channel defined with Monolog `JsonFormatter`
+  - [ ] Failed admin login event writes to that channel (and only that channel, in addition to the existing activity-log write)
   - [ ] **CI step generates the sample log from a live failed login and runs `fail2ban-regex` against it — Monolog version drift fails CI, not production**
-  - [ ] Dev-convenience sample at `fail2ban/filter.d/admin-login.sample.log` carries a `NON-AUTHORITATIVE` header comment and passes `fail2ban-regex` locally
-  - [ ] Fail2ban jail registered and pointed at the dedicated log file
-  - [ ] Admin container mounts the dedicated log file into the Fail2ban container
+  - [ ] Dev-convenience sample at `fail2ban/filter.d/admin-login.sample.log` carries a `NON-AUTHORITATIVE` header and passes `fail2ban-regex` locally
+  - [ ] Fail2ban jail registered and points at the dedicated log file
+  - [ ] Backend container mounts the dedicated log file into the Fail2ban container
   - [ ] Manual test: 6 failed logins from test IP → IP gets banned, cannot reach admin for 24h
-  - [ ] IPv6 caveat documented: jail covers IPv4 only; if IPv6 ingress is introduced later, a parallel `ip6tables-multiport` jail and the matching update to `AdminIpAllowlist` (Task 3) must ship together
+  - [ ] IPv6 caveat documented: jail covers IPv4 only; dual-stack requires both `AdminIpAllowlist` and a parallel `ip6tables-multiport` jail
 
 ---
 
-### Task 6: Queue worker + scheduler containers + dispatch_outbox worker
+### Task 6: Queue worker + scheduler verification (no new containers)
 
 - **MoSCoW:** Must Have
-- **Complexity:** M
+- **Complexity:** S
 - **Files:**
-  - `admin/Dockerfile` (modify — add worker stage)
-  - `docker-compose.yml` (modify — add admin-worker, admin-scheduler services)
-  - `admin/app/Console/Commands/ProcessDispatchOutbox.php` (new — worker that drains Plan 06's `dispatch_outbox`)
-  - `admin/routes/console.php` (modify — register outbox processing + outbox pruning on the schedule)
-  - `packages/shared-domain/src/Outbox/OutboxDispatcher.php` (new — maps `event_type` to job class and dispatches)
+  - `docker-compose.yml` (verify existing queue worker runs; if missing, add one that wraps the existing backend container)
+  - `backend/routes/console.php` (confirm `outbox:dispatch`, `outbox:prune`, `activitylog:clean` registered)
+  - `backend/app/Console/Commands/ProcessDispatchOutbox.php` (new if not created in Plan 06)
+  - `backend/app/Outbox/OutboxDispatcher.php` (new — maps `event_type` to job class)
 - **Details:**
-  Admin ships three runtime processes:
-  1. `admin` (existing) — PHP-FPM serving HTTP
-  2. `admin-worker` (new) — `php artisan queue:work` for async jobs (cancellation emails, gift card void mail, TMDB enrichment triggered from admin actions, etc.)
-  3. `admin-scheduler` (new) — `php artisan schedule:work` for `activitylog:clean`, the dispatch-outbox processor (every minute), and the outbox pruning job
+  Admin does not ship its own worker or scheduler container. Admin-dispatched jobs (cancellation emails, gift card void mail, TMDB enrichment) run on the same queue the backend already consumes — the `backend` container's worker drains them. The scheduler that runs `activitylog:clean`, `outbox:dispatch`, and `outbox:prune` is also the existing backend scheduler.
 
-  **Shared-code wiring.** Per Plan 03's ADR, the shared `finalcut/domain` package is consumed via Composer path repository — no backend source is bind-mounted into the admin containers. The package ships inside the admin image via `composer install` (path repo resolves at build/install time) and is symlinked in dev via the composer path repo's symlink option. The dev compose below reflects this — there is no `./backend:/backend:ro` mount.
+  If the existing `docker-compose.yml` does not already include a `queue:work` service and a `schedule:work` service alongside the `backend` PHP-FPM container, Plan 09 adds them. The services reuse the existing `backend` image — no separate build context, no new Dockerfile:
 
-  **Queue ownership rule.** Any job *dispatched from an admin-originated action* is processed by `admin-worker`, even when the job body touches shared domain services owned by the backend app. The backend app retains its own worker pool for customer-originated async work (booking confirmations, loyalty point accrual, etc.). Both pools drain the same Redis instance today; ownership is determined by *where the job was dispatched from*, not what domain it touches.
+  ```yaml
+  backend-worker:
+    image: ${COMPOSE_PROJECT_NAME:-finalcut}-backend  # same image as backend service
+    build:
+      context: ./backend
+      target: development
+    command: php artisan queue:work --tries=3 --timeout=60
+    volumes:
+      - ./backend:/app
+      - backend-vendor:/app/vendor
+    depends_on:
+      - postgres
+      - redis
+    restart: unless-stopped
+    networks:
+      - finalcut
 
-  For v1, all admin-dispatched jobs go on the default queue. This is intentionally simple — when traffic warrants it, v2 should split named queues (e.g., `admin`, `customer`, `enrichment`) and point each worker pool at its own queue name via `queue:work --queue=admin`. Document the ownership boundary now so the split is straightforward later.
+  backend-scheduler:
+    image: ${COMPOSE_PROJECT_NAME:-finalcut}-backend
+    build:
+      context: ./backend
+      target: development
+    command: php artisan schedule:work
+    volumes:
+      - ./backend:/app
+      - backend-vendor:/app/vendor
+    depends_on:
+      - postgres
+      - redis
+    restart: unless-stopped
+    networks:
+      - finalcut
+  ```
 
-  **Dispatch-outbox processor (new — scheduled command).** Plan 06 introduced a generalized `dispatch_outbox` table for at-least-once delivery of post-commit events (starting with showtime cancellations; future features reuse the same table). The processor command `outbox:dispatch` runs every minute via the scheduler:
+  **Queue ownership.** In v1, all jobs (customer-originated and admin-originated) run on the default queue and are drained by `backend-worker`. When traffic warrants it, v2 can split named queues (`admin`, `customer`, `enrichment`) and scale each worker pool independently. Document the boundary now so the split is straightforward later.
+
+  **Dispatch-outbox processor.** Plan 06 introduced a generalized `dispatch_outbox` table for at-least-once delivery of post-commit events (starting with showtime cancellations; future features reuse the same table). The processor command `outbox:dispatch` runs every minute via the scheduler:
 
   1. Select up to 100 rows where `processed_at IS NULL AND available_at <= now() AND attempts < 5`.
-  2. For each row, resolve `event_type` → job class via the `OutboxDispatcher` service. For `showtime.cancelled`, dispatch `NotifyCustomerOfShowtimeCancellation::dispatch($payload['booking_id'])`. Unknown event types log an error and mark the row `failed_at = now()`.
+  2. For each row, resolve `event_type` → job class via `App\Outbox\OutboxDispatcher`. For `showtime.cancelled`, dispatch `NotifyCustomerOfShowtimeCancellation::dispatch($payload['booking_id'])`. Unknown event types log an error and mark the row `failed_at = now()`.
   3. On successful dispatch, update the row: `processed_at = now()`, `attempts = attempts + 1`.
-  4. On dispatch failure (e.g., Redis unreachable), increment `attempts`, write `last_error`, leave `processed_at = null` so the row gets retried next minute. Rows with `attempts >= 5` get `failed_at` set and are excluded from future runs — the ops dashboard pages on-call for these.
+  4. On dispatch failure (e.g., Redis unreachable), increment `attempts`, write `last_error`, leave `processed_at = null`. Rows with `attempts >= 5` get `failed_at` set and log error-level for on-call.
 
-  Registered in `admin/routes/console.php`:
+  Registered in `backend/routes/console.php` (may already be present from Plan 02 Task 7 and Plan 06):
   ```php
+  Schedule::command('activitylog:clean')->daily();
+
   Schedule::command('outbox:dispatch')
       ->everyMinute()
       ->withoutOverlapping(90)
       ->runInBackground();
 
-  // Pruning: delete processed outbox rows older than 30 days. Also cleans up
-  // failed_at rows older than 90 days (after incident response has landed on them).
   Schedule::command('outbox:prune')->daily();
   ```
 
-  Add compose services (dev):
-  ```yaml
-  admin-worker:
-    build:
-      context: .
-      dockerfile: admin/Dockerfile
-      target: development
-    volumes:
-      - ./admin:/app
-      - ./packages/shared-domain:/packages/shared-domain
-      - admin-vendor:/app/vendor
-    command: php artisan queue:work --tries=3 --timeout=60
-    depends_on:
-      - postgres
-      - redis
-    restart: unless-stopped
-    networks:
-      - finalcut
-
-  admin-scheduler:
-    build:
-      context: .
-      dockerfile: admin/Dockerfile
-      target: development
-    volumes:
-      - ./admin:/app
-      - ./packages/shared-domain:/packages/shared-domain
-      - admin-vendor:/app/vendor
-    command: php artisan schedule:work
-    depends_on:
-      - postgres
-      - redis
-    restart: unless-stopped
-    networks:
-      - finalcut
-  ```
-
-  The `build.context` is the monorepo root so the shared-domain package is visible during `composer install`. Both services mount the package as a volume in dev so code changes take effect without rebuilding.
-
-  For production, use Laravel Horizon or Supervisor — document in `admin/.env.production.example` but don't block v1 on it.
-
 - **Acceptance Criteria:**
-  - [ ] `admin-worker` service processes jobs from redis queue
-  - [ ] `admin-scheduler` runs `activitylog:clean` daily, `outbox:dispatch` every minute, `outbox:prune` daily (verify via `make admin-shell` + `php artisan schedule:list`)
+  - [ ] `backend-worker` service processes jobs from Redis (existing or newly added)
+  - [ ] `backend-scheduler` runs `activitylog:clean` daily, `outbox:dispatch` every minute, `outbox:prune` daily (verify via `docker compose exec backend php artisan schedule:list`)
   - [ ] Both services restart on failure
   - [ ] Gift card void email (Plan 08) delivered via worker in dev
   - [ ] Showtime cancellation (Plan 06): an outbox row gets drained within 60s of the cancellation commit under normal load
   - [ ] Simulated Redis outage: outbox rows accumulate, worker retries, and once Redis returns, all pending rows process within two scheduler ticks (≤ 2 minutes)
-  - [ ] Rows reaching `attempts >= 5` get `failed_at` set and generate an error-level log entry referencing the on-call alert path
-  - [ ] Neither compose service mounts `./backend` — shared code flows through the `finalcut/domain` Composer package only
-  - [ ] `rg 'backend:/backend' docker-compose*.yml` returns zero hits
+  - [ ] Rows reaching `attempts >= 5` get `failed_at` set and generate an error-level log entry
+  - [ ] No new Dockerfile or docker-compose build contexts introduced — worker/scheduler reuse the backend image
 
 ---
 
-### Task 7: Production docker-compose
+### Task 7: Production nginx + compose
 
 - **MoSCoW:** Must Have
 - **Complexity:** M
 - **Files:**
-  - `docker-compose.prod.yml` (modify — add admin services)
-  - `admin/Dockerfile` (modify — add `production` stage)
-  - `admin/.env.production.example` (new)
+  - `docker-compose.prod.yml` (modify — admin subdomain env vars, no new service)
+  - `nginx/templates/conf.d/admin.conf.template` (confirm prod renders correctly)
+  - `backend/.env.production.example` (new or extend)
+  - `scripts/letsencrypt-admin.sh` or equivalent cert automation (new, or extend existing)
 - **Details:**
-  Add production variants of admin, admin-worker, admin-scheduler to `docker-compose.prod.yml`.
+  There is no new production service to add for admin. The existing `backend` PHP-FPM service serves both customer API and admin panel; the existing `nginx` service serves both vhosts. Plan 09's prod-side work is environment configuration and cert automation.
 
-  **Shared-code implication for the build.** Per Plan 03's ADR, admin consumes the shared `finalcut/domain` Composer package via a path repository. The production build context must include the package source — not a bind-mounted backend source. Build approach:
-
-  - **Monorepo build context (required).** In `docker-compose.prod.yml`, set the admin service's `build.context` to the repo root and `build.dockerfile` to `admin/Dockerfile`. The Dockerfile copies `packages/shared-domain/` and `admin/` into the image before `composer install` so the path-repo dependency resolves at install time.
-
-  There is no `COPY backend/src` — admin does **not** depend on backend source code at runtime. Backend runs as its own separate image with its own `composer install` against the same shared package.
-
-  ```dockerfile
-  # admin/Dockerfile (production stage) — expects build context = monorepo root
-
-  FROM base AS production
-
-  # Shared domain package — required for admin's composer install to resolve the
-  # finalcut/domain path-repo dependency declared in admin/composer.json.
-  COPY packages/shared-domain /packages/shared-domain
-
-  # Admin app source and composer metadata.
-  COPY admin/composer.json admin/composer.lock /app/
-  WORKDIR /app
-  RUN composer install --no-dev --optimize-autoloader --no-interaction
-
-  COPY admin/ /app/
-  RUN php artisan config:cache && php artisan route:cache && php artisan view:cache
-  RUN php artisan filament:assets
-  RUN chown -R www-data:www-data /app/storage /app/bootstrap/cache
-  USER www-data
-  CMD ["php-fpm"]
-  ```
-
-  Production compose:
+  **Compose additions (production):**
   ```yaml
-  admin:
-    build:
-      context: .                 # monorepo root so packages/shared-domain is visible
-      dockerfile: admin/Dockerfile
-      target: production
+  backend:
     environment:
       APP_ENV: production
       APP_DEBUG: false
-      DB_HOST: ${DB_HOST}
-      REDIS_HOST: ${REDIS_HOST}
+      APP_PRIMARY_DOMAIN: finalcut.com
+      ADMIN_DOMAIN: admin.finalcut.com
+      ADMIN_SESSION_COOKIE: admin_session
+      ADMIN_SESSION_DOMAIN: admin.finalcut.com     # no leading dot — see Plan 02 Task 2
       ADMIN_IP_ALLOWLIST: ${ADMIN_IP_ALLOWLIST}
-      # Matches Plan 02 Task 2's explicit no-leading-dot rationale: isolation
-      # from the customer app comes from the distinct subdomain + distinct
-      # cookie name, not from cookie-scope manipulation. A leading dot would
-      # widen the cookie scope to every sub-subdomain of admin.finalcut.com,
-      # which we do not need and which expands attack surface.
-      SESSION_DOMAIN: admin.finalcut.com
-      SESSION_SECURE_COOKIE: true
-    depends_on:
-      - postgres
-      - redis
-
-  admin-worker: # similar, with production command
-  admin-scheduler: # similar
+      ADMIN_IP_ALLOWLIST_EMERGENCY_OPEN: false
+      FINANCE_NOTIFICATION_EMAIL: ${FINANCE_NOTIFICATION_EMAIL}
+      LOYALTY_LARGE_ADJUSTMENT_THRESHOLD: ${LOYALTY_LARGE_ADJUSTMENT_THRESHOLD}
+      SESSION_ENCRYPT: true
+      # ... existing backend env vars
   ```
 
-  `.env.production.example` documents:
-  - `APP_KEY` generation reminder
-  - `ADMIN_IP_ALLOWLIST` with example CIDRs
-  - `FINANCE_NOTIFICATION_EMAIL` real address
-  - `LOYALTY_LARGE_ADJUSTMENT_THRESHOLD` production value
-  - TLS cert paths for Let's Encrypt
-  - `SESSION_DOMAIN=admin.finalcut.com` (no leading dot — see Plan 02 Task 2 for rationale)
+  Same `backend` container, more env vars. No `admin` service.
+
+  **Nginx prod.** The admin vhost template (`nginx/templates/conf.d/admin.conf.template` from Plan 01, extended in Tasks 3 and 4) renders in prod exactly as in dev, except:
+  - `APP_DOMAIN=finalcut.com` (so `server_name admin.${APP_DOMAIN}` resolves to `admin.finalcut.com`)
+  - `ADMIN_ALLOWLIST_BLOCK` renders real CIDRs
+  - TLS cert paths point at Let's Encrypt output
+
+  **Let's Encrypt.** Certbot renews both `finalcut.com` and `admin.finalcut.com`. Two options:
+  - **Single cert with SAN** (simpler): one certbot invocation with `-d finalcut.com -d admin.finalcut.com -d www.finalcut.com`. Both vhosts point at the same `fullchain.pem` / `privkey.pem`.
+  - **Separate certs**: two certbot invocations, two cert directories, two sets of `ssl_certificate` paths in nginx.
+
+  Go with single cert + SAN — fewer moving parts, one renewal cron to monitor. Document the alternate path for the case where the admin subdomain moves to a different infra.
+
+  `backend/.env.production.example` documents every required variable:
+  ```
+  APP_ENV=production
+  APP_DEBUG=false
+  APP_KEY=  # generate via php artisan key:generate
+  APP_URL=https://finalcut.com
+  APP_PRIMARY_DOMAIN=finalcut.com
+  ADMIN_DOMAIN=admin.finalcut.com
+
+  DB_CONNECTION=pgsql
+  DB_HOST=...
+  DB_DATABASE=final_cut
+  # ...
+
+  # Admin hardening
+  ADMIN_SESSION_COOKIE=admin_session
+  ADMIN_SESSION_DOMAIN=admin.finalcut.com
+  ADMIN_IP_ALLOWLIST=203.0.113.0/24,198.51.100.10
+  ADMIN_IP_ALLOWLIST_EMERGENCY_OPEN=false
+
+  # Ops
+  FINANCE_NOTIFICATION_EMAIL=finance@finalcut.com
+  LOYALTY_LARGE_ADJUSTMENT_THRESHOLD=500
+
+  # Session
+  SESSION_ENCRYPT=true
+  SESSION_SECURE_COOKIE=true
+
+  # TMDB + Stripe production keys
+  TMDB_API_KEY=
+  STRIPE_SECRET_KEY=
+  STRIPE_PUBLISHABLE_KEY=
+  ```
 
 - **Acceptance Criteria:**
-  - [ ] Production Dockerfile stage builds cached artifacts
-  - [ ] Production Dockerfile copies `packages/shared-domain/` into the image before `composer install` so path-repo resolution succeeds
-  - [ ] No `COPY backend/src` or `COPY backend/app` anywhere in the production Dockerfile
-  - [ ] `rg 'backend/src|backend/app' admin/Dockerfile` returns zero hits
-  - [ ] Production compose service references prod target and uses monorepo build context
-  - [ ] `SESSION_DOMAIN` is `admin.finalcut.com` (no leading dot), matching Plan 02 Task 2's stated rationale
-  - [ ] `rg 'SESSION_DOMAIN.*\.admin\.finalcut' .` returns zero hits (no leading-dot form anywhere)
-  - [ ] Env example documents every required variable, including the `SESSION_DOMAIN` no-leading-dot convention
-  - [ ] Debug disabled in prod
-  - [ ] Session cookies secure + scoped to admin prod domain (no leading dot)
+  - [ ] `docker-compose.prod.yml` adds admin-related env vars to the existing `backend` service — no new admin service
+  - [ ] Admin nginx vhost template renders correctly in prod with real allowlist CIDRs
+  - [ ] Let's Encrypt cert covers both `finalcut.com` and `admin.finalcut.com` (single cert with SAN, or two separate certs — document the choice)
+  - [ ] `SESSION_DOMAIN` for admin is `admin.finalcut.com` (no leading dot)
+  - [ ] `rg 'SESSION_DOMAIN.*\.admin\.finalcut' .` returns zero hits
+  - [ ] Env example documents every required variable
+  - [ ] `APP_DEBUG=false` in prod
+  - [ ] Session cookies secure + scoped to admin prod domain
 
 ---
 
-### Task 8: CI workflow — include admin
+### Task 8: CI workflow — run admin tests in existing backend job
 
 - **MoSCoW:** Must Have
-- **Complexity:** S
+- **Complexity:** XS
 - **Files:**
-  - `.github/workflows/ci.yml` (modify)
+  - `.github/workflows/ci.yml` (modify — extend existing backend job, if needed)
 - **Details:**
-  Extend existing CI to run admin tests alongside backend + frontend:
+  Admin tests live under `backend/tests/Feature/Admin/` and `backend/tests/Unit/Admin/`. The existing backend CI job runs `php artisan test` or an equivalent Pest invocation against `final_cut_test`. Admin tests are already included — they're part of the same test suite.
+
+  Verify:
+  - The existing backend migrations job runs `php artisan migrate --force` against `final_cut_test`. Admin migrations (admin_users, permission tables, activity_log, loyalty_adjustments) are in `backend/database/migrations/` and run with the rest.
+  - The existing backend test step runs the full suite. Admin tests run as part of it.
+  - If the CI wants admin-specific isolation (e.g., a named check in PR UI), add a second step that runs only `php artisan test --testsuite=Feature --filter=Admin` — but this is cosmetic; the real assurance is the full-suite run.
+
+  Add the CI-regenerates-Fail2ban-sample step (from Task 5) to the same job:
 
   ```yaml
-  jobs:
-    # existing backend + frontend jobs
-
-    admin:
-      runs-on: ubuntu-latest
-      services:
-        postgres:
-          image: postgres:18
-          env:
-            POSTGRES_PASSWORD: test
-          options: >-
-            --health-cmd pg_isready
-          ports: [5432:5432]
-        redis:
-          image: redis:7
-          ports: [6379:6379]
-      steps:
-        - uses: actions/checkout@v4
-        - uses: shivammathur/setup-php@v2
-          with:
-            php-version: '8.4'
-            extensions: pdo_pgsql, redis, intl, bcmath
-        - name: Install backend (dependency for shared code)
-          working-directory: backend
-          run: composer install --no-interaction --no-scripts
-        - name: Install admin
-          working-directory: admin
-          run: composer install --no-interaction --no-scripts
-        - name: Setup backend env (shared schema source)
-          working-directory: backend
-          run: cp .env.example .env && php artisan key:generate
-        - name: Setup admin env
-          working-directory: admin
-          run: cp .env.example .env && php artisan key:generate
-        # The admin app uses tables owned by the backend app (users, locations, showtimes, etc.)
-        # plus its own admin-specific tables (activity_log, admin-only pivots, etc.).
-        # Both sets of migrations must run against the same test database, in order:
-        # backend first so shared tables exist, then admin so admin-specific tables and
-        # any admin-owned pivots layer on top.
-        - name: Run backend migrations (shared schema)
-          working-directory: backend
-          env:
-            DB_HOST: localhost
-            DB_DATABASE: final_cut_test
-          run: php artisan migrate --force
-        - name: Run admin migrations (admin-owned schema)
-          working-directory: admin
-          env:
-            DB_HOST: localhost
-            DB_DATABASE: final_cut_test
-          run: php artisan migrate --force
-        - name: Run admin tests
-          working-directory: admin
-          env:
-            DB_HOST: localhost
-            DB_DATABASE: final_cut_test
-          run: php artisan test
+  - name: Regenerate and verify Fail2ban admin-login sample
+    working-directory: backend
+    run: |
+      # boot backend, trigger a failed login, capture the log line
+      php artisan serve --host=0.0.0.0 --port=8080 &
+      SERVER_PID=$!
+      sleep 2
+      curl -X POST http://localhost:8080/login \
+        -H "Host: admin.finalcut.test" \
+        -d "email=ci@example.com&password=wrong" || true
+      kill $SERVER_PID
+      # Extract the last line of the dedicated log
+      tail -1 storage/logs/admin-auth-events.log > /tmp/admin-login.sample.log
+      # Verify Fail2ban regex matches the freshly-generated sample
+      fail2ban-regex /tmp/admin-login.sample.log ../fail2ban/filter.d/admin-login.conf
   ```
 
-  Ensure the shared backend code is available in the admin job — GitHub Actions doesn't use Docker volumes, so the admin job relies on the default monorepo checkout placing `backend/` alongside `admin/`. This checkout is what lets admin's composer classmap resolve backend classes. **If the repo is ever split, this CI job and the Dockerfile in Task 7 break together.** Document the coupling so the split is a conscious decision, not an accident.
+  If the existing CI doesn't have `fail2ban-regex` available, install it as part of the job setup.
 
 - **Acceptance Criteria:**
-  - [ ] `admin` job added to CI workflow
-  - [ ] Shared postgres + redis services configured
-  - [ ] Backend checkout available for admin's classmap
-  - [ ] **Backend migrations run before admin migrations against the same test database**
-  - [ ] Admin tests run against a schema that includes all shared backend tables
-  - [ ] `php artisan test` runs in admin working directory
-  - [ ] Full matrix (backend + frontend + admin) green on main
-  - [ ] Coupling between admin CI and monorepo layout is documented (in a comment or README) so a future repo split surfaces the dependency
+  - [ ] Existing backend CI job runs admin tests (no separate admin job)
+  - [ ] `make test-backend` green on main (admin tests included)
+  - [ ] Fail2ban sample regenerated and verified in CI (Task 5 contract)
+  - [ ] Admin tests appear in the job's test output
 
 ---
 
@@ -675,36 +649,38 @@ This plan is the gate between "admin works in dev" and "admin is safe to ship to
 - **MoSCoW:** Must Have
 - **Complexity:** S
 - **Files:**
-  - `CLAUDE.md` (modify)
-  - `docs/README.md` (modify)
-  - `docs/progress/admin-v1.md` (finalize)
-  - `admin/README.md` (modify — add prod operations notes)
+  - `CLAUDE.md` (modify — add "Admin panel" section)
+  - `docs/README.md` (modify — admin entry)
+  - `docs/architecture/SITE_ARCHITECTURE.md` (modify — admin subdomain in routing map)
+  - `docs/progress/admin-v1.md` (finalize — mark all steps complete)
 - **Details:**
-  **Root CLAUDE.md** — confirm the "Admin app" section added in Plan 01 is current:
-  - Domain dev + prod
-  - Make commands (include `admin-create-user`, `test-all`)
-  - Write boundary rule link to spec § 2.6
-  - Points at `docs/plans/admin/v1/00-index.md` and the spec
 
-  **docs/README.md** — admin section in navigation, with:
+  **Root `CLAUDE.md`** — add an "Admin panel" section that covers:
+  - Admin lives in `backend/` and is served at `admin.finalcut.test` in dev, `admin.finalcut.com` in prod — same Laravel app as the customer API, separated at the network edge via nginx vhost + Laravel route-domain scoping + session cookie scoping
+  - Make commands: `make admin-shell`, `make admin-create-user`, `make admin-test`, `make admin-migrate`, `make admin-filament-assets`
+  - Write boundary rule: admin mutations to shared tables go through `backend/app/Services/*` classes, passing `auth('admin')->user()` as the actor for audit attribution
+  - Where the spec lives: `docs/superpowers/specs/2026-04-20-admin-section-design.md`
+  - Where the plan set lives: `docs/plans/admin/v1/`
+  - Where the progress journal lives: `docs/progress/admin-v1.md`
+
+  **`docs/README.md`** — ensure the Plans section references admin:
   - Link to `docs/plans/admin/v1/00-index.md`
   - Link to `docs/superpowers/specs/2026-04-20-admin-section-design.md`
   - Link to `docs/progress/admin-v1.md`
 
-  **Progress journal** — mark each step complete with final notes, decisions made during execution, files changed. Keep this as the artifact of the admin v1 rollout for future reference.
+  **`docs/architecture/SITE_ARCHITECTURE.md`** — add admin to the routing / rendering strategy table and the project structure overview:
+  - Admin panel at `admin.${APP_DOMAIN}`, route prefix `/` (whole subdomain)
+  - Customer API at `${APP_DOMAIN}/api/*`
+  - Frontend Nuxt app at `${APP_DOMAIN}`
+  - Note that all three are served by the same Laravel + Nuxt + nginx stack, differentiated by Host header
 
-  **admin/README.md** — add production operations section:
-  - How to scale worker containers
-  - How to review the activity log in prod
-  - Where logs live
-  - Point at the Fail2ban jail
-  - Emergency procedure for unbanning a legitimate IP (manual jail command)
+  **Progress journal** — mark each step complete with final notes, decisions made during execution, files changed. Keep this as the artifact of the admin v1 rollout.
 
 - **Acceptance Criteria:**
-  - [ ] CLAUDE.md admin section current
-  - [ ] docs/README.md lists admin planning + progress docs
+  - [ ] CLAUDE.md "Admin panel" section committed
+  - [ ] docs/README.md links admin planning + progress docs
+  - [ ] docs/architecture/SITE_ARCHITECTURE.md mentions the admin subdomain
   - [ ] Progress journal complete with per-step status
-  - [ ] admin/README.md covers prod ops basics
 
 ---
 
@@ -719,16 +695,16 @@ This plan is the gate between "admin works in dev" and "admin is safe to ship to
 
   - **Create a new admin user:** `make admin-create-user`
   - **Unban a legitimate IP:** `docker exec fail2ban fail2ban-client set admin-login unbanip X.X.X.X`
-  - **View activity log:** navigate to `/admin/activity` as an admin user
+  - **View activity log:** navigate to `https://admin.finalcut.com/activity` as an admin user
   - **Process gift card void queue:** email forwarded to finance; no automated tool in v1
-  - **Process cancelled showtime follow-up:** visit `/admin/cancelled-showtime-followup` queue page
+  - **Process cancelled showtime follow-up:** visit `https://admin.finalcut.com/cancelled-showtime-followup` queue page
   - **Adjust loyalty points for a single customer:** UserResource → user view → Adjust Points action
   - **Trigger TMDB enrichment for a single movie:** MovieResource → row action "Enrich from TMDB"
   - **Rotate admin password:**
-    - *Preferred (if production mail is verified working):* admin user clicks "Forgot password" on `/admin/login`; reset link is delivered via the configured `MAIL_*` driver. Before relying on this in prod, confirm the mail driver is not Mailpit and that a test reset email actually reaches a real inbox.
-    - *Fallback (if reset mail is not yet production-grade at ship time):* run `make admin-create-user` with the `--reset-password` flag and the target email (e.g., `make admin-create-user -- --email=x@y --password=newpass --reset-password`). The command (Plan 02 Task 6) re-hashes the password on the existing account when the flag is set, and errors clearly when the account does not exist. This is the supported operational path. As a last resort if the command isn't available (e.g., during an incident), drop into the admin container (`docker exec -it admin php artisan tinker`) and run `AdminUser::where('email', 'x@y')->first()->update(['password' => Hash::make($new)])` — log the incident afterward since tinker leaves no audit trail of its own.
-  - **Disable admin account:** set `disabled_at` on the target account — either via `UserResource` (if a disable action has shipped) or in tinker: `AdminUser::where('email', 'x@y')->update(['disabled_at' => now()])`. Re-enable with `['disabled_at' => null]`. `canAccessPanel` (Plan 02 Task 1) checks this field, so the account loses panel access on the next request without needing a cache bust.
-  - **Emergency: disable admin panel:** set `ADMIN_IP_ALLOWLIST=127.0.0.1/32` and `ADMIN_IP_ALLOWLIST_EMERGENCY_OPEN=false` in prod env, then redeploy — only localhost can reach it. (Relying on an empty allowlist is not a shutdown mechanism; it fails closed, which accomplishes the same thing, but an explicit localhost-only CIDR is the documented intent.)
+    - *Preferred (if production mail is verified working):* admin user clicks "Forgot password" on `https://admin.finalcut.com/login`; reset link is delivered via the configured `MAIL_*` driver. Before relying on this in prod, confirm the mail driver is not Mailpit and that a test reset email reaches a real inbox.
+    - *Fallback (if reset mail is not yet production-grade at ship time):* run `make admin-create-user` with the `--reset-password` flag and the target email (e.g., `make admin-create-user -- --email=x@y --password=newpass --reset-password`). The command (Plan 02 Task 6) re-hashes the password on the existing account when the flag is set, and errors clearly when the account does not exist. As a last resort during an incident, drop into the backend container (`docker exec -it backend php artisan tinker`) and run `AdminUser::where('email', 'x@y')->first()->update(['password' => Hash::make($new)])` — log the incident afterward since tinker leaves no audit trail of its own.
+  - **Disable admin account:** set `disabled_at` on the target account — via Filament if an admin-users Resource has shipped, otherwise in tinker: `AdminUser::where('email', 'x@y')->update(['disabled_at' => now()])`. Re-enable with `['disabled_at' => null]`. `canAccessPanel` (Plan 02 Task 1) checks this field, so the account loses panel access on the next request without a cache bust.
+  - **Emergency: disable admin panel entirely:** set `ADMIN_IP_ALLOWLIST=127.0.0.1/32` and `ADMIN_IP_ALLOWLIST_EMERGENCY_OPEN=false` in prod env, then redeploy — only localhost can reach it. (Relying on an empty allowlist is not a shutdown mechanism; it fails closed, which accomplishes the same thing, but an explicit localhost-only CIDR is the documented intent.)
 
 - **Acceptance Criteria:**
   - [ ] Runbook covers the 9 most common operations
@@ -739,21 +715,21 @@ This plan is the gate between "admin works in dev" and "admin is safe to ship to
 
 ## Testing Requirements
 
-- **Pest Feature Tests:** calendar event resource + full suite pass
-- **Integration:** production deployment smoke test (separate task outside this plan — run against staging environment)
-- **CI:** admin job passes on every PR to main
+- **Pest Feature Tests:** calendar event resource + full admin suite pass
+- **Static integration:** production deployment smoke test against staging environment (out of scope for this plan — external infra)
+- **CI:** admin tests run in the existing backend job; Fail2ban sample regenerates and verifies on every CI run
 
 ## Dependencies Map
 
 ```
-Task 1 (calendar events) ← parallel
-Task 2 (full test pass) ← needs Tasks 1 + all prior plans
-Task 3 (IP allowlist) ← parallel
-Task 4 (nginx rate limit) ← needs Plan 01 Task 4 baseline
+Task 1 (calendar events resource) ← parallel
+Task 2 (full test pass) ← needs Task 1 + all prior plans
+Task 3 (IP allowlist — nginx + Laravel) ← parallel
+Task 4 (nginx rate limit) ← needs Plan 01 admin vhost baseline
 Task 5 (Fail2ban) ← needs Task 4
-Task 6 (worker + scheduler) ← needs existing Plan 01 compose
-Task 7 (prod compose) ← needs Tasks 3, 6
-Task 8 (CI) ← parallel
+Task 6 (worker + scheduler verification) ← can start early; mostly verification
+Task 7 (prod compose + nginx + cert) ← needs Tasks 3, 6
+Task 8 (CI — admin tests in existing job) ← parallel
 Task 9 (docs) ← parallel
 Task 10 (runbook) ← needs Tasks 3, 5, 6
 ```
@@ -761,11 +737,11 @@ Task 10 (runbook) ← needs Tasks 3, 5, 6
 ## Risks & Open Questions
 
 1. **IP allowlist deployment chicken-and-egg.** Because the allowlist fails closed when empty, you cannot "deploy with an empty allowlist and fill it in later." Two supported deploy sequences:
-   1. *Preferred:* set the real `ADMIN_IP_ALLOWLIST` before the first production request (keep `ADMIN_IP_ALLOWLIST_EMERGENCY_OPEN=false`). The container starts with the allowlist already in place and nothing is ever exposed.
-   2. *Emergency bootstrap:* set `ADMIN_IP_ALLOWLIST_EMERGENCY_OPEN=true` with an empty allowlist, deploy, verify admin access from an expected IP, set the real allowlist, flip `ADMIN_IP_ALLOWLIST_EMERGENCY_OPEN` back to `false`, restart. Every request during this window is logged at error level, which is the intended signal that something abnormal is happening.
+   1. *Preferred:* set the real `ADMIN_IP_ALLOWLIST` before the first production request (keep `ADMIN_IP_ALLOWLIST_EMERGENCY_OPEN=false`).
+   2. *Emergency bootstrap:* set `ADMIN_IP_ALLOWLIST_EMERGENCY_OPEN=true` with an empty allowlist, deploy, verify admin access from an expected IP, set the real allowlist, flip `ADMIN_IP_ALLOWLIST_EMERGENCY_OPEN` back to `false`, restart. Every request during this window is logged at error level.
 
-   The runbook must include both sequences and a verification step that `ADMIN_IP_ALLOWLIST_EMERGENCY_OPEN` is `false` after any emergency use. Treat a lingering `EMERGENCY_OPEN=true` as an incident, not a config drift.
-2. **Queue worker health.** If `admin-worker` crashes and doesn't restart, cancellation emails silently queue. Add a Horizon dashboard or a simple health check in a v2 plan. v1 relies on `restart: unless-stopped` + human monitoring.
-3. **IPv6 coupling across hardening layers.** v1 is IPv4-only across both `AdminIpAllowlist` (Task 3, which rejects IPv6 requests outright) and the Fail2ban jail (Task 5, which uses `iptables-multiport`). If the production environment ever exposes IPv6, **both** must be revisited in the same change: replace the CIDR helper with a dual-stack matcher, and add a parallel `ip6tables-multiport` jail. Shipping one without the other creates a silent enforcement gap.
-4. **CI backend classmap.** The GitHub Actions admin job needs the `backend/` directory checked out for the Composer classmap to resolve. Since this is a monorepo, default checkout gets both — but if the CI is ever split into separate repos, the classmap approach breaks. Document the coupling.
-5. **Production TLS certs.** Let's Encrypt automation for `admin.finalcut.com` uses the same Certbot setup as the customer domain. If the customer cert renewal fails silently, admin cert may too. Share the renewal monitoring across both domains.
+   The runbook must include both sequences and a verification step that `ADMIN_IP_ALLOWLIST_EMERGENCY_OPEN` is `false` after any emergency use.
+2. **Shared PHP-FPM process pool.** Customer API and admin panel run in the same PHP-FPM workers. A slow admin operation consumes a worker the customer API could have used. Mitigations in v1: heavy work is queued (bulk showtime create, TMDB enrichment, gift card void mail), and route-domain scoping means admin-only routes can't be triggered by customer traffic. If worker-pool exhaustion becomes a real problem, v2 can split into two PHP-FPM pools (`backend-fpm-customer`, `backend-fpm-admin`) serving the same codebase on the same image, and point each nginx vhost at its own upstream. Documented for v2 in the backend/admin progress journal.
+3. **IPv6 coupling.** v1 is IPv4-only across `AdminIpAllowlist` (Task 3, rejects IPv6 outright), the nginx allow/deny block (Task 3), and the Fail2ban jail (Task 5). If IPv6 ingress is ever added, all three must be revisited in the same change — replace the CIDR helper with a dual-stack matcher, update nginx to handle IPv6 `allow`/`deny`, and add a parallel `ip6tables-multiport` jail.
+4. **Production TLS cert renewal.** Single-cert-with-SAN covers `finalcut.com` + `admin.finalcut.com`. If certbot renewal fails silently, both domains go unsafe together. Renewal monitoring must cover both — document in the runbook.
+5. **Queue worker health.** If `backend-worker` crashes and doesn't restart, cancellation emails silently queue. Add a Horizon dashboard or a simple health check in a v2 plan. v1 relies on `restart: unless-stopped` + human monitoring.

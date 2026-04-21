@@ -2,19 +2,23 @@
 
 > **Priority:** Must Have
 > **Complexity:** XL
-> **Depends On:** Plan 03 (Location, Auditorium, Seat models, AuditoriumService facade)
+> **Depends On:** Plan 03 (BaseResource, FormatsCurrency, TimestampColumns)
 > **Unlocks:** Plan 06 (Showtime resource needs auditoriums), Plan 08 (menu is location-scoped)
 
 ## Overview
 
 Build the `LocationResource` and `AuditoriumResource`, add the `cleanup_minutes` column to auditoriums (consumed by Plan 06's conflict detection), and ship the seat configuration tooling in two tracks: an MVP seat-generator form that covers ~90% of real configurations, and a visual seat editor that ships after the MVP if budget allows (otherwise deferred). The visual editor builds on the MVP data model so no work is wasted.
 
-Per spec § 2.6, all mutations go through `AuditoriumService`. Since `AuditoriumService` likely does not yet exist in the backend (verified in Plan 03 Task 6), this plan includes its extraction.
+All mutations route through `App\Services\AuditoriumService`, created in this plan and stored in `backend/app/Services/AuditoriumService.php` alongside the existing `TmdbService`, `SeatAvailabilityService`, `StripeService`, `LoyaltyService`, and `MovieService` (Plan 04). Every write method accepts an optional `?AdminUser $actor = null` for audit attribution — Filament pages pass `auth('admin')->user()`; customer controllers pass `null`. The service writes `activity_log` rows when `$actor` is non-null and skips admin activity attribution otherwise.
+
+Filament Resources consume `App\Models\Location`, `App\Models\Auditorium`, `App\Models\AuditoriumSection`, and `App\Models\Seat` directly — there is no admin-side model mirror, no shared package, no cross-app boundary. Service and models live in the same codebase and autoload via PSR-4.
 
 ## Reference Documents
 
-- `docs/superpowers/specs/2026-04-20-admin-section-design.md` — § 5 Plan 05
+- `docs/superpowers/specs/2026-04-20-admin-section-design.md` — § 2.6 admin-to-domain-logic boundary, § 5 Plan 05
 - `docs/architecture/DATA_MODELS.md` — Location, Auditorium, Seat, AuditoriumSection
+- `docs/plans/admin/v1/03-shared-models-and-base-resources.md` — BaseResource, FormatsCurrency, TimestampColumns
+- `docs/plans/admin/v1/04-movie-catalog-management.md` — reference pattern for service + Resource structure
 - `backend/database/migrations/*_create_auditoriums_table.php` — schema reference
 - `backend/app/Models/Auditorium.php` — canonical model
 
@@ -29,7 +33,6 @@ Per spec § 2.6, all mutations go through `AuditoriumService`. Since `Auditorium
 - **Files:**
   - `backend/database/migrations/*_create_auditoriums_table.php` (modify in place — see environment-state condition below)
   - `backend/app/Models/Auditorium.php` (modify — add to fillable)
-  - `admin/app/Models/Auditorium.php` (modify — mirror)
 - **Details:**
   **Migration strategy (environment-state conditional):**
 
@@ -45,7 +48,7 @@ Per spec § 2.6, all mutations go through `AuditoriumService`. Since `Auditorium
   $table->unsignedSmallInteger('cleanup_minutes')->default(20)->after('name');
   ```
 
-  Update both backend and admin `Auditorium` models' `$fillable` array.
+  Update `App\Models\Auditorium`'s `$fillable` array.
 
   Update backend seeder (`DatabaseSeeder` / `AuditoriumSeeder`) to populate `cleanup_minutes => 20` for seeded auditoriums.
 
@@ -53,42 +56,42 @@ Per spec § 2.6, all mutations go through `AuditoriumService`. Since `Auditorium
 
 - **Acceptance Criteria:**
   - [ ] `cleanup_minutes` column added to auditoriums (default 20)
-  - [ ] Backend + admin models fillable include it
+  - [ ] `App\Models\Auditorium` fillable includes the new column
   - [ ] Seeder produces auditoriums with the column populated
-  - [ ] ModelParityTest still passes
+  - [ ] Existing backend test suite still green after the schema change
   - [ ] Plan 06 can reference `auditorium.cleanup_minutes`
 
 ---
 
-### Task 2: Extract AuditoriumService into the shared-domain package
+### Task 2: Create `AuditoriumService` in `backend/app/Services/`
 
 - **MoSCoW:** Must Have
 - **Complexity:** M
 - **Files:**
-  - `packages/shared-domain/src/Services/AuditoriumService.php` (new)
-  - `packages/shared-domain/src/Exceptions/AuditoriumSeatRegenerationBlockedException.php` (new)
-  - `packages/shared-domain/tests/Feature/AuditoriumServiceTest.php` (new)
-  - `admin/app/Services/Backend/AuditoriumService.php` (new — admin facade)
+  - `backend/app/Services/AuditoriumService.php` (new)
+  - `backend/app/Exceptions/AuditoriumSeatRegenerationBlockedException.php` (new)
+  - `backend/tests/Unit/AuditoriumServiceTest.php` (new)
 - **Details:**
-  Per Plan 03's ADR, `AuditoriumService` lives in `packages/shared-domain/src/Services/` under the `FinalCut\Domain\Services` namespace. Every write method takes an explicit `Causer $causer` argument per the Plan 02 Task 4 contract.
+  `AuditoriumService` owns write orchestration for locations, auditoriums, sections, and seats. The customer API and the admin panel (Tasks 3–5) both call it. Both call sites pass an optional `?AdminUser $actor`.
 
   ```php
-  namespace FinalCut\Domain\Services;
+  namespace App\Services;
 
-  use FinalCut\Domain\Audit\Causer;
-  use FinalCut\Domain\Models\Auditorium;
-  use FinalCut\Domain\Models\Location;
-  use FinalCut\Domain\Models\Seat;
+  use App\Exceptions\AuditoriumSeatRegenerationBlockedException;
+  use App\Models\AdminUser;
+  use App\Models\Auditorium;
+  use App\Models\Location;
+  use App\Models\Seat;
 
   class AuditoriumService
   {
-      public function createAuditorium(Location $location, array $attributes, Causer $causer): Auditorium;
-      public function updateAuditorium(Auditorium $auditorium, array $attributes, Causer $causer): Auditorium;
-      public function deleteAuditorium(Auditorium $auditorium, Causer $causer): void;
-      public function generateSeats(Auditorium $auditorium, array $config, Causer $causer, bool $force = false): void; // Task 5
-      public function updateSectionConfig(Auditorium $auditorium, array $sections, Causer $causer): void;
-      public function markSeatUnavailable(Seat $seat, Causer $causer, ?string $unavailable_reason = null): void;
-      public function markSeatAvailable(Seat $seat, Causer $causer): void;
+      public function createAuditorium(Location $location, array $attributes, ?AdminUser $actor = null): Auditorium;
+      public function updateAuditorium(Auditorium $auditorium, array $attributes, ?AdminUser $actor = null): Auditorium;
+      public function deleteAuditorium(Auditorium $auditorium, ?AdminUser $actor = null): void;
+      public function generateSeats(Auditorium $auditorium, array $config, ?AdminUser $actor = null, bool $force = false): void; // Task 5
+      public function updateSectionConfig(Auditorium $auditorium, array $sections, ?AdminUser $actor = null): void;
+      public function markSeatUnavailable(Seat $seat, ?string $unavailable_reason = null, ?AdminUser $actor = null): void;
+      public function markSeatAvailable(Seat $seat, ?AdminUser $actor = null): void;
 
       /**
        * Non-destructive batch update for existing seats — section reassignment and
@@ -100,20 +103,20 @@ Per spec § 2.6, all mutations go through `AuditoriumService`. Since `Auditorium
        *
        * @param array<int, array{seat_id: int, section_id?: int, unavailable_at?: ?\DateTimeInterface}> $seatUpdates
        */
-      public function updateSeatBatch(Auditorium $auditorium, array $seatUpdates, Causer $causer): void;
+      public function updateSeatBatch(Auditorium $auditorium, array $seatUpdates, ?AdminUser $actor = null): void;
   }
   ```
 
-  **`updateSeatBatch` contract (MVP — promoted from the previous "conditional on Task 6" scope):**
+  **`updateSeatBatch` contract (MVP):**
 
   - Operates on **existing** seat rows only. Does not create or delete seats. Does not change row labels or seat numbers.
   - Accepts an array of per-seat patches keyed by `seat_id`. Each patch may include `section_id` (reassignment) and/or `unavailable_at` (availability toggle).
   - Runs the whole batch inside `DB::transaction`. Any invalid seat ID or invalid section ID fails the entire batch — no partial updates.
   - Does **not** require the regeneration-safety checks (future showtimes, active bookings). Seat IDs are preserved, so existing bookings continue to point at the same physical seat; only the seat's section membership or availability flag changes. A Premium → Accessible reassignment updates the pricing tier for *future* showtimes and does not retroactively re-price sold tickets (those are locked at booking time).
-  - Emits one activity row per seat changed, linked to the auditorium as the subject, with `causedBy($causer)` and the before/after diff in `properties`.
+  - Emits one activity row per seat changed when `$actor` is non-null, linked to the auditorium as the subject, with `causedBy($actor)` and the before/after diff in `properties`. When `$actor` is null, no activity rows are written.
   - Backend test coverage: happy-path reassignment, happy-path unavailability, invalid seat ID fails entire batch, existing showtimes/bookings do not block (this is the key MVP promise — regeneration blocks, batch does not).
 
-  The corresponding Filament UI for `updateSeatBatch` is a simple table action in Task 4's `AuditoriumResource` or a dedicated "Fix seat sections" page — **not** the visual seat editor. Task 6's visual editor (Could Have) is a better UX on top of the same service method but is not required for MVP.
+  The corresponding Filament UI for `updateSeatBatch` is a simple table action on `AuditoriumResource` (shipped in Task 4) — **not** the visual seat editor. Task 6's visual editor (Could Have) is a better UX on top of the same service method but is not required for MVP.
 
   Seat generation (`generateSeats`) takes a config like:
   ```php
@@ -154,25 +157,28 @@ Per spec § 2.6, all mutations go through `AuditoriumService`. Since `Auditorium
 
   Document this contract in the `AuditoriumService` class docblock so future maintainers see it before changing behavior.
 
-  Backend tests: service create/update/delete paths, seat generation produces correct row × col count, section assignment correct, unavailable seats flagged, **regeneration refused when future showtimes exist**, **regeneration refused when active bookings exist**, **rollback on mid-generation failure leaves prior layout intact**, section rename does not modify seats.
+  **Extraction principles (consistent with Plan 04):**
+  - Validation stays at the HTTP / Filament boundary — the service accepts pre-validated arrays and enforces only domain invariants (unique slug at save time, regeneration blockers, batch validity).
+  - Mutation and orchestration move into the service — create / update / delete the auditorium, sync section repeaters, bulk-insert seats, emit activity-log rows.
+  - Customer API controllers (if any touch these tables) pass `null` for `$actor` because customer-side writes are not admin-attributed.
 
-  Update admin facade.
+  Backend tests: service create/update/delete paths, seat generation produces correct row × col count, section assignment correct, unavailable seats flagged, **regeneration refused when future showtimes exist**, **regeneration refused when active bookings exist**, **rollback on mid-generation failure leaves prior layout intact**, section rename does not modify seats, `updateSeatBatch` happy paths, `updateSeatBatch` invalid-input rollback.
 
 - **Acceptance Criteria:**
-  - [ ] `FinalCut\Domain\Services\AuditoriumService` exists in `packages/shared-domain/src/Services/` with all documented methods
-  - [ ] Every write method signature declares an explicit `Causer $causer` parameter
+  - [ ] `App\Services\AuditoriumService` exists with all documented methods
+  - [ ] Every write method signature accepts `?AdminUser $actor = null` as the last parameter
   - [ ] Class docblock captures the section↔seat cascade contract and the `updateSeatBatch` vs `generateSeats` distinction
   - [ ] `generateSeats` produces correct seat matrix
   - [ ] `generateSeats` throws `AuditoriumSeatRegenerationBlockedException` when future showtimes, active bookings, or held seats exist (unless `force = true`)
   - [ ] Blocking exception carries structured blocker counts (future showtimes, active bookings, held seats)
   - [ ] `updateSeatBatch` operates on existing seat rows only, runs in a single transaction, fails the whole batch on any invalid input, and is **not** blocked by future showtimes or active bookings
-  - [ ] `updateSeatBatch` emits one activity row per changed seat with `causedBy($causer)` and a before/after diff
+  - [ ] `updateSeatBatch` emits one activity row per changed seat with `causedBy($actor)` and a before/after diff when `$actor` is non-null
+  - [ ] When `$actor` is null on any write, no `activity_log` row is written
   - [ ] Section config persisted correctly; section edits do not modify existing seats
   - [ ] Section deletion refused while any seat references it
   - [ ] Unavailable seats respected
   - [ ] Transactional rollback on failure leaves the previous seat layout fully intact
   - [ ] Backend test coverage green, including refusal paths, rollback, `updateSeatBatch` happy paths, and `updateSeatBatch` invalid-input rollback
-  - [ ] Admin facade at `admin/app/Services/Backend/AuditoriumService.php` delegates to the domain service, resolves `Causer` from `auth()->user()`, and imports from `FinalCut\Domain` — no `Backend\` namespace references
 
 ---
 
@@ -181,10 +187,46 @@ Per spec § 2.6, all mutations go through `AuditoriumService`. Since `Auditorium
 - **MoSCoW:** Must Have
 - **Complexity:** M
 - **Files:**
-  - `admin/app/Filament/Resources/LocationResource.php` (new)
-  - `admin/app/Filament/Resources/LocationResource/Pages/*` (list, create, edit, view)
+  - `backend/app/Filament/Resources/LocationResource.php` (new)
+  - `backend/app/Filament/Resources/LocationResource/Pages/ListLocations.php` (new)
+  - `backend/app/Filament/Resources/LocationResource/Pages/CreateLocation.php` (new)
+  - `backend/app/Filament/Resources/LocationResource/Pages/EditLocation.php` (new)
+  - `backend/app/Filament/Resources/LocationResource/Pages/ViewLocation.php` (new)
 - **Details:**
-  Standard Filament Resource extending `BaseResource` with `$permissionPrefix = 'locations'`.
+  Standard Filament Resource extending `BaseResource` with `$permissionPrefix = 'locations'`, registered under the "Operations" navigation group.
+
+  ```php
+  namespace App\Filament\Resources;
+
+  use App\Models\Location;
+
+  class LocationResource extends BaseResource
+  {
+      protected static ?string $model = Location::class;
+      protected static ?string $permissionPrefix = 'locations';
+      protected static ?string $navigationIcon = 'heroicon-o-building-storefront';
+      protected static ?string $navigationGroup = 'Operations';
+      protected static ?int $navigationSort = 20;
+
+      public static function form(Form $form): Form { /* see below */ }
+      public static function table(Table $table): Table { /* see below */ }
+
+      public static function getRelations(): array
+      {
+          return [RelationManagers\AuditoriumsRelationManager::class];
+      }
+
+      public static function getPages(): array
+      {
+          return [
+              'index' => Pages\ListLocations::route('/'),
+              'create' => Pages\CreateLocation::route('/create'),
+              'view' => Pages\ViewLocation::route('/{record}'),
+              'edit' => Pages\EditLocation::route('/{record}/edit'),
+          ];
+      }
+  }
+  ```
 
   **Form schema:**
   ```php
@@ -230,19 +272,30 @@ Per spec § 2.6, all mutations go through `AuditoriumService`. Since `Auditorium
   TextColumn::make('city'),
   TextColumn::make('timezone'),
   TextColumn::make('auditoriums_count')->counts('auditoriums')->label('Auditoriums'),
-  TextColumn::make('created_at')->since()->sortable(),
+  ...TimestampColumns::standardTimestamps(),
   ```
 
-  Relation managers: auditoriums (Task 4).
+  Override `CreateLocation::handleRecordCreation`, `EditLocation::handleRecordUpdate`, and the table's `DeleteAction::make()` with `->using()` to route all mutations through the service:
 
-  Delete is soft-delete via `SoftDeletes` trait if backend uses it — otherwise confirm via spec + schema.
+  ```php
+  // CreateLocation.php
+  protected function handleRecordCreation(array $data): Model
+  {
+      // Location CRUD is straightforward — service wraps write + activity log.
+      return app(\App\Services\AuditoriumService::class)
+          ->createLocation($data, auth('admin')->user()); // add if needed, else direct Eloquent is acceptable per § 2.6
+  }
+  ```
+
+  **Scope note.** `Location` is largely pure-content (name, address, contact). Per spec § 2.6, direct Eloquent is acceptable for pure-content writes with no invariants. This plan routes Location writes through the service anyway for consistency with the rest of the Resource, *and* to get audit-log attribution for free. Do not treat the service routing as load-bearing; the stronger routing rule applies to auditoriums and seats.
 
 - **Acceptance Criteria:**
   - [ ] Resource registers under "Operations" navigation group
   - [ ] Form validates required fields
-  - [ ] Timezone select searchable
+  - [ ] Timezone select is searchable, `required()`, and defaults via config — no hardcoded geographic value
   - [ ] Table shows auditorium count
   - [ ] AuditoriumsRelationManager attached (Task 4)
+  - [ ] Permission gating works per role (admin full, manager create/update + view, ops read-only)
 
 ---
 
@@ -251,16 +304,17 @@ Per spec § 2.6, all mutations go through `AuditoriumService`. Since `Auditorium
 - **MoSCoW:** Must Have
 - **Complexity:** M
 - **Files:**
-  - `admin/app/Filament/Resources/LocationResource/RelationManagers/AuditoriumsRelationManager.php` (new)
-  - `admin/app/Filament/Resources/AuditoriumResource.php` (new — standalone resource too)
+  - `backend/app/Filament/Resources/LocationResource/RelationManagers/AuditoriumsRelationManager.php` (new)
+  - `backend/app/Filament/Resources/AuditoriumResource.php` (new — standalone resource too)
+  - `backend/app/Filament/Resources/AuditoriumResource/Pages/*` (list, create, edit, view)
 - **Details:**
   Auditoriums can be accessed two ways:
   1. **Via Location view page** — relation manager with inline edit (most common path for staff)
-  2. **Standalone resource** at `/admin/auditoriums` — for bulk operations and schedule planner linking (Plan 06)
+  2. **Standalone resource** at `/auditoriums` — for bulk operations and schedule planner linking (Plan 06)
 
   **Form source of truth (no drift):** Both surfaces render the *same* form schema. Extract it into a shared static method — `AuditoriumResource::getFormSchema(): array` — and have both `AuditoriumResource::form()` and `AuditoriumsRelationManager::form()` call it. The relation manager is a convenience view on top of the shared schema; the standalone resource is the canonical surface for anything that isn't an inline quick-edit. Do not define the form independently in two places. Any field added to one surface lands in both automatically.
 
-  **Relation manager form (defined in the shared schema method):**
+  **Shared form schema:**
   ```php
   TextInput::make('name')->required(),
   TextInput::make('slug')->required(),
@@ -284,22 +338,40 @@ Per spec § 2.6, all mutations go through `AuditoriumService`. Since `Auditorium
   ]),
   ```
 
-  **Row actions:**
-  - Edit (inline form)
-  - Configure seats (opens seat generator — Task 5)
-  - Visual seat editor (Task 6, gated on feature flag)
-  - Delete (confirms; cascade warning for associated showtimes)
+  **Service routing (same pattern as Plan 04).** `CreateAuditorium::handleRecordCreation` and `EditAuditorium::handleRecordUpdate` call `AuditoriumService::createAuditorium` / `updateAuditorium`, passing `auth('admin')->user()` as the actor. The relation manager's inline create/edit actions do the same via Filament's `->using()` hook. The section repeater's persistence delegates to `updateSectionConfig` so section edits flow through the service and hit the cascade-rule guard (no section delete while seats reference it).
 
-  All mutations go through `AuditoriumService` facade.
+  **Delete must route through the service.** Every `DeleteAction::make()` for an auditorium opts into `->using()` so deletes emit an audit row attributed to the admin actor:
+
+  ```php
+  DeleteAction::make()
+      ->using(fn (Model $record) => app(\App\Services\AuditoriumService::class)
+          ->deleteAuditorium($record, auth('admin')->user()))
+      ->requiresConfirmation()
+      ->modalDescription('Deleting this auditorium will cascade to its showtimes. Past bookings keep their historical seat references.');
+  ```
+
+  This is a convention enforced by test (Task 7), not by static analysis. A stock `DeleteAction::make()` without `->using()` is a test-caught regression — the test asserts that `AuditoriumService::deleteAuditorium` was called for any admin-originated delete.
+
+  **Row actions:**
+  - Edit (inline form via shared schema)
+  - Configure seats (opens seat generator — Task 5)
+  - Fix seat sections (opens `updateSeatBatch` table action — see below)
+  - Visual seat editor (Task 6, gated on feature flag)
+  - Delete (via `->using()`, with cascade warning for associated showtimes)
+
+  **`updateSeatBatch` MVP UI (table action).** A row action labelled "Fix seat sections" opens a Filament modal with a table of existing seats, each row offering a section select and an "Unavailable" toggle. Save submits the diff to `AuditoriumService::updateSeatBatch($auditorium, $patches, auth('admin')->user())`. This is the no-UX-risk fallback that ships with MVP. Task 6's visual editor is a better UX on top of the same service method.
 
 - **Acceptance Criteria:**
   - [ ] Relation manager lists auditoriums for a location
-  - [ ] Inline create/edit uses service facade
+  - [ ] Inline create/edit routes through `AuditoriumService`, passing `auth('admin')->user()` as actor
   - [ ] Both relation manager and standalone resource call the same `AuditoriumResource::getFormSchema()` — a field added to the method appears in both surfaces without further edits
-  - [ ] Section repeater persists to `auditorium_sections` table
+  - [ ] Section repeater persists to `auditorium_sections` via `AuditoriumService::updateSectionConfig`
   - [ ] `cleanup_minutes` editable with helper text
-  - [ ] "Configure seats" action visible per permission
-  - [ ] Standalone `/admin/auditoriums` resource also accessible
+  - [ ] "Configure seats" action visible per permission (`seats.update` or equivalent)
+  - [ ] "Fix seat sections" row action calls `AuditoriumService::updateSeatBatch` with the admin actor
+  - [ ] Every `DeleteAction` instance uses `->using()` to call `AuditoriumService::deleteAuditorium`
+  - [ ] Direct Eloquent deletes removed from every auditorium mutation path
+  - [ ] Standalone `/auditoriums` resource also accessible
 
 ---
 
@@ -308,8 +380,8 @@ Per spec § 2.6, all mutations go through `AuditoriumService`. Since `Auditorium
 - **MoSCoW:** Must Have
 - **Complexity:** L
 - **Files:**
-  - `admin/app/Filament/Pages/ConfigureAuditoriumSeats.php` (new custom page)
-  - `admin/app/Filament/Resources/AuditoriumResource/Pages/ConfigureSeats.php` (new sub-page)
+  - `backend/app/Filament/Pages/ConfigureAuditoriumSeats.php` (new custom page)
+  - `backend/app/Filament/Resources/AuditoriumResource/Pages/ConfigureSeats.php` (new sub-page)
 - **Details:**
   Custom Filament page invoked from the "Configure seats" action on an auditorium. Provides a form that generates seats in bulk.
 
@@ -318,8 +390,8 @@ Per spec § 2.6, all mutations go through `AuditoriumService`. Since `Auditorium
   public function form(Form $form): Form
   {
       return $form->schema([
-          TextInput::make('rows')->numeric()->minValue(1)->maxValue(30)->required()
-              ->helperText('Number of rows (e.g., 10 creates rows A through J)'),
+          TextInput::make('rows')->numeric()->minValue(1)->maxValue(26)->required()
+              ->helperText('Number of rows (e.g., 10 creates rows A through J). Max 26 (A–Z).'),
           TextInput::make('seats_per_row')->numeric()->minValue(1)->maxValue(30)->required(),
 
           Section::make('Section Assignment')->schema([
@@ -370,7 +442,7 @@ Per spec § 2.6, all mutations go through `AuditoriumService`. Since `Auditorium
   **Action:**
   - Parse each `row_range` into an array of row letters (rejecting malformed tokens with field errors)
   - Build config array for `AuditoriumService::generateSeats`
-  - Call the service and handle outcomes:
+  - Call the service with `auth('admin')->user()` as the actor and handle outcomes:
     - **Success:** redirect to auditorium view with a "Seat layout regenerated" notification. Activity log entry captures the full config so historical layouts are reviewable.
     - **`AuditoriumSeatRegenerationBlockedException`:** stay on the page, render a prominent error summary with the blocker counts from the exception (e.g., "Blocked: 3 future showtimes, 12 active bookings"), and include links to the relevant showtime/booking queues. The old layout is untouched.
     - **Any other service failure:** stay on the page, show a generic error notification. Because the service wraps generation in a transaction, the previous layout is guaranteed intact — surface that reassurance in the error copy: *"Regeneration failed. Your existing seat layout has not been changed."*
@@ -394,11 +466,11 @@ Per spec § 2.6, all mutations go through `AuditoriumService`. Since `Auditorium
   - [ ] Unavailable-seats tag input accepts individual tags *and* a pasted comma-separated list (`A3, A4, J11`). Form copy, helper text, and acceptance test all describe the same behavior — no drift between "tags" and "comma-separated list"
   - [ ] Destructive warning shown when regenerating existing seats, including the reassurance that transactional failure leaves the old layout intact
   - [ ] Submit button is disabled and blocker summary rendered when future showtimes, active bookings, or held seats exist for the auditorium
-  - [ ] Submit calls `AuditoriumService::generateSeats`
+  - [ ] Submit calls `AuditoriumService::generateSeats` with the admin actor
   - [ ] On `AuditoriumSeatRegenerationBlockedException`, blocker counts are shown to the user; no destructive action runs
   - [ ] On any other generation failure, the UI explicitly states that the existing seat layout has not been changed
   - [ ] Seat matrix correct post-generation (manual: create 10x12, verify 120 seats minus unavailable)
-  - [ ] Activity log entry created
+  - [ ] Activity log entry created with `causedBy($actor)` attribution
 
 ---
 
@@ -407,10 +479,10 @@ Per spec § 2.6, all mutations go through `AuditoriumService`. Since `Auditorium
 - **MoSCoW:** Could Have (ships in this plan only if budget allows; otherwise spin off to a follow-up plan)
 - **Complexity:** L
 - **Files:**
-  - `admin/app/Filament/Pages/VisualSeatEditor.php` (new)
-  - `admin/resources/views/filament/pages/visual-seat-editor.blade.php` (new)
-  - `admin/resources/views/filament/pages/partials/seat-grid.blade.php` (new)
-- **Scope change vs. previous draft.** `updateSeatBatch` is no longer conditional on this task — it's promoted to MVP in Task 2 because the "reassign row A from Premium to Accessible after opening" case will hit within the first operational month and the regeneration path is blocked by future showtimes. Task 6's scope reduces to the visual UI layer on top of the already-present service method. The MVP UI for `updateSeatBatch` is a simple table action in `AuditoriumResource` (shipped in Task 4); this task is a better UX, not a new capability.
+  - `backend/app/Filament/Pages/VisualSeatEditor.php` (new)
+  - `backend/resources/views/filament/pages/visual-seat-editor.blade.php` (new)
+  - `backend/resources/views/filament/pages/partials/seat-grid.blade.php` (new)
+- **Scope note.** `updateSeatBatch` is not conditional on this task — it's promoted to MVP in Task 2 because the "reassign row A from Premium to Accessible after opening" case will hit within the first operational month and the regeneration path is blocked by future showtimes. Task 6's scope reduces to the visual UI layer on top of the already-present service method. The MVP UI for `updateSeatBatch` is a row action in `AuditoriumResource` (shipped in Task 4); this task is a better UX, not a new capability.
 - **Details:**
   Livewire-driven visual grid. Renders a grid of clickable squares matching the auditorium's row × col layout. Each cell represents a seat and shows its current type/section via color.
 
@@ -418,26 +490,26 @@ Per spec § 2.6, all mutations go through `AuditoriumService`. Since `Auditorium
   - Click seat → cycle through types (standard → premium → accessible → unavailable → standard)
   - Drag-select → apply type to selection (shift-click for range select)
   - Section dropdown in toolbar → change section for selected seats
-  - Save button → batch update via `AuditoriumService::updateSeatBatch()` (already present per Task 2)
+  - Save button → batch update via `AuditoriumService::updateSeatBatch()` (already present per Task 2), passing `auth('admin')->user()` as actor
 
   **Alpine.js / Livewire pattern:**
   - Server-side state: Livewire property `$seats` keyed by seat ID
   - Client-side UX: Alpine `x-data` managing selection, hover, drag
-  - Save: `wire:click="save"` sends the delta to the service facade, which resolves `Causer` and delegates to `FinalCut\Domain\Services\AuditoriumService::updateSeatBatch`
+  - Save: `wire:click="save"` sends the delta to `AuditoriumService::updateSeatBatch` with the admin actor
 
   Since this is "Could Have" gated on budget, document the scope but do not block Plan 05 completion on it.
 
-  **MVP fallback if not shipped:** staff use Task 4's table-action UI on `AuditoriumResource` to invoke `updateSeatBatch` for per-row reassignment. Task 5's generator form remains the path for full rebuilds. Because `updateSeatBatch` is in MVP, the visual editor can be added later as a pure UX enhancement with no service-layer changes.
+  **MVP fallback if not shipped:** staff use Task 4's "Fix seat sections" row action on `AuditoriumResource` to invoke `updateSeatBatch` for per-row reassignment. Task 5's generator form remains the path for full rebuilds. Because `updateSeatBatch` is in MVP, the visual editor can be added later as a pure UX enhancement with no service-layer changes.
 
 - **Acceptance Criteria (only if shipped):**
-  - [ ] Visual grid renders at `/admin/auditoriums/{id}/visual-editor`
+  - [ ] Visual grid renders at `/auditoriums/{id}/visual-editor`
   - [ ] Click cycles seat type
   - [ ] Drag-select applies type in bulk
-  - [ ] Save persists via the existing `updateSeatBatch` service method — no new service method added
+  - [ ] Save persists via the existing `updateSeatBatch` service method, passing the admin actor — no new service method added
   - [ ] Unsaved changes prompt on navigation
   - [ ] Feature tests cover type cycling and bulk save
 
-- **Explicit non-goal in this plan:** If budget is tight, document this task as "deferred to admin-v2" in the progress journal and remove from this plan's scope. The MVP table-action UI on `AuditoriumResource` (Task 4) plus Task 5's generator form together cover the operational need.
+- **Explicit non-goal in this plan:** If budget is tight, document this task as "deferred to admin-v2" in the progress journal and remove from this plan's scope. The MVP row-action UI on `AuditoriumResource` (Task 4) plus Task 5's generator form together cover the operational need.
 
 ---
 
@@ -446,62 +518,107 @@ Per spec § 2.6, all mutations go through `AuditoriumService`. Since `Auditorium
 - **MoSCoW:** Must Have
 - **Complexity:** M
 - **Files:**
-  - `admin/tests/Feature/Resources/LocationResourceTest.php` (new)
-  - `admin/tests/Feature/Resources/AuditoriumResourceTest.php` (new)
-  - `admin/tests/Feature/Pages/ConfigureAuditoriumSeatsTest.php` (new)
-  - `admin/tests/Feature/Pages/VisualSeatEditorTest.php` (new — only if Task 6 ships)
+  - `backend/tests/Feature/Admin/Resources/LocationResourceTest.php` (new)
+  - `backend/tests/Feature/Admin/Resources/LocationResourcePermissionTest.php` (new)
+  - `backend/tests/Feature/Admin/Resources/AuditoriumResourceTest.php` (new)
+  - `backend/tests/Feature/Admin/Resources/AuditoriumResourcePermissionTest.php` (new)
+  - `backend/tests/Feature/Admin/Pages/ConfigureAuditoriumSeatsTest.php` (new)
+  - `backend/tests/Feature/Admin/Pages/VisualSeatEditorTest.php` (new — only if Task 6 ships)
+  - `backend/tests/Feature/Admin/Services/AuditoriumServiceIntegrationTest.php` (new)
+  - `backend/tests/Feature/Admin/Services/AuditoriumServiceRegenerationSafetyTest.php` (new — critical)
 - **Details:**
-  **LocationResourceTest:** list/create/update/delete, timezone select, auditorium count column.
+  Use Filament's Livewire test helpers. Tests split into two layers (same pattern as Plan 04).
 
-  **AuditoriumResourceTest:** CRUD via relation manager on Location, section repeater persistence, `cleanup_minutes` default and edit.
+  **Layer A — Resource / Page tests (service mocked).** Verify the Resource and pages wire forms / actions / permissions to the service. Mock `\App\Services\AuditoriumService` via `$this->mock()` so no backend writes happen. These tests do not assert on `activity_log` — with a mocked service, no real mutation runs.
 
-  **ConfigureAuditoriumSeatsTest:**
-  - Test: generator form accepts valid config → calls `AuditoriumService::generateSeats` with expanded row array
-  - Test: row range "A-C" expands to ["A", "B", "C"]
-  - Test: invalid row range tokens (`C-A`, `AA`, `1-3`) produce field-level errors and do not call the service
-  - Test: unavailable-seat input accepts both individual tags and a pasted comma-separated string, producing the same array
-  - Test: warning visible when auditorium already has seats
-  - Test: activity log entry created post-generation
+  **LocationResourceTest (service mocked):**
+  - admin can list locations
+  - admin can create a location via form submission → asserts the service create call (or direct write, depending on how Task 3 lands) happens with actor = logged-in admin
+  - admin can update a location → asserts service update with actor
+  - **admin can delete a location via the table `DeleteAction` → asserts `AuditoriumService::deleteLocation` (or equivalent) was called and `Model::delete()` was NOT called directly** (regression guard for stock `DeleteAction::make()` slipping in without `->using()`)
+  - Timezone select is `required()` and has no hardcoded geographic default
+  - AuditoriumsRelationManager renders under the location view page
 
-  **AuditoriumServiceRegenerationSafetyTest (new — critical):**
-  - Test: regeneration blocked when a future `Showtime` exists; exception carries future-showtime count; no seats deleted
-  - Test: regeneration blocked when a `Booking` with status `confirmed` / `held` / `refund_pending` references a seat in the auditorium; no seats deleted
-  - Test: regeneration blocked when any seat in the auditorium is in `held` state
-  - Test: regeneration succeeds when only past showtimes exist and all bookings are in terminal states
-  - Test: mid-generation failure (inject a DB error after delete, before insert-complete) — previous seat layout remains fully intact, no partial state, activity log records the failure rather than a success
-  - Test: `force = true` path still refuses in this plan because the UI never exposes it — document as a guard, not a feature
-  - Test: deleting a section referenced by seats is refused; no section row removed
-  - Test: updating a section's `price_multiplier` does not modify any seat row
+  **LocationResourcePermissionTest (service mocked):**
+  - ops cannot access create / edit
+  - manager can create / update locations
+  - nobody role cannot access list page
 
-  **ConfigureAuditoriumSeatsTest (UI-level regeneration safety):**
-  - Test: submit button is disabled and blocker summary rendered when blockers exist
-  - Test: when the service throws `AuditoriumSeatRegenerationBlockedException`, the UI renders blocker counts and no destructive action is reported as completed
-  - Test: when the service throws a generic failure, the UI copy states that the existing layout has not been changed
+  **AuditoriumResourceTest (service mocked):**
+  - admin can list auditoriums
+  - admin can create an auditorium via the relation manager → asserts `AuditoriumService::createAuditorium` called with location + actor
+  - admin can update an auditorium from the standalone resource → asserts `AuditoriumService::updateAuditorium` with actor
+  - **admin can delete an auditorium via `DeleteAction` → asserts `AuditoriumService::deleteAuditorium` was called and `Model::delete()` was NOT called directly**
+  - Section repeater persistence routes through `AuditoriumService::updateSectionConfig` with actor
+  - "Fix seat sections" row action calls `AuditoriumService::updateSeatBatch` with actor
+  - Relation manager and standalone resource render the same field set (guards against form drift by asserting the shared `getFormSchema` is reused)
 
-  **Permission tests:** ops role cannot configure seats; manager role can.
+  **AuditoriumResourcePermissionTest (service mocked):**
+  - ops cannot configure seats
+  - manager can configure seats
+  - ops cannot see "Fix seat sections" or "Configure seats" row actions
+  - ops can view the list
+
+  **ConfigureAuditoriumSeatsTest (service mocked for most cases; real for blocker-path rendering):**
+  - Generator form accepts valid config → calls `AuditoriumService::generateSeats` with expanded row array and actor
+  - Row range "A-C" expands to ["A", "B", "C"]
+  - Invalid row range tokens (`C-A`, `AA`, `1-3`) produce field-level errors and do not call the service
+  - Unavailable-seat input accepts both individual tags and a pasted comma-separated string, producing the same array
+  - Warning visible when auditorium already has seats
+  - Submit button is disabled and blocker summary rendered when blockers exist
+  - When the service throws `AuditoriumSeatRegenerationBlockedException`, the UI renders blocker counts and no destructive action is reported as completed
+  - When the service throws a generic failure, the UI copy states that the existing layout has not been changed
+
+  **Layer B — Service integration tests (real service, real DB).** Exercise the real `AuditoriumService` end-to-end to verify activity-log attribution and the cross-cutting invariants.
+
+  **AuditoriumServiceIntegrationTest:**
+  - Creating an auditorium with `$actor` set writes an `activity_log` row with the expected description, causer, and subject
+  - Creating an auditorium with `$actor = null` does NOT write an `activity_log` row
+  - Updating an auditorium with `$actor` set writes an update activity row with the changed-attribute diff
+  - Deleting an auditorium with `$actor` set writes a delete activity row
+  - `updateSectionConfig` with `$actor` set writes an activity row per section changed
+  - `updateSeatBatch` happy-path reassignment writes one activity row per seat changed with actor attribution
+  - `updateSeatBatch` happy-path unavailability toggle writes one activity row per seat changed
+  - `updateSeatBatch` invalid seat ID or invalid section ID rolls back the entire batch; no seat modified; no activity rows written
+  - `updateSeatBatch` is NOT blocked by future showtimes or active bookings (the key MVP promise)
+  - Deleting a section referenced by seats is refused; no section row removed
+
+  **AuditoriumServiceRegenerationSafetyTest (critical — highest-priority invariant):**
+  - Regeneration blocked when a future `Showtime` exists; exception carries future-showtime count; no seats deleted
+  - Regeneration blocked when a `Booking` with status `confirmed` / `held` / `refund_pending` references a seat in the auditorium; no seats deleted
+  - Regeneration blocked when any seat in the auditorium is in `held` state
+  - Regeneration succeeds when only past showtimes exist and all bookings are in terminal states
+  - Mid-generation failure (inject a DB error after delete, before insert-complete) — previous seat layout remains fully intact, no partial state, activity log records the failure rather than a success
+  - `force = true` path still refuses in this plan because the UI never exposes it — document as a guard, not a feature
+  - Updating a section's `price_multiplier` does not modify any seat row (cascade contract)
+  - Adding a new section does not auto-populate seats (cascade contract)
 
 - **Acceptance Criteria:**
-  - [ ] Location resource tests green (5+ tests), including required-timezone selection and no hardcoded geographic default
-  - [ ] Auditorium resource tests green (5+ tests), including a test that asserts relation manager and standalone resource render the same field set (guards against form drift)
-  - [ ] Seat generator tests green (5+ tests), including row-range validation and blocker-aware UI
-  - [ ] `AuditoriumServiceRegenerationSafetyTest` green and non-trivial — regeneration safety is the highest-priority invariant in this plan
-  - [ ] Visual editor tests green if shipped
-  - [ ] Permission matrix covered
+  - [ ] Layer A Location Resource tests cover list / create / update / delete (including stock-DeleteAction regression guard) and timezone required-default behavior
+  - [ ] Layer A Location PermissionTest covers all three roles × all actions
+  - [ ] Layer A Auditorium Resource tests cover list / create / update / delete (including stock-DeleteAction regression guard), section-repeater routing through the service, `updateSeatBatch` table action, and shared-schema drift guard
+  - [ ] Layer A Auditorium PermissionTest covers all three roles × all actions
+  - [ ] Layer A ConfigureAuditoriumSeatsTest covers generator validation, row-range expansion, blocker-aware UI, and exception rendering
+  - [ ] Layer A service is mocked — no real writes; no `activity_log` assertions at this layer
+  - [ ] Layer B `AuditoriumServiceIntegrationTest` runs the real service and verifies `activity_log` writes (including the `$actor = null` skip case), cascade rules, and `updateSeatBatch` behavior
+  - [ ] Layer B `AuditoriumServiceRegenerationSafetyTest` green and non-trivial — regeneration safety is the highest-priority invariant in this plan
+  - [ ] Visual editor tests green if Task 6 ships
+  - [ ] `make admin-test` passes all location / auditorium / seat tests green
 
 ---
 
 ## Testing Requirements
 
-- **Pest Feature Tests:** location CRUD, auditorium CRUD via relation manager, seat generator correctness, permission matrix
-- **Backend service tests:** `AuditoriumService` has independent backend coverage (Task 2)
-- **Parity:** `ModelParityTest` catches `cleanup_minutes` addition (Task 1 verifies)
+- **Layer A (Resource / Page, service mocked):** Location CRUD / Auditorium CRUD via relation manager and standalone resource / seat generator / `updateSeatBatch` table action / full permission matrix / shared-schema drift guard. No `activity_log` assertions.
+- **Layer B (Service integration, real DB):** activity-log attribution with / without actor, section-cascade contract, `updateSeatBatch` happy and invalid-input paths, regeneration safety (future showtimes, active bookings, held seats, mid-generation rollback).
+- **Backend service tests (Task 2):** all write paths independent of Filament.
 
 ## Dependencies Map
 
 ```
 Task 1 (cleanup_minutes) ← foundational
 Task 2 (AuditoriumService) ← needs Task 1
-Task 3 (LocationResource) ← needs Task 2
+Task 3 (LocationResource) ← needs Plan 03 BaseResource + Task 2
 Task 4 (AuditoriumResource) ← needs Tasks 2, 3
 Task 5 (seat generator) ← needs Task 4 — MVP
 Task 6 (visual editor) ← needs Task 5 — OPTIONAL
@@ -513,6 +630,7 @@ Task 7 (tests) ← needs all
 1. **Regeneration safety is the top risk in this plan.** `generateSeats` is the most destructive admin action across v1. The Task 2 contract (refuse when future showtimes / active bookings / held seats exist, transactional rollback leaves old layout intact) is the primary guardrail. If that contract is softened or skipped during implementation, data loss becomes likely rather than possible. The dedicated `AuditoriumServiceRegenerationSafetyTest` in Task 7 exists to prevent regressions here — treat it as load-bearing.
 2. **Seat count performance.** Auditoriums with 300+ seats mean 300 rows inserted per regeneration. Wrapped in transaction; measure on typical hardware. If slow, batch via `Seat::insert()` chunks.
 3. **Soft-delete cascade.** If a location is soft-deleted with live showtimes, what happens? v1 behavior: `onDelete('restrict')` at the DB level prevents deletion — admin must first cancel or migrate showtimes. Document in the delete confirmation dialog.
-4. **Visual editor scope creep.** The Livewire/Alpine UX is the most expensive piece in the whole admin plan set. Explicitly keep it in Could Have and ship the MVP form + table-action UI first. Decision point: after Task 5 tests pass, assess remaining budget. `updateSeatBatch()` is always present in the service API (MVP promoted), so deferring Task 6 costs zero capability — only UX polish.
+4. **Visual editor scope creep.** The Livewire/Alpine UX is the most expensive piece in the whole admin plan set. Explicitly keep it in Could Have and ship the MVP generator form + `updateSeatBatch` row action first. Decision point: after Task 5 tests pass, assess remaining budget. `updateSeatBatch()` is always present in the service API (MVP promoted), so deferring Task 6 costs zero capability — only UX polish.
 5. **Section pricing coupling.** `AuditoriumSection.price_multiplier` is applied to `Showtime.price_standard` to derive seat pricing. Section edits do not cascade to seat rows (seats reference sections by `section_id`, so multiplier changes take effect immediately without touching seats). Plan 06 conflict detection doesn't touch this, but Plan 08 (menu/promo) might. Verify no admin mutation breaks the downstream pricing formula.
 6. **Migration coordination.** Task 1's in-place migration edit assumes the current schema has not propagated to a shared environment. If it has, Task 1 must fall back to an additive migration. Confirm before starting the task, not mid-implementation.
+7. **Stock `DeleteAction` regression.** The write-boundary rule (all admin auditorium deletes go through `AuditoriumService` for audit attribution) is a convention enforced by Layer A Resource tests, not by static analysis. A future contributor adding a `DeleteAction::make()` without `->using()` slips through to a direct `$record->delete()` with no audit row. The Task 7 regression test catches it before merge. If regressions happen repeatedly, escalate tooling later — start with the test, keep tooling light.

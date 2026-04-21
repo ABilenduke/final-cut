@@ -1,7 +1,7 @@
 # Admin Implementation Plans — Master Index
 
-> **Project:** Final Cut Movie Theatre — Admin App
-> **Stack:** Laravel 13, PHP 8.4, Filament 3, PostgreSQL, Redis, Pest
+> **Project:** Final Cut Movie Theatre — Admin Panel
+> **Stack:** Laravel 13 (existing `backend/` app), PHP 8.4, Filament 3, PostgreSQL, Redis, Pest
 > **Methodology:** MoSCoW prioritization, dependency-first ordering, domain grouping, inline testing
 > **Spec:** [`docs/superpowers/specs/2026-04-20-admin-section-design.md`](../../../superpowers/specs/2026-04-20-admin-section-design.md)
 
@@ -9,18 +9,17 @@
 
 ## Architecture
 
-Filament 3 admin panel in a **separate top-level Laravel app** at `admin/`. Shares the `final_cut` PostgreSQL database and Redis cache with the backend API, but has its own:
+Filament 3 admin panel installed **inside the existing `backend/` Laravel app** and served at a dedicated subdomain (`admin.finalcut.test` in dev, `admin.finalcut.com` in prod). There is no separate Laravel app, no new Docker service, no cross-app code bridge. Admin Resources, Pages, and the panel provider live under `backend/app/Filament/` and `backend/app/Providers/Filament/`. Admin-only tables (`admin_users`, Spatie permission tables, `activity_log`, `loyalty_adjustments`) are migrated via `backend/database/migrations/` alongside customer tables.
 
-- `admin_users` table with a `disabled_at` kill-switch column (no reuse of customer `users`)
-- `admin` auth guard, session cookie scoped to `admin.finalcut.test` in dev and `admin.finalcut.com` in prod (no leading dot in either — see Plan 02 Task 2)
-- Docker service, nginx vhost, deployment pipeline
-- Eloquent model layer (mirrors the shared-domain schema via a parity tripwire test that now asserts cast parity)
+Isolation between the admin surface and the customer surface is enforced at three layers:
 
-**Shared-code boundary (ADR-001, Plan 03 Task 1).** Backend and admin share domain services, Eloquent models whose writes cross the admin/backend boundary, enums, and activity-log event classes via a **shared Composer package** at `packages/shared-domain/` (namespace `FinalCut\Domain\`), wired into both apps via a Composer path repository. No synthetic namespaces, no absolute-path classmaps, no read-only bind mounts of `./backend` into admin containers. Backend retains its HTTP controllers and customer-facing services outside the package; admin consumes the package as a normal Composer dependency.
+1. **Nginx vhost separation.** `admin.conf.template` and the existing `default.conf.template` are distinct server blocks. Both fastcgi to the same backend PHP-FPM container, but only the customer vhost can `proxy_pass` to the Nuxt frontend. The wildcard dev cert already covers `*.finalcut.test`.
+2. **Laravel route-domain scoping.** Customer API routes are wrapped in `Route::domain(config('app.primary_domain'))->prefix('api')->group(...)`; Filament's `AdminPanelProvider` uses `->domain(config('filament.admin_domain'))`. A Pest `RouteDomainScopingTest` asserts no route leaks across domains.
+3. **Session cookie scoping.** Admin session cookie `admin_session` scoped to the admin subdomain only. Customer session cookie scoped to the primary domain. Redis prefix `admin_session:` keeps the two session stores apart.
 
-Admin writes to shared tables **go through shared-domain services** (`MovieService`, `ShowtimeService`, `LoyaltyService`, `GiftCardService`, `PromoCodeService`, `AuditoriumService`) rather than direct Eloquent mutations. Every service write method takes an explicit `Causer` argument (`AdminUser` for admin calls, `User` for customer calls, `SystemCauser` for scheduled/webhook calls) so audit attribution is unambiguous across contexts. Enforcement is mechanical: phpstan `disallowedMethodCalls` + deptrac layer rules fail CI on direct mutations to shared-domain models from Filament Resources (Plan 03 Task 7).
+Admin writes to shared tables go through service classes in `backend/app/Services/` (`MovieService`, `ShowtimeService`, `AuditoriumService`, `LoyaltyService`, `GiftCardService`, `PromoCodeService`). Service methods accept an optional `?AdminUser $actor = null` for audit-log attribution when called from the admin panel. Services are shared between the customer API and the admin panel — not because of a cross-app boundary, but because there is one app and service extraction is good discipline. Filament Resources for pure-content fields without invariants (menu item description, calendar event notes) may write directly via Eloquent.
 
-Roles: **admin** (full), **manager** (content + operations, no financial mutations), **ops** (read-only support). No location scoping in v1.
+Roles: **admin** (full), **manager** (content + operations, no financial mutations), **ops** (read-only support). Roles are scoped to the `admin` guard via spatie/permission's `guard_name`, so customer users cannot be assigned admin roles. No location scoping in v1.
 
 ---
 
@@ -28,26 +27,26 @@ Roles: **admin** (full), **manager** (content + operations, no financial mutatio
 
 | # | Plan | MoSCoW | Complexity | Depends On | Status |
 |---|------|--------|------------|------------|--------|
-| 01 | [Admin App Scaffold & Docker](01-admin-scaffold-and-docker.md) | Must Have | L | None | Pending |
+| 01 | [Admin Panel Scaffold & Nginx Vhost](01-admin-scaffold-and-docker.md) | Must Have | M | None | Pending |
 | 02 | [Auth, Roles, Permissions & Audit Log](02-auth-roles-permissions-audit.md) | Must Have | M | 01 | Pending |
-| 03 | [Shared Eloquent Models & Base Resources](03-shared-models-and-base-resources.md) | Must Have | M | 01, 02 | Pending |
+| 03 | [Base Resource Class & Loyalty Adjustments](03-shared-models-and-base-resources.md) | Must Have | S | 01, 02 | Pending |
 | 04 | [Movie Catalog Management](04-movie-catalog-management.md) | Must Have | M | 03 | Pending |
 | 05 | [Locations, Auditoriums & Seat Editor](05-locations-auditoriums-seat-editor.md) | Must Have | XL | 03 | Pending |
 | 06 | [Showtime Management](06-showtime-management.md) | Must Have | XL | 04, 05 | Pending |
 | 07 | [Bookings, Customers & Loyalty](07-bookings-customers-loyalty.md) | Should Have | M | 03, 06 | Pending |
 | 08 | [Menu, Promo Codes & Gift Cards](08-menu-promo-gift-cards.md) | Should Have | M | 05 | Pending |
-| 09 | [Calendar Events, Testing & Deploy](09-calendar-events-testing-deploy.md) | Should Have | L | 04–08 | Pending |
+| 09 | [Calendar Events, Testing & Hardening](09-calendar-events-testing-deploy.md) | Should Have | L | 04–08 | Pending |
 
 ---
 
 ## Dependency Graph
 
 ```
-01 Admin Scaffold & Docker
+01 Admin Panel Scaffold & Nginx Vhost
 │
 02 Auth, Roles, Permissions & Audit Log
 │
-03 Shared Eloquent Models & Base Resources
+03 Base Resource Class & Loyalty Adjustments
 │
 ├── 04 Movie Catalog Management (Must)
 │   └── 06 Showtime Management (Must)
@@ -57,7 +56,7 @@ Roles: **admin** (full), **manager** (content + operations, no financial mutatio
 │   ├── 06 Showtime Management (also blocks on 05)
 │   └── 08 Menu, Promo Codes & Gift Cards (Should)
 │
-└── 09 Calendar Events, Testing & Deploy (Should) ←── all domain plans
+└── 09 Calendar Events, Testing & Hardening (Should) ←── all domain plans
 ```
 
 ---
@@ -70,14 +69,14 @@ The minimum viable admin — enough to run the business day-to-day — requires:
 01 → 02 → 03 → 04 → 05 → 06
 ```
 
-After Plan 06, staff can manage movies, locations, auditoriums, and showtimes. Plans 07–09 round out operations, merchandise, and events.
+After Plan 06, staff can manage movies, locations, auditoriums, and showtimes. Plans 07–09 round out operations, merchandise, events, and production hardening.
 
 ---
 
 ## Build Phases
 
 ### Phase 1: Foundation (Plans 01–03)
-Admin app scaffold, authentication and authorization, shared Eloquent models with parity tripwire. Everything downstream depends on this.
+Filament install, panel provider, nginx vhost, route-domain scoping, admin auth stack, roles & permissions, activity log, Base Resource class, loyalty_adjustments table.
 
 ### Phase 2: Core Catalog (Plans 04–06)
 Movies, locations, auditoriums, seats, showtimes. The minimum staff needs to run the theatre.
@@ -85,8 +84,8 @@ Movies, locations, auditoriums, seats, showtimes. The minimum staff needs to run
 ### Phase 3: Operations & Merchandise (Plans 07–08)
 Customer lookup, loyalty adjustments, menu management, promo codes, gift cards.
 
-### Phase 4: Events, Testing & Deploy (Plan 09)
-Calendar events, full Pest suite pass, production hardening (IP allowlist, rate limits, Fail2ban), CI wiring, docs.
+### Phase 4: Events, Testing & Hardening (Plan 09)
+Calendar events, full Pest suite pass, production hardening (IP allowlist, rate limits, Fail2ban), docs updates.
 
 ---
 
@@ -139,6 +138,6 @@ Execution journal: `docs/progress/admin-v1.md` (scaffolded in Plan 01, updated p
 
 ## Relationship to Backend & Frontend Plans
 
-- **Backend v1** (complete, 410+ tests) provides the shared database schema, domain models, and services that admin calls via the write-boundary rule.
+- **Backend v1** (complete, 410+ tests) provides the shared database schema, the existing service layer (`TmdbService`, `SeatAvailabilityService`, `StripeService`, `LoyaltyService`), and the Eloquent models that Filament Resources reuse directly. New services extracted for admin (`MovieService`, `ShowtimeService`, `AuditoriumService`, `GiftCardService`, `PromoCodeService`) land in `backend/app/Services/` and are available to customer API endpoints as well.
 - **Frontend v1** (in progress) is the customer-facing Nuxt app, entirely untouched by admin work.
-- **Admin v1** is operationally independent — an admin bug cannot take down ticket sales.
+- **Admin v1** lives inside `backend/` but is isolated at the network edge (subdomain + route-domain scoping) so admin routes never answer on the customer domain and vice versa.
