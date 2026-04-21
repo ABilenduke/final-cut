@@ -137,27 +137,56 @@ Pin exactly — do not float on majors. Upgrades are a separate, intentional pla
   # nuxt-auth-utils) continues to use SESSION_DOMAIN=finalcut.test.
   ADMIN_SESSION_COOKIE=admin_session
   ADMIN_SESSION_DOMAIN=admin.finalcut.test
+  # Redis connection name for admin sessions — points at the `session_admin`
+  # entry under config/database.php redis. Keeps admin session keys on their
+  # own Redis database number (REDIS_ADMIN_SESSION_DB, default 3) so they can
+  # never collide with customer sessions on DB 2.
+  ADMIN_SESSION_CONNECTION=session_admin
+  REDIS_ADMIN_SESSION_DB=3
   ```
 
-  **Session cookie scoping.** Filament 3 does not natively support per-panel session drivers, but `AdminPanelProvider` can push a middleware that overrides the cookie name + domain for requests inside the panel. Add a small `ScopeAdminSession` middleware that runs before `StartSession::class` and sets:
+  **Session cookie scoping and Redis isolation.** Filament 3 does not natively support per-panel session drivers. Admin session isolation is achieved by two things:
+
+  1. A `ScopeAdminSession` middleware that runs before `StartSession::class` and sets the session cookie name, domain, and **connection** for admin-subdomain requests.
+  2. A new **dedicated Redis connection** `session_admin` declared in `backend/config/database.php` under `redis.*` with its own Redis database number. Customer sessions already land on the `session` connection (database `2` per the existing config); admin sessions land on `session_admin` (database `3`). The per-connection `REDIS_PREFIX` from `database.redis.options.prefix` applies to both, and the separate Redis DB numbers guarantee key-space isolation without any per-request prefix manipulation.
+
+  The middleware body:
 
   ```php
+  // backend/app/Http/Middleware/ScopeAdminSession.php
   config()->set('session.cookie', env('ADMIN_SESSION_COOKIE', 'admin_session'));
   config()->set('session.domain', env('ADMIN_SESSION_DOMAIN', 'admin.finalcut.test'));
-  config()->set('cache.prefix', 'admin_session');  // redis key prefix
+  config()->set('session.connection', env('ADMIN_SESSION_CONNECTION', 'session_admin'));
   ```
 
-  Register this middleware inside `AdminPanelProvider::panel()->middleware([...])` as the first entry. Document the approach in the middleware's class docblock and in the progress journal.
+  **Redis connection** — extend `backend/config/database.php`:
 
-  Plan 02 will validate this with a session-cookie-scoping feature test — this task lays the configuration, Plan 02 tests it against a real `admin_users` login.
+  ```php
+  // under 'redis' => [ ... ]
+  'session_admin' => [
+      'url' => env('REDIS_URL'),
+      'scheme' => env('REDIS_SCHEME', 'tcp'),
+      'host' => env('REDIS_HOST', '127.0.0.1'),
+      'username' => env('REDIS_USERNAME'),
+      'password' => env('REDIS_PASSWORD'),
+      'port' => env('REDIS_PORT', '6379'),
+      'database' => env('REDIS_ADMIN_SESSION_DB', '3'),
+      // (copy the rest of the 'session' connection verbatim — same backoff / TLS context config)
+  ],
+  ```
+
+  Register `ScopeAdminSession` inside `AdminPanelProvider::panel()->middleware([...])` as the first entry so it runs before `StartSession`. Document the approach in the middleware's class docblock and in the progress journal.
+
+  Plan 02 will validate this with a session-cookie-scoping feature test and a Redis-key-space test — this task lays the configuration, Plan 02 verifies it against a real `admin_users` login.
 
 - **Acceptance Criteria:**
   - [ ] `config('filament.admin_domain')` resolves to `admin.finalcut.test` in dev
   - [ ] `config('app.primary_domain')` resolves to `finalcut.test` in dev
   - [ ] `AdminPanelProvider` binds `->domain(config('filament.admin_domain'))`
   - [ ] `AdminPanelProvider` binds `->authGuard('admin')` (even though the guard does not yet exist — it will resolve once Plan 02 lands)
-  - [ ] `ScopeAdminSession` middleware registered and sets `session.cookie`, `session.domain`, `cache.prefix` for admin requests
-  - [ ] `.env.example` documents the new env vars
+  - [ ] `ScopeAdminSession` middleware registered and sets `session.cookie`, `session.domain`, `session.connection` for admin requests
+  - [ ] `backend/config/database.php` declares a `session_admin` Redis connection pointing at `REDIS_ADMIN_SESSION_DB` (default `3`), distinct from the existing `session` connection on DB `2`
+  - [ ] `.env.example` documents `ADMIN_SESSION_COOKIE`, `ADMIN_SESSION_DOMAIN`, `ADMIN_SESSION_CONNECTION`, `REDIS_ADMIN_SESSION_DB`
 
 ---
 
@@ -170,54 +199,92 @@ Pin exactly — do not float on majors. Upgrades are a separate, intentional pla
 - **Details:**
   Add a second template file alongside the existing `default.conf.template`. The nginx image auto-renders every `.template` file in `/etc/nginx/templates/` with `envsubst`, so the new file needs no compose changes.
 
+  **Match the existing `default.conf.template` conventions** — env-var cert paths, Docker DNS resolver, `set $upstream_backend`-style upstream variable (not an `upstream {}` block), and the same security-header stack. Deviating would create subtle drift between the two vhosts.
+
   ```nginx
   # admin.conf.template — served on admin.${APP_DOMAIN}, fastcgi to the same
-  # backend PHP-FPM container as the customer site. Never proxies to frontend.
+  # backend PHP-FPM container as the customer vhost. Never proxies to frontend.
 
+  # ── HTTP → HTTPS redirect ─────────────────
   server {
       listen 80;
-      listen [::]:80;
       server_name admin.${APP_DOMAIN};
-      return 301 https://$host$request_uri;
+
+      location /.well-known/acme-challenge/ {
+          root /var/www/certbot;
+      }
+
+      location / {
+          return 301 https://$host$request_uri;
+      }
   }
 
-  upstream admin_backend {
-      server backend:9000;
-  }
-
+  # ── HTTPS — Admin panel ───────────────────
   server {
       listen 443 ssl;
       http2 on;
-      listen [::]:443 ssl;
       server_name admin.${APP_DOMAIN};
 
-      ssl_certificate /etc/nginx/certs/server.pem;
-      ssl_certificate_key /etc/nginx/certs/server.key;
-      ssl_protocols TLSv1.2 TLSv1.3;
+      # Docker DNS resolver so the upstream resolves at request time, not at
+      # startup — same pattern as default.conf.template.
+      resolver 127.0.0.11 valid=30s;
+      set $upstream_backend backend:9000;
 
-      root /var/www/html/public;
-      index index.php;
+      # ── SSL/TLS — use the shared cert env vars ──
+      ssl_certificate     ${SSL_CERTIFICATE};
+      ssl_certificate_key ${SSL_CERTIFICATE_KEY};
+      ssl_protocols       TLSv1.2 TLSv1.3;
+      ssl_ciphers         ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305;
+      ssl_prefer_server_ciphers on;
+      ssl_session_cache   shared:SSL:10m;
+      ssl_session_timeout 10m;
+      ssl_session_tickets off;
+
+      # ── SSL snippets (OCSP stapling in prod; empty in dev) ──
+      include /etc/nginx/snippets/*.conf;
+
+      # ── Security headers — same baseline as customer vhost ──
+      add_header X-Content-Type-Options "nosniff" always;
+      add_header X-XSS-Protection       "1; mode=block" always;
+      add_header Referrer-Policy        "strict-origin-when-cross-origin" always;
+      add_header Permissions-Policy     "camera=(), microphone=(), geolocation=()" always;
+      add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+
+      # ── Fail2Ban banned IPs (shared with the customer vhost) ──
+      include /etc/nginx/banned/banned-ips.conf;
+
+      # ── Block dot-files ──────────────────
+      location ~ /\.(?:env|git|htaccess|htpasswd|svn|hg|DS_Store|docker) {
+          deny all;
+          return 404;
+      }
 
       # --- Plan 09 will insert IP allowlist + rate-limit directives here ---
       # --- They are intentionally absent in Plan 01 to keep scope honest. ---
+
+      root /var/www/html/public;
+      index index.php;
 
       location / {
           try_files $uri $uri/ /index.php?$query_string;
       }
 
       location ~ \.php$ {
-          fastcgi_pass admin_backend;
+          fastcgi_pass $upstream_backend;
           fastcgi_index index.php;
           fastcgi_param SCRIPT_FILENAME /var/www/html/public/index.php;
-          fastcgi_param HTTP_HOST $host;
+          fastcgi_param SCRIPT_NAME /index.php;
           include fastcgi_params;
-      }
-
-      # Static assets served directly from the backend container's public/ dir
-      location ~* \.(?:css|js|woff2?|ttf|eot|ico|png|jpg|jpeg|gif|svg)$ {
-          try_files $uri =404;
-          expires 7d;
-          access_log off;
+          fastcgi_param HTTP_X_FORWARDED_PROTO $scheme;
+          fastcgi_param HTTP_X_FORWARDED_FOR   $proxy_add_x_forwarded_for;
+          fastcgi_param HTTP_X_REAL_IP         $remote_addr;
+          fastcgi_buffers 16 16k;
+          fastcgi_buffer_size 32k;
+          fastcgi_connect_timeout 60s;
+          fastcgi_send_timeout    60s;
+          fastcgi_read_timeout    60s;
+          fastcgi_hide_header X-Powered-By;
+          fastcgi_hide_header X-Served-By;
       }
 
       # Never proxy_pass to the Nuxt frontend from the admin vhost.
@@ -225,7 +292,7 @@ Pin exactly — do not float on majors. Upgrades are a separate, intentional pla
   }
   ```
 
-  **Certs.** `nginx/certs/generate-certs.sh:71` generates a wildcard SAN including `*.${APP_DOMAIN}`, so the admin subdomain is already covered. No cert regeneration required. If the script is later narrowed, the admin vhost will break — Plan 01's smoke tests will catch that.
+  **Certs.** `nginx/certs/generate-certs.sh:71` generates a wildcard SAN including `*.${APP_DOMAIN}`, so the admin subdomain is already covered by the cert that `${SSL_CERTIFICATE}` / `${SSL_CERTIFICATE_KEY}` point at. No cert regeneration required. If the cert script is later narrowed, the admin vhost will break the same way the customer vhost would — Plan 01's smoke tests catch that.
 
   **Scope note.** IP allowlist, rate limiting, and Fail2ban belong to Plan 09. This task establishes only the vhost and TLS termination.
 
@@ -233,9 +300,11 @@ Pin exactly — do not float on majors. Upgrades are a separate, intentional pla
 
 - **Acceptance Criteria:**
   - [ ] `nginx/templates/conf.d/admin.conf.template` exists and is valid nginx syntax
-  - [ ] Rendered vhost serves `admin.${APP_DOMAIN}` with TLS from the existing wildcard cert
-  - [ ] HTTP → HTTPS redirect works
-  - [ ] `location ~ \.php$` fastcgis to `backend:9000`
+  - [ ] Rendered vhost serves `admin.${APP_DOMAIN}` with TLS from the existing `${SSL_CERTIFICATE}` / `${SSL_CERTIFICATE_KEY}` env vars — same cert env vars as `default.conf.template`
+  - [ ] HTTP → HTTPS redirect works, including the `/.well-known/acme-challenge/` webroot path
+  - [ ] Upstream declared via `set $upstream_backend backend:9000;` + Docker DNS `resolver 127.0.0.11 valid=30s;` — matches `default.conf.template`, no `upstream {}` block
+  - [ ] Same security headers as customer vhost (X-Content-Type-Options, Referrer-Policy, HSTS, etc.)
+  - [ ] `location ~ \.php$` fastcgis to `$upstream_backend` with the same `fastcgi_param` set as `default.conf.template`
   - [ ] No `proxy_pass` to the frontend service in this vhost
   - [ ] No rate-limit or IP-allowlist directives (deferred to Plan 09)
   - [ ] After `make up`, `curl -ks https://admin.finalcut.test/` returns a response from Laravel (200 or 302 redirect to Filament login once Task 2's config is live)
@@ -250,30 +319,30 @@ Pin exactly — do not float on majors. Upgrades are a separate, intentional pla
   - `backend/bootstrap/app.php` (modify)
   - `backend/tests/Feature/RouteDomainScopingTest.php` (new)
 - **Details:**
-  Today, every route in `backend/routes/api.php` answers on any `Host` header because `bootstrap/app.php` loads the API routes without a domain constraint. Once `admin.finalcut.test` proxies to the same PHP-FPM container, that means `GET https://admin.finalcut.test/api/movies` would return customer data.
+  Today, every route in `backend/routes/api.php` and `backend/routes/web.php` answers on any `Host` header because `bootstrap/app.php` loads the routes without domain constraints. `web.php` currently registers two catch-all JSON 404 routes (`Route::any('/')` and `Route::any('{fallbackPlaceholder}')`) — both useful on the customer domain, neither needed on the admin domain where Filament owns every path. Once `admin.finalcut.test` proxies to the same PHP-FPM container, unscoped API routes would leak onto the admin domain *and* the `web.php` fallbacks would answer for any path Filament hasn't claimed.
 
-  Replace the default API loader with a `then:` closure that wraps API routes in `Route::domain()`:
+  Replace the default route registration with a `then:` closure that binds both API and web routes to the primary domain. Filament's `AdminPanelProvider->domain(...)` (Task 2) binds every Filament-registered route to the admin subdomain. Customer API + web routes answer only on the primary domain; admin routes answer only on the admin domain:
 
   ```php
   // backend/bootstrap/app.php
   return Application::configure(basePath: dirname(__DIR__))
       ->withRouting(
-          web: __DIR__.'/../routes/web.php',
           commands: __DIR__.'/../routes/console.php',
           health: '/up',
           then: function () {
-              Route::middleware('api')
-                  ->domain(config('app.primary_domain'))
-                  ->prefix('api')
-                  ->group(base_path('routes/api.php'));
+              Route::domain(config('app.primary_domain'))->group(function () {
+                  Route::middleware('api')
+                      ->prefix('api')
+                      ->group(base_path('routes/api.php'));
+                  Route::middleware('web')
+                      ->group(base_path('routes/web.php'));
+              });
           },
       )
       // ...
   ```
 
-  Drop the `api: __DIR__.'/../routes/api.php'` argument — the `then:` closure replaces it. The `withRouting()` call still registers `web.php` without a domain constraint because the `web.php` file currently only contains a catch-all 404 fallback. If `web.php` grows route content, it must be scoped too — Plan 09's docs update documents this convention for future contributors.
-
-  Filament's `AdminPanelProvider->domain(...)` (Task 2) binds every Filament-registered route to the admin subdomain. No further work needed for admin routes.
+  Drop the `web:` and `api:` arguments — the `then:` closure replaces both. On the admin subdomain, requests that don't match a Filament panel route fall through to Laravel's default 404 handling, which is the correct behavior (admins hitting unknown paths should get a plain 404, not the customer-site fallback).
 
   **Test — `backend/tests/Feature/RouteDomainScopingTest.php`:**
 
@@ -296,6 +365,24 @@ Pin exactly — do not float on majors. Upgrades are a separate, intentional pla
       }
   });
 
+  it('scopes every web route (including the catch-all fallbacks) to the primary domain', function () {
+      $primary = config('app.primary_domain');
+
+      // The catch-all fallbacks in backend/routes/web.php — `/` and the wildcard
+      // `{fallbackPlaceholder}` — must not answer on the admin subdomain, or
+      // Filament's 404 behavior on the admin panel gets masked by customer
+      // fallback JSON.
+      $webFallbacks = collect(Route::getRoutes())
+          ->filter(fn ($r) => in_array($r->uri(), ['/', '{fallbackPlaceholder}']));
+
+      expect($webFallbacks)->not->toBeEmpty();
+
+      foreach ($webFallbacks as $route) {
+          expect($route->getDomain())
+              ->toBe($primary, "Web route {$route->uri()} leaks off the primary domain");
+      }
+  });
+
   it('scopes every Filament panel route to the admin domain', function () {
       $adminDomain = config('filament.admin_domain');
 
@@ -314,7 +401,8 @@ Pin exactly — do not float on majors. Upgrades are a separate, intentional pla
       $unscoped = collect(Route::getRoutes())
           ->filter(fn ($r) => $r->getDomain() === null)
           // Exempt internal framework routes that Laravel registers without a
-          // domain (like /up health check). Keep this list tight.
+          // domain (like /up health check and Sanctum's CSRF cookie endpoint).
+          // Keep this list tight — every addition is a potential cross-domain leak.
           ->filter(fn ($r) => !in_array($r->uri(), ['up', 'sanctum/csrf-cookie']));
 
       expect($unscoped)->toBeEmpty(
@@ -323,15 +411,16 @@ Pin exactly — do not float on majors. Upgrades are a separate, intentional pla
   });
   ```
 
-  The third test is the most important — it catches a future contributor adding an endpoint outside both domain groups.
+  The fourth test is the most important — it catches a future contributor adding an endpoint outside both domain groups. The second test pins the web.php fallback scoping specifically so that regression is caught by name.
 
 - **Acceptance Criteria:**
-  - [ ] `backend/bootstrap/app.php` uses a `then:` closure that wraps `api.php` in `Route::domain(config('app.primary_domain'))`
-  - [ ] `php artisan route:list --domain=admin.finalcut.test` lists Filament routes and zero API routes
-  - [ ] `php artisan route:list --domain=finalcut.test` lists API routes and zero Filament routes
-  - [ ] `backend/tests/Feature/RouteDomainScopingTest.php` exists and all three tests pass under `make test-backend`
+  - [ ] `backend/bootstrap/app.php` uses a `then:` closure that wraps BOTH `api.php` and `web.php` in `Route::domain(config('app.primary_domain'))` — the `web:` and `api:` arguments are dropped
+  - [ ] `php artisan route:list --domain=admin.finalcut.test` lists Filament routes and zero API or web-fallback routes
+  - [ ] `php artisan route:list --domain=finalcut.test` lists API + web-fallback routes and zero Filament routes
+  - [ ] `backend/tests/Feature/RouteDomainScopingTest.php` exists and all four tests pass under `make test-backend`
   - [ ] `curl -ks https://admin.finalcut.test/api/movies` returns 404
-  - [ ] `curl -ks https://finalcut.test/admin/login` returns 404 (or 301/302 to customer site — never renders Filament)
+  - [ ] `curl -ks https://admin.finalcut.test/random-nonsense` returns a plain 404 (not the customer fallback JSON from `web.php`)
+  - [ ] `curl -ks https://finalcut.test/admin/login` returns 404 (or the customer web-fallback 404 JSON — never renders Filament)
 
 ---
 
@@ -453,5 +542,5 @@ Task 6 (progress journal) ← parallel
 
 1. **Filament installer prompts interactively.** Use `--no-interaction` where possible and document any required manual answers in the progress journal.
 2. **Session cookie scoping via middleware is Filament-3-specific.** If Filament 4 (or a Filament 3 minor bump) exposes a first-class per-panel session config, migrate `ScopeAdminSession` to that API. For now, the middleware approach is the supported path.
-3. **`web.php` growth.** The current `web.php` is a 404 fallback with no routes; it isn't wrapped in `Route::domain()`. If future work adds content to `web.php`, those routes will answer on every domain. Plan 09 adds a docs note reminding contributors of the convention.
+3. **`web.php` growth.** Both `web.php` and `api.php` are wrapped in `Route::domain(config('app.primary_domain'))` in this plan, so any future web routes are primary-domain-scoped by default. If a future feature genuinely needs a cross-domain fallback (e.g., a unified health page), it must register the route *outside* the `then:` closure with its own explicit domain handling and is then captured by the "no null domain" regression test — making such additions a conscious choice, not an accident.
 4. **Shared PHP-FPM process pool.** Admin and customer API run in the same PHP-FPM container. A slow admin operation consumes a worker that the customer API could have used. Not a Plan 01 concern, but Plan 09 documents the risk and its mitigations (queued heavy work, per-vhost resource limits via `location` blocks if needed).

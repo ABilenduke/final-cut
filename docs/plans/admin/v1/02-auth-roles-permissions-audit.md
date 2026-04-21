@@ -132,17 +132,20 @@ All files land inside the existing `backend/` Laravel app. No separate admin cod
   ],
   ```
 
-  **Session cookie scoping is handled by the `ScopeAdminSession` middleware registered in Plan 01 Task 2**, which sets `session.cookie`, `session.domain`, and `cache.prefix` on admin-subdomain requests. That middleware reads `ADMIN_SESSION_COOKIE`, `ADMIN_SESSION_DOMAIN`, and uses `admin_session` as the Redis prefix. No changes to `backend/config/session.php` are needed here — the global session config continues to serve the customer surface; admin requests override it per-request via the middleware.
+  **Session cookie scoping is handled by the `ScopeAdminSession` middleware registered in Plan 01 Task 2**, which sets `session.cookie`, `session.domain`, and `session.connection` on admin-subdomain requests. That middleware reads `ADMIN_SESSION_COOKIE`, `ADMIN_SESSION_DOMAIN`, and `ADMIN_SESSION_CONNECTION` (default `session_admin`). No changes to `backend/config/session.php` are needed here — the global session config continues to serve the customer surface; admin requests override it per-request via the middleware.
 
   **Cookie domain note.** `ADMIN_SESSION_DOMAIN=admin.finalcut.test` (no leading dot) deliberately. A leading dot (`.admin.finalcut.test`) shares the cookie across every sub-subdomain, which we do not need. Isolation from the customer app (`finalcut.test`) is achieved by the distinct subdomain plus a distinct cookie name (`admin_session`), not by manipulating the leading dot.
 
-  Redis key prefixes — scoped per subsystem:
+  **Redis key-space isolation — the actual mechanism.** Laravel's Redis key prefix comes from `database.redis.options.prefix` (the `REDIS_PREFIX` env var — the existing backend uses `finalcut-database-` by default). That prefix applies client-wide and is not per-request overridable via `cache.prefix` or any other config value. Admin and customer sessions are kept apart by living on **different Redis database numbers** rather than different prefixes:
 
-  - `admin_session:*` — Laravel session keys (set by `ScopeAdminSession` middleware)
-  - `admin_cache:*` — application cache entries (if admin-side caching is needed; set explicitly per call site)
-  - `admin_queue:*` — queue payloads (added in Plan 09 if admin-specific queue isolation is needed)
+  - Customer sessions — the existing `session` connection in `backend/config/database.php`, database `2` (`REDIS_SESSION_DB`)
+  - Admin sessions — the new `session_admin` connection declared in Plan 01 Task 2, database `3` (`REDIS_ADMIN_SESSION_DB`)
 
-  Verify env vars are declared in `backend/.env.example` (added in Plan 01 Task 2): `ADMIN_SESSION_COOKIE`, `ADMIN_SESSION_DOMAIN`, `APP_PRIMARY_DOMAIN`, `ADMIN_DOMAIN`.
+  When admin requests run, `ScopeAdminSession` flips `session.connection` to `session_admin` before `StartSession` boots. Laravel's Redis session handler then reads/writes keys on DB 3 instead of DB 2. The common `REDIS_PREFIX` applies to both — so keys look like `finalcut-database-{prefix}:{session_id}` on both databases, but the database numbers prevent any possible cross-read.
+
+  To verify in dev: after an admin login and a customer login, `redis-cli -n 2 keys '*' | grep session` shows only customer sessions, and `redis-cli -n 3 keys '*' | grep session` shows only admin sessions. Plan 02 Task 9 adds a Pest test that simulates both logins and asserts the two session stores don't overlap.
+
+  Verify env vars are declared in `backend/.env.example` (added in Plan 01 Task 2): `ADMIN_SESSION_COOKIE`, `ADMIN_SESSION_DOMAIN`, `ADMIN_SESSION_CONNECTION`, `REDIS_ADMIN_SESSION_DB`, `APP_PRIMARY_DOMAIN`, `ADMIN_DOMAIN`.
 
 - **Acceptance Criteria:**
   - [ ] `admin` guard added to `backend/config/auth.php` using the session driver and `admin_users` provider
@@ -150,7 +153,7 @@ All files land inside the existing `backend/` Laravel app. No separate admin cod
   - [ ] `defaults.guard` unchanged (customer surface still uses the existing default)
   - [ ] Session cookie name for admin differs from customer (`admin_session` vs the customer default)
   - [ ] Session cookie domain for admin requests scoped to the admin subdomain without a leading dot
-  - [ ] Redis session keys for admin land under `admin_session:*` — verified by `redis-cli keys '*'` after an admin login
+  - [ ] Admin session keys land on a separate Redis database (DB 3) from customer sessions (DB 2), verified by `redis-cli -n 2` vs `redis-cli -n 3` after a customer login + admin login — no overlap
 
 ---
 
@@ -680,6 +683,7 @@ All files land inside the existing `backend/` Laravel app. No separate admin cod
   - Admin login sets a cookie named `admin_session` with domain `admin.finalcut.test`
   - Customer login sets a cookie without the `admin_session` name
   - Setting `ADMIN_SESSION_DOMAIN=admin.finalcut.com` propagates through to the rendered cookie (env override test)
+  - After an admin login, the session key is present on the `session_admin` Redis connection (DB 3) and absent from the `session` connection (DB 2); after a customer login the inverse holds — the two session stores never overlap
 
   **CreateAdminUserCommandTest** (covers Task 6's command):
   - Non-interactive creation with `--name --email --password --role=manager` creates an admin with the right role

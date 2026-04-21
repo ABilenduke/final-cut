@@ -55,38 +55,30 @@ Filament Resources consume `App\Models\Movie` directly — there is no admin-sid
        *   tmdb_id?: ?int, tagline?: ?string, synopsis?: ?string,
        *   runtime?: ?int, rating?: ?float, release_date?: ?string,
        *   poster_url?: ?string, backdrop_url?: ?string, trailer_key?: ?string,
-       *   genres?: int[],                                                              // genre IDs for BelongsToMany::sync()
+       *   genres?: array<int, array{id: int, name: string}>,                           // JSON column (TMDB-native shape)
        *   cast?: array<int, array{name: string, character: string, profileUrl?: ?string}>  // JSON column payload
        * } $attributes
        */
       public function create(array $attributes, ?AdminUser $actor = null): Movie
       {
-          $movie = Movie::create($this->assignableAttributes($attributes));
-
-          if (isset($attributes['genres'])) {
-              $movie->genres()->sync($attributes['genres']);
-          }
+          $movie = Movie::create($attributes);
 
           $this->logIfAdmin('movie.created', $movie, $actor, $attributes);
 
-          return $movie->fresh(['genres']);
+          return $movie->fresh();
       }
 
       public function update(Movie $movie, array $attributes, ?AdminUser $actor = null): Movie
       {
           $original = $movie->getOriginal();
-          $movie->fill($this->assignableAttributes($attributes))->save();
-
-          if (array_key_exists('genres', $attributes)) {
-              $movie->genres()->sync($attributes['genres']);
-          }
+          $movie->fill($attributes)->save();
 
           $this->logIfAdmin('movie.updated', $movie, $actor, [
               'before' => $original,
               'after' => $movie->getAttributes(),
           ]);
 
-          return $movie->fresh(['genres']);
+          return $movie->fresh();
       }
 
       public function delete(Movie $movie, ?AdminUser $actor = null): void
@@ -110,12 +102,6 @@ Filament Resources consume `App\Models\Movie` directly — there is no admin-sid
           return true;
       }
 
-      private function assignableAttributes(array $attributes): array
-      {
-          // Drop keys that the service handles via relationships, not mass-assignment.
-          return array_diff_key($attributes, array_flip(['genres', 'cast_ordered']));
-      }
-
       private function logIfAdmin(string $event, Movie $movie, ?AdminUser $actor, array $properties = []): void
       {
           if ($actor === null) return;
@@ -129,7 +115,7 @@ Filament Resources consume `App\Models\Movie` directly — there is no admin-sid
   }
   ```
 
-  **Input contract — genres and cast.** The `genres` key is an array of genre IDs; the service syncs the `movie->genres()` `BelongsToMany` relationship. The `cast` key is an ordered array of cast-member objects and is written to the `cast` JSON column (Eloquent cast handles the JSON serialization; the service does not split it into a separate table). Filament's form output in Task 3 (multi-select for genres, repeater for cast) must match these shapes.
+  **Input contract — genres and cast.** Both `genres` and `cast` are **JSON columns** on the `movies` table, not relationships. The existing backend `App\Models\Movie` casts both to `array` (see `backend/app/Models/Movie.php`), and both are mass-assignable via `$fillable`. The service writes them directly via `create()` / `fill()` — no `sync()`, no pivot, no eager load. `genres` stores TMDB's native shape `[{id: 18, name: 'Drama'}, ...]` so that enrichment data round-trips without transformation; `cast` stores `[{name, character, profileUrl}, ...]`. If a future plan introduces a `genres` pivot table for cross-movie queries, it will carry its own migration and an updated `MovieService` contract — v1 stays with the JSON column.
 
   **`triggerEnrichment` contract.** Dispatches `EnrichMovieJob` so the admin request returns immediately. An idempotency lock (`movie:enrich:{id}`, 5 minute TTL) prevents duplicate dispatches from rapid clicks. If the lock is held, the method returns `false` without dispatching, and the admin UI surfaces a non-error notification ("Enrichment already in progress"). The lock is released by the job on completion.
 
@@ -139,10 +125,11 @@ Filament Resources consume `App\Models\Movie` directly — there is no admin-sid
   - Existing customer API controllers continue to handle HTTP request parsing and response formatting; they pass `null` for `$actor` because customer API writes are not admin-attributed.
 
 - **Acceptance Criteria:**
-  - [ ] `App\Services\MovieService` exists with the four write methods and the documented `genres` / `cast` input shape
+  - [ ] `App\Services\MovieService` exists with the four write methods and the documented `genres` / `cast` input shape (both JSON, both mass-assignable)
   - [ ] Every write method signature accepts `?AdminUser $actor = null` (last parameter)
   - [ ] `MovieController` delegates write operations to the service, passing `null` as `$actor`
-  - [ ] `MovieService` tests cover create / update / delete / triggerEnrichment paths including genre sync, cast JSON round-trip, and idempotency
+  - [ ] `MovieService` tests cover create / update / delete / triggerEnrichment paths including genres JSON round-trip, cast JSON round-trip, and idempotency
+  - [ ] No `$movie->genres()->sync(...)` call anywhere in the service (genres is a JSON column, not a relationship)
   - [ ] When `$actor` is set, each write emits an `activity_log` row with `causer` resolving to the admin user
   - [ ] When `$actor` is null, no `activity_log` row is written
   - [ ] `EnrichMovieJob` dispatches single-movie enrichment and releases the cache lock on completion
@@ -282,10 +269,19 @@ Filament Resources consume `App\Models\Movie` directly — there is no admin-sid
 
           Section::make('Taxonomy')
               ->schema([
-                  Select::make('genres')
-                      ->multiple()
-                      ->relationship('genres', 'name')
-                      ->preload(),
+                  // genres is a JSON column on the movies table, not a pivot — store
+                  // TMDB's native {id, name} shape so enrichment round-trips cleanly.
+                  Repeater::make('genres')
+                      ->schema([
+                          TextInput::make('id')->numeric()->required()
+                              ->helperText('TMDB genre ID'),
+                          TextInput::make('name')->required(),
+                      ])
+                      ->columns(2)
+                      ->collapsed()
+                      ->defaultItems(0)
+                      ->reorderable()
+                      ->helperText('Usually populated by TMDB enrichment — edit manually only for custom entries.'),
               ]),
 
           Section::make('Cast')
@@ -304,7 +300,7 @@ Filament Resources consume `App\Models\Movie` directly — there is no admin-sid
   }
   ```
 
-  The genres multi-select emits an array of genre IDs; the cast repeater emits an array of `{ name, character, profileUrl }` objects that persists to the `cast` JSON column. Both shapes match `MovieService`'s input contract from Task 1.
+  Both `genres` and `cast` are JSON columns on `movies`, not relationships. The genres repeater emits `[{id, name}, ...]` and persists directly to the `genres` JSON column; the cast repeater emits `[{name, character, profileUrl}, ...]` and persists to `cast`. Both shapes match `MovieService`'s input contract from Task 1 exactly — Filament does not transform these payloads before handing them to `handleRecordCreation` / `handleRecordUpdate`.
 
   **Slug stability policy.** Title auto-slugs only on create. Editing a title on an existing record does not modify its slug — slugs feed public URLs and downstream references. Admins can still edit the slug by hand on the slug field itself.
 
@@ -313,8 +309,8 @@ Filament Resources consume `App\Models\Movie` directly — there is no admin-sid
   - [ ] Title auto-slugs on blur during create only; editing a title on an existing record does not modify its slug
   - [ ] Slug validates uniqueness ignoring current record
   - [ ] TMDB ID optional but numeric-validated
-  - [ ] Genres multi-select wired to relationship; payload is an array of genre IDs matching `MovieService` input contract
-  - [ ] Cast repeater payload is an array of `{ name, character, profileUrl }` objects matching `MovieService` input contract and saves to the JSON column
+  - [ ] Genres repeater payload is an array of `{ id, name }` objects matching `MovieService` input contract and saves to the `genres` JSON column (no pivot, no relationship)
+  - [ ] Cast repeater payload is an array of `{ name, character, profileUrl }` objects matching `MovieService` input contract and saves to the `cast` JSON column
   - [ ] Form submission routes through `MovieService`
 
 ---
@@ -342,7 +338,10 @@ Filament Resources consume `App\Models\Movie` directly — there is no admin-sid
                       'now_showing' => 'success',
                       'coming_soon' => 'warning',
                   }),
-              TextColumn::make('genres.name')->badge()->separator(','),
+              TextColumn::make('genres')
+                  ->badge()
+                  ->formatStateUsing(fn ($state) => collect($state ?? [])->pluck('name')->all())
+                  ->separator(','),
               TextColumn::make('runtime')->suffix(' min')->sortable(),
               TextColumn::make('rating')->formatStateUsing(fn ($state) => number_format($state, 1))->sortable(),
               TextColumn::make('tmdb_enriched_at')->label('Enriched')->since()->sortable(),
@@ -351,7 +350,22 @@ Filament Resources consume `App\Models\Movie` directly — there is no admin-sid
           ->filters([
               SelectFilter::make('status')
                   ->options(['now_showing' => 'Now Showing', 'coming_soon' => 'Coming Soon']),
-              SelectFilter::make('genres')->relationship('genres', 'name')->multiple(),
+              // Genre filter queries the JSON column via whereJsonContains. The
+              // option list is distinct names extracted from existing movie rows —
+              // there is no separate genres table to populate from.
+              SelectFilter::make('genre_name')
+                  ->label('Genre')
+                  ->options(fn () => Movie::query()
+                      ->whereNotNull('genres')
+                      ->get()
+                      ->flatMap(fn ($m) => collect($m->genres)->pluck('name'))
+                      ->unique()
+                      ->sort()
+                      ->mapWithKeys(fn ($name) => [$name => $name]))
+                  ->query(fn (Builder $q, array $data) => $q->when(
+                      $data['value'] ?? null,
+                      fn ($q, $name) => $q->whereJsonContains('genres', [['name' => $name]])
+                  )),
               Filter::make('needs_enrichment')
                   ->label('Never enriched')
                   ->query(fn (Builder $q) => $q->whereNull('tmdb_enriched_at')->whereNotNull('tmdb_id')),
@@ -407,8 +421,8 @@ Filament Resources consume `App\Models\Movie` directly — there is no admin-sid
   - [ ] Poster thumbnail renders in column
   - [ ] Title searchable, sortable
   - [ ] Status badge colored correctly
-  - [ ] Genre badges display from relationship
-  - [ ] Filters: status, genres, "needs enrichment"
+  - [ ] Genre badges display by pluck'ing `name` from the JSON column (no relationship)
+  - [ ] Filters: status, genre name (via `whereJsonContains` on the JSON column), "needs enrichment"
   - [ ] Row action: View, Edit, Enrich (gated on permission + tmdb_id), Delete
   - [ ] Enrich action surfaces a distinct "already in progress" notification when the service returns `false`
   - [ ] Delete action routes through `MovieService::delete` via `->using()` — no direct Eloquent delete
@@ -528,7 +542,7 @@ Filament Resources consume `App\Models\Movie` directly — there is no admin-sid
 ## Testing Requirements
 
 - **Layer A (Resource, service mocked):** list / create / update / delete / enrich / bulk / slug stability + full permission matrix. No `activity_log` assertions.
-- **Layer B (Service integration, real DB):** activity-log attribution with / without actor, enrichment idempotency, genre sync, cast JSON round-trip.
+- **Layer B (Service integration, real DB):** activity-log attribution with / without actor, enrichment idempotency, genres JSON round-trip (`[{id, name}, ...]`), cast JSON round-trip.
 - **Backend service tests (Task 1):** create / update / delete / triggerEnrichment paths independent of Filament.
 
 ## Dependencies Map
