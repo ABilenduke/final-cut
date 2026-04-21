@@ -1,0 +1,422 @@
+# Plan 01: Admin App Scaffold & Docker
+
+> **Priority:** Must Have
+> **Complexity:** L
+> **Depends On:** None
+> **Unlocks:** Plan 02 (auth layer needs the app to exist)
+
+## Overview
+
+Create a new top-level `admin/` directory containing a fresh Laravel 13 skeleton with Filament 3 installed. Wire it into Docker Compose as a separate service sharing the existing PostgreSQL, Redis, and Mailpit containers. Add an nginx vhost for `admin.finalcut.test` with TLS via the existing certificate system. Establish the Make targets, progress journal, and README that the rest of the admin plans will build on.
+
+This plan produces a Filament login page reachable at `https://admin.finalcut.test/admin/login` — nothing functional beyond that. Auth configuration, users, and resources land in Plan 02+.
+
+## Reference Documents
+
+- `docs/superpowers/specs/2026-04-20-admin-section-design.md` — § 2 Architecture & Repo Topology
+- `backend/Dockerfile` — reference for dev container pattern (`devuser`, UID/GID)
+- `docker-compose.yml` — reference for service wiring, shared volumes, networks
+- `nginx/` — existing vhost config format
+- `Makefile` — existing target conventions
+
+---
+
+## Tasks
+
+### Task 1: Bootstrap Laravel 13 skeleton
+
+- **MoSCoW:** Must Have
+- **Complexity:** S
+- **Files:**
+  - `admin/` (new directory with full Laravel skeleton)
+  - `admin/composer.json`
+  - `admin/.gitignore` (standard Laravel)
+  - `.gitignore` (root — add `admin/vendor/`, `admin/node_modules/`, `admin/storage/framework/cache/*`, etc. if not covered by subdirectory gitignore)
+- **Details:**
+  Run `composer create-project laravel/laravel:^13.0 admin` from the repo root. Trim the scaffold to API-agnostic usage (Filament doesn't need Vite/Breeze). Remove from the fresh scaffold anything the admin app will not use: `resources/js/`, `resources/css/`, `package.json`, `vite.config.js`, `webpack.mix.js` (if present). Filament ships its own asset pipeline.
+
+  Keep: `app/`, `bootstrap/`, `config/`, `database/`, `public/`, `routes/`, `storage/`, `tests/`, `artisan`, `composer.json`, `phpunit.xml`, `.env.example`.
+
+  Set `admin/.env.example` to reference the shared postgres/redis/mailpit services (matching `backend/.env.example` but with admin-specific app name and session settings — see Task 3).
+
+- **Acceptance Criteria:**
+  - [ ] `admin/` directory exists with Laravel 13 skeleton
+  - [ ] Frontend asset scaffolding (Vite, resources/js, resources/css) removed
+  - [ ] `admin/.env.example` documents DB/Redis/Mailpit connection env vars
+  - [ ] `composer install` runs clean inside `admin/`
+  - [ ] Root `.gitignore` covers admin vendor and storage artifacts
+
+---
+
+### Task 2: Admin container Dockerfile
+
+- **MoSCoW:** Must Have
+- **Complexity:** M
+- **Files:**
+  - `admin/Dockerfile`
+  - `admin/dev-entrypoint.sh`
+- **Details:**
+  Mirror the backend's multi-stage Dockerfile pattern. Development stage must create a `devuser` whose UID/GID matches the host user (build args `DEV_UID`, `DEV_GID` defaulting to 1000). PHP 8.4-FPM base image. Install extensions: `pdo_pgsql`, `redis`, `intl`, `bcmath`, `gd`, `opcache`, `zip`.
+
+  `dev-entrypoint.sh` starts as root, fixes ownership of `storage/` and `bootstrap/cache/`, then `exec` PHP-FPM as `devuser`. Exact pattern from `backend/dev-entrypoint.sh`.
+
+  Vendor directory uses a named Docker volume (`admin-vendor`) owned by `devuser`. Composer runs inside the container, not on the host.
+
+  Example structure:
+  ```dockerfile
+  FROM php:8.4-fpm AS base
+  RUN apt-get update && apt-get install -y \
+      libpq-dev libzip-dev libicu-dev libpng-dev libjpeg-dev libfreetype6-dev \
+      && docker-php-ext-install pdo_pgsql intl bcmath zip opcache \
+      && pecl install redis && docker-php-ext-enable redis
+
+  FROM base AS development
+  ARG DEV_UID=1000
+  ARG DEV_GID=1000
+  RUN groupadd -g ${DEV_GID} devuser && useradd -u ${DEV_UID} -g devuser -m devuser
+  COPY --chown=devuser:devuser dev-entrypoint.sh /usr/local/bin/dev-entrypoint.sh
+  RUN chmod +x /usr/local/bin/dev-entrypoint.sh
+  WORKDIR /app
+  ENTRYPOINT ["dev-entrypoint.sh"]
+  CMD ["php-fpm"]
+  ```
+
+- **Acceptance Criteria:**
+  - [ ] Dockerfile builds without errors
+  - [ ] Dev stage creates `devuser` with UID/GID from build args
+  - [ ] PHP extensions match backend
+  - [ ] Entrypoint fixes ownership before dropping to devuser
+  - [ ] Container runs PHP-FPM on port 9000 by default
+
+---
+
+### Task 3: docker-compose admin service
+
+- **MoSCoW:** Must Have
+- **Complexity:** M
+- **Files:**
+  - `docker-compose.yml` (modify)
+- **Details:**
+  Add a new `admin` service to the existing compose file:
+
+  ```yaml
+  admin:
+    build:
+      context: ./admin
+      target: development
+      args:
+        DEV_UID: ${DEV_UID:-1000}
+        DEV_GID: ${DEV_GID:-1000}
+    volumes:
+      - ./admin:/app
+      - admin-vendor:/app/vendor
+    depends_on:
+      - postgres
+      - redis
+      - mailpit
+    environment:
+      APP_ENV: local
+      DB_HOST: postgres
+      REDIS_HOST: redis
+      MAIL_HOST: mailpit
+      MAIL_PORT: 1025
+    networks:
+      - finalcut
+
+  volumes:
+    admin-vendor:
+  ```
+
+  Add `admin.finalcut.test` handling to the existing `nginx` service — see Task 4 for the vhost file itself.
+
+- **Acceptance Criteria:**
+  - [ ] `admin` service declared with correct build context and target
+  - [ ] Mounts source and named vendor volume
+  - [ ] Depends on postgres, redis, mailpit
+  - [ ] Environment variables point at shared services
+  - [ ] `admin-vendor` named volume declared
+  - [ ] `make up` starts the admin container without errors
+
+---
+
+### Task 4: Nginx vhost for admin.finalcut.test
+
+- **MoSCoW:** Must Have
+- **Complexity:** S
+- **Files:**
+  - `nginx/conf.d/admin.finalcut.test.conf` (new)
+  - `scripts/generate-certs.sh` or equivalent (modify to include admin domain if needed)
+- **Details:**
+  New vhost terminating TLS and proxying to the admin PHP-FPM container. Parallel to existing `finalcut.test` config but pointing at the `admin` service's fastcgi endpoint.
+
+  ```nginx
+  server {
+      listen 443 ssl http2;
+      server_name admin.finalcut.test;
+      root /var/www/admin/public;
+
+      ssl_certificate /etc/nginx/certs/admin.finalcut.test.crt;
+      ssl_certificate_key /etc/nginx/certs/admin.finalcut.test.key;
+
+      index index.php;
+
+      location / {
+          try_files $uri $uri/ /index.php?$query_string;
+      }
+
+      location ~ \.php$ {
+          fastcgi_pass admin:9000;
+          fastcgi_index index.php;
+          fastcgi_param SCRIPT_FILENAME $realpath_root$fastcgi_script_name;
+          include fastcgi_params;
+      }
+
+      # Rate limit login endpoint (Plan 09 tightens this)
+      location = /admin/login {
+          limit_req zone=admin_login burst=5 nodelay;
+          try_files $uri /index.php?$query_string;
+      }
+  }
+
+  server {
+      listen 80;
+      server_name admin.finalcut.test;
+      return 301 https://$host$request_uri;
+  }
+  ```
+
+  Declare `limit_req_zone $binary_remote_addr zone=admin_login:10m rate=5r/m;` in the main nginx.conf http block (or a shared snippet).
+
+  Regenerate certs via `make certs`. Confirm the cert generator script handles the new subdomain — if it currently hardcodes `finalcut.test`, extend it to also produce `admin.finalcut.test.crt/key` from the same root CA.
+
+  Mount `admin/public` into the nginx container (it's already mounting backend's public dir; duplicate the pattern).
+
+- **Acceptance Criteria:**
+  - [ ] `admin.finalcut.test.conf` proxies to admin container's PHP-FPM
+  - [ ] HTTP redirects to HTTPS
+  - [ ] Rate limit zone declared (rate applied in Plan 09)
+  - [ ] `make certs` produces admin domain cert signed by the same local CA
+  - [ ] nginx reloads successfully with the new vhost
+
+---
+
+### Task 5: Add Windows hosts entry (WSL2 dev workflow)
+
+- **MoSCoW:** Must Have
+- **Complexity:** XS
+- **Files:**
+  - `README.md` or `docs/architecture/SITE_ARCHITECTURE.md` (document step)
+- **Details:**
+  WSL2 users need `admin.finalcut.test` added to the Windows `C:\Windows\System32\drivers\etc\hosts` file pointing to `127.0.0.1`. Document this in the project README's setup section.
+
+  No automation — this is a user step documented once.
+
+- **Acceptance Criteria:**
+  - [ ] Setup docs list the admin subdomain as a hosts entry
+  - [ ] User can resolve `admin.finalcut.test` from host browser
+
+---
+
+### Task 6: Install Filament 3
+
+- **MoSCoW:** Must Have
+- **Complexity:** S
+- **Files:**
+  - `admin/composer.json` (modify)
+  - `admin/app/Providers/Filament/AdminPanelProvider.php` (generated)
+  - `admin/config/filament.php` (published)
+- **Details:**
+  Inside the admin container (`make admin-shell`), run:
+
+  ```bash
+  composer require filament/filament:"^3.2" -W
+  php artisan filament:install --panels
+  ```
+
+  When prompted for the panel ID, use `admin`. This generates `AdminPanelProvider` at path `/admin`.
+
+  Publish the Filament config:
+  ```bash
+  php artisan vendor:publish --tag=filament-config
+  ```
+
+  Register Filament's service provider if the installer doesn't auto-register it (`bootstrap/providers.php`).
+
+  Filament includes its own asset pipeline via `php artisan filament:assets` — no Vite/npm needed in the admin app. Run this once per deploy.
+
+- **Acceptance Criteria:**
+  - [ ] `filament/filament` 3.2+ installed
+  - [ ] `AdminPanelProvider` registered
+  - [ ] Panel mounted at `/admin`
+  - [ ] `filament:assets` copies JS/CSS to `public/js/filament/` and `public/css/filament/`
+  - [ ] Visiting `https://admin.finalcut.test/admin` redirects to `/admin/login` (default Filament behavior pre-auth config)
+
+---
+
+### Task 7: Makefile targets
+
+- **MoSCoW:** Must Have
+- **Complexity:** S
+- **Files:**
+  - `Makefile` (modify)
+- **Details:**
+  Add the following targets, matching the existing `backend-*` target style:
+
+  ```makefile
+  admin-shell:
+  	docker compose exec -u 1000 admin bash
+
+  admin-install:
+  	docker compose exec -u 1000 admin composer install
+  	docker compose exec -u 1000 admin php artisan key:generate
+  	docker compose exec -u 1000 admin php artisan storage:link
+  	docker compose exec -u 1000 admin php artisan filament:assets
+
+  admin-migrate:
+  	docker compose exec -u 1000 admin php artisan migrate
+
+  admin-fresh:
+  	docker compose exec -u 1000 admin php artisan migrate:fresh --seed
+
+  admin-test:
+  	docker compose exec -u 1000 admin php artisan test
+
+  admin-artisan:
+  	docker compose exec -u 1000 admin php artisan $(filter-out $@,$(MAKECMDGOALS))
+  ```
+
+  Update the existing `test` target (or add `test-all`) to run backend + frontend + admin:
+
+  ```makefile
+  test-all: test-backend test-frontend admin-test
+  ```
+
+- **Acceptance Criteria:**
+  - [ ] `make admin-shell` opens a shell as UID 1000
+  - [ ] `make admin-install` completes without error
+  - [ ] `make admin-migrate` runs (no admin migrations yet, but command succeeds)
+  - [ ] `make admin-test` runs the default Laravel test and passes
+  - [ ] `make test-all` runs all three suites
+
+---
+
+### Task 8: Scaffold progress journal
+
+- **MoSCoW:** Must Have
+- **Complexity:** XS
+- **Files:**
+  - `docs/progress/admin-v1.md` (new)
+- **Details:**
+  Create `admin-v1.md` with the 9-step skeleton per project convention. Each step uses the format documented in root `CLAUDE.md`:
+
+  ```markdown
+  # Admin v1 Progress Journal
+
+  Tracks execution of `docs/plans/admin/v1/*`.
+
+  ## Step 1: Admin App Scaffold & Docker
+  **Status:** 🟡 In Progress
+  **Started:** YYYY-MM-DD
+  **Completed:** —
+
+  ### Work Done
+  - [date] Description
+
+  ### Decisions
+  - [date] Decision made and why
+
+  ### Blockers
+  - [date] Blocker description → resolution
+
+  ### Files Changed
+  - `path/to/file.ext` — what changed
+
+  ## Step 2: Auth, Roles, Permissions & Audit Log
+  **Status:** 🔲 Not Started
+  ...
+  ```
+
+  All nine steps scaffolded with status `🔲 Not Started` except Step 1 which is `🟡 In Progress` during execution of this plan.
+
+- **Acceptance Criteria:**
+  - [ ] `docs/progress/admin-v1.md` exists with all 9 step headers
+  - [ ] Format matches `docs/progress/backend-v1.md`
+  - [ ] Step 1 reflects in-progress state
+
+---
+
+### Task 9: Admin README
+
+- **MoSCoW:** Must Have
+- **Complexity:** XS
+- **Files:**
+  - `admin/README.md` (new)
+- **Details:**
+  Short README inside `admin/` explaining:
+
+  - What this app is (Filament admin panel for Final Cut)
+  - Domain: `https://admin.finalcut.test` (dev) / `https://admin.finalcut.com` (prod)
+  - Commands: `make admin-shell`, `make admin-migrate`, `make admin-test`, etc.
+  - Where the spec and plans live (`docs/plans/admin/v1/`)
+  - Reminder: admin writes to shared tables go through backend domain services (spec § 2.6)
+  - Reminder: progress journal at `docs/progress/admin-v1.md`
+
+  Keep it short — this is a pointer, not a full doc.
+
+- **Acceptance Criteria:**
+  - [ ] `admin/README.md` exists
+  - [ ] Documents domain, commands, and spec pointer
+  - [ ] Notes the write-boundary rule
+
+---
+
+### Task 10: Update root CLAUDE.md
+
+- **MoSCoW:** Must Have
+- **Complexity:** XS
+- **Files:**
+  - `CLAUDE.md` (modify)
+- **Details:**
+  Add an "Admin App" section to `CLAUDE.md` documenting:
+
+  - Separate Laravel 13 app at `admin/`, Filament 3, domain `admin.finalcut.test`
+  - Shared DB with backend; admin models mirror backend schema
+  - Write boundary: admin calls backend domain services for shared-table mutations
+  - Make commands: `make admin-shell`, `make admin-migrate`, `make admin-fresh`, `make admin-test`, `make test-all`
+  - Reference: `docs/plans/admin/v1/00-index.md` and `docs/superpowers/specs/2026-04-20-admin-section-design.md`
+
+  Also add admin to the `## Documentation` section's navigation.
+
+- **Acceptance Criteria:**
+  - [ ] Admin section added to `CLAUDE.md`
+  - [ ] Make commands documented
+  - [ ] Write-boundary rule noted
+  - [ ] Links to spec and plan index
+
+---
+
+## Testing Requirements
+
+- **Smoke test:** `make up` brings the admin container online, nginx serves `https://admin.finalcut.test/admin/login` with Filament's default login page
+- **No unit tests in this plan** — there is no business logic yet. Plan 02 begins the test suite.
+
+## Dependencies Map
+
+```
+Task 1 (Laravel skeleton) ← foundational
+Task 2 (Dockerfile) ← needs Task 1
+Task 3 (compose service) ← needs Task 2
+Task 4 (nginx vhost) ← needs Task 3
+Task 5 (hosts docs) ← needs Task 4
+Task 6 (Filament install) ← needs Task 3 (runs inside container)
+Task 7 (Makefile) ← needs Task 3 (targets call docker compose)
+Task 8 (progress journal) ← parallel to rest
+Task 9 (admin README) ← parallel to rest
+Task 10 (CLAUDE.md) ← parallel to rest
+```
+
+## Risks & Open Questions
+
+1. **Cert generator scope.** If `scripts/generate-certs.sh` hardcodes the customer domain, extending it for the admin subdomain may be more work than assumed. Verify before committing to Task 4's "same CA" approach.
+2. **Filament install inside Docker.** The installer may prompt interactively; use `--no-interaction` flags where possible and document any required manual answers in the admin README.
+3. **PHP-FPM resource contention.** Admin and backend run separate PHP-FPM containers but share postgres and redis. Monitor for connection pool exhaustion in dev if multiple engineers work on both simultaneously. Not a v1 blocker — document if it becomes an issue.
