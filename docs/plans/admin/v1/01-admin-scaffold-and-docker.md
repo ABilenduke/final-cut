@@ -17,14 +17,14 @@ Pin these versions explicitly — do not float on majors. Upgrades are a separat
 
 | Component | Version | Notes |
 | --- | --- | --- |
-| PHP | 8.4.x | Matches backend container. `php:8.4-fpm` base image. |
+| PHP base image | `php:8.4.19-fpm-alpine3.23` | **Pinned exactly** to match backend (`backend/Dockerfile` line 11). Do not use floating `php:8.4-fpm` — the backend pins the patch release + Alpine base for reproducible builds and parity between admin and backend on extension availability / CVE patch state. Bump in lockstep with backend. |
 | Laravel | 13.x (latest patch) | `composer create-project laravel/laravel:^13.0`. |
 | Filament | 3.2.x | `filament/filament:"^3.2"`. Do not move to 4.x in this plan. |
 | PostgreSQL | 18 | Shared with backend. No admin-specific version. |
 | Redis | 7.x | Shared with backend. |
 | Composer | 2.x | Installed inside the admin container. |
 
-If Filament 4 or Laravel 14 is released before Plan 01 executes, stay on the versions above and open a follow-up plan to evaluate.
+If Filament 4 or Laravel 14 is released before Plan 01 executes, stay on the versions above and open a follow-up plan to evaluate. Similarly, the PHP base image bumps in lockstep with backend — when `backend/Dockerfile` moves from `php:8.4.19-fpm-alpine3.23` to a newer pin, the admin Dockerfile moves with it in the same PR.
 
 ## Reference Documents
 
@@ -76,7 +76,7 @@ If Filament 4 or Laravel 14 is released before Plan 01 executes, stay on the ver
   - `admin/Dockerfile`
   - `admin/dev-entrypoint.sh`
 - **Details:**
-  Mirror the backend's multi-stage Dockerfile pattern. Development stage must create a `devuser` whose UID/GID matches the host user (build args `DEV_UID`, `DEV_GID` defaulting to 1000). PHP 8.4-FPM base image. Install extensions: `pdo_pgsql`, `redis`, `intl`, `bcmath`, `gd`, `opcache`, `zip`.
+  Mirror the backend's multi-stage Dockerfile pattern, including the exact pinned base image `php:8.4.19-fpm-alpine3.23` (see Version Matrix above and `backend/Dockerfile` line 11). Development stage must create a `devuser` whose UID/GID matches the host user (build args `DEV_UID`, `DEV_GID` defaulting to 1000). Install extensions: `pdo_pgsql`, `redis`, `intl`, `bcmath`, `gd`, `opcache`, `zip`. Since the image is Alpine-based, install extensions via `apk add --no-cache` + `docker-php-ext-install` / `pecl` in the same style as `backend/Dockerfile` — do not assume Debian package names.
 
   `dev-entrypoint.sh` starts as root, fixes ownership of `storage/` and `bootstrap/cache/`, then `exec` PHP-FPM as `devuser`. Exact pattern from `backend/dev-entrypoint.sh`.
 
@@ -278,7 +278,10 @@ If Filament 4 or Laravel 14 is released before Plan 01 executes, stay on the ver
 
   ```makefile
   admin-shell:
-  	docker compose exec -u 1000 admin bash
+  	docker compose exec -u 1000 admin sh
+  # Alpine-based image has no bash by default — use `sh` to match the existing
+  # `make shell` target in the backend Makefile. If a future plan adds bash to the
+  # admin image, this can be switched, but until then `sh` is the correct default.
 
   admin-install:
   	docker compose exec -u 1000 admin composer install
@@ -375,7 +378,7 @@ If Filament 4 or Laravel 14 is released before Plan 01 executes, stay on the ver
   - Domain: `https://admin.finalcut.test` (dev) / `https://admin.finalcut.com` (prod)
   - Commands: `make admin-shell`, `make admin-migrate`, `make admin-test`, etc.
   - Where the spec and plans live (`docs/plans/admin/v1/`)
-  - **Write-boundary reminder (phrased as principle, not mechanism):** "Shared-table mutations with business invariants (bookings, showtimes, seats, gift cards, payments, etc.) must go through approved domain actions / service boundaries defined in the admin spec. Do not introduce direct Filament-to-Eloquent writes for invariant-heavy models. The exact integration mechanism — shared package, internal API, shared code path, or something else — is an open question tracked in Plan 03 and later."
+  - **Write-boundary reminder:** "Shared-table mutations with business invariants (bookings, showtimes, seats, gift cards, payments, etc.) must go through the `FinalCut\\Domain\\Services\\*` classes in the `packages/shared-domain` Composer package. Do not introduce direct Filament-to-Eloquent writes for invariant-heavy models — phpstan + deptrac rules (Plan 03 Task 7) fail CI on violations. The shared-package boundary is the ADR-committed mechanism (Plan 03 Task 1 / ADR-001), not a placeholder."
   - Reminder: progress journal at `docs/progress/admin-v1.md`
 
   Keep it short — this is a pointer, not a full doc.
@@ -383,7 +386,7 @@ If Filament 4 or Laravel 14 is released before Plan 01 executes, stay on the ver
 - **Acceptance Criteria:**
   - [ ] `admin/README.md` exists
   - [ ] Documents domain, commands, and spec pointer
-  - [ ] Notes the write-boundary principle without prescribing a specific integration mechanism
+  - [ ] Notes the write-boundary principle and names the shared-domain Composer package (`packages/shared-domain`, `FinalCut\Domain\` namespace) as the committed mechanism — points at Plan 03 ADR-001 for the full rationale and Plan 03 Task 7 for CI enforcement
 
 ---
 

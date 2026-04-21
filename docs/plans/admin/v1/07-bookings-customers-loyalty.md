@@ -242,12 +242,12 @@ Read-focused operations. `BookingResource` is **read-only in v1** (no cancel/ref
 - **Details:**
   Three header/row actions on UserResource.
 
-  **Adjust Points:**
+  **Adjust Points** (permission: `loyalty.adjust_points` — narrower than a broad `loyalty.adjust` per Plan 02 Task 3):
   ```php
   Action::make('adjust_points')
       ->label('Adjust Points')
       ->icon('heroicon-o-sparkles')
-      ->visible(fn () => auth()->user()->can('loyalty.adjust'))
+      ->visible(fn () => auth()->user()->can('loyalty.adjust_points'))
       ->form([
           TextInput::make('points_delta')
               ->numeric()
@@ -278,12 +278,12 @@ Read-focused operations. `BookingResource` is **read-only in v1** (no cancel/ref
       ->successNotificationTitle('Points adjusted and logged.');
   ```
 
-  **Upgrade to Premier:**
+  **Upgrade to Premier** (permission: `loyalty.adjust_tier`):
   ```php
   Action::make('upgrade_premier')
       ->label('Upgrade to Premier')
       ->icon('heroicon-o-star')
-      ->visible(fn ($record) => auth()->user()->can('loyalty.adjust') && $record->loyalty_tier === 'member')
+      ->visible(fn ($record) => auth()->user()->can('loyalty.adjust_tier') && $record->loyalty_tier === 'member')
       ->form([
           DatePicker::make('expiry')
               ->required()
@@ -298,13 +298,13 @@ Read-focused operations. `BookingResource` is **read-only in v1** (no cancel/ref
           ));
   ```
 
-  **Revoke Premier:**
+  **Revoke Premier** (permission: `loyalty.adjust_tier`):
   ```php
   Action::make('revoke_premier')
       ->label('Revoke Premier')
       ->icon('heroicon-o-shield-exclamation')
       ->color('danger')
-      ->visible(fn ($record) => auth()->user()->can('loyalty.adjust') && $record->loyalty_tier === 'premier')
+      ->visible(fn ($record) => auth()->user()->can('loyalty.adjust_tier') && $record->loyalty_tier === 'premier')
       ->form([Textarea::make('reason')->required()])
       ->requiresConfirmation()
       ->action(fn ($record, $data) =>
@@ -314,12 +314,14 @@ Read-focused operations. `BookingResource` is **read-only in v1** (no cancel/ref
   **Resolves spec § 8 open question #5:** v1 uses an elevated confirmation modal for large adjustments (configurable threshold via `loyalty.large_adjustment_threshold`) but does not require a second admin's sign-off. Activity log is the compensating control. Document in the admin README.
 
 - **Acceptance Criteria:**
-  - [ ] Adjust Points action visible for `loyalty.adjust` permission
+  - [ ] Adjust Points action gated on `loyalty.adjust_points` permission (seeded in Plan 02 Task 3)
+  - [ ] Upgrade Premier and Revoke Premier actions gated on `loyalty.adjust_tier` permission (seeded in Plan 02 Task 3)
   - [ ] Large-adjustment modal warning triggers at configured threshold
   - [ ] Reason required, min 10 chars
   - [ ] Upgrade Premier available only for members; revoke only for premier
   - [ ] All three call `LoyaltyService` via facade
   - [ ] Activity log captures causer, delta, reason
+  - [ ] Permission test covers the split: a user with only `loyalty.adjust_points` can adjust points but cannot upgrade/revoke premier; a user with only `loyalty.adjust_tier` can change tier but cannot adjust raw points
 
 ---
 
@@ -400,7 +402,7 @@ Read-focused operations. `BookingResource` is **read-only in v1** (no cancel/ref
   - Test: large delta (≥ threshold) triggers elevated modal (assert form state)
   - Test: upgrade premier sets tier + expiry + writes adjustment
   - Test: revoke premier sets tier=member + writes adjustment
-  - Test: all actions require `loyalty.adjust` permission
+  - Test: Adjust Points requires `loyalty.adjust_points`; Upgrade / Revoke Premier require `loyalty.adjust_tier`. A user with only one of the two permissions can exercise that surface but not the other.
   - Test (concurrency): two parallel transactions each call `adjustPoints($user, +100)`. Both succeed, the final balance reflects both deltas (+200 total), and two distinct `LoyaltyAdjustment` rows exist with different causer ids. Neither call silently discards the other's write. Uses separate DB connections or explicit `DB::transaction` blocks to simulate the race.
   - Test (concurrency): parallel `adjustPoints($user, +100)` and `redeemPoints($user, 50)` converge on +50 net, with both activity-log rows written in the correct causer context.
 

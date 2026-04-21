@@ -394,14 +394,23 @@ This plan does not create any Filament Resources — those begin in Plan 04.
           $alwaysAccessible = ['id', 'created_at', 'updated_at', 'deleted_at'];
 
           foreach ($columns as $column) {
+              // Laravel semantics:
+              //   $guarded = ['*']  → EVERYTHING is mass-assignment-guarded. Columns are only
+              //                       reachable via explicit setters — NOT a signal of schema
+              //                       exposure; the test must still require fillable/timestamp/PK.
+              //   $guarded = []     → nothing is guarded, so every column is mass-assignable
+              //                       (weak signal — accept, but see acceptance criteria note).
+              //   $guarded = ['id'] → specific columns guarded; others mass-assignable.
               $accessible = in_array($column, $fillable, true)
-                  || in_array('*', $guarded, true)          // $guarded = ['*'] → nothing mass-assignable
-                  || $guarded === []                        // $guarded = [] → everything accessible (weak signal)
+                  || $guarded === []                        // fully open model — weak signal
                   || in_array($column, $alwaysAccessible, true);
 
               expect($accessible)->toBeTrue(
                   "Model {$modelClass} does not expose column '{$column}' on table '{$table}'. "
-                  . "Add it to \$fillable, or document why it is intentionally hidden."
+                  . "Add it to \$fillable, set \$guarded = [] if the model is intentionally fully "
+                  . "open, or document why the column is intentionally hidden / guarded. "
+                  . "Note: \$guarded = ['*'] does NOT satisfy this check — it means everything is "
+                  . "mass-assignment-guarded, which is orthogonal to schema exposure."
               );
           }
       }
@@ -457,7 +466,8 @@ This plan does not create any Filament Resources — those begin in Plan 04.
 
 - **Acceptance Criteria:**
   - [ ] Test iterates the five models from Task 2
-  - [ ] Forward check: every DB column is accessible via fillable, `guarded = ['*']` or `[]`, or timestamp/PK
+  - [ ] Forward check: every DB column is accessible via fillable, `$guarded = []` (fully open), or timestamp/PK. `$guarded = ['*']` is **not** an accessibility signal — it guards mass assignment but is orthogonal to schema exposure.
+  - [ ] A deliberate regression test: a model with `$fillable = []` and `$guarded = ['*']` missing a real column should **fail** this test (not trivially pass)
   - [ ] Reverse check: every fillable corresponds to a real column
   - [ ] Cast-parity check: `admin $model->getCasts()` equals `FinalCut\Domain\Models\* ->getCasts()` for every mirrored pair (sorted by key before comparison)
   - [ ] Failure messages name the model, table, and column (or cast key)

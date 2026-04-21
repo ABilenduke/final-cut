@@ -1,9 +1,9 @@
 # Admin Section Design Spec
 
-> **Date:** 2026-04-20
-> **Status:** Approved — awaiting plan authoring
+> **Date:** 2026-04-20 (revised 2026-04-21 — ADR-001 committed, spec §2.5/§2.6/§3.1 updated in lockstep with plan set)
+> **Status:** Approved — plan set authored (`docs/plans/admin/v1/00-09`)
 > **Scope:** Planning only. This spec defines the architecture and plan breakdown for the admin section. Implementation happens in a later cycle, plan-by-plan.
-> **Predecessor:** `docs/plans/admin/v1/00-index.md` (6-plan skeleton — to be rewritten into 9 plans per this spec)
+> **Plan set:** `docs/plans/admin/v1/00-index.md` (rewritten into the 9-plan structure defined by this spec)
 
 ---
 
@@ -53,34 +53,38 @@ This ownership boundary prevents the two apps from stepping on each other's migr
 
 ### 2.5 Accepted trade-offs
 
-- **Eloquent model duplication.** Models appear in both `backend/app/Models/` and `admin/app/Models/`. Admin models stay thin (mirror columns + relationships, add Filament-friendly accessors only).
+- **Eloquent model duplication (narrow scope).** The admin app mirrors a small set of models as `admin/app/Models/*` (column-level parity with timestamp/PK exposure); the canonical domain models live in the shared `packages/shared-domain/` package under `FinalCut\Domain\Models\*`. Admin mirrors stay thin — columns + relationships admin Resources need + Filament-friendly accessors. All writes go through shared-domain services (§ 2.6).
 - **Two categories of drift risk:**
-  - *Schema drift* — column/index/type changes land in one app but not the other. The `ModelParityTest` (§ 6.2) is a cheap tripwire that catches this.
-  - *Behavioral drift* — casts, scopes, accessors, mutators, enum handling, observers, validation rules, and write-side invariants living in backend but absent from admin. The parity test does **not** catch this. The real guardrail is the write-boundary rule in § 2.6.
-- **No shared code via package.** We could factor shared models into a `packages/shared` Composer package, but that's premature. Duplication is acceptable until a second consumer appears.
+  - *Schema drift* — column/index/type changes land in one app but not the other. The `ModelParityTest` (§ 6.2) asserts column-level accessibility **and** `getCasts()` parity between the admin mirror and the shared-domain model.
+  - *Behavioral drift* — scopes, accessors, mutators, observers, validation rules, and write-side invariants living in the shared domain but absent from admin. The parity test does not catch this. The write-boundary rule in § 2.6 (enforced mechanically by the Plan 03 Task 7 phpstan + deptrac rules) is the guardrail.
+- **Shared Composer package chosen (ADR-001).** Rather than duplicate domain services across both apps or invent a cross-app shared-code mechanism, backend and admin both depend on a local Composer package at `packages/shared-domain/` (namespace `FinalCut\Domain\`) via a path-repo dependency declaration in each app's `composer.json`. Domain services, Eloquent models whose writes cross the admin/backend boundary, enums, and activity-log event classes live in this package. Backend keeps its HTTP controllers and customer-facing services outside the package; admin consumes the package as a normal Composer dependency. Rejected alternatives (synthetic `Backend\` classmap over a read-only bind mount; internal HTTP API; raw PSR-4 shared library without package metadata) are documented in Plan 03 ADR-001.
 
-### 2.6 Write boundary: admin calls backend domain services
+### 2.6 Write boundary: admin calls shared-domain services
 
-Admin writes to shared tables go **through backend application services/actions**, not through direct Eloquent mutations from Filament Resources. This is the primary defense against behavioral drift.
+Admin writes to shared tables go **through shared-domain services** (`FinalCut\Domain\Services\*` classes in `packages/shared-domain/`), not through direct Eloquent mutations from Filament Resources. This is the primary defense against behavioral drift.
 
 **Rule:**
 
 - **Direct Eloquent writes permitted** on: admin-owned tables (`admin_users`, `roles`, `activity_log`, `loyalty_adjustments`) and simple label/description fields on shared tables that carry no invariants (e.g., `movies.tagline`, `menu_items.description`).
 - **Domain service required** for every mutation that has invariants, side effects, or related-record implications. Non-exhaustive mapping:
 
-| Resource action | Calls backend service |
-|-----------------|----------------------|
-| Movie create / update / delete / enrich | `MovieService` |
-| Showtime create / update / cancel / bulk-create | `ShowtimeService` (new or extracted from existing booking logic) |
-| Seat configuration writes | `AuditoriumService` |
-| Loyalty point adjustment, tier change | `LoyaltyService` |
-| Gift card void | `GiftCardService` |
-| Promo code create / deactivate | `PromoCodeService` |
-| Menu item availability toggle | `MenuService` (only if backend gains price-change invariants; else direct write is fine) |
+| Resource action | Calls shared-domain service |
+|-----------------|------------------------------|
+| Movie create / update / delete / enrich | `FinalCut\Domain\Services\MovieService` |
+| Showtime create / update / cancel / bulk-create | `FinalCut\Domain\Services\ShowtimeService` (extracted from backend booking logic in Plan 06) |
+| Seat configuration writes | `FinalCut\Domain\Services\AuditoriumService` |
+| Loyalty point adjustment, tier change | `FinalCut\Domain\Services\LoyaltyService` |
+| Gift card void / redeem / purchase | `FinalCut\Domain\Services\GiftCardService` |
+| Promo code create / deactivate | `FinalCut\Domain\Services\PromoCodeService` |
+| Menu item availability toggle | `FinalCut\Domain\Services\MenuService` (only if domain gains price-change invariants; else direct write is fine) |
 
-Services are invoked via `Backend\App\Services\X::method()` — we register the backend `app/Services/` directory as a Composer `classmap` entry in the admin app's `composer.json`, or (preferred) expose each needed service through a slim `admin/app/Services/Backend/` facade that calls the backend class via shared namespace autoload. The exact shared-code mechanism is an open question (§ 8).
+**Mechanism (committed in ADR-001).** Services are invoked via normal Composer autoload. Admin's `composer.json` declares a path repository pointing at `../packages/shared-domain`, and admin's code imports `FinalCut\Domain\Services\*` classes directly. A slim `admin/app/Services/Backend/*` facade per domain service resolves `auth()->user()` into a `FinalCut\Domain\Audit\Causer` and delegates to the shared-domain service — this is where admin-side Causer resolution lives, so Filament page handlers stay ergonomic. Every shared-domain write method takes an explicit `Causer $causer` argument so the service is unambiguous about attribution regardless of whether it's called from an admin HTTP request, a customer HTTP request, or a backend scheduler task.
 
-**Consequence for plan authoring:** Plans 04, 06, 07, 08 must each identify the specific backend service they call and note whether that service exists or needs to be extracted. If a service must be extracted from existing controller logic, that refactor becomes a sub-task within the plan.
+The previously-contemplated synthetic `Backend\App\Services\X::method()` classmap over a read-only bind mount was explicitly rejected (see Plan 03 ADR-001 "Rejected alternatives"). No shared-code decision is open — §8 reflects the committed state.
+
+**Enforcement.** Plan 03 Task 7 ships a phpstan `disallowedMethodCalls` rule plus a deptrac layer configuration that fails CI on direct mutations to `FinalCut\Domain\Models\*` from admin Filament Resources. The write-boundary rule is mechanically enforced on every admin PR, not left as policy.
+
+**Consequence for plan authoring:** Plans 04, 06, 07, 08 each extract their domain service into the shared package and declare an explicit `Causer` signature on every write method. The extraction sub-task within each plan references the service audit table in Plan 03 ADR-001.
 
 ### 2.7 Future migrations flagged (known retrofits)
 
@@ -97,7 +101,9 @@ The following are *not* in v1 but the design deliberately leaves space for them.
 
 ### 3.1 `admin_users` table
 
-Columns: `id, name, email (unique), password, email_verified_at, remember_token, last_login_at, last_login_ip, created_at, updated_at`.
+Columns: `id, name, email (unique), password, remember_token, last_login_at, last_login_ip, disabled_at, created_at, updated_at`.
+
+No `email_verified_at` column. Admin users are created explicitly via `admin:create-user` (no self-signup), so verification has no flow to gate. `canAccessPanel` instead checks `disabled_at IS NULL` — a real account kill switch per the project's "booleans as timestamps" convention (CLAUDE.md). Deactivating a terminated employee's account is `AdminUser::update(['disabled_at' => now()])`; reactivating is `['disabled_at' => null]`. Full migration and `canAccessPanel` implementation in Plan 02 Task 1.
 
 No `role` column — roles live in the Spatie pivot (`model_has_roles`).
 
@@ -333,16 +339,16 @@ New file `docs/progress/admin-v1.md` scaffolded in Plan 01, updated per-step per
 
 ---
 
-## 8. Open questions (to resolve during plan authoring)
+## 8. Open questions — resolution status
 
-The core architecture is frozen; these are implementation-level decisions each plan must nail down before its tasks are written:
+The spec's original open questions from plan-authoring phase; noted here with their resolution for historical reference. The plan set has committed answers to the shared-code, service extraction, seat-editor, loyalty approval, and finance hand-off questions.
 
-1. **Shared-code mechanism for backend services** (§ 2.6). Two candidates: (a) Composer `classmap` entry in `admin/composer.json` pointing at `../backend/app/Services/`, or (b) `admin/app/Services/Backend/` facades that alias backend namespaces via PSR-4 autoload. Plan 03 must pick one and document it; both apps' containers need the chosen path mounted.
-2. **Exact `ShowtimeService` API surface** — does it already exist in backend, or is it extracted from `BookingController` / `SeatAvailabilityService` as part of Plan 06? Plan 06 must audit backend code before authoring tasks.
-3. **Cancellation email template content and sender identity** — Plan 06 needs the exact copy, from-address, and whether it includes a refund ETA or just "staff will contact you."
-4. **MVP shape of seat editor** (§ Plan 05) — commits to the seat-generator form for v1; visual editor stays as a follow-up sub-task. Plan 05 must decide whether the visual editor ships inside the plan or spins off into a separate follow-up plan, based on available budget.
-5. **Loyalty adjustment approval policy** — single-admin action by default. Open question: whether adjustments above a configurable threshold (e.g., > 1000 points, or > $20 equivalent) require a second admin's approval before persisting. This is a scoped governance policy, not a feature toggle — Plan 07 picks the threshold and workflow (or explicitly keeps v1 single-admin with activity-log traceability as the compensating control).
-6. **Gift card void finance hand-off** — Plan 08 needs to confirm whether "alerts finance via email stub" is sufficient for v1 or whether finance needs a dedicated page/export. Likely sufficient for the two-location scale we're at.
+1. ~~**Shared-code mechanism for backend services** (§ 2.6).~~ **Resolved in Plan 03 ADR-001:** shared Composer package at `packages/shared-domain/` (namespace `FinalCut\Domain\`), wired into both apps via a path repository. Synthetic-namespace classmap over a read-only bind mount was evaluated and rejected. See § 2.6 for the current wording.
+2. ~~**Exact `ShowtimeService` API surface.**~~ **Resolved in Plan 06 Task 1:** extracted from `BookingController` / `SeatAvailabilityService` into the shared package, with every write method taking an explicit `Causer` and a DB-level `EXCLUDE USING gist` constraint as the authoritative conflict guard.
+3. **Cancellation email template content and sender identity** — still open, Plan 06 Task 5's copy is placeholder pending marketing review. Plan 09 deployment docs finalize.
+4. ~~**MVP shape of seat editor** (§ Plan 05).~~ **Resolved in Plan 05:** MVP is the seat-generator form plus a `updateSeatBatch` service method (promoted from conditional to MVP for post-opening reassignment). Visual editor stays as Could Have in Task 6.
+5. ~~**Loyalty adjustment approval policy.**~~ **Resolved in Plan 07:** single-admin with activity-log traceability + configurable large-adjustment warning threshold. Narrower permissions `loyalty.adjust_points` / `loyalty.adjust_tier` (Plan 02 Task 3) replace the broad `loyalty.adjust` split originally contemplated.
+6. ~~**Gift card void finance hand-off.**~~ **Resolved in Plan 08:** queued `GiftCardVoidedMail` to `config('finance.notification_email')` for v1. Dedicated finance page/export deferred to v2.
 
 ---
 

@@ -201,9 +201,9 @@ Create the `admin_users` table and model, configure the `admin` auth guard, wire
   locations.view, locations.create, locations.update, locations.delete
   auditoriums.view, auditoriums.create, auditoriums.update, auditoriums.delete
   seats.view, seats.update
-  bookings.view
+  bookings.view, bookings.resolve_refund
   users.view
-  loyalty.view
+  loyalty.view, loyalty.adjust_points, loyalty.adjust_tier
   menu.view, menu.create, menu.update, menu.delete
   promos.view, promos.create, promos.update, promos.delete
   gift_cards.view, gift_cards.void
@@ -212,7 +212,11 @@ Create the `admin_users` table and model, configure the `admin` auth guard, wire
   activity.view
   ```
 
-  **Customer user write surface — deferred.** The admin section treats customer users (the `users` table on the customer side) as read-only in v1. No `users.update` permission is seeded here. Writes to customer user state — specifically loyalty tier adjustments and manual point corrections — will be introduced by the plan that actually implements those screens, under narrower permission names (e.g. `loyalty.adjust_tier`, `loyalty.adjust_points`) so the capability matrix stays tight. Do not add a broad `users.update` retroactively.
+  **Loyalty writes are narrow, not broad.** Plan 07's loyalty actions (Adjust Points, Upgrade to Premier, Revoke Premier) are gated on `loyalty.adjust_points` (for point deltas) and `loyalty.adjust_tier` (for premier membership changes). There is **no** broad `loyalty.adjust` permission — that would collapse two distinct authorization surfaces (point balance vs. paid-tier membership) into one check, which makes the capability matrix less expressive. Plan 07's UI must match this split.
+
+  **`bookings.resolve_refund`** gates the "Mark refunded (manual)" action on Plan 06 Task 6's follow-up queue. Separated from `bookings.view` so ops/support roles can browse the queue without being able to close financial cases.
+
+  **Customer user write surface — still deferred.** The admin section treats customer users (the `users` table on the customer side) as read-only in v1. No `users.update` permission is seeded here. Loyalty writes are exposed through the two narrower permissions above, not a broad `users.update`. Do not add a broad `users.update` retroactively.
 
   **Roles and their permission sets:**
   ```php
@@ -229,10 +233,10 @@ Create the `admin_users` table and model, configure the `admin` auth guard, wire
       'menu.view', 'menu.create', 'menu.update', 'menu.delete',
       'events.view', 'events.create', 'events.update', 'events.delete',
       'promos.view', 'promos.create', 'promos.update', 'promos.delete',
-      'bookings.view',
+      'bookings.view', 'bookings.resolve_refund',
       'gift_cards.view',
       'users.view',
-      'loyalty.view',
+      'loyalty.view', 'loyalty.adjust_points', 'loyalty.adjust_tier',
       'activity.view',
   ]);
 
@@ -465,19 +469,19 @@ Create the `admin_users` table and model, configure the `admin` auth guard, wire
 - **MoSCoW:** Should Have
 - **Complexity:** XS
 - **Files:**
-  - `admin/app/Console/Kernel.php` (modify)
+  - `admin/routes/console.php` (modify)
 - **Scope note.** This task registers the schedule **entry only**. The admin container in Plan 01 does not yet run `schedule:run`; the scheduler / cron sidecar service is added in Plan 09. Until Plan 09 lands, the entry is dormant — it will be exercised manually in the acceptance criteria below rather than on a timer.
 - **Details:**
-  `spatie/laravel-activitylog` ships a `CleanActivitylogCommand` that deletes rows older than `delete_records_older_than_days` (180). Register it on the daily schedule:
+  Laravel 13's skeleton (matching the existing backend pattern) registers scheduled commands in `routes/console.php` via `Illuminate\Support\Facades\Schedule` — there is no `app/Console/Kernel.php` in the Laravel 11+ skeleton. `spatie/laravel-activitylog` ships a `CleanActivitylogCommand` that deletes rows older than `delete_records_older_than_days` (180). Register it on the daily schedule:
 
   ```php
-  protected function schedule(Schedule $schedule): void
-  {
-      $schedule->command('activitylog:clean')->daily();
-  }
+  // admin/routes/console.php
+  use Illuminate\Support\Facades\Schedule;
+
+  Schedule::command('activitylog:clean')->daily();
   ```
 
-  Leave a TODO comment in `Kernel.php` pointing at Plan 09 so the reviewer there knows this entry already exists and only the runner is outstanding.
+  Leave a TODO comment in `admin/routes/console.php` pointing at Plan 09 so the reviewer there knows this entry already exists and only the runner is outstanding. Plan 09 Task 6 adds further entries (`outbox:dispatch`, `outbox:prune`) in the same file.
 
 - **Acceptance Criteria:**
   - [ ] `activitylog:clean` registered on the daily schedule
