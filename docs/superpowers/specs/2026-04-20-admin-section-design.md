@@ -53,8 +53,43 @@ This ownership boundary prevents the two apps from stepping on each other's migr
 
 ### 2.5 Accepted trade-offs
 
-- **Eloquent model duplication.** Models appear in both `backend/app/Models/` and `admin/app/Models/`. Mitigation: admin models stay thin (mirror columns + relationships, add Filament-friendly accessors only). A Pest test in `admin/tests/Feature/ModelParityTest.php` asserts column parity against the canonical migrations.
+- **Eloquent model duplication.** Models appear in both `backend/app/Models/` and `admin/app/Models/`. Admin models stay thin (mirror columns + relationships, add Filament-friendly accessors only).
+- **Two categories of drift risk:**
+  - *Schema drift* — column/index/type changes land in one app but not the other. The `ModelParityTest` (§ 6.2) is a cheap tripwire that catches this.
+  - *Behavioral drift* — casts, scopes, accessors, mutators, enum handling, observers, validation rules, and write-side invariants living in backend but absent from admin. The parity test does **not** catch this. The real guardrail is the write-boundary rule in § 2.6.
 - **No shared code via package.** We could factor shared models into a `packages/shared` Composer package, but that's premature. Duplication is acceptable until a second consumer appears.
+
+### 2.6 Write boundary: admin calls backend domain services
+
+Admin writes to shared tables go **through backend application services/actions**, not through direct Eloquent mutations from Filament Resources. This is the primary defense against behavioral drift.
+
+**Rule:**
+
+- **Direct Eloquent writes permitted** on: admin-owned tables (`admin_users`, `roles`, `activity_log`, `loyalty_adjustments`) and simple label/description fields on shared tables that carry no invariants (e.g., `movies.tagline`, `menu_items.description`).
+- **Domain service required** for every mutation that has invariants, side effects, or related-record implications. Non-exhaustive mapping:
+
+| Resource action | Calls backend service |
+|-----------------|----------------------|
+| Movie create / update / delete / enrich | `MovieService` |
+| Showtime create / update / cancel / bulk-create | `ShowtimeService` (new or extracted from existing booking logic) |
+| Seat configuration writes | `AuditoriumService` |
+| Loyalty point adjustment, tier change | `LoyaltyService` |
+| Gift card void | `GiftCardService` |
+| Promo code create / deactivate | `PromoCodeService` |
+| Menu item availability toggle | `MenuService` (only if backend gains price-change invariants; else direct write is fine) |
+
+Services are invoked via `Backend\App\Services\X::method()` — we register the backend `app/Services/` directory as a Composer `classmap` entry in the admin app's `composer.json`, or (preferred) expose each needed service through a slim `admin/app/Services/Backend/` facade that calls the backend class via shared namespace autoload. The exact shared-code mechanism is an open question (§ 8).
+
+**Consequence for plan authoring:** Plans 04, 06, 07, 08 must each identify the specific backend service they call and note whether that service exists or needs to be extracted. If a service must be extracted from existing controller logic, that refactor becomes a sub-task within the plan.
+
+### 2.7 Future migrations flagged (known retrofits)
+
+The following are *not* in v1 but the design deliberately leaves space for them. Plan authors must avoid decisions that would make these retrofits disproportionately expensive:
+
+- **Location-scoped roles** — add `location_id` FK on `admin_users`, location-aware policies on every Resource, location filters on list pages, location scoping on seat editor / schedule planner / menu / showtimes. Not cheap when retrofitted; design policies now so they can accept a location predicate later.
+- **MFA / 2FA** — add `mfa_secret`, `mfa_enabled_at`, `recovery_codes` columns on `admin_users`; middleware between login and panel; Filament login page customization.
+- **Booking write operations** (cancel, refund, seat modify) — add permissions `bookings.cancel`, `bookings.refund`, `bookings.modify`; integrate Stripe Refund API via `StripeService`; credit-memo ledger; customer-notification flow.
+- **Stripe webhook integration for refund state** — currently backend confirms synchronously; booking cancellations in v2 will want webhook reconciliation.
 
 ---
 
@@ -118,8 +153,8 @@ Uses `spatie/laravel-activitylog`.
 | 02 | Auth, roles, permissions & audit log | Must | M | 01 |
 | 03 | Shared Eloquent models & base resources | Must | M | 01, 02 |
 | 04 | Movie catalog management | Must | M | 03 |
-| 05 | Locations, auditoriums & seat editor | Must | L | 03 |
-| 06 | Showtime management | Must | L | 04, 05 |
+| 05 | Locations, auditoriums & seat editor | Must | XL | 03 |
+| 06 | Showtime management | Must | XL | 04, 05 |
 | 07 | Bookings, customers & loyalty | Should | M | 03, 06 |
 | 08 | Menu, promo codes & gift cards | Should | M | 05 |
 | 09 | Calendar events, testing & deploy | Should | L | 04–08 |
@@ -148,18 +183,23 @@ Uses `spatie/laravel-activitylog`.
 
 Minimum to have a usable admin: `01 → 02 → 03 → 04 → 05 → 06`. After Plan 06, staff can manage movies, locations, auditoriums, and showtimes — enough to run the business day-to-day. Plans 07–09 round out support, merchandise, and events.
 
-### 4.4 Won't have in v1
+### 4.4 Scope boundaries
 
-Documented in the v1 index:
+Two categories: strategic deferrals we intend to build soon, and out-of-scope indefinitely.
 
-- Booking refunds / cancellations (read-only in v1)
-- MFA / 2FA for admin login
+**Deferred but high priority post-v1** (documented in the index with explicit "next up" status):
+
+- **MFA / 2FA for admin login** — admin holds customer, loyalty, and gift-card access; MFA is the most obvious v1 security gap. Mitigated short-term by IP allowlist + Fail2ban, but should land as an early v2 item.
+- **Booking write operations** — cancel, refund (Stripe-integrated), seat modification. Read-only in v1; manual cancellation workflow in Plan 06 documents the interim process.
+- **Per-location manager scoping** — all roles see all locations in v1. Likely to be needed as the theatre operates two locations; retrofit cost is tracked in § 2.7.
+
+**Won't have** (out of scope indefinitely, or until explicit product-driven requirement):
+
 - Customer impersonation
 - Bulk CSV import / export
 - Admin-managed blog posts (blog stays in `app/data/blog.ts` until v2)
 - Rate limiting beyond login endpoint (VPN / IP allowlist handles broader admin access in prod)
 - Multi-tenancy / white-label support
-- Per-location manager scoping (all roles see all locations in v1)
 
 ---
 
@@ -185,11 +225,34 @@ Mirror backend models in `admin/app/Models/`: `Movie`, `Location`, `Auditorium`,
 
 ### Plan 05 — Locations, auditoriums & seat editor
 
-`LocationResource` (name, slug, address, phone, email, timezone, lat, lng). `AuditoriumResource` scoped to location via a relation manager on `LocationResource` — form includes name, section config (Standard / Premium / Accessible with price multipliers). **Seat grid editor** is the complex piece: a custom Filament page (not a Resource) that renders a visual auditorium grid, lets admins click-and-drag to set seat type per cell, mark seats unavailable (aisle / gap), and bulk-update sections. Persists as `Seat` rows with row letter + number + section + type. Tests: grid persistence, section pricing math, unavailable seat masking, policy enforcement.
+`LocationResource` (name, slug, address, phone, email, timezone, lat, lng). `AuditoriumResource` scoped to location via a relation manager on `LocationResource` — form includes name, section config (Standard / Premium / Accessible with price multipliers), and a new **`cleanup_minutes`** column (default 20) consumed by Plan 06 conflict detection. Writes go through `AuditoriumService` per § 2.6.
+
+**Seat configuration — two-track scope:**
+
+- **MVP (ships first, inside this plan):** a **seat-generator form** — rows count × seats-per-row + section mapping (row letters A–D = Premium, E–J = Standard, etc.) → bulk-insert `Seat` rows. Covers ~90% of real configurations without custom UX risk. Includes an `unavailable_seats` text field (comma-separated IDs like "A3,A4") for aisle gaps.
+- **Visual editor (ships after MVP, still inside this plan if budget allows; otherwise deferred to a follow-up):** custom Filament page rendering the auditorium grid, click-to-toggle seat type, drag-select bulk operations. Built on top of the MVP data model so the fallback is never wasted work.
+
+Tests: generator correctness, section pricing math, unavailable-seat masking, `AuditoriumService` call path, policy enforcement. Visual editor tests gated on whether it ships in this plan vs later.
 
 ### Plan 06 — Showtime management
 
-`ShowtimeResource` with form (movie select, location + auditorium cascade, start_time, price_standard / premium / accessible in cents). **Schedule planner** custom page: calendar view per-auditorium showing the week's showtimes; drag to create, click to edit. Conflict detection validates `end_time = start_time + movie.runtime + 20min cleanup` and blocks overlaps in the same auditorium. Bulk create: "Add this movie to Auditorium 1, Monday–Friday, 7pm and 9:30pm for two weeks" — dispatches a `ShowtimeBulkCreator` service. Cancel action soft-deletes and flags affected bookings (but does not refund — read-only in v1). Tests: conflict detection, bulk create date/time math, cancel flow.
+`ShowtimeResource` with form (movie select, location + auditorium cascade, start_time, price_standard / premium / accessible in cents). All mutations route through `ShowtimeService` per § 2.6. Conflict detection validates `end_time = start_time + movie.runtime + auditorium.cleanup_minutes` (the buffer is per-auditorium, not hardcoded — see Plan 05) and blocks overlaps in the same auditorium. Bulk create: "Add this movie to Auditorium 1, Monday–Friday, 7pm and 9:30pm for two weeks" — calls `ShowtimeService::bulkCreate()`.
+
+**Schedule UX — two-track scope:**
+
+- **MVP (ships first):** standard Filament table list with date-range filter + auditorium filter, plus the bulk-create dialog. Conflict validation runs server-side. Calendar view not required for initial usability.
+- **Visual schedule planner (optional second pass):** custom Filament page with per-auditorium weekly calendar, drag-to-create, click-to-edit. Built on the same service, so the MVP is forward-compatible.
+
+**Cancellation workflow** (v1, no automatic refund):
+
+1. "Cancel showtime" action soft-deletes the `showtimes` row via `ShowtimeService::cancel()`.
+2. Every affected `booking` row gets `flagged_at = now()` set (new column, Plan 06 adds the migration to backend via coordinated service change) and a reason string `"showtime_cancelled:{showtime_id}"`.
+3. Activity log writes one entry per cancellation plus one per flagged booking.
+4. A queued job dispatches a **stubbed email** (Mailpit in dev, real SMTP in prod) to each affected customer: "Your showtime was cancelled. Staff will contact you about a refund." Template lives in `admin/resources/views/mail/showtime-cancelled.blade.php`.
+5. Admin gets a new page at `/admin/cancelled-showtime-followup` — lists every booking with `flagged_at IS NOT NULL AND status != 'refunded'`. This is the manual finance queue; staff work through it out-of-band until Stripe refund integration lands in v2.
+6. Seats from cancelled showtimes are *not* auto-released; the soft-deleted showtime is filtered from all customer queries, so seats are effectively dead.
+
+Tests: conflict detection with per-auditorium buffer, `bulkCreate` service call path, cancellation writes flag + activity entries, follow-up page shows only pending bookings, email job dispatched per booking.
 
 ### Plan 07 — Bookings, customers & loyalty
 
@@ -216,9 +279,13 @@ Pest is the testing framework for admin, matching backend.
 - `admin/tests/Helpers/AdminAuthHelper.php` — trait exposing `actingAsAdmin()`, `actingAsManager()`, `actingAsOps()`, `actingAsNobody()`. Mirrors the backend's `AuthHelper` pattern.
 - `admin/phpunit.xml` mirrors backend: `APP_ENV=testing`, `final_cut_test` database, `array` cache, `sync` queue, observability off.
 
-### 6.2 Model parity test
+### 6.2 Model parity test — cheap tripwire, not the primary guardrail
 
-`admin/tests/Feature/ModelParityTest.php` is the crown jewel. It loads backend + admin migrations against the test database, introspects the schema, and asserts that every column present in a backend model's table is also accessible from the admin model. Catches schema drift before it reaches prod.
+`admin/tests/Feature/ModelParityTest.php` loads backend + admin migrations against the test database, introspects the schema, and asserts that every column present in a backend model's table is also accessible from the admin model. Catches *schema drift* (a column added in backend but forgotten in admin) before it reaches prod.
+
+**What it does not catch:** casts, scopes, accessors, mutators, enum handling, observers, validation rules, invariants enforced in backend services. Those are *behavioral drift* and the primary guardrail is the write-boundary rule in § 2.6 — admin mutations go through backend services, so behavior stays centralized and tested once.
+
+Treat the parity test as a cheap, high-signal tripwire; treat § 2.6 as the real defense.
 
 ### 6.3 What we do not test
 
@@ -266,9 +333,16 @@ New file `docs/progress/admin-v1.md` scaffolded in Plan 01, updated per-step per
 
 ---
 
-## 8. Open questions
+## 8. Open questions (to resolve during plan authoring)
 
-None. All architectural decisions captured during brainstorming are frozen in this spec.
+The core architecture is frozen; these are implementation-level decisions each plan must nail down before its tasks are written:
+
+1. **Shared-code mechanism for backend services** (§ 2.6). Two candidates: (a) Composer `classmap` entry in `admin/composer.json` pointing at `../backend/app/Services/`, or (b) `admin/app/Services/Backend/` facades that alias backend namespaces via PSR-4 autoload. Plan 03 must pick one and document it; both apps' containers need the chosen path mounted.
+2. **Exact `ShowtimeService` API surface** — does it already exist in backend, or is it extracted from `BookingController` / `SeatAvailabilityService` as part of Plan 06? Plan 06 must audit backend code before authoring tasks.
+3. **Cancellation email template content and sender identity** — Plan 06 needs the exact copy, from-address, and whether it includes a refund ETA or just "staff will contact you."
+4. **MVP shape of seat editor** (§ Plan 05) — commits to the seat-generator form for v1; visual editor stays as a follow-up sub-task. Plan 05 must decide whether the visual editor ships inside the plan or spins off into a separate follow-up plan, based on available budget.
+5. **Loyalty adjustment approval policy** — single-admin action by default. Open question: whether adjustments above a configurable threshold (e.g., > 1000 points, or > $20 equivalent) require a second admin's approval before persisting. This is a scoped governance policy, not a feature toggle — Plan 07 picks the threshold and workflow (or explicitly keeps v1 single-admin with activity-log traceability as the compensating control).
+6. **Gift card void finance hand-off** — Plan 08 needs to confirm whether "alerts finance via email stub" is sufficient for v1 or whether finance needs a dedicated page/export. Likely sufficient for the two-location scale we're at.
 
 ---
 
