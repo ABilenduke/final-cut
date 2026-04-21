@@ -7,7 +7,7 @@
 
 ## Overview
 
-Create the `admin_users` table and model, configure the `admin` auth guard, wire Filament to use it, install Spatie Permission and Activity Log packages, seed the three roles (admin / manager / ops) with their permission sets, and ship the global activity log page plus the `admin:create-user` artisan command. End state: an admin can log in at `https://admin.finalcut.test/admin/login`, and every action they take writes a row to `activity_log`.
+Create the `admin_users` table and model, configure the `admin` auth guard, wire Filament to use it, install Spatie Permission and Activity Log packages, seed the three roles (admin / manager / ops) with their permission sets, and ship the global activity log page plus the `admin:create-user` artisan command. End state: an admin can log in at `https://admin.finalcut.test/admin/login`; auth events and admin-user model changes write rows to `activity_log`, and the causer resolver is configured so resource-level audit logging (introduced in Plans 04+) attaches the logged-in admin automatically. Full per-resource audit coverage is *not* in scope for this plan — it arrives as each resource is registered in later plans.
 
 ## Reference Documents
 
@@ -35,39 +35,49 @@ Create the `admin_users` table and model, configure the `admin` auth guard, wire
       $table->id();
       $table->string('name');
       $table->string('email')->unique();
-      $table->timestamp('email_verified_at')->nullable();
       $table->string('password');
       $table->rememberToken();
       $table->timestamp('last_login_at')->nullable();
       $table->string('last_login_ip', 45)->nullable();
+      $table->timestamp('disabled_at')->nullable();  // kill switch — see canAccessPanel
       $table->timestamps();
   });
   ```
 
-  `AdminUser` model extends `Illuminate\Foundation\Auth\User` and implements `Filament\Models\Contracts\FilamentUser`:
+  **No `email_verified_at` column.** Admin users are created explicitly by another admin via `admin:create-user` (Task 6) — there is no self-signup flow that would need verification. The previous draft set `email_verified_at => now()` at creation and checked `email_verified_at !== null` in `canAccessPanel`; since the field was written once and never cleared, the check was security theater. Replacing it with a nullable `disabled_at` timestamp gives ops a real kill switch to deactivate a terminated employee's account without deleting the row, and the "when was this disabled" metadata comes for free (project convention: booleans as timestamps — see CLAUDE.md).
+
+  `AdminUser` model extends `Illuminate\Foundation\Auth\User` and implements `Filament\Models\Contracts\FilamentUser`. In Task 1 the model is intentionally minimal — the `HasRoles` trait is added in Task 3 (after Spatie Permission is installed) and `LogsActivity` is added in Task 4 (after Spatie ActivityLog is installed). Keep this task focused on the schema and basic authentication surface.
+
   ```php
   class AdminUser extends Authenticatable implements FilamentUser
   {
-      use Notifiable, HasFactory, HasRoles, LogsActivity; // HasRoles and LogsActivity come from packages in Tasks 3 and 4
+      use Notifiable, HasFactory;
+
       protected $fillable = ['name', 'email', 'password'];
       protected $hidden = ['password', 'remember_token'];
-      protected $casts = ['email_verified_at' => 'datetime', 'password' => 'hashed'];
+      protected $casts = [
+          'disabled_at' => 'datetime',
+          'last_login_at' => 'datetime',
+          'password' => 'hashed',
+      ];
 
       public function canAccessPanel(Panel $panel): bool
       {
-          return $panel->getId() === 'admin' && $this->email_verified_at !== null;
+          return $panel->getId() === 'admin' && is_null($this->disabled_at);
       }
   }
   ```
 
-  `AdminUserFactory` follows the Laravel convention — bcrypt password `'password'`, unique email via `fake()->unique()->safeEmail()`.
+  `AdminUserFactory` follows the Laravel convention — bcrypt password `'password'`, unique email via `fake()->unique()->safeEmail()`. `disabled_at` defaults to `null`. A `disabled()` factory state sets it to `now()` for the "disabled admin cannot access panel" test in Task 9.
 
 - **Acceptance Criteria:**
-  - [ ] Migration creates `admin_users` table with documented columns
+  - [ ] Migration creates `admin_users` table with documented columns including `disabled_at`
+  - [ ] No `email_verified_at` column exists on `admin_users`
   - [ ] `AdminUser` model references the `admin_users` table
-  - [ ] Password cast to `hashed`
-  - [ ] `canAccessPanel` returns true only for verified users
-  - [ ] Factory generates valid AdminUser instances
+  - [ ] Password cast to `hashed`; `disabled_at` and `last_login_at` cast to `datetime`
+  - [ ] `canAccessPanel` returns true only when `disabled_at` is null and the panel ID is `admin`
+  - [ ] Factory generates valid AdminUser instances with `disabled_at = null` by default
+  - [ ] Factory has a `disabled()` state that sets `disabled_at = now()`
 
 ---
 
@@ -111,26 +121,48 @@ Create the `admin_users` table and model, configure the `admin` auth guard, wire
   'driver' => env('SESSION_DRIVER', 'redis'),
   'connection' => env('SESSION_CONNECTION', 'default'),
   'cookie' => env('SESSION_COOKIE', 'admin_session'),
-  'domain' => env('SESSION_DOMAIN', '.admin.finalcut.test'),
+  'domain' => env('SESSION_DOMAIN', 'admin.finalcut.test'),
   'secure' => true,
   'http_only' => true,
   'same_site' => 'lax',
   ```
 
-  Redis session prefix to avoid collision with backend sessions:
+  **Cookie domain note.** The value is `admin.finalcut.test` (no leading dot) deliberately. A leading dot (`.admin.finalcut.test`) shares the cookie across every sub-subdomain of `admin.finalcut.test`, which we do not need and which expands the cookie's surface area. Isolation from the customer app (`finalcut.test`) is achieved by using a distinct subdomain plus a distinct cookie name (`admin_session`), not by manipulating the leading dot. If the admin app ever needs to serve multiple sub-subdomains (e.g. `us.admin.finalcut.test`) we can revisit then.
+
+  Redis prefixes — use deliberate, purpose-scoped names instead of a single blanket `admin_`. Sessions and cache belong to different subsystems and should be independently flushable.
+
   ```php
-  // config/database.php — Redis default connection
-  'prefix' => env('REDIS_PREFIX', 'admin_'),
+  // config/database.php — Redis default connection stays default-prefixed
+  // Per-subsystem prefixes are set in their own configs:
+
+  // config/session.php
+  'connection' => env('SESSION_CONNECTION', 'default'),
+  // Laravel's Redis session handler stores keys as {prefix}:{session_id}; use a dedicated
+  // session connection if deeper isolation is required later.
+
+  // config/cache.php
+  'stores' => [
+      'redis' => [
+          'driver' => 'redis',
+          'connection' => 'cache',
+          'prefix' => env('CACHE_PREFIX', 'admin_cache'),
+      ],
+  ],
   ```
 
-  Add `SESSION_COOKIE=admin_session`, `SESSION_DOMAIN=.admin.finalcut.test`, `REDIS_PREFIX=admin_` to `admin/.env.example`.
+  The convention going forward:
+  - `admin_session:*` — Laravel session keys (set via the session handler)
+  - `admin_cache:*` — application cache entries
+  - `admin_queue:*` — queue payloads (added in Plan 09 when the queue worker lands)
+
+  Add `SESSION_COOKIE=admin_session`, `SESSION_DOMAIN=admin.finalcut.test`, `CACHE_PREFIX=admin_cache` to `admin/.env.example`.
 
 - **Acceptance Criteria:**
   - [ ] Default guard is `admin`
   - [ ] `admin` guard uses session driver + `admin_users` provider
   - [ ] Session cookie name differs from backend (`admin_session` vs customer's default)
-  - [ ] Session cookie domain scoped to admin subdomain
-  - [ ] Redis keys prefixed with `admin_` to avoid customer session collision
+  - [ ] Session cookie domain scoped to the admin subdomain without a leading dot
+  - [ ] Redis session keys land under `admin_session:*`; cache keys under `admin_cache:*` — verified by inspecting `redis-cli keys '*'` after a login + a cached read
 
 ---
 
@@ -170,8 +202,8 @@ Create the `admin_users` table and model, configure the `admin` auth guard, wire
   auditoriums.view, auditoriums.create, auditoriums.update, auditoriums.delete
   seats.view, seats.update
   bookings.view
-  users.view, users.update
-  loyalty.view, loyalty.adjust
+  users.view
+  loyalty.view
   menu.view, menu.create, menu.update, menu.delete
   promos.view, promos.create, promos.update, promos.delete
   gift_cards.view, gift_cards.void
@@ -179,6 +211,8 @@ Create the `admin_users` table and model, configure the `admin` auth guard, wire
   admin_users.view, admin_users.create, admin_users.update, admin_users.delete
   activity.view
   ```
+
+  **Customer user write surface — deferred.** The admin section treats customer users (the `users` table on the customer side) as read-only in v1. No `users.update` permission is seeded here. Writes to customer user state — specifically loyalty tier adjustments and manual point corrections — will be introduced by the plan that actually implements those screens, under narrower permission names (e.g. `loyalty.adjust_tier`, `loyalty.adjust_points`) so the capability matrix stays tight. Do not add a broad `users.update` retroactively.
 
   **Roles and their permission sets:**
   ```php
@@ -259,15 +293,37 @@ Create the `admin_users` table and model, configure the `admin` auth guard, wire
   ];
   ```
 
-  Add `LogsActivity` trait to `AdminUser` model — though admin user changes themselves are auto-logged when resources are registered in Plan 02.
+  Add the `LogsActivity` trait to the `AdminUser` model. **Scope:** this only logs model-level events on `AdminUser` itself — created / updated / deleted rows on the `admin_users` table. It does *not* create a global audit trail across the rest of the admin section. Per-resource audit logging is wired up resource-by-resource as each one is registered in Plans 04+, typically via the base resource class introduced in Plan 03. Explicit write flows that don't go through a model (artisan commands, service-level actions) have to log their own activity rows deliberately — the trait cannot catch those automatically.
 
-  Resources will use the trait in Plans 04+ per model. The base trait config goes in `BaseResource` in Plan 03.
+  What Plan 02 actually produces in `activity_log`:
+  - a row per login / logout / failed-login event (wired via Laravel auth events in Task 5)
+  - a row per `AdminUser` model change (via `LogsActivity` on the model)
+  - nothing else yet — the global activity page in Task 8 will mostly show auth events until the resource plans land
+
+  Setting `default_auth_driver` to `admin` is important for admin-side convenience: when a service is called inside an admin HTTP request, the activity-log package can resolve the currently-logged-in admin without explicit wiring. **It is not the contract, however.** Shared-domain services (in the `finalcut/domain` package established by Plan 03) run in multiple contexts:
+
+  - inside admin HTTP requests (causer = the acting `AdminUser`)
+  - inside backend scheduler tasks (causer = a system user or nothing, definitely not a logged-in admin)
+  - inside backend webhooks and customer-facing request handlers (causer = the customer `User`, or system)
+
+  Auto-resolution via `default_auth_driver` reads whatever guard is configured in the calling app's `activitylog.php`, which is the wrong answer in every context except the first. To make the contract unambiguous:
+
+  **Explicit `Causer` argument on every shared-domain service write method.** Introduce a `FinalCut\Domain\Audit\Causer` interface in the shared package (lands in Plan 03 Task 1's scaffold as a stub; actual implementations in Plans 04/06/07/08 as each service lands). `AdminUser` and the customer `User` both implement `Causer` via a trait that returns `$this` for `causedBy()`. Every shared-domain service method that writes an audit row signature-declares `Causer $causer` and calls `activity(...)->causedBy($causer)->log(...)` — no ambient guard reads.
+
+  Admin-owned models that write via `LogsActivity` (`AdminUser`, `LoyaltyAdjustment`) continue to use auto-resolution — those writes only happen from admin HTTP requests, so the default-guard path is correct. `default_auth_driver = 'admin'` serves exactly that narrow convenience.
+
+  This task's deliverable is the written contract and the interface stub. Plans 04/06/07/08 each implement the services against it; Plan 02 does not itself create any shared-domain services.
 
 - **Acceptance Criteria:**
   - [ ] `spatie/laravel-activitylog` installed and config published
   - [ ] `activity_log` table migrated
   - [ ] Retention set to 180 days
-  - [ ] Default auth driver set to `admin` so causer detection works
+  - [ ] `default_auth_driver` set to `admin` — documented as admin-side convenience only, not the shared-domain contract
+  - [ ] `LogsActivity` trait added to `AdminUser`; creating/updating an `AdminUser` in tinker writes a row to `activity_log`
+  - [ ] `FinalCut\Domain\Audit\Causer` interface stub committed in `packages/shared-domain/src/Audit/Causer.php` (per Plan 03 Task 1 scaffold) with a documented contract: implementers expose the subject/row used by `activity()->causedBy(...)`
+  - [ ] Written note in this task's activity-log strategy section: every shared-domain service write method must accept `Causer $causer` explicitly. Auto-resolution from `default_auth_driver` is not the contract.
+  - [ ] Plans 04/06/07/08 referenced in this task's prose as the consumers of the explicit-Causer contract
+  - [ ] Plan 02 does not claim to audit resources it has not yet introduced
 
 ---
 
@@ -278,47 +334,34 @@ Create the `admin_users` table and model, configure the `admin` auth guard, wire
 - **Files:**
   - `admin/app/Providers/Filament/AdminPanelProvider.php` (modify)
 - **Details:**
-  Update the panel provider to use the `admin` guard, enable login, and register resource auto-discovery:
+  Update the panel provider so that the panel:
+
+  - runs on the `admin` guard (`->authGuard('admin')`)
+  - uses the `admin_users` password broker (`->authPasswordBroker('admin_users')`)
+  - has login enabled (`->login()`) at `/admin/login`
+  - auto-discovers resources, pages, and widgets under `App\Filament\*`
+  - keeps the default Filament 3 middleware stack (session, CSRF, cookie encryption, route bindings, Filament event dispatch)
+  - keeps the default Filament 3 auth middleware (`Authenticate`)
+
+  Prefer starting from whatever `php artisan filament:install --panels` generated in Plan 01 and editing only the guard / broker / discovery lines. **Do not** copy a literal middleware array into this document — Filament's stack has changed between point releases and freezing a list here will drift from the installed version. If a future plan needs to customize middleware (e.g. to add the location-switcher middleware from Plan 07), that plan names the specific entry it inserts.
+
+  Wire Laravel auth events to the activity log so login / logout / failed-login write rows (in an `EventServiceProvider` listener or an inline closure in `AppServiceProvider::boot()`):
 
   ```php
-  public function panel(Panel $panel): Panel
-  {
-      return $panel
-          ->id('admin')
-          ->path('admin')
-          ->default()
-          ->login()
-          ->authGuard('admin')
-          ->authPasswordBroker('admin_users')
-          ->colors(['primary' => Color::Amber])
-          ->discoverResources(in: app_path('Filament/Resources'), for: 'App\\Filament\\Resources')
-          ->discoverPages(in: app_path('Filament/Pages'), for: 'App\\Filament\\Pages')
-          ->pages([Pages\Dashboard::class])
-          ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\\Filament\\Widgets')
-          ->widgets([Widgets\AccountWidget::class])
-          ->middleware([
-              EncryptCookies::class,
-              AddQueuedCookiesToResponse::class,
-              StartSession::class,
-              AuthenticateSession::class,
-              ShareErrorsFromSession::class,
-              VerifyCsrfToken::class,
-              SubstituteBindings::class,
-              DisableBladeIconComponents::class,
-              DispatchServingFilamentEvent::class,
-          ])
-          ->authMiddleware([Authenticate::class]);
-  }
+  Event::listen(Login::class,  fn ($e) => activity('auth')->causedBy($e->user)->log('login'));
+  Event::listen(Logout::class, fn ($e) => activity('auth')->causedBy($e->user)->log('logout'));
+  Event::listen(Failed::class, fn ($e) => activity('auth')->withProperties(['email' => $e->credentials['email'] ?? null])->log('login_failed'));
   ```
 
   Ensure `AdminPanelProvider` is registered in `bootstrap/providers.php`.
 
 - **Acceptance Criteria:**
-  - [ ] Panel uses `admin` guard
+  - [ ] Panel uses the `admin` guard and the `admin_users` password broker
   - [ ] Login page enabled at `/admin/login`
-  - [ ] Session auth middleware stack wired
+  - [ ] Filament's default middleware stack is preserved (not hand-rolled in this plan)
   - [ ] Auto-discovery scans `App\Filament\Resources` and `App\Filament\Pages`
   - [ ] Visiting `/admin` without auth redirects to `/admin/login`
+  - [ ] Login, logout, and failed-login events write rows to `activity_log` with `log_name = 'auth'`
 
 ---
 
@@ -329,30 +372,56 @@ Create the `admin_users` table and model, configure the `admin` auth guard, wire
 - **Files:**
   - `admin/app/Console/Commands/CreateAdminUser.php` (new)
 - **Details:**
-  Interactive command that prompts for name, email, password, and role:
+  Interactive command that prompts for name, email, password, and role. The `--reset-password` flag promotes the command into a password-reset tool for existing accounts, because Plan 09's operational runbook (Task 10) lists this as the fallback path when the mail-based reset flow isn't available. Without the flag, duplicate emails still error (guards against accidental overwrites).
 
   ```php
   class CreateAdminUser extends Command
   {
       protected $signature = 'admin:create-user
-          {--name= : Full name}
+          {--name= : Full name (ignored with --reset-password)}
           {--email= : Email address}
           {--password= : Password}
-          {--role=admin : Role (admin, manager, ops)}';
+          {--role=admin : Role (admin, manager, ops) — ignored with --reset-password unless --reassign-role is also passed}
+          {--reset-password : Reset the password of an existing admin user matched by --email. Creation is skipped; role is not changed unless --reassign-role is also set.}
+          {--reassign-role : With --reset-password, also re-assign the role to the value of --role. Ignored without --reset-password.}';
 
       public function handle(): int
       {
-          $name = $this->option('name') ?: $this->ask('Name');
           $email = $this->option('email') ?: $this->ask('Email');
           $password = $this->option('password') ?: $this->secret('Password');
+
+          if ($this->option('reset-password')) {
+              $user = AdminUser::where('email', $email)->first();
+              if (! $user) {
+                  $this->error("No admin user found with email {$email}. Drop the --reset-password flag to create a new account.");
+                  return self::FAILURE;
+              }
+
+              $user->update(['password' => $password]); // hashed cast handles it
+
+              if ($this->option('reassign-role')) {
+                  $role = $this->option('role');
+                  if (! Role::where('name', $role)->where('guard_name', 'admin')->exists()) {
+                      $this->error("Role {$role} does not exist. Run `php artisan db:seed` first.");
+                      return self::FAILURE;
+                  }
+                  $user->syncRoles([$role]);
+                  $this->info("Reset password and reassigned role to {$role} for {$email}.");
+              } else {
+                  $this->info("Reset password for {$email}.");
+              }
+              return self::SUCCESS;
+          }
+
+          $name = $this->option('name') ?: $this->ask('Name');
           $role = $this->option('role') ?: $this->choice('Role', ['admin', 'manager', 'ops'], 'admin');
 
           if (AdminUser::where('email', $email)->exists()) {
-              $this->error("Email {$email} already exists.");
+              $this->error("Email {$email} already exists. Pass --reset-password to reset the password of the existing account instead.");
               return self::FAILURE;
           }
 
-          if (!Role::where('name', $role)->where('guard_name', 'admin')->exists()) {
+          if (! Role::where('name', $role)->where('guard_name', 'admin')->exists()) {
               $this->error("Role {$role} does not exist. Run `php artisan db:seed` first.");
               return self::FAILURE;
           }
@@ -361,7 +430,6 @@ Create the `admin_users` table and model, configure the `admin` auth guard, wire
               'name' => $name,
               'email' => $email,
               'password' => $password, // hashed cast handles it
-              'email_verified_at' => now(),
           ]);
           $user->assignRole($role);
 
@@ -377,24 +445,30 @@ Create the `admin_users` table and model, configure the `admin` auth guard, wire
   	docker compose exec -u 1000 admin php artisan admin:create-user
   ```
 
+  No `email_verified_at` write — the column no longer exists (see Task 1). Admin account activation is implicit (created = usable); deactivation is explicit via `disabled_at`.
+
 - **Acceptance Criteria:**
-  - [ ] Interactive prompts for name, email, password, role
-  - [ ] Supports non-interactive flags
+  - [ ] Interactive prompts for name, email, password, role (when not passed via flags)
+  - [ ] Supports non-interactive flags for all fields
   - [ ] Validates role exists before creation
-  - [ ] Rejects duplicate emails
-  - [ ] Sets `email_verified_at` automatically (admin users do not go through email verification)
+  - [ ] Without `--reset-password`: rejects duplicate emails with a message pointing at the flag
+  - [ ] With `--reset-password`: re-hashes password on an existing account matched by `--email`; errors clearly if the account does not exist
+  - [ ] With `--reset-password --reassign-role`: additionally re-syncs the role to the value of `--role`
+  - [ ] With `--reset-password` alone: role membership is left untouched
+  - [ ] Does not write `email_verified_at` (column no longer exists)
   - [ ] `make admin-create-user` runs inside the container
 
 ---
 
-### Task 7: `activity:prune` scheduled command
+### Task 7: `activity:prune` schedule entry (runner in Plan 09)
 
 - **MoSCoW:** Should Have
 - **Complexity:** XS
 - **Files:**
   - `admin/app/Console/Kernel.php` (modify)
+- **Scope note.** This task registers the schedule **entry only**. The admin container in Plan 01 does not yet run `schedule:run`; the scheduler / cron sidecar service is added in Plan 09. Until Plan 09 lands, the entry is dormant — it will be exercised manually in the acceptance criteria below rather than on a timer.
 - **Details:**
-  `spatie/laravel-activitylog` ships a `CleanActivitylogCommand` that deletes rows older than `delete_records_older_than_days` (180). Schedule it daily:
+  `spatie/laravel-activitylog` ships a `CleanActivitylogCommand` that deletes rows older than `delete_records_older_than_days` (180). Register it on the daily schedule:
 
   ```php
   protected function schedule(Schedule $schedule): void
@@ -403,12 +477,13 @@ Create the `admin_users` table and model, configure the `admin` auth guard, wire
   }
   ```
 
-  Confirm the admin container runs a `cron` or `supervisor` schedule runner. If not, document that Plan 09 adds the scheduler service.
+  Leave a TODO comment in `Kernel.php` pointing at Plan 09 so the reviewer there knows this entry already exists and only the runner is outstanding.
 
 - **Acceptance Criteria:**
-  - [ ] `activitylog:clean` scheduled daily
+  - [ ] `activitylog:clean` registered on the daily schedule
   - [ ] Command runs manually without error: `php artisan activitylog:clean`
   - [ ] Retention matches 180 days from config
+  - [ ] Plan explicitly notes that automatic daily execution depends on the scheduler service added in Plan 09
 
 ---
 
@@ -419,6 +494,7 @@ Create the `admin_users` table and model, configure the `admin` auth guard, wire
 - **Files:**
   - `admin/app/Filament/Pages/ActivityLog.php` (new)
   - `admin/resources/views/filament/pages/activity-log.blade.php` (new)
+- **Scope note.** This is a **v1 browsing tool**, not the long-term audit strategy. It exists to give admins a fast, read-only window into the last chunk of activity during initial rollout. A proper audit view — server-side pagination, full-text search, export, retention/compliance tooling — is out of scope for v1 and will be revisited once the resource plans produce a realistic volume of rows to design against.
 - **Details:**
   Custom Filament page at `/admin/activity` listing recent audit log entries with filters by causer, subject type, and date range.
 
@@ -446,7 +522,7 @@ Create the `admin_users` table and model, configure the `admin` auth guard, wire
                   TextColumn::make('causer.email')->label('Admin'),
                   TextColumn::make('description')->label('Action'),
                   TextColumn::make('subject_type')->label('Resource')
-                      ->formatStateUsing(fn ($state) => class_basename($state)),
+                      ->formatStateUsing(fn ($state) => $state ? class_basename($state) : '—'),
                   TextColumn::make('subject_id')->label('ID'),
               ])
               ->filters([
@@ -455,16 +531,21 @@ Create the `admin_users` table and model, configure the `admin` auth guard, wire
                       ->options(AdminUser::pluck('email', 'id')),
                   SelectFilter::make('subject_type')
                       ->label('Resource')
-                      ->options(fn () => Activity::distinct()->pluck('subject_type', 'subject_type')
+                      ->options(fn () => Activity::query()
+                          ->whereNotNull('subject_type')
+                          ->distinct()
+                          ->pluck('subject_type', 'subject_type')
                           ->mapWithKeys(fn ($v, $k) => [$k => class_basename($v)])),
                   Filter::make('created_at')
                       ->form([
                           DatePicker::make('from'),
                           DatePicker::make('until'),
                       ])
+                      // `until` is interpreted as an inclusive end-of-day: selecting
+                      // 2026-04-21 means "up to and including 2026-04-21 23:59:59".
                       ->query(fn (Builder $q, array $data) => $q
-                          ->when($data['from'] ?? null, fn ($q, $d) => $q->where('created_at', '>=', $d))
-                          ->when($data['until'] ?? null, fn ($q, $d) => $q->where('created_at', '<=', $d))),
+                          ->when($data['from'] ?? null, fn ($q, $d) => $q->where('created_at', '>=', Carbon::parse($d)->startOfDay()))
+                          ->when($data['until'] ?? null, fn ($q, $d) => $q->where('created_at', '<=', Carbon::parse($d)->endOfDay()))),
               ]);
       }
   }
@@ -476,7 +557,9 @@ Create the `admin_users` table and model, configure the `admin` auth guard, wire
   - [ ] `/admin/activity` accessible only to users with `activity.view` permission
   - [ ] Lists latest 1000 activity rows
   - [ ] Filters work: by causer, subject type, date range
+  - [ ] `until` date filter is inclusive — rows created on the selected day at any time are returned
   - [ ] Navigation item visible in admin sidebar under "System" group
+  - [ ] Page documented (inline comment or progress journal) as a v1 browsing tool, not the long-term audit strategy
 
 ---
 
@@ -490,6 +573,8 @@ Create the `admin_users` table and model, configure the `admin` auth guard, wire
   - `admin/tests/Feature/Auth/PermissionEnforcementTest.php` (new)
   - `admin/tests/Feature/Auth/LoginTest.php` (new)
   - `admin/tests/Feature/Auth/RoleSeederTest.php` (new)
+  - `admin/tests/Feature/Auth/AuditLoggingTest.php` (new)
+  - `admin/tests/Feature/Console/CreateAdminUserCommandTest.php` (new)
 - **Details:**
   `AdminAuthHelper` trait mirrors the backend's `AuthHelper`:
   ```php
@@ -497,7 +582,7 @@ Create the `admin_users` table and model, configure the `admin` auth guard, wire
   {
       protected function actingAsAdmin(): AdminUser
       {
-          $user = AdminUser::factory()->create(['email_verified_at' => now()]);
+          $user = AdminUser::factory()->create();
           $user->assignRole('admin');
           $this->actingAs($user, 'admin');
           return $user;
@@ -507,7 +592,7 @@ Create the `admin_users` table and model, configure the `admin` auth guard, wire
       protected function actingAsOps(): AdminUser { /* same pattern, role 'ops' */ }
       protected function actingAsNobody(): AdminUser
       {
-          $user = AdminUser::factory()->create(['email_verified_at' => now()]);
+          $user = AdminUser::factory()->create();
           $this->actingAs($user, 'admin');
           return $user; // no role assigned
       }
@@ -523,7 +608,8 @@ Create the `admin_users` table and model, configure the `admin` auth guard, wire
   - Test: visiting `/admin` unauthenticated redirects to `/admin/login`
   - Test: login with correct credentials redirects to `/admin`
   - Test: login with wrong password shows validation error
-  - Test: unverified admin user cannot access panel (`canAccessPanel` returns false)
+  - Test: disabled admin user cannot access panel (`canAccessPanel` returns false when `disabled_at` is set — uses `AdminUser::factory()->disabled()->create()`)
+  - Test: re-enabling a disabled admin (setting `disabled_at = null`) restores panel access without any other change
 
   **PermissionEnforcementTest:**
   - Test: `actingAsAdmin()` has all permissions
@@ -536,13 +622,31 @@ Create the `admin_users` table and model, configure the `admin` auth guard, wire
   - Test: admin role has every permission
   - Test: manager role has exactly the documented permission set
   - Test: ops role has exactly the documented permission set
+  - Test: no role (including admin) has a `users.update` permission — codifies the v1 "customer users are read-only" decision
+
+  **AuditLoggingTest:**
+  - Test: a successful login writes a row with `log_name = 'auth'`, `description = 'login'`, and `causer` resolving to the `AdminUser`
+  - Test: a logout writes a `log_name = 'auth'`, `description = 'logout'` row
+  - Test: a failed login writes a `log_name = 'auth'`, `description = 'login_failed'` row with the attempted email in `properties`
+  - Test: creating / updating / deleting an `AdminUser` writes one row per event via the `LogsActivity` trait
+  - Test (negative): Plan 02 does *not* auto-log writes to unrelated models — e.g. creating a `Role` directly does not produce an activity row. This guards against anyone assuming resource audit is already solved.
+
+  **CreateAdminUserCommandTest** (covers Task 6's command):
+  - Test: non-interactive creation with `--name --email --password --role=manager` creates an admin with the right role
+  - Test: duplicate email without `--reset-password` errors and returns `FAILURE`; the error message names the `--reset-password` flag
+  - Test: `--reset-password --email=... --password=...` on an existing account re-hashes the password without touching roles
+  - Test: `--reset-password --reassign-role --role=ops --email=... --password=...` re-hashes the password *and* syncs the role to `ops`, wiping prior roles
+  - Test: `--reset-password` targeting a non-existent email returns `FAILURE` and instructs the operator to drop the flag to create
+  - Test: command does not set any `email_verified_at` value (asserts the column absence via a schema check, since the column no longer exists)
 
 - **Acceptance Criteria:**
   - [ ] `AdminAuthHelper` trait registered in Pest
   - [ ] All four `actingAs*` helpers work
-  - [ ] LoginTest passes (4 tests)
+  - [ ] LoginTest passes (5 tests, including the disabled-admin and re-enable paths)
   - [ ] PermissionEnforcementTest passes (~4 tests)
-  - [ ] RoleSeederTest passes (~4 tests)
+  - [ ] RoleSeederTest passes (~5 tests)
+  - [ ] AuditLoggingTest passes (~5 tests)
+  - [ ] CreateAdminUserCommandTest passes (~6 tests)
   - [ ] `make admin-test` runs all auth tests green
 
 ---
@@ -550,10 +654,13 @@ Create the `admin_users` table and model, configure the `admin` auth guard, wire
 ## Testing Requirements
 
 - **Pest Feature Tests:**
-  - Login: unauth redirect, success, failure, unverified user blocked
+  - Login: unauth redirect, success, failure, disabled-admin blocked, re-enable restores access
   - Permissions: each role's capability matrix
   - Seeder: idempotency + correct permission sets
-  - Audit log: activity rows written on model events (stub until Plan 04 resources exist)
+  - Auth-event audit: login / logout / failed-login write rows with `log_name = 'auth'`
+  - AdminUser model audit: creating / updating / deleting an `AdminUser` writes a row
+  - `admin:create-user` command: creation path, duplicate-email error, `--reset-password` path, `--reset-password --reassign-role` path, unknown-email error
+- **Out of scope here:** per-resource audit verification — those tests land alongside the resources themselves in Plans 04+. The shared-domain-service explicit-Causer contract is tested in each of Plans 04/06/07/08.
 - **Helpers:** `AdminAuthHelper` reusable across all future plans
 
 ## Dependencies Map
@@ -573,5 +680,6 @@ Task 9 (tests) ← needs all
 ## Risks & Open Questions
 
 1. **Scheduler container.** The admin container needs a process running `schedule:run` every minute for `activitylog:clean` to fire. Plan 09 adds a scheduler service; Task 7 above depends on that. Document in the plan's progress journal.
-2. **Password reset flow.** Filament supports password reset out of the box, but we need to configure the mail driver. Dev uses Mailpit (already running). Prod setup deferred to Plan 09.
-3. **Session cookie collision.** If both backend (`finalcut.test`) and admin (`admin.finalcut.test`) set cookies on `.finalcut.test`, they could collide. Scoping admin to `.admin.finalcut.test` (Task 2) prevents this — verify by logging into both simultaneously.
+2. **Password reset flow.** Filament supports password reset out of the box, but we need to configure the mail driver. Dev uses Mailpit (already running). Prod setup deferred to Plan 09. Plan 09's runbook (Task 10) references the `admin:create-user --reset-password` flag (Task 6 here) as the operational fallback when the mail-based flow is unavailable.
+3. **Session cookie collision.** If both backend (`finalcut.test`) and admin (`admin.finalcut.test`) set cookies on `.finalcut.test`, they could collide. Scoping admin to `admin.finalcut.test` (no leading dot, Task 2) prevents this. Plan 09's production `SESSION_DOMAIN` must use the same no-leading-dot form (`admin.finalcut.com`, not `.admin.finalcut.com`) so dev and prod agree — flagged in Plan 09 review.
+4. **Shared-domain Causer contract propagation.** The explicit-Causer-argument rule landed in Task 4 applies to every shared-domain service method Plans 04/06/07/08 extract. If any service method in those plans omits the `Causer` parameter, the `/admin/activity` page will either mis-attribute rows (auto-resolution in the wrong guard) or drop the causer entirely. Each later plan's acceptance criteria must name the `Causer` argument explicitly; a PR-time grep (`rg 'public function (create|update|delete|cancel|void|adjust\w*|bulk\w+)\(' packages/shared-domain/src/Services/ | rg -v Causer`) is the mechanical check.

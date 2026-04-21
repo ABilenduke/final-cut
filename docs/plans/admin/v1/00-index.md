@@ -11,12 +11,14 @@
 
 Filament 3 admin panel in a **separate top-level Laravel app** at `admin/`. Shares the `final_cut` PostgreSQL database and Redis cache with the backend API, but has its own:
 
-- `admin_users` table (no reuse of customer `users`)
-- `admin` auth guard, session cookie scoped to `admin.finalcut.test`
+- `admin_users` table with a `disabled_at` kill-switch column (no reuse of customer `users`)
+- `admin` auth guard, session cookie scoped to `admin.finalcut.test` in dev and `admin.finalcut.com` in prod (no leading dot in either — see Plan 02 Task 2)
 - Docker service, nginx vhost, deployment pipeline
-- Eloquent model layer (mirrors backend schema via a parity tripwire test)
+- Eloquent model layer (mirrors the shared-domain schema via a parity tripwire test that now asserts cast parity)
 
-Admin writes to shared tables **go through backend domain services** (`MovieService`, `ShowtimeService`, `LoyaltyService`, etc.) rather than direct Eloquent mutations — this is the primary defense against behavioral drift between apps. See spec § 2.6.
+**Shared-code boundary (ADR-001, Plan 03 Task 1).** Backend and admin share domain services, Eloquent models whose writes cross the admin/backend boundary, enums, and activity-log event classes via a **shared Composer package** at `packages/shared-domain/` (namespace `FinalCut\Domain\`), wired into both apps via a Composer path repository. No synthetic namespaces, no absolute-path classmaps, no read-only bind mounts of `./backend` into admin containers. Backend retains its HTTP controllers and customer-facing services outside the package; admin consumes the package as a normal Composer dependency.
+
+Admin writes to shared tables **go through shared-domain services** (`MovieService`, `ShowtimeService`, `LoyaltyService`, `GiftCardService`, `PromoCodeService`, `AuditoriumService`) rather than direct Eloquent mutations. Every service write method takes an explicit `Causer` argument (`AdminUser` for admin calls, `User` for customer calls, `SystemCauser` for scheduled/webhook calls) so audit attribution is unambiguous across contexts. Enforcement is mechanical: phpstan `disallowedMethodCalls` + deptrac layer rules fail CI on direct mutations to shared-domain models from Filament Resources (Plan 03 Task 7).
 
 Roles: **admin** (full), **manager** (content + operations, no financial mutations), **ops** (read-only support). No location scoping in v1.
 

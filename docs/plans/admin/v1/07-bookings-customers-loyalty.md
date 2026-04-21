@@ -19,36 +19,46 @@ Read-focused operations. `BookingResource` is **read-only in v1** (no cancel/ref
 
 ## Tasks
 
-### Task 1: Audit/extract backend LoyaltyService
+### Task 1: Extract LoyaltyService into the shared-domain package
 
 - **MoSCoW:** Must Have
 - **Complexity:** M
 - **Files:**
-  - `backend/app/Services/LoyaltyService.php` (new or extend)
-  - `backend/tests/Feature/LoyaltyServiceTest.php`
-  - `admin/app/Services/Backend/LoyaltyService.php` (modify)
+  - `packages/shared-domain/src/Services/LoyaltyService.php` (new — may already partially exist in backend per Plan 03 audit)
+  - `packages/shared-domain/tests/Feature/LoyaltyServiceTest.php` (new)
+  - `admin/app/Services/Backend/LoyaltyService.php` (new — admin facade)
 - **Details:**
-  Audit backend for existing loyalty logic — point-earning on booking completion likely lives in `BookingController` or an observer. Extract into a service.
+  Per Plan 03's ADR, `LoyaltyService` lives in `packages/shared-domain/src/Services/` under `FinalCut\Domain\Services`. Backend already ships a `LoyaltyService` (per the Plan 03 Task 1 audit's initial findings); this task moves/extracts it into the shared package, extends it with admin-facing methods, and brings every write method under the explicit-Causer contract from Plan 02 Task 4.
+
+  Every write method takes an explicit `Causer $causer` argument. `earnPoints` and `redeemPoints` are called from customer-facing paths (booking completion, redemption at checkout) with a customer `User` as the causer; `adjustPoints`, `upgradeToPremier`, and `revokePremier` are called from admin paths with an `AdminUser` as the causer. The interface is unified so neither caller has to fall back on ambient guard resolution.
 
   ```php
+  namespace FinalCut\Domain\Services;
+
+  use FinalCut\Domain\Audit\Causer;
+  use FinalCut\Domain\Models\User;
+
   class LoyaltyService
   {
-      public function earnPoints(User $user, int $points, string $source, ?int $sourceId = null): void;
-      public function redeemPoints(User $user, int $points, string $reason): void;
-      public function adjustPoints(User $user, int $delta, string $reason, AdminUser $by): void;
-      public function upgradeToPremier(User $user, Carbon $expiry, AdminUser $by): void;
-      public function revokePremier(User $user, string $reason, AdminUser $by): void;
+      public function earnPoints(User $user, int $points, string $source, Causer $causer, ?int $sourceId = null): void;
+      public function redeemPoints(User $user, int $points, string $reason, Causer $causer): void;
+      public function adjustPoints(User $user, int $delta, string $reason, Causer $causer): void;
+      public function upgradeToPremier(User $user, Carbon $expiry, Causer $causer): void;
+      public function revokePremier(User $user, string $reason, Causer $causer): void;
   }
   ```
 
   `adjustPoints` is the admin-facing operation. It:
-  - Validates the user exists
-  - Updates `users.loyalty_points` (allowing negative balances if admin is correcting fraud — with a warning in the UI)
-  - Writes a `LoyaltyAdjustment` row for audit
-  - Dispatches an activity log entry
-  - All inside a transaction
+  - Takes a `lockForUpdate()` on the target `User` row inside the transaction — **always**, not conditional on contention. This closes the concurrent-adjustment window where two admins applying simultaneous deltas could produce a wrong final balance (previously a Risks-section note; promoted to a hard acceptance criterion).
+  - Re-reads the user inside the lock so the balance calculation sees the latest committed state.
+  - Updates `users.loyalty_points` (allowing negative balances if admin is correcting fraud — with a warning in the UI).
+  - Writes a `LoyaltyAdjustment` row for audit.
+  - Calls `activity()->causedBy($causer)->log('loyalty.points_adjusted')` with the delta and reason in properties.
+  - All inside the transaction.
 
-  `upgradeToPremier` sets `loyalty_tier='premier'` and `premier_expiry` + writes a `LoyaltyAdjustment` with `change_type='tier_upgrade'`.
+  `upgradeToPremier` sets `loyalty_tier='premier'` and `premier_expiry`, writes a `LoyaltyAdjustment` with `change_type='tier_upgrade'`, and takes the same `lockForUpdate` for the same reason — tier and expiry must transition atomically.
+
+  `earnPoints` / `redeemPoints` take `lockForUpdate` as well — customer-path concurrent writes (two browser tabs redeeming the same points balance) have the same race shape.
 
   Configurable threshold for large adjustments (open question resolution):
   ```php
@@ -61,12 +71,14 @@ Read-focused operations. `BookingResource` is **read-only in v1** (no cancel/ref
   Admin UI (Task 5) uses this threshold to gate with a stronger confirmation dialog. Per spec § 8, v1 ships with **single-admin + activity-log** as the compensating control; v2 may add dual control.
 
 - **Acceptance Criteria:**
-  - [ ] `LoyaltyService` exists with documented methods
-  - [ ] `adjustPoints` writes adjustment row + activity log atomically
-  - [ ] Premier upgrade/revoke tracked in adjustment ledger
+  - [ ] `FinalCut\Domain\Services\LoyaltyService` exists in `packages/shared-domain/src/Services/` with all documented methods
+  - [ ] Every method signature declares an explicit `Causer $causer` parameter — no method reads `auth()->user()` internally
+  - [ ] **Every balance-changing method (`adjustPoints`, `earnPoints`, `redeemPoints`, `upgradeToPremier`, `revokePremier`) takes `User::where('id', $user->id)->lockForUpdate()` inside its transaction** — this is a required implementation detail, not a runtime choice, and is covered by the concurrency tests in Task 7
+  - [ ] `adjustPoints` writes adjustment row + activity log (with `causedBy($causer)`) atomically
+  - [ ] Premier upgrade/revoke tracked in adjustment ledger; tier and expiry transition atomically under the row lock
   - [ ] Threshold configurable via env
-  - [ ] Backend tests cover each method's happy path and rollback
-  - [ ] Admin facade delegates correctly
+  - [ ] Pest tests cover each method's happy path, rollback, and the concurrent-adjustment scenario: two parallel transactions adjusting the same user converge on the correct final balance (delta sum), and neither silently discards the other's write
+  - [ ] Admin facade at `admin/app/Services/Backend/LoyaltyService.php` delegates to the domain service, resolves `Causer` from `auth()->user()`, imports from `FinalCut\Domain` — no `Backend\` namespace references
 
 ---
 
@@ -389,6 +401,8 @@ Read-focused operations. `BookingResource` is **read-only in v1** (no cancel/ref
   - Test: upgrade premier sets tier + expiry + writes adjustment
   - Test: revoke premier sets tier=member + writes adjustment
   - Test: all actions require `loyalty.adjust` permission
+  - Test (concurrency): two parallel transactions each call `adjustPoints($user, +100)`. Both succeed, the final balance reflects both deltas (+200 total), and two distinct `LoyaltyAdjustment` rows exist with different causer ids. Neither call silently discards the other's write. Uses separate DB connections or explicit `DB::transaction` blocks to simulate the race.
+  - Test (concurrency): parallel `adjustPoints($user, +100)` and `redeemPoints($user, 50)` converge on +50 net, with both activity-log rows written in the correct causer context.
 
   **BookingLookupTest:**
   - Test: valid confirmation code redirects to booking view
@@ -424,5 +438,5 @@ Task 7 (tests) ← needs all
 
 1. **Threshold tuning.** Default 1000 points may be too low or too high depending on program economics. Document in admin README that the threshold is configurable via `LOYALTY_LARGE_ADJUSTMENT_THRESHOLD` env and leave final value to product.
 2. **Dual control deferral.** Spec § 8 flags dual control as a v1 non-goal with single-admin + activity log as the compensating control. Plan 09 deployment docs must emphasize that admin accounts are strictly controlled (not shared) because the accountability trail depends on accurate causer attribution.
-3. **Adjustment race conditions.** Two admins adjusting the same user simultaneously could produce incorrect final balance if reads aren't locked. Wrap `adjustPoints` in `User::where('id', $user->id)->lockForUpdate()` inside the transaction.
-4. **Bulk adjustments.** Some future use case (campaign promo: give every user in segment X 100 points) isn't in v1 scope. If requested, build via a dedicated `bulk:adjust-loyalty` artisan command that still calls `LoyaltyService` per user — keeps the write boundary intact.
+3. **Adjustment race conditions — closed.** Previous note flagged the need for `lockForUpdate`; this is now a hard acceptance criterion on Task 1, covered by a concurrency test in Task 7. No longer a risk.
+4. **Bulk adjustments.** Some future use case (campaign promo: give every user in segment X 100 points) isn't in v1 scope. If requested, build via a dedicated `bulk:adjust-loyalty` artisan command that still calls `LoyaltyService` per user — keeps the write boundary intact. A bulk path must either take a single `SystemCauser` for the batch or a per-user `Causer` resolver; bulk-without-causer is rejected at the service boundary.
