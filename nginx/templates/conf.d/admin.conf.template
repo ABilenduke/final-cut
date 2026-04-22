@@ -1,0 +1,115 @@
+# ──────────────────────────────────────────────
+# HTTP → HTTPS redirect (admin subdomain)
+# ──────────────────────────────────────────────
+server {
+    listen 80;
+    server_name admin.${APP_DOMAIN};
+
+    # Let's Encrypt ACME challenge (used by certbot webroot plugin).
+    # In dev this directory won't exist — the location simply never matches.
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+# ──────────────────────────────────────────────
+# Admin — HTTPS, Filament panel only
+# ──────────────────────────────────────────────
+# Isolated subdomain for the Filament admin panel. Only PHP-FPM is wired up —
+# there is no Nuxt catch-all on this host, so customer frontend routes can't
+# answer here. Laravel's route-domain constraint (bootstrap/app.php +
+# AdminPanelProvider) enforces the reciprocal: admin routes don't register on
+# the customer vhost, and /api/* doesn't register on this vhost.
+server {
+    listen 443 ssl;
+    http2 on;
+    server_name admin.${APP_DOMAIN};
+
+    # Use Docker's embedded DNS so upstreams resolve at request time.
+    resolver 127.0.0.11 valid=30s;
+    set $upstream_backend backend:9000;
+
+    # ── SSL/TLS hardening ────────────────────
+    # Wildcard cert (*.${APP_DOMAIN}) covers this subdomain.
+    ssl_certificate     ${SSL_CERTIFICATE};
+    ssl_certificate_key ${SSL_CERTIFICATE_KEY};
+    ssl_protocols       TLSv1.2 TLSv1.3;
+    ssl_ciphers         ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305;
+    ssl_prefer_server_ciphers on;
+    ssl_session_cache   shared:SSL:10m;
+    ssl_session_timeout 10m;
+    ssl_session_tickets off;
+
+    include /etc/nginx/snippets/*.conf;
+
+    # ── Security headers ─────────────────────
+    # No CSP here — Filament ships its own inline scripts and asset URLs.
+    # A tight panel-side CSP is a later hardening pass (Plan 09).
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-XSS-Protection       "1; mode=block" always;
+    add_header Referrer-Policy        "strict-origin-when-cross-origin" always;
+    add_header Permissions-Policy     "camera=(), microphone=(), geolocation=()" always;
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+
+    # ── Fail2Ban banned IPs ───────────────────
+    include /etc/nginx/banned/banned-ips.conf;
+
+    # ── Block dot-files (.env, .git, etc.) ───
+    location ~ /\.(?:env|git|htaccess|htpasswd|svn|hg|DS_Store|docker) {
+        deny all;
+        return 404;
+    }
+
+    # ── Filament panel (FastCGI → PHP-FPM) ─
+    # Serves static assets from public/ via try_files, falling back to
+    # index.php for every panel route. Stricter rate limit than the
+    # customer vhost since admin traffic should be low-volume.
+    root /var/www/html/public;
+    index index.php;
+
+    location / {
+        limit_req zone=general burst=30 nodelay;
+
+        try_files $uri $uri/ /index.php?$query_string;
+    }
+
+    location ~ \.php$ {
+        limit_req zone=general burst=30 nodelay;
+
+        limit_except GET HEAD POST PUT PATCH DELETE OPTIONS {
+            deny all;
+        }
+
+        fastcgi_pass $upstream_backend;
+        fastcgi_index index.php;
+        fastcgi_param SCRIPT_FILENAME /var/www/html/public/index.php;
+        fastcgi_param SCRIPT_NAME /index.php;
+        include fastcgi_params;
+        fastcgi_param HTTP_X_FORWARDED_PROTO $scheme;
+        fastcgi_param HTTP_X_FORWARDED_FOR   $proxy_add_x_forwarded_for;
+        fastcgi_param HTTP_X_REAL_IP         $remote_addr;
+        fastcgi_buffers 16 16k;
+        fastcgi_buffer_size 32k;
+
+        fastcgi_connect_timeout 60s;
+        fastcgi_send_timeout    60s;
+        fastcgi_read_timeout    60s;
+
+        # Strip stack-identifying headers
+        fastcgi_hide_header X-Powered-By;
+        fastcgi_hide_header X-Served-By;
+    }
+
+    # ── Filament-published static assets ─────
+    # filament:assets publishes to public/css/filament, public/js/filament,
+    # public/fonts/filament, and public/livewire. Serve with aggressive caching.
+    location ~ ^/(css/filament|js/filament|fonts/filament|livewire) {
+        try_files $uri =404;
+        expires 7d;
+        add_header Cache-Control "public, immutable";
+    }
+}

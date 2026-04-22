@@ -40,5 +40,8 @@
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
+        <env name="APP_URL" value="http://localhost" force="true"/>
+        <env name="APP_PRIMARY_DOMAIN" value="localhost" force="true"/>
+        <env name="ADMIN_DOMAIN" value="admin.localhost" force="true"/>
     </php>
 </phpunit>
