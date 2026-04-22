@@ -106,8 +106,16 @@ server {
 
     # ── Filament-published static assets ─────
     # filament:assets publishes to public/css/filament, public/js/filament,
-    # public/fonts/filament, and public/livewire. Serve with aggressive caching.
-    location ~ ^/(css/filament|js/filament|fonts/filament|livewire) {
+    # and public/fonts/filament. Serve with aggressive caching.
+    #
+    # Livewire endpoints are intentionally NOT listed here. Livewire registers
+    # its routes under a hashed prefix like /livewire-<hash>/... that includes
+    # both static assets (livewire.js, CSS for components) AND dynamic POST
+    # endpoints (update, upload-file). A broad `livewire` prefix would match
+    # both and try_files=404 the dynamic endpoints, breaking form interactions.
+    # Livewire's hashed URLs are resolved by Laravel routes, so they fall
+    # through to the front controller via the `location /` block.
+    location ~ ^/(css/filament|js/filament|fonts/filament)/ {
         try_files $uri =404;
         expires 7d;
         add_header Cache-Control "public, immutable";

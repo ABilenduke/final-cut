@@ -37,9 +37,20 @@ make test-backend-unit  # Run backend Unit suite only
 make test-backend-feature  # Run backend Feature suite only
 make test-frontend      # Run frontend Vitest suite
 make e2e                # Run Playwright e2e tests
+
+# ── Admin panel (Filament on admin.finalcut.test) ─
+make admin-shell        # Shell into backend container (devuser, UID 1000)
+make admin-migrate      # Run migrations (same as make migrate but -u 1000)
+make admin-test         # Run admin-namespaced backend tests (Feature, --filter=Admin)
+make admin-create-user  # php artisan admin:create-user (added in Plan 02)
+make admin-filament-assets  # Republish Filament CSS/JS/fonts to backend/public
 ```
 
 Use `make test` as the default verification command for changes that touch both apps. For backend-only work, prefer the targeted `make test-backend*` commands instead of dropping into the container unless you specifically need direct PHP/Composer access.
+
+### Admin Panel
+
+Filament 5 admin panel lives at `https://admin.finalcut.test` (dev). Same Laravel backend as the customer app, isolated from customer routes at three layers: nginx vhost separation (`nginx/templates/conf.d/admin.conf.template`), Laravel route-domain scoping (`bootstrap/app.php` + `AdminPanelProvider`), and session cookie + Redis DB separation (`ScopeAdminSession` middleware, `session_admin` connection on Redis DB 3). WSL2 developers must add `admin.finalcut.test` to `C:\Windows\System32\drivers\etc\hosts` alongside `finalcut.test`; the wildcard dev cert already covers `*.finalcut.test`. The nginx service bind-mounts `./backend/public:/var/www/html/public:ro` so nginx can serve Filament-published assets directly without proxying through PHP-FPM. See [`docs/plans/admin/v1/`](docs/plans/admin/v1/) for the plan and [`docs/progress/admin-v1.md`](docs/progress/admin-v1.md) for execution notes.
 
 ### Email (Mailpit)
 
