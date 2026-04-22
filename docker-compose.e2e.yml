@@ -51,6 +51,11 @@ services:
       - APP_URL=https://${APP_DOMAIN:-finalcut.test}
       - FRONTEND_URL=https://${APP_DOMAIN:-finalcut.test}
       - SANCTUM_STATEFUL_DOMAINS=${APP_DOMAIN:-finalcut.test},nginx
+      # Both hosts must be recognised by the customer route-domain wrap:
+      # Playwright and Nuxt SSR fetch `https://nginx/...` via Docker DNS
+      # rather than the APP_URL host, so `nginx` is a valid primary
+      # domain here alongside the canonical APP_DOMAIN.
+      - APP_PRIMARY_DOMAIN=${APP_DOMAIN:-finalcut.test},nginx
       - DB_DATABASE=${DB_TEST_DATABASE:-final_cut_test}
       # Effectively disable API rate limiting. Parallel Playwright workers
       # drive SSR fetches from a single frontend-container IP; the 60 rpm
