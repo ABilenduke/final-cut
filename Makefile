@@ -1,4 +1,4 @@
-.PHONY: up down build shell artisan migrate fresh test test-backend test-backend-unit test-backend-feature test-frontend certs trust-cert prod-up prod-down prod-build prod-logs local-prod-up local-prod-down local-prod-build local-prod-logs e2e ci-e2e
+.PHONY: up down build shell artisan migrate fresh test test-backend test-backend-unit test-backend-feature test-frontend certs trust-cert prod-up prod-down prod-build prod-logs local-prod-up local-prod-down local-prod-build local-prod-logs e2e ci-e2e admin-shell admin-migrate admin-test admin-create-user admin-filament-assets
 
 ifeq (artisan,$(firstword $(MAKECMDGOALS)))
 ARTISAN_ARGS := $(wordlist 2,$(words $(MAKECMDGOALS)),$(MAKECMDGOALS))
@@ -32,13 +32,13 @@ fresh:
 test: test-backend test-frontend
 
 test-backend:
-	docker compose exec backend php artisan test
+	docker compose exec -u 1000 backend php artisan test
 
 test-backend-unit:
-	docker compose exec backend php artisan test --testsuite=Unit
+	docker compose exec -u 1000 backend php artisan test --testsuite=Unit
 
 test-backend-feature:
-	docker compose exec backend php artisan test --testsuite=Feature
+	docker compose exec -u 1000 backend php artisan test --testsuite=Feature
 
 test-frontend:
 	docker compose exec frontend deno run -A npm:vitest run
@@ -69,6 +69,27 @@ local-prod-build:
 
 local-prod-logs:
 	$(LOCAL_PROD_COMPOSE) logs -f
+
+# ── Admin panel (Filament) convenience targets ─────
+# Pinned to UID 1000 so file writes land under the host's devuser mount
+# without triggering root-owned files in backend/.
+
+admin-shell:
+	docker compose exec -u 1000 backend sh
+
+admin-migrate:
+	docker compose exec -u 1000 backend php artisan migrate
+
+admin-test:
+	docker compose exec -u 1000 backend php artisan test --testsuite=Feature --filter=Admin
+
+# Lands in Plan 02. Until then the command is absent and this target reports
+# "command not found" — that is expected and documented in docs/progress/admin-v1.md.
+admin-create-user:
+	docker compose exec -u 1000 -it backend php artisan admin:create-user
+
+admin-filament-assets:
+	docker compose exec -u 1000 backend php artisan filament:assets
 
 certs:
 	@./nginx/certs/generate-certs.sh

@@ -42,6 +42,15 @@ return [
             'driver' => 'session',
             'provider' => 'users',
         ],
+
+        // Placeholder so Filament's AdminPanelProvider->authGuard('admin') can
+        // resolve at page load. Points at the customer users provider for now
+        // — Plan 02 replaces this with an `admin_users` provider + AdminUser
+        // model and wires spatie/permission on the admin guard.
+        'admin' => [
+            'driver' => 'session',
+            'provider' => 'users',
+        ],
     ],
 
     /*

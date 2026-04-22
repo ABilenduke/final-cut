@@ -17,10 +17,13 @@ services:
       target: production
     environment:
       # Server-side ISR/SSR fetches need an absolute URL to reach the
-      # backend via nginx. Deno ignores NODE_TLS_REJECT_UNAUTHORIZED,
+      # backend via nginx. The Docker network alias on the nginx
+      # service resolves the real domain to the nginx container, so the
+      # TLS cert's SAN list matches. Deno ignores NODE_TLS_REJECT_UNAUTHORIZED,
       # so we also pass --unsafely-ignore-certificate-errors via the
-      # command override below.
-      - NUXT_PUBLIC_API_BASE_URL=https://nginx
+      # command override below as belt-and-suspenders against the dev
+      # self-signed CA.
+      - NUXT_PUBLIC_API_BASE_URL=https://${APP_DOMAIN:-finalcut.test}
     command:
       ["run", "--allow-net", "--allow-read", "--allow-env",
        "--unsafely-ignore-certificate-errors", ".output/server/index.mjs"]
@@ -50,7 +53,7 @@ services:
       - APP_DEBUG=true
       - APP_URL=https://${APP_DOMAIN:-finalcut.test}
       - FRONTEND_URL=https://${APP_DOMAIN:-finalcut.test}
-      - SANCTUM_STATEFUL_DOMAINS=${APP_DOMAIN:-finalcut.test},nginx
+      - SANCTUM_STATEFUL_DOMAINS=${APP_DOMAIN:-finalcut.test}
       - DB_DATABASE=${DB_TEST_DATABASE:-final_cut_test}
       # Effectively disable API rate limiting. Parallel Playwright workers
       # drive SSR fetches from a single frontend-container IP; the 60 rpm
@@ -137,7 +140,7 @@ services:
       nginx:
         condition: service_healthy
     environment:
-      - BASE_URL=https://nginx
+      - BASE_URL=https://${APP_DOMAIN:-finalcut.test}
       - CI=true
       - NODE_TLS_REJECT_UNAUTHORIZED=0
     command:

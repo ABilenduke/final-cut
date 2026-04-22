@@ -4,14 +4,27 @@ use App\Exceptions\SeatConflictException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Support\Facades\Route;
 use Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
-        web: __DIR__.'/../routes/web.php',
-        api: __DIR__.'/../routes/api.php',
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
+        then: function (): void {
+            // Customer surface (Nuxt proxy + API) is scoped to the primary
+            // domain so it cannot answer on the admin subdomain. Filament
+            // declares its own ->domain() on the panel provider, producing
+            // the reciprocal constraint. Asserted by RouteDomainScopingTest.
+            Route::domain(config('app.primary_domain'))->group(function (): void {
+                Route::middleware('api')
+                    ->prefix('api')
+                    ->group(base_path('routes/api.php'));
+
+                Route::middleware('web')
+                    ->group(base_path('routes/web.php'));
+            });
+        },
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->api(prepend: [

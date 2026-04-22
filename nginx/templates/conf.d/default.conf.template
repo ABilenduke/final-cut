@@ -6,8 +6,14 @@ map $http_upgrade $connection_upgrade {
 # ──────────────────────────────────────────────
 # HTTP → HTTPS redirect
 # ──────────────────────────────────────────────
+# `default_server` on both listen directives ensures the customer vhost
+# is picked up for any unrecognised Host header. Critical in e2e: Nuxt
+# SSR and Playwright reach the backend via Docker DNS `nginx`, which
+# matches neither the customer `${APP_DOMAIN}` nor the admin
+# `admin.${APP_DOMAIN}` server_name — without the default here, nginx
+# would hand the request to the alphabetically-earlier admin vhost.
 server {
-    listen 80;
+    listen 80 default_server;
     server_name ${APP_DOMAIN};
 
     # Let's Encrypt ACME challenge (used by certbot webroot plugin).
@@ -25,7 +31,7 @@ server {
 # Main HTTPS — Frontend + API
 # ──────────────────────────────────────────────
 server {
-    listen 443 ssl;
+    listen 443 ssl default_server;
     http2 on;
     server_name ${APP_DOMAIN};
 

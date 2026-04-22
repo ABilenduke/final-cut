@@ -58,6 +58,20 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Primary (Customer) Domain
+    |--------------------------------------------------------------------------
+    |
+    | The hostname the customer-facing surface (Nuxt frontend + Laravel API) is
+    | served on. Used by bootstrap/app.php to scope the api and web route
+    | groups via Route::domain(), keeping customer routes off the admin
+    | subdomain. Asserted by RouteDomainScopingTest.
+    |
+    */
+
+    'primary_domain' => env('APP_PRIMARY_DOMAIN', 'finalcut.test'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Timezone
     |--------------------------------------------------------------------------
     |
