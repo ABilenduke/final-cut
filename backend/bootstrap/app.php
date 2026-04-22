@@ -17,38 +17,26 @@ return Application::configure(basePath: dirname(__DIR__))
             // declares its own ->domain() on the panel provider, producing
             // the reciprocal constraint. Asserted by RouteDomainScopingTest.
             //
-            // When APP_PRIMARY_DOMAIN is a single host the route's domain
-            // attribute is set to that literal, so `$route->domain()`
-            // returns the host (what RouteDomainScopingTest asserts).
-            // When multiple hosts are configured (e.g. e2e, where requests
-            // come in with Host=nginx), use a parametric {customerHost}
-            // placeholder with a regex `where` — Laravel matches the Host
-            // against the regex at runtime while keeping a stable domain
-            // string for introspection.
-            $primary = config('app.primary_domains');
-            $group = function () {
-                Route::middleware('api')
-                    ->prefix('api')
-                    ->group(base_path('routes/api.php'));
+            // When multiple hosts are configured (e.g. e2e — Playwright
+            // and Nuxt SSR reach the backend via Docker DNS `nginx` rather
+            // than the APP_URL host), register the customer route group
+            // once per host. Each resulting route carries one of the
+            // hosts as its `domain()` attribute; requests to any of them
+            // find a match.
+            $register = function (string $host): void {
+                Route::domain($host)->group(function (): void {
+                    Route::middleware('api')
+                        ->prefix('api')
+                        ->group(base_path('routes/api.php'));
 
-                Route::middleware('web')
-                    ->group(base_path('routes/web.php'));
+                    Route::middleware('web')
+                        ->group(base_path('routes/web.php'));
+                });
             };
 
-            if (count($primary) === 1) {
-                Route::domain($primary[0])->group($group);
-
-                return;
+            foreach (config('app.primary_domains') as $host) {
+                $register($host);
             }
-
-            $pattern = implode('|', array_map(
-                fn (string $host): string => preg_quote($host, '/'),
-                $primary,
-            ));
-
-            Route::domain('{customerHost}')
-                ->where('customerHost', $pattern)
-                ->group($group);
         },
     )
     ->withMiddleware(function (Middleware $middleware): void {
