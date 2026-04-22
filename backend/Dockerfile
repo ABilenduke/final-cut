@@ -13,10 +13,12 @@ FROM php:8.4.19-fpm-alpine3.23 AS vendor
 RUN apk add --no-cache \
     libpq-dev \
     icu-dev \
+    libzip-dev \
     && docker-php-ext-install -j$(nproc) \
     pdo_pgsql \
     intl \
-    opcache
+    opcache \
+    zip
 
 COPY --from=composer:2.9.5 /usr/bin/composer /usr/bin/composer
 
