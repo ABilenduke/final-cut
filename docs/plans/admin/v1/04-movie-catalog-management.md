@@ -2,20 +2,22 @@
 
 > **Priority:** Must Have
 > **Complexity:** M
-> **Depends On:** Plan 03 (shared-domain package scaffold, Movie mirror model, BaseResource, write-boundary enforcement)
+> **Depends On:** Plan 03 (BaseResource, FormatsCurrency, TimestampColumns)
 > **Unlocks:** Plan 06 (Showtime resource references Movie dropdown)
 
 ## Overview
 
-Build the `MovieResource` — the first real Filament Resource in the admin app. CRUD for movies with all enrichment-relevant fields (title, slug, tmdb_id, synopsis, tagline, runtime, rating, release_date, poster/backdrop URLs, trailer key, genres, cast). Adds a row action to trigger TMDB enrichment for a single movie via the existing `movies:enrich` artisan command, plus bulk actions for status changes. Includes a read-only upcoming-showtimes relation manager on the movie view page so staff can see what a movie is playing without leaving the screen.
+Build the `MovieResource` — the first real Filament Resource in the admin panel. CRUD for movies with all enrichment-relevant fields (title, slug, tmdb_id, synopsis, tagline, runtime, rating, release_date, poster/backdrop URLs, trailer key, genres, cast). Adds a row action to trigger TMDB enrichment for a single movie via the existing `movies:enrich` artisan command, plus bulk actions for status changes. Includes a read-only upcoming-showtimes relation manager on the movie view page.
 
-All mutations route through `FinalCut\Domain\Services\MovieService` (extracted into the shared Composer package scaffolded by Plan 03). Every service write method accepts an explicit `Causer $causer` argument per the Plan 02 Task 4 contract; the admin-side facade resolves `auth()->user()` and passes it through so Filament page handlers remain ergonomic. The deptrac + phpstan rules from Plan 03 Task 7 enforce that Filament Resources cannot call Eloquent writes on shared-domain models directly — all mutations go through the facade.
+All mutations route through `App\Services\MovieService`, created in this plan and stored in `backend/app/Services/MovieService.php` alongside the existing `TmdbService`, `SeatAvailabilityService`, `StripeService`, `LoyaltyService`. Every write method accepts an optional `?AdminUser $actor = null` for audit attribution — Filament pages pass `auth('admin')->user()`; customer controllers pass `null`. The service writes `activity_log` rows when `$actor` is non-null and skips admin activity attribution otherwise.
+
+Filament Resources consume `App\Models\Movie` directly — there is no admin-side model mirror, no shared package, no cross-app boundary. Service and model live in the same codebase and autoload via PSR-4.
 
 ## Reference Documents
 
 - `docs/plans/backend/v1/03-movie-api.md` — backend movie API and TMDB enrichment
-- `docs/superpowers/specs/2026-04-20-admin-section-design.md` — § 2.6 write boundary, § 5 Plan 04
-- `docs/plans/admin/v1/03-shared-models-and-base-resources.md` — shared-domain package scaffold, Causer contract, write-boundary enforcement
+- `docs/superpowers/specs/2026-04-20-admin-section-design.md` — § 2.6 admin-to-domain-logic boundary, § 5 Plan 04
+- `docs/plans/admin/v1/03-shared-models-and-base-resources.md` — BaseResource, FormatsCurrency, TimestampColumns
 - `backend/app/Http/Controllers/Api/MovieController.php` — reference for extraction
 - `backend/app/Services/TmdbService.php` — enrichment source
 
@@ -23,25 +25,27 @@ All mutations route through `FinalCut\Domain\Services\MovieService` (extracted i
 
 ## Tasks
 
-### Task 1: Extract MovieService into the shared-domain package
+### Task 1: Create `MovieService` in `backend/app/Services/`
 
 - **MoSCoW:** Must Have
 - **Complexity:** M
 - **Files:**
-  - `packages/shared-domain/src/Services/MovieService.php` (new)
-  - `packages/shared-domain/src/Jobs/EnrichMovieJob.php` (new — if not already extracted)
-  - `backend/app/Http/Controllers/Api/MovieController.php` (modify — delegate to `FinalCut\Domain\Services\MovieService`)
-  - `backend/tests/Feature/MovieServiceTest.php` (new or move to `packages/shared-domain/tests/`)
+  - `backend/app/Services/MovieService.php` (new)
+  - `backend/app/Jobs/EnrichMovieJob.php` (new — if not already present)
+  - `backend/app/Http/Controllers/Api/MovieController.php` (modify — delegate writes to the service)
+  - `backend/tests/Unit/MovieServiceTest.php` (new)
 - **Details:**
-  Per Plan 03's ADR (Option 1: shared Composer package), `MovieService` lives in `packages/shared-domain/src/Services/MovieService.php` under the `FinalCut\Domain\Services` namespace. Both admin and backend consume it as a normal Composer dependency. This task extracts the service from `MovieController` (which previously held the orchestration) into the shared package.
+  Extract movie write orchestration out of the existing `MovieController` into a dedicated service. The customer API delegates to it; the admin panel (Task 2+) calls it too. Both call sites pass an optional `?AdminUser $actor`.
 
-  Required methods — every write method takes an explicit `Causer $causer` argument per the Plan 02 Task 4 contract. The service writes `activity()->causedBy($causer)->log(...)` itself; no ambient guard reads.
+  Required methods:
 
   ```php
-  namespace FinalCut\Domain\Services;
+  namespace App\Services;
 
-  use FinalCut\Domain\Audit\Causer;
-  use FinalCut\Domain\Models\Movie;
+  use App\Jobs\EnrichMovieJob;
+  use App\Models\AdminUser;
+  use App\Models\Movie;
+  use Illuminate\Support\Facades\Cache;
 
   class MovieService
   {
@@ -51,132 +55,106 @@ All mutations route through `FinalCut\Domain\Services\MovieService` (extracted i
        *   tmdb_id?: ?int, tagline?: ?string, synopsis?: ?string,
        *   runtime?: ?int, rating?: ?float, release_date?: ?string,
        *   poster_url?: ?string, backdrop_url?: ?string, trailer_key?: ?string,
-       *   genres?: int[],                                            // genre IDs — synced via BelongsToMany::sync()
-       *   cast?: array<int, array{name: string, character: string, profileUrl?: ?string}>  // written to JSON column
+       *   genres?: array<int, array{id: int, name: string}>,                           // JSON column (TMDB-native shape)
+       *   cast?: array<int, array{name: string, character: string, profileUrl?: ?string}>  // JSON column payload
        * } $attributes
        */
-      public function create(array $attributes, Causer $causer): Movie;
-      public function update(Movie $movie, array $attributes, Causer $causer): Movie;  // same attribute shape; partial updates allowed
-      public function delete(Movie $movie, Causer $causer): void;
-      public function triggerEnrichment(Movie $movie, Causer $causer): bool;  // true if dispatched, false if skipped (idempotency guard)
-  }
-  ```
-
-  **Input contract — genres and cast.** The `genres` key (if present) is an array of genre IDs; the service syncs the `movie->genres()` `BelongsToMany` relationship via `sync()`. The `cast` key (if present) is an ordered array of cast-member objects and is written directly to the `cast` JSON column — the service does not split it into a separate table. Filament's form output in Task 4 (multi-select for genres, repeater for cast) must match these shapes exactly. Any transformation lives at the controller / Filament page layer, not inside the service.
-
-  **`triggerEnrichment` contract.** Calls `TmdbService::enrichMovie()` via a queued job (`EnrichMovieJob`) so the admin request returns immediately. If the job class does not exist, create it — single-movie enrichment. **Idempotency guard:** before dispatching, set a short-lived cache lock keyed on `movie:enrich:{id}` with a TTL matching the enrichment's expected runtime (e.g., 5 minutes). If the lock is already held, the method returns `false` without dispatching, and the admin UI surfaces a non-error notification ("Enrichment already in progress"). This prevents duplicate jobs from rapid clicks or concurrent admin sessions. The lock is released at the end of the job (success or failure).
-
-  Extraction principles:
-  - **Validation stays at the HTTP boundary** — keep Laravel `FormRequest` classes (or inline `validate()` calls) in `MovieController`. The service accepts pre-validated associative arrays and performs no user-input validation. It may still enforce domain invariants (e.g., "slug must be unique at save time") as a last line of defense.
-  - **Mutation and orchestration move into the service** — creating the model, syncing relationships, writing the cast JSON, dispatching enrichment, emitting audit rows via `activity()->causedBy($causer)->log(...)`.
-  - Keep HTTP concerns (request parsing, response formatting) in the controller. The customer-facing controller resolves a `Causer` from the authenticated customer user (or a system `Causer` for unauthenticated writes, if any) and passes it explicitly to the service.
-  - Preserve existing backend test coverage; add service-level tests for the extracted logic
-
-  Update the progress journal's service extraction checklist.
-
-- **Acceptance Criteria:**
-  - [ ] `FinalCut\Domain\Services\MovieService` exists in `packages/shared-domain/src/Services/` with documented methods and the documented `genres` / `cast` input shape
-  - [ ] Every write method signature declares an explicit `Causer $causer` parameter; no method uses `auth()->user()` or ambient guard reads
-  - [ ] `MovieController` delegates write operations to the shared-domain service, passing an explicit `Causer`; request validation remains in `FormRequest` classes (or `$request->validate()`), not inside the service
-  - [ ] Pest tests for `MovieService` cover create/update/delete/enrich paths, including genre sync, cast JSON round-trip, and that each write emits an activity row with the correct causer
-  - [ ] `EnrichMovieJob` lives in the shared package and dispatches single-movie enrichment
-  - [ ] `triggerEnrichment` is guarded by a per-movie cache lock; a test asserts a second call within the TTL returns `false`, does not dispatch a second job, and does not write a duplicate activity row
-  - [ ] Existing backend test suite still green after the extraction
-  - [ ] Progress journal updated with the extraction entry and a reference to Plan 03 Task 1's audit table
-
----
-
-### Task 2: Admin MovieService facade
-
-- **MoSCoW:** Must Have
-- **Complexity:** S
-- **Files:**
-  - `admin/app/Services/Backend/MovieService.php` (new)
-  - `admin/app/Providers/AppServiceProvider.php` (modify — register the facade binding if needed)
-- **Details:**
-  The shared-domain `FinalCut\Domain\Services\MovieService` operates on `FinalCut\Domain\Models\Movie`. Admin mirrors `Movie` as `App\Models\Movie` (Plan 03 Task 2) for Filament Resource wiring. The facade translates between the two: it resolves the `Causer` from `auth()->user()` (always an `AdminUser` in admin's HTTP context), delegates to the domain service with the domain model, and returns the admin-mirrored model for Filament page consumers.
-
-  ```php
-  namespace App\Services\Backend;
-
-  use App\Models\Movie;
-  use FinalCut\Domain\Models\Movie as DomainMovie;
-  use FinalCut\Domain\Services\MovieService as DomainMovieService;
-
-  class MovieService
-  {
-      public function __construct(private DomainMovieService $inner) {}
-
-      public function create(array $attributes): Movie
+      public function create(array $attributes, ?AdminUser $actor = null): Movie
       {
-          $domainMovie = $this->inner->create($attributes, $this->causer());
-          return Movie::findOrFail($domainMovie->id);
-      }
+          $movie = Movie::create($attributes);
 
-      public function update(Movie $movie, array $attributes): Movie
-      {
-          $domainMovie = DomainMovie::findOrFail($movie->id);
-          $this->inner->update($domainMovie, $attributes, $this->causer());
+          $this->logIfAdmin('movie.created', $movie, $actor, $attributes);
+
           return $movie->fresh();
       }
 
-      public function delete(Movie $movie): void
+      public function update(Movie $movie, array $attributes, ?AdminUser $actor = null): Movie
       {
-          $domainMovie = DomainMovie::findOrFail($movie->id);
-          $this->inner->delete($domainMovie, $this->causer());
+          $original = $movie->getOriginal();
+          $movie->fill($attributes)->save();
+
+          $this->logIfAdmin('movie.updated', $movie, $actor, [
+              'before' => $original,
+              'after' => $movie->getAttributes(),
+          ]);
+
+          return $movie->fresh();
       }
 
-      public function triggerEnrichment(Movie $movie): bool
+      public function delete(Movie $movie, ?AdminUser $actor = null): void
       {
-          $domainMovie = DomainMovie::findOrFail($movie->id);
-          return $this->inner->triggerEnrichment($domainMovie, $this->causer());
+          $this->logIfAdmin('movie.deleted', $movie, $actor);
+          $movie->delete();
       }
 
-      /**
-       * Resolve the acting admin as a Causer. The facade lives only inside admin
-       * HTTP requests, so auth()->user() is unambiguously an AdminUser here.
-       * Shared-domain services called from other contexts (backend scheduler,
-       * customer HTTP) pass their own Causer — this is not auto-resolution, it
-       * is facade-local ergonomics.
-       */
-      private function causer(): \FinalCut\Domain\Audit\Causer
+      public function triggerEnrichment(Movie $movie, ?AdminUser $actor = null): bool
       {
-          return auth()->user()
-              ?? throw new \LogicException(
-                  'Admin MovieService facade invoked outside an authenticated admin context. '
-                  . 'Shared-domain services require an explicit Causer — the facade only resolves one when '
-                  . 'called from an admin HTTP request.'
-              );
+          $lockKey = "movie:enrich:{$movie->id}";
+          $lock = Cache::lock($lockKey, 300);  // 5 minute TTL
+
+          if (! $lock->get()) {
+              return false;
+          }
+
+          EnrichMovieJob::dispatch($movie->id, $lockKey);
+          $this->logIfAdmin('movie.enrichment_triggered', $movie, $actor);
+
+          return true;
+      }
+
+      private function logIfAdmin(string $event, Movie $movie, ?AdminUser $actor, array $properties = []): void
+      {
+          if ($actor === null) return;
+
+          activity('admin')
+              ->causedBy($actor)
+              ->performedOn($movie)
+              ->withProperties($properties)
+              ->log($event);
       }
   }
   ```
 
-  Register in admin service container (`AppServiceProvider`) if needed so Filament can resolve it via type hint. No binding is required if `DomainMovieService` has no constructor dependencies beyond what Laravel can auto-resolve.
+  **Input contract — genres and cast.** Both `genres` and `cast` are **JSON columns** on the `movies` table, not relationships. The existing backend `App\Models\Movie` casts both to `array` (see `backend/app/Models/Movie.php`), and both are mass-assignable via `$fillable`. The service writes them directly via `create()` / `fill()` — no `sync()`, no pivot, no eager load. `genres` stores TMDB's native shape `[{id: 18, name: 'Drama'}, ...]` so that enrichment data round-trips without transformation; `cast` stores `[{name, character, profileUrl}, ...]`. If a future plan introduces a `genres` pivot table for cross-movie queries, it will carry its own migration and an updated `MovieService` contract — v1 stays with the JSON column.
+
+  **`triggerEnrichment` contract.** Dispatches `EnrichMovieJob` so the admin request returns immediately. An idempotency lock (`movie:enrich:{id}`, 5 minute TTL) prevents duplicate dispatches from rapid clicks. If the lock is held, the method returns `false` without dispatching, and the admin UI surfaces a non-error notification ("Enrichment already in progress"). The lock is released by the job on completion.
+
+  **Extraction principles:**
+  - Validation stays at the HTTP boundary (Laravel `FormRequest` or `$request->validate()`) — the service accepts pre-validated arrays and enforces only domain invariants (unique slug at save time).
+  - Mutation and orchestration move into the service — create the model, sync relationships, write JSON columns, dispatch enrichment, emit activity-log rows.
+  - Existing customer API controllers continue to handle HTTP request parsing and response formatting; they pass `null` for `$actor` because customer API writes are not admin-attributed.
 
 - **Acceptance Criteria:**
-  - [ ] Facade resides at `admin/app/Services/Backend/MovieService.php` and imports `FinalCut\Domain\Services\MovieService` — no `Backend\` namespace references anywhere
-  - [ ] Facade methods delegate to the domain service with an explicit `Causer` resolved from `auth()->user()`
-  - [ ] Facade throws `LogicException` with a clear message if invoked outside an authenticated admin context (covered by a unit test)
-  - [ ] Returned models are `App\Models\Movie`, not the domain model class
-  - [ ] `triggerEnrichment` returns the boolean dispatch/skip result
-  - [ ] Service resolvable from the container via type-hint injection
+  - [ ] `App\Services\MovieService` exists with the four write methods and the documented `genres` / `cast` input shape (both JSON, both mass-assignable)
+  - [ ] Every write method signature accepts `?AdminUser $actor = null` (last parameter)
+  - [ ] `MovieController` delegates write operations to the service, passing `null` as `$actor`
+  - [ ] `MovieService` tests cover create / update / delete / triggerEnrichment paths including genres JSON round-trip, cast JSON round-trip, and idempotency
+  - [ ] No `$movie->genres()->sync(...)` call anywhere in the service (genres is a JSON column, not a relationship)
+  - [ ] When `$actor` is set, each write emits an `activity_log` row with `causer` resolving to the admin user
+  - [ ] When `$actor` is null, no `activity_log` row is written
+  - [ ] `EnrichMovieJob` dispatches single-movie enrichment and releases the cache lock on completion
+  - [ ] Existing backend test suite still green after the extraction
 
 ---
 
-### Task 3: MovieResource (list, view, edit)
+### Task 2: MovieResource (list, view, edit pages)
 
 - **MoSCoW:** Must Have
 - **Complexity:** M
 - **Files:**
-  - `admin/app/Filament/Resources/MovieResource.php` (new)
-  - `admin/app/Filament/Resources/MovieResource/Pages/ListMovies.php` (new)
-  - `admin/app/Filament/Resources/MovieResource/Pages/CreateMovie.php` (new)
-  - `admin/app/Filament/Resources/MovieResource/Pages/EditMovie.php` (new)
-  - `admin/app/Filament/Resources/MovieResource/Pages/ViewMovie.php` (new)
+  - `backend/app/Filament/Resources/MovieResource.php` (new)
+  - `backend/app/Filament/Resources/MovieResource/Pages/ListMovies.php` (new)
+  - `backend/app/Filament/Resources/MovieResource/Pages/CreateMovie.php` (new)
+  - `backend/app/Filament/Resources/MovieResource/Pages/EditMovie.php` (new)
+  - `backend/app/Filament/Resources/MovieResource/Pages/ViewMovie.php` (new)
 - **Details:**
   Resource extends `BaseResource` with `$permissionPrefix = 'movies'`.
 
   ```php
+  namespace App\Filament\Resources;
+
+  use App\Models\Movie;
+
   class MovieResource extends BaseResource
   {
       protected static ?string $model = Movie::class;
@@ -185,12 +163,12 @@ All mutations route through `FinalCut\Domain\Services\MovieService` (extracted i
       protected static ?string $navigationGroup = 'Catalog';
       protected static ?int $navigationSort = 10;
 
-      public static function form(Form $form): Form { /* Task 4 */ }
-      public static function table(Table $table): Table { /* Task 5 */ }
+      public static function form(Form $form): Form { /* Task 3 */ }
+      public static function table(Table $table): Table { /* Task 4 */ }
 
       public static function getRelations(): array
       {
-          return [UpcomingShowtimesRelationManager::class];
+          return [Pages\RelationManagers\UpcomingShowtimesRelationManager::class];
       }
 
       public static function getPages(): array
@@ -205,58 +183,51 @@ All mutations route through `FinalCut\Domain\Services\MovieService` (extracted i
   }
   ```
 
-  Override `CreateMovie::handleRecordCreation` and `EditMovie::handleRecordUpdate` to call the admin `MovieService` facade (Task 2) instead of letting Filament persist directly. This enforces the write-boundary rule.
+  Override `CreateMovie::handleRecordCreation` and `EditMovie::handleRecordUpdate` to call `MovieService` instead of letting Filament persist directly:
 
   ```php
   // CreateMovie.php
   protected function handleRecordCreation(array $data): Model
   {
-      return app(\App\Services\Backend\MovieService::class)->create($data);
+      return app(\App\Services\MovieService::class)
+          ->create($data, auth('admin')->user());
   }
 
   // EditMovie.php
   protected function handleRecordUpdate(Model $record, array $data): Model
   {
-      return app(\App\Services\Backend\MovieService::class)->update($record, $data);
+      return app(\App\Services\MovieService::class)
+          ->update($record, $data, auth('admin')->user());
   }
   ```
 
-  **Delete must also route through the service.** The table's `DeleteAction::make()` (Task 5) and any per-row delete on the Edit / View pages default to `$record->delete()` — a direct Eloquent write that bypasses the service facade and the write-boundary rule. Every delete call site in this Resource must opt into the service explicitly via Filament's `->using()` hook:
+  **Delete must route through the service too.** The table's `DeleteAction::make()` defaults to `$record->delete()` — a direct Eloquent write that bypasses the service and the audit-log attribution. Every delete call site in this Resource opts into the service via Filament's `->using()` hook:
 
   ```php
   DeleteAction::make()
-      ->using(fn (Model $record) => app(\App\Services\Backend\MovieService::class)->delete($record));
+      ->using(fn (Model $record) => app(\App\Services\MovieService::class)
+          ->delete($record, auth('admin')->user()));
   ```
 
-  If a `DeleteBulkAction` is introduced later (not in v1), it must do the same:
-
-  ```php
-  DeleteBulkAction::make()
-      ->using(fn (\Illuminate\Support\Collection $records) =>
-          $records->each(fn ($r) => app(\App\Services\Backend\MovieService::class)->delete($r))
-      );
-  ```
-
-  **Primary defense: Plan 03 Task 7 deptrac + phpstan rules.** A stock `DeleteAction::make()` without `->using()` would cause Filament to call `$record->delete()` on a `FinalCut\Domain\Models\Movie` (via the admin mirror's `Movie::find()` result chain — the mirror shares the same table, so Filament's Eloquent traversal may reach the domain model class). The phpstan `disallowedMethodCalls` rule from Plan 03 Task 7 catches any `FinalCut\Domain\Models\Movie::delete()` call outside the service layer at CI time. An acceptance test in Task 7 below is kept as a secondary regression guard — the CI-time static analysis catches the pattern even before the test runs.
+  This is a convention enforced by test (Task 6), not by static analysis. A stock `DeleteAction::make()` without `->using()` is a test-caught regression — the test asserts that `MovieService::delete` was called for any admin-originated delete.
 
 - **Acceptance Criteria:**
   - [ ] Resource registers under Catalog navigation group
   - [ ] List / view / create / edit pages route correctly
-  - [ ] `handleRecordCreation` and `handleRecordUpdate` call service facade
-  - [ ] Every `DeleteAction` instance (table row and, if present, per-page) uses `->using()` to call `MovieService::delete`
-  - [ ] Direct Eloquent writes removed from every mutation path (create, update, delete) — no `$record->save()` / `->delete()` on the Resource persistence path
+  - [ ] `handleRecordCreation` and `handleRecordUpdate` call `MovieService`, passing `auth('admin')->user()` as actor
+  - [ ] Every `DeleteAction` instance uses `->using()` to call `MovieService::delete`
+  - [ ] Direct Eloquent writes removed from every mutation path on the Resource
   - [ ] Permission gating works per role (admin full, manager full, ops read-only)
 
 ---
 
-### Task 4: Movie form schema
+### Task 3: Movie form schema
 
 - **MoSCoW:** Must Have
 - **Complexity:** M
 - **Files:**
-  - `admin/app/Filament/Resources/MovieResource.php` (modify — `form()` method)
+  - `backend/app/Filament/Resources/MovieResource.php` (modify — `form()` method)
 - **Details:**
-  Filament form schema:
 
   ```php
   public static function form(Form $form): Form
@@ -266,10 +237,6 @@ All mutations route through `FinalCut\Domain\Services\MovieService` (extracted i
               ->schema([
                   TextInput::make('title')->required()->maxLength(255)
                       ->live(onBlur: true)
-                      // Auto-slug on create only. On edit, the slug is stable — a title change
-                      // never rewrites an existing slug, because slugs feed public URLs and
-                      // downstream references. Admins can still edit the slug by hand on the
-                      // slug field itself.
                       ->afterStateUpdated(function ($state, callable $set, ?Model $record) {
                           if ($record === null) {
                               $set('slug', Str::slug($state));
@@ -302,10 +269,19 @@ All mutations route through `FinalCut\Domain\Services\MovieService` (extracted i
 
           Section::make('Taxonomy')
               ->schema([
-                  Select::make('genres')
-                      ->multiple()
-                      ->relationship('genres', 'name')
-                      ->preload(),
+                  // genres is a JSON column on the movies table, not a pivot — store
+                  // TMDB's native {id, name} shape so enrichment round-trips cleanly.
+                  Repeater::make('genres')
+                      ->schema([
+                          TextInput::make('id')->numeric()->required()
+                              ->helperText('TMDB genre ID'),
+                          TextInput::make('name')->required(),
+                      ])
+                      ->columns(2)
+                      ->collapsed()
+                      ->defaultItems(0)
+                      ->reorderable()
+                      ->helperText('Usually populated by TMDB enrichment — edit manually only for custom entries.'),
               ]),
 
           Section::make('Cast')
@@ -324,26 +300,29 @@ All mutations route through `FinalCut\Domain\Services\MovieService` (extracted i
   }
   ```
 
-  The genres multi-select emits an array of genre IDs, and the cast repeater emits an array of `{ name, character, profileUrl }` objects that persists to the `cast` JSON column. Both shapes must match the service input contract declared in Task 1 exactly — Filament does not transform these payloads before handing them to `handleRecordCreation` / `handleRecordUpdate`, so the service is the sole place where the shapes are consumed.
+  Both `genres` and `cast` are JSON columns on `movies`, not relationships. The genres repeater emits `[{id, name}, ...]` and persists directly to the `genres` JSON column; the cast repeater emits `[{name, character, profileUrl}, ...]` and persists to `cast`. Both shapes match `MovieService`'s input contract from Task 1 exactly — Filament does not transform these payloads before handing them to `handleRecordCreation` / `handleRecordUpdate`.
+
+  **Slug stability policy.** Title auto-slugs only on create. Editing a title on an existing record does not modify its slug — slugs feed public URLs and downstream references. Admins can still edit the slug by hand on the slug field itself.
 
 - **Acceptance Criteria:**
   - [ ] All documented fields render
   - [ ] Title auto-slugs on blur during create only; editing a title on an existing record does not modify its slug
   - [ ] Slug validates uniqueness ignoring current record
   - [ ] TMDB ID optional but numeric-validated
-  - [ ] Genres multi-select wired to relationship; the submitted payload is an array of genre IDs matching `MovieService` input contract
-  - [ ] Cast repeater submitted payload is an array of `{ name, character, profileUrl }` objects matching `MovieService` input contract and saves to the JSON column
-  - [ ] Form submission routes through service facade
+  - [ ] Genres repeater payload is an array of `{ id, name }` objects matching `MovieService` input contract and saves to the `genres` JSON column (no pivot, no relationship)
+  - [ ] Cast repeater payload is an array of `{ name, character, profileUrl }` objects matching `MovieService` input contract and saves to the `cast` JSON column
+  - [ ] Form submission routes through `MovieService`
 
 ---
 
-### Task 5: Movie table (list page)
+### Task 4: Movie table (list page)
 
 - **MoSCoW:** Must Have
 - **Complexity:** M
 - **Files:**
-  - `admin/app/Filament/Resources/MovieResource.php` (modify — `table()` method)
+  - `backend/app/Filament/Resources/MovieResource.php` (modify — `table()` method)
 - **Details:**
+
   ```php
   public static function table(Table $table): Table
   {
@@ -359,16 +338,34 @@ All mutations route through `FinalCut\Domain\Services\MovieService` (extracted i
                       'now_showing' => 'success',
                       'coming_soon' => 'warning',
                   }),
-              TextColumn::make('genres.name')->badge()->separator(','),
+              TextColumn::make('genres')
+                  ->badge()
+                  ->formatStateUsing(fn ($state) => collect($state ?? [])->pluck('name')->all())
+                  ->separator(','),
               TextColumn::make('runtime')->suffix(' min')->sortable(),
               TextColumn::make('rating')->formatStateUsing(fn ($state) => number_format($state, 1))->sortable(),
               TextColumn::make('tmdb_enriched_at')->label('Enriched')->since()->sortable(),
-              ...static::getTimestampColumns(),
+              ...TimestampColumns::standardTimestamps(),
           ])
           ->filters([
               SelectFilter::make('status')
                   ->options(['now_showing' => 'Now Showing', 'coming_soon' => 'Coming Soon']),
-              SelectFilter::make('genres')->relationship('genres', 'name')->multiple(),
+              // Genre filter queries the JSON column via whereJsonContains. The
+              // option list is distinct names extracted from existing movie rows —
+              // there is no separate genres table to populate from.
+              SelectFilter::make('genre_name')
+                  ->label('Genre')
+                  ->options(fn () => Movie::query()
+                      ->whereNotNull('genres')
+                      ->get()
+                      ->flatMap(fn ($m) => collect($m->genres)->pluck('name'))
+                      ->unique()
+                      ->sort()
+                      ->mapWithKeys(fn ($name) => [$name => $name]))
+                  ->query(fn (Builder $q, array $data) => $q->when(
+                      $data['value'] ?? null,
+                      fn ($q, $name) => $q->whereJsonContains('genres', [['name' => $name]])
+                  )),
               Filter::make('needs_enrichment')
                   ->label('Never enriched')
                   ->query(fn (Builder $q) => $q->whereNull('tmdb_enriched_at')->whereNotNull('tmdb_id')),
@@ -379,69 +376,81 @@ All mutations route through `FinalCut\Domain\Services\MovieService` (extracted i
               Action::make('enrich')
                   ->label('Enrich from TMDB')
                   ->icon('heroicon-o-arrow-path')
-                  ->visible(fn ($record) => $record->tmdb_id && auth()->user()->can('movies.trigger_enrich'))
+                  ->visible(fn ($record) => $record->tmdb_id && auth('admin')->user()->can('movies.trigger_enrich'))
                   ->requiresConfirmation()
-                  ->action(function ($record, $livewire) {
-                      $dispatched = app(MovieService::class)->triggerEnrichment($record);
+                  ->action(function ($record) {
+                      $dispatched = app(\App\Services\MovieService::class)
+                          ->triggerEnrichment($record, auth('admin')->user());
                       Notification::make()
                           ->title($dispatched ? 'Enrichment queued' : 'Enrichment already in progress')
                           ->{$dispatched ? 'success' : 'warning'}()
                           ->send();
                   }),
               DeleteAction::make()
-                  ->using(fn (Model $record) => app(MovieService::class)->delete($record)),
+                  ->using(fn (Model $record) => app(\App\Services\MovieService::class)
+                      ->delete($record, auth('admin')->user())),
           ])
           ->bulkActions([
               BulkAction::make('mark_now_showing')
                   ->label('Mark as Now Showing')
                   ->icon('heroicon-o-play')
-                  ->visible(fn () => auth()->user()->can('movies.update'))
+                  ->visible(fn () => auth('admin')->user()->can('movies.update'))
                   ->action(fn (Collection $records) => $records->each(fn ($r) =>
-                      app(MovieService::class)->update($r, ['status' => 'now_showing'])
+                      app(\App\Services\MovieService::class)
+                          ->update($r, ['status' => 'now_showing'], auth('admin')->user())
                   ))
                   ->deselectRecordsAfterCompletion(),
               BulkAction::make('mark_coming_soon')
                   ->label('Mark as Coming Soon')
                   ->icon('heroicon-o-clock')
-                  ->visible(fn () => auth()->user()->can('movies.update'))
+                  ->visible(fn () => auth('admin')->user()->can('movies.update'))
                   ->action(fn (Collection $records) => $records->each(fn ($r) =>
-                      app(MovieService::class)->update($r, ['status' => 'coming_soon'])
+                      app(\App\Services\MovieService::class)
+                          ->update($r, ['status' => 'coming_soon'], auth('admin')->user())
                   )),
           ])
           ->defaultSort('release_date', 'desc');
   }
   ```
 
-  **Bulk-action implementation note.** The `mark_now_showing` / `mark_coming_soon` bulk actions are deliberately implemented as N sequential single-record calls to `MovieService::update` (`$records->each(...)`), not a specialized batch pathway. This keeps every status change auditable and consistent with the write-boundary rule — every record emits its own activity row and passes through the same domain code path as a single-record edit. The cost is that large selections are chatty (one service call and one activity-log write per row). For v1's expected admin usage (curating a shortlist) this is acceptable; if real usage produces 100+ row bulk changes, revisit with a dedicated batch method on `MovieService`.
+  **Bulk-action implementation note.** The `mark_now_showing` / `mark_coming_soon` bulk actions are implemented as N sequential single-record calls to `MovieService::update` — not a specialized batch method. Each record emits its own activity row and passes through the same domain code path as a single-record edit. For v1's expected admin usage this is acceptable; if real usage produces 100+ row bulk changes, revisit with a dedicated batch method.
 
-  **Delete behavior.** The `DeleteAction::make()->using(...)` hook routes deletion through `MovieService::delete` per Task 3's write-boundary rule. A stock `DeleteAction::make()` without `using()` would bypass the service and is treated as a regression in tests.
+  **Delete behavior.** `DeleteAction::make()->using(...)` routes deletion through `MovieService::delete`, passing the admin actor for audit attribution. A stock `DeleteAction::make()` without `->using()` is treated as a regression in tests (Task 6).
 
 - **Acceptance Criteria:**
   - [ ] Poster thumbnail renders in column
   - [ ] Title searchable, sortable
   - [ ] Status badge colored correctly
-  - [ ] Genre badges display from relationship
-  - [ ] Filters: status, genres, "needs enrichment"
+  - [ ] Genre badges display by pluck'ing `name` from the JSON column (no relationship)
+  - [ ] Filters: status, genre name (via `whereJsonContains` on the JSON column), "needs enrichment"
   - [ ] Row action: View, Edit, Enrich (gated on permission + tmdb_id), Delete
   - [ ] Enrich action surfaces a distinct "already in progress" notification when the service returns `false`
   - [ ] Delete action routes through `MovieService::delete` via `->using()` — no direct Eloquent delete
-  - [ ] Bulk actions: mark status
-  - [ ] Bulk actions route through service facade as N sequential single-record calls
+  - [ ] Bulk actions: mark status, calling `MovieService::update` once per selected record with the admin actor
 
 ---
 
-### Task 6: UpcomingShowtimesRelationManager (read-only)
+### Task 5: UpcomingShowtimesRelationManager (read-only)
 
 - **MoSCoW:** Should Have
 - **Complexity:** S
 - **Files:**
-  - `admin/app/Filament/Resources/MovieResource/RelationManagers/UpcomingShowtimesRelationManager.php` (new)
+  - `backend/app/Filament/Resources/MovieResource/RelationManagers/UpcomingShowtimesRelationManager.php` (new)
 - **Details:**
-  Read-only relation manager on the movie view page showing a **preview** of up to the next 20 upcoming showtimes for this movie. The intent is a quick "where is this playing right now" glance alongside the movie's detail view; it is deliberately not a full schedule view. Staff who need the complete showtime list navigate to the Showtimes resource filtered by movie (added in Plan 06). The relation manager title and any surrounding copy must frame this as a preview, not an exhaustive listing — otherwise admins will assume they are seeing every future showtime.
+  Read-only relation manager on the movie view page showing a **preview** of up to the next 20 upcoming showtimes. The intent is a quick "where is this playing right now" glance alongside the movie's detail view; it is not a full schedule view. Staff who need the complete showtime list navigate to the Showtimes resource filtered by movie (Plan 06).
 
   ```php
+  namespace App\Filament\Resources\MovieResource\RelationManagers;
+
+  use App\Filament\Concerns\FormatsCurrency;
+  use Filament\Resources\RelationManagers\RelationManager;
+  use Filament\Tables\Columns\TextColumn;
+  use Filament\Tables\Table;
+
   class UpcomingShowtimesRelationManager extends RelationManager
   {
+      use FormatsCurrency;
+
       protected static string $relationship = 'showtimes';
       protected static ?string $title = 'Upcoming Showtimes (next 20)';
 
@@ -458,7 +467,7 @@ All mutations route through `FinalCut\Domain\Services\MovieService` (extracted i
                   TextColumn::make('auditorium.name')->label('Auditorium'),
                   TextColumn::make('price_standard')
                       ->label('Standard')
-                      ->formatStateUsing(fn ($state) => CurrencyFormatter::format($state)),
+                      ->formatStateUsing(fn ($state) => self::centsToDisplay($state)),
               ])
               ->headerActions([]) // no create
               ->actions([]); // no edit/delete
@@ -473,83 +482,83 @@ All mutations route through `FinalCut\Domain\Services\MovieService` (extracted i
 
 - **Acceptance Criteria:**
   - [ ] Relation manager renders on the movie view page
-  - [ ] Shows up to the next 20 future showtimes as a preview (title and any accompanying copy clearly label it as a preview, not a complete list)
+  - [ ] Shows up to the next 20 future showtimes as a preview (title clearly labels it a preview, not a complete list)
   - [ ] No create/edit/delete actions available
   - [ ] Location and auditorium displayed via nested relationship
+  - [ ] Price rendered via `FormatsCurrency::centsToDisplay`
 
 ---
 
-### Task 7: Feature tests
+### Task 6: Feature tests
 
 - **MoSCoW:** Must Have
 - **Complexity:** M
 - **Files:**
-  - `admin/tests/Feature/Resources/MovieResourceTest.php` (new)
-  - `admin/tests/Feature/Resources/MovieResourcePermissionTest.php` (new)
+  - `backend/tests/Feature/Admin/Resources/MovieResourceTest.php` (new)
+  - `backend/tests/Feature/Admin/Resources/MovieResourcePermissionTest.php` (new)
+  - `backend/tests/Feature/Admin/Services/MovieServiceIntegrationTest.php` (new)
 - **Details:**
-  Use Filament's Livewire test helpers. Tests split into two layers with distinct responsibilities — do not blend them.
+  Use Filament's Livewire test helpers. Tests split into two layers.
 
-  **Layer A — Resource tests (facade mocked).** These verify the Resource wires form / actions / permissions to the service facade. Mock `\App\Services\Backend\MovieService` via `$this->mock()` so no backend writes happen. These tests **do not** assert anything about `activity_log`, because with a mocked facade no real mutation path runs.
+  **Layer A — Resource tests (service mocked).** Verify the Resource wires form / actions / permissions to the service. Mock `\App\Services\MovieService` via `$this->mock()` so no backend writes happen. These tests do not assert on `activity_log` — with a mocked service, no real mutation runs.
 
-  **MovieResourceTest (facade mocked):**
-  - admin can list movies (`Livewire::test(ListMovies::class)->assertSee(...)`)
-  - admin can create a movie via form submission → asserts `MovieService::create` was called with the expected payload shape (including `genres` array and `cast` array)
-  - admin can update a movie → asserts `MovieService::update` was called
-  - **admin can delete a movie via the table `DeleteAction` → asserts `MovieService::delete` was called and `Model::delete()` was NOT called** (regression guard for a stock `DeleteAction::make()` slipping in without `->using()`)
+  **MovieResourceTest (service mocked):**
+  - admin can list movies
+  - admin can create a movie via form submission → asserts `MovieService::create` called with expected payload shape (including `genres` array and `cast` array) and `actor` = logged-in admin
+  - admin can update a movie → asserts `MovieService::update` called with actor
+  - **admin can delete a movie via the table `DeleteAction` → asserts `MovieService::delete` was called and `Model::delete()` was NOT called directly** (regression guard for stock `DeleteAction::make()` slipping in without `->using()`)
   - Enrich action dispatches the job for a movie with `tmdb_id` (asserts `MovieService::triggerEnrichment` returns `true`)
-  - Enrich action surfaces the "already in progress" notification when the service returns `false`
+  - Enrich action surfaces "already in progress" notification when the service returns `false`
   - Enrich action hidden for movies without `tmdb_id`
-  - Bulk action "mark as now_showing" calls `MovieService::update` once per selected record
-  - Editing a title on an existing record does not change its slug (slug stability policy)
+  - Bulk action "mark as now_showing" calls `MovieService::update` once per selected record with actor
+  - Editing a title on an existing record does not change its slug (slug stability)
 
-  **MovieResourcePermissionTest (facade mocked):**
+  **MovieResourcePermissionTest (service mocked):**
   - ops cannot access create form (`canCreate` returns false)
   - ops cannot access edit page
   - ops cannot see enrich action
   - manager can perform all movie actions
   - nobody role cannot access list page
 
-  **Layer B — Service persistence + audit integration tests.** A small number of tests exercise the **real** `MovieService` (not mocked) end-to-end, hitting the test database, to verify the activity-log strategy (Plan 03 Task 3) actually fires. These live in `admin/tests/Feature/Services/MovieServiceIntegrationTest.php` (or in the backend package's test suite, depending on where the service ends up per Plan 03's ADR). They are intentionally separate from the Resource tests above — mocking the service and then asserting on `activity_log` is self-contradictory.
+  **Layer B — Service integration tests (real service, real DB).** A small number of tests exercise the real `MovieService` end-to-end to verify activity-log attribution.
 
-  **MovieServiceIntegrationTest (real service, real DB):**
-  - Creating a movie writes an `activity_log` row with the expected description, causer (`admin_user_id`), and diff properties
-  - Updating a movie writes an update activity row with the changed attribute diff
-  - Deleting a movie writes a delete activity row
-  - `triggerEnrichment` writes an enrichment-triggered activity row
-  - Second `triggerEnrichment` call within the cache-lock TTL does not write a second activity row (idempotency)
+  **MovieServiceIntegrationTest:**
+  - Creating a movie with `$actor` set writes an `activity_log` row with the expected description, causer, and subject
+  - Creating a movie with `$actor = null` does NOT write an `activity_log` row
+  - Updating a movie with `$actor` set writes an update activity row with the changed-attribute diff
+  - Deleting a movie with `$actor` set writes a delete activity row
+  - `triggerEnrichment` with `$actor` set writes an enrichment-triggered activity row
+  - Second `triggerEnrichment` call within the cache-lock TTL returns `false`, does not dispatch a second job, and does not write a second activity row (idempotency)
 
 - **Acceptance Criteria:**
-  - [ ] Layer A Resource tests cover list, create, update, delete (including the stock-DeleteAction regression guard), enrich (both dispatched and skipped outcomes), bulk, and slug stability
+  - [ ] Layer A Resource tests cover list, create, update, delete (including stock-DeleteAction regression guard), enrich (dispatched and skipped outcomes), bulk, and slug stability
   - [ ] Layer A PermissionTest covers all three roles × all actions
-  - [ ] Layer A service facade is mocked — no real backend writes; no `activity_log` assertions in this layer
-  - [ ] Layer B integration tests run the real `MovieService` against the test DB and verify `activity_log` writes for create / update / delete / enrich, including the enrichment idempotency guard
-  - [ ] `make admin-test` passes all movie tests green (both layers)
+  - [ ] Layer A service is mocked — no real writes; no `activity_log` assertions at this layer
+  - [ ] Layer B integration tests run the real `MovieService` and verify `activity_log` writes (including the `$actor = null` skip case and enrichment idempotency)
+  - [ ] `make admin-test` passes all movie tests green
 
 ---
 
 ## Testing Requirements
 
-Tests split into two distinct layers (see Task 7 for detail) — do not mix them:
-
-- **Layer A — Pest Resource tests, facade mocked:** list / create / update / delete (with the stock-DeleteAction regression guard) / enrich (dispatched and skipped outcomes) / bulk / slug stability + full permission matrix across the three roles. No `activity_log` assertions at this layer.
-- **Layer B — Pest service integration tests, real `MovieService` against test DB:** verifies `activity_log` rows are written for create / update / delete / enrich with the correct causer and diff, and that a second `triggerEnrichment` within the lock TTL does not write a duplicate row.
-- **Backend service tests:** Task 1 ensures `MovieService` has independent test coverage (create / update / delete / enrich paths, genre sync, cast JSON round-trip, enrichment idempotency).
+- **Layer A (Resource, service mocked):** list / create / update / delete / enrich / bulk / slug stability + full permission matrix. No `activity_log` assertions.
+- **Layer B (Service integration, real DB):** activity-log attribution with / without actor, enrichment idempotency, genres JSON round-trip (`[{id, name}, ...]`), cast JSON round-trip.
+- **Backend service tests (Task 1):** create / update / delete / triggerEnrichment paths independent of Filament.
 
 ## Dependencies Map
 
 ```
-Task 1 (backend MovieService) ← foundational (may be partial extraction)
-Task 2 (admin facade) ← needs Task 1
-Task 3 (Resource skeleton) ← needs Plan 03 BaseResource + Task 2
-Task 4 (form schema) ← needs Task 3
-Task 5 (table + actions) ← needs Tasks 3, 4
-Task 6 (relation manager) ← needs Task 3
-Task 7 (tests) ← needs all
+Task 1 (MovieService extraction) ← foundational
+Task 2 (Resource skeleton) ← needs Plan 03 BaseResource + Task 1
+Task 3 (form schema) ← needs Task 2
+Task 4 (table + actions) ← needs Tasks 2, 3
+Task 5 (relation manager) ← needs Task 2
+Task 6 (tests) ← needs all
 ```
 
 ## Risks & Open Questions
 
-1. **TMDB enrichment job.** If `EnrichMovieJob` doesn't exist, its extraction into `packages/shared-domain/src/Jobs/` must not break the existing `movies:enrich` scheduled command. Verify the command still operates on all movies (or on a single `--movie-id=` when provided). Since the scheduled command runs in backend's context, its Causer is a system user — declare and use a `FinalCut\Domain\Audit\SystemCauser` singleton for scheduled writes.
-2. **JSON column editing.** Filament's repeater on the `cast` JSON column can be finicky with large casts (50+ members). TMDB enrichment caps at 12 members, so this is not a real risk in practice — document the cap in a form helper text.
+1. **TMDB enrichment job.** If `EnrichMovieJob` doesn't exist yet, create it so that `movies:enrich` (the existing scheduled command) and the per-movie enrichment trigger share the same job class. The scheduled command passes `null` for `$actor` (system-initiated); the admin panel passes `auth('admin')->user()`.
+2. **JSON column editing.** Filament's repeater on the `cast` JSON column can be finicky with large casts (50+ members). TMDB enrichment caps at 12 members, so this is not a real risk — document the cap in a form helper text.
 3. **Poster URL validation.** Currently just `url()` validation. Consider tightening to TMDB or a whitelist of image hosts. Deferred — staff-only tool, not a threat surface.
-4. **Shared-package circular autoload.** Extracting `MovieService` and `EnrichMovieJob` into `packages/shared-domain/` while the Eloquent `Movie` model also lives there creates a package that depends on Laravel framework classes transitively. The package's `composer.json` must declare `illuminate/database` and `illuminate/queue` as dependencies at runtime, not just dev — this is covered by Plan 03 Task 1's ADR but called out here as a concrete consequence for this first extraction.
+4. **Stock `DeleteAction` regression.** The write-boundary rule (all admin deletes go through the service for audit attribution) is enforced only by Layer A Resource tests, not by static analysis. A future contributor adding a `DeleteAction::make()` without `->using()` slips through to a direct `$record->delete()` with no audit row. The Task 6 regression test catches it before merge. If regressions happen repeatedly, escalate to a phpstan rule — but start with the test, keep tooling light.

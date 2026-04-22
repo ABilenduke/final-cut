@@ -1,183 +1,268 @@
-# Plan 01: Admin App Scaffold & Docker
+# Plan 01: Admin Panel Scaffold & Nginx Vhost
 
 > **Priority:** Must Have
-> **Complexity:** L
+> **Complexity:** M
 > **Depends On:** None
-> **Unlocks:** Plan 02 (auth layer needs the app to exist)
+> **Unlocks:** Plan 02 (auth layer needs the panel to exist)
 
 ## Overview
 
-Create a new top-level `admin/` directory containing a fresh Laravel 13 skeleton with Filament 3 installed. Wire it into Docker Compose as a separate service sharing the existing PostgreSQL, Redis, and Mailpit containers. Add an nginx vhost for `admin.finalcut.test` with TLS via the existing certificate system. Establish the Make targets, progress journal, and README that the rest of the admin plans will build on.
+Install Filament 3 inside the existing `backend/` Laravel app, bind the panel to a dedicated `admin.${APP_DOMAIN}` subdomain via Filament's `->domain()` panel config, add a second nginx vhost that fastcgi-proxies to the same backend PHP-FPM container, and close the pre-existing route-scoping gap so customer API routes can never answer on the admin subdomain (and vice versa). Add a handful of Makefile targets as thin wrappers around `backend/` artisan, scaffold the progress journal, and verify isolation with a Pest test that enumerates the routing table.
 
-This plan produces a Filament login page reachable at `https://admin.finalcut.test/admin/login` — nothing functional beyond that. Auth configuration, users, and resources land in Plan 02+.
+At the end of this plan, hitting `https://admin.finalcut.test/login` renders Filament's default login page (no users exist yet — Plan 02 creates the `admin_users` table and the `admin:create-user` command). Hitting `https://finalcut.test/admin/login` returns 404. Hitting `https://admin.finalcut.test/api/movies` returns 404.
+
+No new Laravel skeleton, no new Dockerfile, no new docker-compose service. Everything lands inside the existing `backend/` app.
 
 ## Version Matrix
 
-Pin these versions explicitly — do not float on majors. Upgrades are a separate, intentional plan.
+Pin exactly — do not float on majors. Upgrades are a separate, intentional plan.
 
 | Component | Version | Notes |
 | --- | --- | --- |
-| PHP base image | `php:8.4.19-fpm-alpine3.23` | **Pinned exactly** to match backend (`backend/Dockerfile` line 11). Do not use floating `php:8.4-fpm` — the backend pins the patch release + Alpine base for reproducible builds and parity between admin and backend on extension availability / CVE patch state. Bump in lockstep with backend. |
-| Laravel | 13.x (latest patch) | `composer create-project laravel/laravel:^13.0`. |
 | Filament | 3.2.x | `filament/filament:"^3.2"`. Do not move to 4.x in this plan. |
-| PostgreSQL | 18 | Shared with backend. No admin-specific version. |
-| Redis | 7.x | Shared with backend. |
-| Composer | 2.x | Installed inside the admin container. |
-
-If Filament 4 or Laravel 14 is released before Plan 01 executes, stay on the versions above and open a follow-up plan to evaluate. Similarly, the PHP base image bumps in lockstep with backend — when `backend/Dockerfile` moves from `php:8.4.19-fpm-alpine3.23` to a newer pin, the admin Dockerfile moves with it in the same PR.
+| Laravel | existing | Backend is already pinned; admin uses whatever backend uses. |
+| PHP | existing | Same — `backend/Dockerfile` owns the PHP version. |
 
 ## Reference Documents
 
-- `docs/superpowers/specs/2026-04-20-admin-section-design.md` — § 2 Architecture & Repo Topology
-- `backend/Dockerfile` — reference for dev container pattern (`devuser`, UID/GID)
-- `docker-compose.yml` — reference for service wiring, shared volumes, networks
-- `nginx/` — existing vhost config format
-- `Makefile` — existing target conventions
+- `docs/superpowers/specs/2026-04-20-admin-section-design.md` — § 2 Architecture, § 2.3 Subdomain isolation & security scoping
+- `backend/bootstrap/app.php` — current route registration (no domain scoping today)
+- `backend/routes/api.php` — customer API routes that need to be scoped to the primary domain
+- `nginx/templates/conf.d/default.conf.template` — reference vhost format for the new admin vhost
+- `nginx/certs/generate-certs.sh` — wildcard cert already covers `*.${APP_DOMAIN}`
+- `Makefile` — existing target conventions (`make shell`, `make migrate`, `make test-backend`)
 
 ---
 
 ## Tasks
 
-### Task 1: Bootstrap Laravel 13 skeleton
+### Task 1: Install Filament 3 in `backend/`
 
 - **MoSCoW:** Must Have
 - **Complexity:** S
 - **Files:**
-  - `admin/` (new directory with full Laravel skeleton)
-  - `admin/composer.json`
-  - `admin/.gitignore` (standard Laravel subdirectory gitignore — this is where ignore rules for admin artifacts live)
+  - `backend/composer.json` (modify)
+  - `backend/composer.lock` (regenerated)
+  - `backend/config/filament.php` (published)
+  - `backend/bootstrap/providers.php` (modify — registers `AdminPanelProvider`)
 - **Details:**
-  Run `composer create-project laravel/laravel:^13.0 admin` from the repo root.
+  Inside the backend container (`make shell`), run:
 
-  **Frontend asset scaffolding:** Leave the default `resources/js/`, `resources/css/`, `package.json`, and `vite.config.js` in place for now. Filament 3 ships its own asset pipeline via `php artisan filament:assets` and does not require Vite for the panel itself. However, later plans (seat editor, schedule planner, any custom Filament pages with bespoke JS/CSS) may need a compiled asset step. Removing the scaffolding now would just create churn when those pages land.
+  ```bash
+  composer require filament/filament:"^3.2" -W
+  php artisan filament:install --panels
+  ```
 
-  Rationale: the unused `package.json` and `vite.config.js` cost nothing in the admin image (Docker build ignores them) and leaving them keeps the door open. Revisit this decision at the end of Plan 01 execution only if the admin app has proven it will never need custom compiled assets.
+  When prompted for the panel ID, use `admin`. The installer generates `backend/app/Providers/Filament/AdminPanelProvider.php` and registers it in `bootstrap/providers.php`. Panel configuration happens in Task 2 — accept the installer defaults for now.
 
-  Keep: `app/`, `bootstrap/`, `config/`, `database/`, `public/`, `resources/`, `routes/`, `storage/`, `tests/`, `artisan`, `composer.json`, `phpunit.xml`, `.env.example`.
+  Publish the Filament config and run the asset publisher:
 
-  Set `admin/.env.example` to reference the shared postgres/redis/mailpit services (matching `backend/.env.example` but with admin-specific app name and session settings — see Task 3).
+  ```bash
+  php artisan vendor:publish --tag=filament-config
+  php artisan filament:assets
+  ```
 
-  **Ignore rules:** Let `admin/.gitignore` (the standard Laravel one generated by `create-project`) own admin-specific ignores — `vendor/`, `node_modules/`, `.env`, `storage/framework/*`, etc. Do not duplicate these at the repo root. Only touch root `.gitignore` if a rule truly needs to apply globally (e.g., OS-level junk files), which none of the admin artifacts do.
+  Filament ships its own asset pipeline — no Vite/npm work needed for the panel itself. `filament:assets` runs once per deploy.
 
 - **Acceptance Criteria:**
-  - [ ] `admin/` directory exists with Laravel 13 skeleton
-  - [ ] `admin/.gitignore` covers admin-specific artifacts (standard Laravel gitignore is sufficient)
-  - [ ] Root `.gitignore` is unchanged by this task
-  - [ ] `admin/.env.example` documents DB/Redis/Mailpit connection env vars
-  - [ ] `composer install` runs clean inside `admin/`
+  - [ ] `filament/filament` 3.2.x present in `backend/composer.json`
+  - [ ] `composer install` succeeds inside the backend container
+  - [ ] `AdminPanelProvider` exists at `backend/app/Providers/Filament/AdminPanelProvider.php` and is registered in `backend/bootstrap/providers.php`
+  - [ ] `php artisan filament:assets` completes without error
 
 ---
 
-### Task 2: Admin container Dockerfile
+### Task 2: Configure the admin panel — subdomain binding, admin guard, session cookie
 
 - **MoSCoW:** Must Have
 - **Complexity:** M
 - **Files:**
-  - `admin/Dockerfile`
-  - `admin/dev-entrypoint.sh`
+  - `backend/app/Providers/Filament/AdminPanelProvider.php` (modify)
+  - `backend/config/filament.php` (modify — read `admin_domain` from env)
+  - `backend/config/app.php` (modify — add `primary_domain` key)
+  - `backend/.env.example` (modify — add `ADMIN_DOMAIN`, `APP_PRIMARY_DOMAIN`, admin session vars)
 - **Details:**
-  Mirror the backend's multi-stage Dockerfile pattern, including the exact pinned base image `php:8.4.19-fpm-alpine3.23` (see Version Matrix above and `backend/Dockerfile` line 11). Development stage must create a `devuser` whose UID/GID matches the host user (build args `DEV_UID`, `DEV_GID` defaulting to 1000). Install extensions: `pdo_pgsql`, `redis`, `intl`, `bcmath`, `gd`, `opcache`, `zip`. Since the image is Alpine-based, install extensions via `apk add --no-cache` + `docker-php-ext-install` / `pecl` in the same style as `backend/Dockerfile` — do not assume Debian package names.
+  Bind the Filament panel to the admin subdomain and to a (not-yet-created) `admin` auth guard. The `admin` guard and the `admin_users` provider are introduced in Plan 02 — this task pre-configures Filament to use them once they exist; until then the panel's login page will render but login will fail (which is fine for Plan 01's acceptance criteria).
 
-  `dev-entrypoint.sh` starts as root, fixes ownership of `storage/` and `bootstrap/cache/`, then `exec` PHP-FPM as `devuser`. Exact pattern from `backend/dev-entrypoint.sh`.
+  Panel config (illustrative — adapt to Filament 3.2's current API):
 
-  Vendor directory uses a named Docker volume (`admin-vendor`) owned by `devuser`. Composer runs inside the container, not on the host.
-
-  Example structure:
-  ```dockerfile
-  FROM php:8.4-fpm AS base
-  RUN apt-get update && apt-get install -y \
-      libpq-dev libzip-dev libicu-dev libpng-dev libjpeg-dev libfreetype6-dev \
-      && docker-php-ext-install pdo_pgsql intl bcmath zip opcache \
-      && pecl install redis && docker-php-ext-enable redis
-
-  FROM base AS development
-  ARG DEV_UID=1000
-  ARG DEV_GID=1000
-  RUN groupadd -g ${DEV_GID} devuser && useradd -u ${DEV_UID} -g devuser -m devuser
-  COPY --chown=devuser:devuser dev-entrypoint.sh /usr/local/bin/dev-entrypoint.sh
-  RUN chmod +x /usr/local/bin/dev-entrypoint.sh
-  WORKDIR /app
-  ENTRYPOINT ["dev-entrypoint.sh"]
-  CMD ["php-fpm"]
+  ```php
+  // backend/app/Providers/Filament/AdminPanelProvider.php
+  public function panel(Panel $panel): Panel
+  {
+      return $panel
+          ->id('admin')
+          ->path('/')                                          // whole subdomain is the panel
+          ->domain(config('filament.admin_domain'))            // e.g. admin.finalcut.test
+          ->authGuard('admin')                                 // created in Plan 02
+          ->login()
+          ->colors(['primary' => Color::Amber])
+          ->discoverResources(in: app_path('Filament/Resources'), for: 'App\\Filament\\Resources')
+          ->discoverPages(in: app_path('Filament/Pages'), for: 'App\\Filament\\Pages')
+          ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\\Filament\\Widgets')
+          ->middleware([
+              EncryptCookies::class,
+              AddQueuedCookiesToResponse::class,
+              StartSession::class,
+              AuthenticateSession::class,
+              ShareErrorsFromSession::class,
+              VerifyCsrfToken::class,
+              SubstituteBindings::class,
+              DisableBladeIconComponents::class,
+              DispatchServingFilamentEvent::class,
+          ])
+          ->authMiddleware([Authenticate::class]);
+  }
   ```
 
+  Add to `backend/config/filament.php`:
+
+  ```php
+  'admin_domain' => env('ADMIN_DOMAIN', 'admin.finalcut.test'),
+  ```
+
+  Add to `backend/config/app.php`:
+
+  ```php
+  'primary_domain' => env('APP_PRIMARY_DOMAIN', 'finalcut.test'),
+  ```
+
+  Add to `backend/.env.example`:
+
+  ```
+  APP_PRIMARY_DOMAIN=finalcut.test
+  ADMIN_DOMAIN=admin.finalcut.test
+  # Session cookie config — admin session cookie is scoped to the admin subdomain
+  # only, never to the customer domain. The customer session cookie (Sanctum +
+  # nuxt-auth-utils) continues to use SESSION_DOMAIN=finalcut.test.
+  ADMIN_SESSION_COOKIE=admin_session
+  ADMIN_SESSION_DOMAIN=admin.finalcut.test
+  # Redis connection name for admin sessions — points at the `session_admin`
+  # entry under config/database.php redis. Keeps admin session keys on their
+  # own Redis database number (REDIS_ADMIN_SESSION_DB, default 3) so they can
+  # never collide with customer sessions on DB 2.
+  ADMIN_SESSION_CONNECTION=session_admin
+  REDIS_ADMIN_SESSION_DB=3
+  ```
+
+  **Session cookie scoping and Redis isolation.** Filament 3 does not natively support per-panel session drivers. Admin session isolation is achieved by two things:
+
+  1. A `ScopeAdminSession` middleware that runs before `StartSession::class` and sets the session cookie name, domain, and **connection** for admin-subdomain requests.
+  2. A new **dedicated Redis connection** `session_admin` declared in `backend/config/database.php` under `redis.*` with its own Redis database number. Customer sessions already land on the `session` connection (database `2` per the existing config); admin sessions land on `session_admin` (database `3`). The per-connection `REDIS_PREFIX` from `database.redis.options.prefix` applies to both, and the separate Redis DB numbers guarantee key-space isolation without any per-request prefix manipulation.
+
+  The middleware body:
+
+  ```php
+  // backend/app/Http/Middleware/ScopeAdminSession.php
+  config()->set('session.cookie', env('ADMIN_SESSION_COOKIE', 'admin_session'));
+  config()->set('session.domain', env('ADMIN_SESSION_DOMAIN', 'admin.finalcut.test'));
+  config()->set('session.connection', env('ADMIN_SESSION_CONNECTION', 'session_admin'));
+  ```
+
+  **Redis connection** — extend `backend/config/database.php`:
+
+  ```php
+  // under 'redis' => [ ... ]
+  'session_admin' => [
+      'url' => env('REDIS_URL'),
+      'scheme' => env('REDIS_SCHEME', 'tcp'),
+      'host' => env('REDIS_HOST', '127.0.0.1'),
+      'username' => env('REDIS_USERNAME'),
+      'password' => env('REDIS_PASSWORD'),
+      'port' => env('REDIS_PORT', '6379'),
+      'database' => env('REDIS_ADMIN_SESSION_DB', '3'),
+      // (copy the rest of the 'session' connection verbatim — same backoff / TLS context config)
+  ],
+  ```
+
+  Register `ScopeAdminSession` inside `AdminPanelProvider::panel()->middleware([...])` as the first entry so it runs before `StartSession`. Document the approach in the middleware's class docblock and in the progress journal.
+
+  Plan 02 will validate this with a session-cookie-scoping feature test and a Redis-key-space test — this task lays the configuration, Plan 02 verifies it against a real `admin_users` login.
+
 - **Acceptance Criteria:**
-  - [ ] Dockerfile builds without errors
-  - [ ] Dev stage creates `devuser` with UID/GID from build args
-  - [ ] PHP extensions match backend
-  - [ ] Entrypoint fixes ownership before dropping to devuser
-  - [ ] Container runs PHP-FPM on port 9000 by default
+  - [ ] `config('filament.admin_domain')` resolves to `admin.finalcut.test` in dev
+  - [ ] `config('app.primary_domain')` resolves to `finalcut.test` in dev
+  - [ ] `AdminPanelProvider` binds `->domain(config('filament.admin_domain'))`
+  - [ ] `AdminPanelProvider` binds `->authGuard('admin')` (even though the guard does not yet exist — it will resolve once Plan 02 lands)
+  - [ ] `ScopeAdminSession` middleware registered and sets `session.cookie`, `session.domain`, `session.connection` for admin requests
+  - [ ] `backend/config/database.php` declares a `session_admin` Redis connection pointing at `REDIS_ADMIN_SESSION_DB` (default `3`), distinct from the existing `session` connection on DB `2`
+  - [ ] `.env.example` documents `ADMIN_SESSION_COOKIE`, `ADMIN_SESSION_DOMAIN`, `ADMIN_SESSION_CONNECTION`, `REDIS_ADMIN_SESSION_DB`
 
 ---
 
-### Task 3: docker-compose admin service
-
-- **MoSCoW:** Must Have
-- **Complexity:** M
-- **Files:**
-  - `docker-compose.yml` (modify)
-- **Details:**
-  Add a new `admin` service to the existing compose file:
-
-  ```yaml
-  admin:
-    build:
-      context: ./admin
-      target: development
-      args:
-        DEV_UID: ${DEV_UID:-1000}
-        DEV_GID: ${DEV_GID:-1000}
-    volumes:
-      - ./admin:/app
-      - admin-vendor:/app/vendor
-    depends_on:
-      - postgres
-      - redis
-      - mailpit
-    environment:
-      APP_ENV: local
-      DB_HOST: postgres
-      REDIS_HOST: redis
-      MAIL_HOST: mailpit
-      MAIL_PORT: 1025
-    networks:
-      - finalcut
-
-  volumes:
-    admin-vendor:
-  ```
-
-  Add `admin.finalcut.test` handling to the existing `nginx` service — see Task 4 for the vhost file itself.
-
-- **Acceptance Criteria:**
-  - [ ] `admin` service declared with correct build context and target
-  - [ ] Mounts source and named vendor volume
-  - [ ] Depends on postgres, redis, mailpit
-  - [ ] Environment variables point at shared services
-  - [ ] `admin-vendor` named volume declared
-  - [ ] `make up` starts the admin container without errors
-
----
-
-### Task 4: Nginx vhost for admin.finalcut.test
+### Task 3: Nginx admin vhost
 
 - **MoSCoW:** Must Have
 - **Complexity:** S
 - **Files:**
-  - `nginx/conf.d/admin.finalcut.test.conf` (new)
-  - `scripts/generate-certs.sh` or equivalent (modify to include admin domain if needed)
+  - `nginx/templates/conf.d/admin.conf.template` (new)
 - **Details:**
-  New vhost terminating TLS and proxying to the admin PHP-FPM container. Parallel to existing `finalcut.test` config but pointing at the `admin` service's fastcgi endpoint.
+  Add a second template file alongside the existing `default.conf.template`. The nginx image auto-renders every `.template` file in `/etc/nginx/templates/` with `envsubst`, so the new file needs no compose changes.
+
+  **Match the existing `default.conf.template` conventions** — env-var cert paths, Docker DNS resolver, `set $upstream_backend`-style upstream variable (not an `upstream {}` block), and the same security-header stack. Deviating would create subtle drift between the two vhosts.
 
   ```nginx
+  # admin.conf.template — served on admin.${APP_DOMAIN}, fastcgi to the same
+  # backend PHP-FPM container as the customer vhost. Never proxies to frontend.
+
+  # ── HTTP → HTTPS redirect ─────────────────
   server {
-      listen 443 ssl http2;
-      server_name admin.finalcut.test;
-      root /var/www/admin/public;
+      listen 80;
+      server_name admin.${APP_DOMAIN};
 
-      ssl_certificate /etc/nginx/certs/admin.finalcut.test.crt;
-      ssl_certificate_key /etc/nginx/certs/admin.finalcut.test.key;
+      location /.well-known/acme-challenge/ {
+          root /var/www/certbot;
+      }
 
+      location / {
+          return 301 https://$host$request_uri;
+      }
+  }
+
+  # ── HTTPS — Admin panel ───────────────────
+  server {
+      listen 443 ssl;
+      http2 on;
+      server_name admin.${APP_DOMAIN};
+
+      # Docker DNS resolver so the upstream resolves at request time, not at
+      # startup — same pattern as default.conf.template.
+      resolver 127.0.0.11 valid=30s;
+      set $upstream_backend backend:9000;
+
+      # ── SSL/TLS — use the shared cert env vars ──
+      ssl_certificate     ${SSL_CERTIFICATE};
+      ssl_certificate_key ${SSL_CERTIFICATE_KEY};
+      ssl_protocols       TLSv1.2 TLSv1.3;
+      ssl_ciphers         ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305;
+      ssl_prefer_server_ciphers on;
+      ssl_session_cache   shared:SSL:10m;
+      ssl_session_timeout 10m;
+      ssl_session_tickets off;
+
+      # ── SSL snippets (OCSP stapling in prod; empty in dev) ──
+      include /etc/nginx/snippets/*.conf;
+
+      # ── Security headers — same baseline as customer vhost ──
+      add_header X-Content-Type-Options "nosniff" always;
+      add_header X-XSS-Protection       "1; mode=block" always;
+      add_header Referrer-Policy        "strict-origin-when-cross-origin" always;
+      add_header Permissions-Policy     "camera=(), microphone=(), geolocation=()" always;
+      add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+
+      # ── Fail2Ban banned IPs (shared with the customer vhost) ──
+      include /etc/nginx/banned/banned-ips.conf;
+
+      # ── Block dot-files ──────────────────
+      location ~ /\.(?:env|git|htaccess|htpasswd|svn|hg|DS_Store|docker) {
+          deny all;
+          return 404;
+      }
+
+      # --- Plan 09 will insert IP allowlist + rate-limit directives here ---
+      # --- They are intentionally absent in Plan 01 to keep scope honest. ---
+
+      root /var/www/html/public;
       index index.php;
 
       location / {
@@ -185,142 +270,202 @@ If Filament 4 or Laravel 14 is released before Plan 01 executes, stay on the ver
       }
 
       location ~ \.php$ {
-          fastcgi_pass admin:9000;
+          fastcgi_pass $upstream_backend;
           fastcgi_index index.php;
-          fastcgi_param SCRIPT_FILENAME $realpath_root$fastcgi_script_name;
+          fastcgi_param SCRIPT_FILENAME /var/www/html/public/index.php;
+          fastcgi_param SCRIPT_NAME /index.php;
           include fastcgi_params;
+          fastcgi_param HTTP_X_FORWARDED_PROTO $scheme;
+          fastcgi_param HTTP_X_FORWARDED_FOR   $proxy_add_x_forwarded_for;
+          fastcgi_param HTTP_X_REAL_IP         $remote_addr;
+          fastcgi_buffers 16 16k;
+          fastcgi_buffer_size 32k;
+          fastcgi_connect_timeout 60s;
+          fastcgi_send_timeout    60s;
+          fastcgi_read_timeout    60s;
+          fastcgi_hide_header X-Powered-By;
+          fastcgi_hide_header X-Served-By;
       }
-  }
 
-  server {
-      listen 80;
-      server_name admin.finalcut.test;
-      return 301 https://$host$request_uri;
+      # Never proxy_pass to the Nuxt frontend from the admin vhost.
+      # The admin panel is server-rendered entirely by PHP-FPM.
   }
   ```
 
-  **Scope note:** This task establishes only the vhost and TLS termination. Rate-limiting the login endpoint, IP allowlists, fail2ban rules, and other production-style hardening belong to Plan 09 (Hardening & Observability). Adding a rate-limit zone here would bind Plan 01 to decisions (zone size, rate, burst, shared vs per-app) that Plan 09 should own.
+  **Certs.** `nginx/certs/generate-certs.sh:71` generates a wildcard SAN including `*.${APP_DOMAIN}`, so the admin subdomain is already covered by the cert that `${SSL_CERTIFICATE}` / `${SSL_CERTIFICATE_KEY}` point at. No cert regeneration required. If the cert script is later narrowed, the admin vhost will break the same way the customer vhost would — Plan 01's smoke tests catch that.
 
-  Regenerate certs via `make certs`. Confirm the cert generator script handles the new subdomain — if it currently hardcodes `finalcut.test`, extend it to also produce `admin.finalcut.test.crt/key` from the same root CA.
+  **Scope note.** IP allowlist, rate limiting, and Fail2ban belong to Plan 09. This task establishes only the vhost and TLS termination.
 
-  Mount `admin/public` into the nginx container (it's already mounting backend's public dir; duplicate the pattern).
+  **Windows hosts file (WSL2).** Dev users need `admin.finalcut.test` added to `C:\Windows\System32\drivers\etc\hosts` pointing at `127.0.0.1`. Document this in `docs/progress/admin-v1.md` setup notes (Task 6). No automation — it's a one-time user step.
 
 - **Acceptance Criteria:**
-  - [ ] `admin.finalcut.test.conf` proxies to admin container's PHP-FPM
-  - [ ] HTTP redirects to HTTPS
-  - [ ] `make certs` produces admin domain cert signed by the same local CA
-  - [ ] nginx reloads successfully with the new vhost
-  - [ ] No rate-limit or throttling directives introduced in this plan (deferred to Plan 09)
+  - [ ] `nginx/templates/conf.d/admin.conf.template` exists and is valid nginx syntax
+  - [ ] Rendered vhost serves `admin.${APP_DOMAIN}` with TLS from the existing `${SSL_CERTIFICATE}` / `${SSL_CERTIFICATE_KEY}` env vars — same cert env vars as `default.conf.template`
+  - [ ] HTTP → HTTPS redirect works, including the `/.well-known/acme-challenge/` webroot path
+  - [ ] Upstream declared via `set $upstream_backend backend:9000;` + Docker DNS `resolver 127.0.0.11 valid=30s;` — matches `default.conf.template`, no `upstream {}` block
+  - [ ] Same security headers as customer vhost (X-Content-Type-Options, Referrer-Policy, HSTS, etc.)
+  - [ ] `location ~ \.php$` fastcgis to `$upstream_backend` with the same `fastcgi_param` set as `default.conf.template`
+  - [ ] No `proxy_pass` to the frontend service in this vhost
+  - [ ] No rate-limit or IP-allowlist directives (deferred to Plan 09)
+  - [ ] After `make up`, `curl -ks https://admin.finalcut.test/` returns a response from Laravel (200 or 302 redirect to Filament login once Task 2's config is live)
 
 ---
 
-### Task 5: Add Windows hosts entry (WSL2 dev workflow)
+### Task 4: Laravel route-domain scoping + `RouteDomainScopingTest`
 
 - **MoSCoW:** Must Have
-- **Complexity:** XS
+- **Complexity:** M
 - **Files:**
-  - `README.md` or `docs/architecture/SITE_ARCHITECTURE.md` (document step)
+  - `backend/bootstrap/app.php` (modify)
+  - `backend/tests/Feature/RouteDomainScopingTest.php` (new)
 - **Details:**
-  WSL2 users need `admin.finalcut.test` added to the Windows `C:\Windows\System32\drivers\etc\hosts` file pointing to `127.0.0.1`. Document this in the project README's setup section.
+  Today, every route in `backend/routes/api.php` and `backend/routes/web.php` answers on any `Host` header because `bootstrap/app.php` loads the routes without domain constraints. `web.php` currently registers two catch-all JSON 404 routes (`Route::any('/')` and `Route::any('{fallbackPlaceholder}')`) — both useful on the customer domain, neither needed on the admin domain where Filament owns every path. Once `admin.finalcut.test` proxies to the same PHP-FPM container, unscoped API routes would leak onto the admin domain *and* the `web.php` fallbacks would answer for any path Filament hasn't claimed.
 
-  No automation — this is a user step documented once.
+  Replace the default route registration with a `then:` closure that binds both API and web routes to the primary domain. Filament's `AdminPanelProvider->domain(...)` (Task 2) binds every Filament-registered route to the admin subdomain. Customer API + web routes answer only on the primary domain; admin routes answer only on the admin domain:
+
+  ```php
+  // backend/bootstrap/app.php
+  return Application::configure(basePath: dirname(__DIR__))
+      ->withRouting(
+          commands: __DIR__.'/../routes/console.php',
+          health: '/up',
+          then: function () {
+              Route::domain(config('app.primary_domain'))->group(function () {
+                  Route::middleware('api')
+                      ->prefix('api')
+                      ->group(base_path('routes/api.php'));
+                  Route::middleware('web')
+                      ->group(base_path('routes/web.php'));
+              });
+          },
+      )
+      // ...
+  ```
+
+  Drop the `web:` and `api:` arguments — the `then:` closure replaces both. On the admin subdomain, requests that don't match a Filament panel route fall through to Laravel's default 404 handling, which is the correct behavior (admins hitting unknown paths should get a plain 404, not the customer-site fallback).
+
+  **Test — `backend/tests/Feature/RouteDomainScopingTest.php`:**
+
+  ```php
+  <?php
+
+  use Illuminate\Support\Facades\Route;
+
+  it('scopes every API route to the primary domain', function () {
+      $primary = config('app.primary_domain');
+
+      $apiRoutes = collect(Route::getRoutes())
+          ->filter(fn ($r) => str_starts_with($r->uri(), 'api/'));
+
+      expect($apiRoutes)->not->toBeEmpty();
+
+      foreach ($apiRoutes as $route) {
+          expect($route->getDomain())
+              ->toBe($primary, "Route {$route->uri()} leaks onto non-primary domain");
+      }
+  });
+
+  it('scopes every web route (including the catch-all fallbacks) to the primary domain', function () {
+      $primary = config('app.primary_domain');
+
+      // The catch-all fallbacks in backend/routes/web.php — `/` and the wildcard
+      // `{fallbackPlaceholder}` — must not answer on the admin subdomain, or
+      // Filament's 404 behavior on the admin panel gets masked by customer
+      // fallback JSON.
+      $webFallbacks = collect(Route::getRoutes())
+          ->filter(fn ($r) => in_array($r->uri(), ['/', '{fallbackPlaceholder}']));
+
+      expect($webFallbacks)->not->toBeEmpty();
+
+      foreach ($webFallbacks as $route) {
+          expect($route->getDomain())
+              ->toBe($primary, "Web route {$route->uri()} leaks off the primary domain");
+      }
+  });
+
+  it('scopes every Filament panel route to the admin domain', function () {
+      $adminDomain = config('filament.admin_domain');
+
+      $filamentRoutes = collect(Route::getRoutes())
+          ->filter(fn ($r) => str_contains($r->getName() ?? '', 'filament.admin'));
+
+      expect($filamentRoutes)->not->toBeEmpty();
+
+      foreach ($filamentRoutes as $route) {
+          expect($route->getDomain())
+              ->toBe($adminDomain, "Filament route {$route->uri()} leaks off the admin domain");
+      }
+  });
+
+  it('no registered route has a null domain', function () {
+      $unscoped = collect(Route::getRoutes())
+          ->filter(fn ($r) => $r->getDomain() === null)
+          // Exempt internal framework routes that Laravel registers without a
+          // domain (like /up health check and Sanctum's CSRF cookie endpoint).
+          // Keep this list tight — every addition is a potential cross-domain leak.
+          ->filter(fn ($r) => !in_array($r->uri(), ['up', 'sanctum/csrf-cookie']));
+
+      expect($unscoped)->toBeEmpty(
+          'Routes without a domain constraint: ' . $unscoped->pluck('uri')->implode(', ')
+      );
+  });
+  ```
+
+  The fourth test is the most important — it catches a future contributor adding an endpoint outside both domain groups. The second test pins the web.php fallback scoping specifically so that regression is caught by name.
 
 - **Acceptance Criteria:**
-  - [ ] Setup docs list the admin subdomain as a hosts entry
-  - [ ] User can resolve `admin.finalcut.test` from host browser
+  - [ ] `backend/bootstrap/app.php` uses a `then:` closure that wraps BOTH `api.php` and `web.php` in `Route::domain(config('app.primary_domain'))` — the `web:` and `api:` arguments are dropped
+  - [ ] `php artisan route:list --domain=admin.finalcut.test` lists Filament routes and zero API or web-fallback routes
+  - [ ] `php artisan route:list --domain=finalcut.test` lists API + web-fallback routes and zero Filament routes
+  - [ ] `backend/tests/Feature/RouteDomainScopingTest.php` exists and all four tests pass under `make test-backend`
+  - [ ] `curl -ks https://admin.finalcut.test/api/movies` returns 404
+  - [ ] `curl -ks https://admin.finalcut.test/random-nonsense` returns a plain 404 (not the customer fallback JSON from `web.php`)
+  - [ ] `curl -ks https://finalcut.test/admin/login` returns 404 (or the customer web-fallback 404 JSON — never renders Filament)
 
 ---
 
-### Task 6: Install Filament 3
-
-- **MoSCoW:** Must Have
-- **Complexity:** S
-- **Files:**
-  - `admin/composer.json` (modify)
-  - `admin/app/Providers/Filament/AdminPanelProvider.php` (generated)
-  - `admin/config/filament.php` (published)
-- **Details:**
-  Inside the admin container (`make admin-shell`), run:
-
-  ```bash
-  composer require filament/filament:"^3.2" -W
-  php artisan filament:install --panels
-  ```
-
-  When prompted for the panel ID, use `admin`. This generates `AdminPanelProvider` at path `/admin`.
-
-  Publish the Filament config:
-  ```bash
-  php artisan vendor:publish --tag=filament-config
-  ```
-
-  Register Filament's service provider if the installer doesn't auto-register it (`bootstrap/providers.php`).
-
-  Filament includes its own asset pipeline via `php artisan filament:assets` — no Vite/npm needed in the admin app. Run this once per deploy.
-
-- **Acceptance Criteria:**
-  - [ ] `filament/filament` 3.2.x installed (per version matrix above)
-  - [ ] `AdminPanelProvider` registered
-  - [ ] Panel mounted at `/admin`
-  - [ ] `php artisan filament:assets` completes without error and Filament's static assets are published under `public/`
-  - [ ] Visiting `https://admin.finalcut.test/admin` redirects to `/admin/login` and the default Filament login page renders with its CSS/JS loaded (no 404s in the network tab)
-
----
-
-### Task 7: Makefile targets
+### Task 5: Makefile targets
 
 - **MoSCoW:** Must Have
 - **Complexity:** S
 - **Files:**
   - `Makefile` (modify)
 - **Details:**
-  Add the following targets, matching the existing `backend-*` target style:
+  Admin runs inside the backend container, so admin Make targets are thin wrappers around the existing backend commands. Their value is clarity ("I want to do an admin-related thing") rather than new mechanics.
+
+  Add to `Makefile`:
 
   ```makefile
   admin-shell:
-  	docker compose exec -u 1000 admin sh
-  # Alpine-based image has no bash by default — use `sh` to match the existing
-  # `make shell` target in the backend Makefile. If a future plan adds bash to the
-  # admin image, this can be switched, but until then `sh` is the correct default.
-
-  admin-install:
-  	docker compose exec -u 1000 admin composer install
-  	docker compose exec -u 1000 admin php artisan key:generate
-  	docker compose exec -u 1000 admin php artisan storage:link
-  	docker compose exec -u 1000 admin php artisan filament:assets
+  	docker compose exec -u 1000 backend sh
 
   admin-migrate:
-  	docker compose exec -u 1000 admin php artisan migrate
-
-  # Plan 01 has no admin migrations or seeders yet. `--seed` is intentionally omitted
-  # until Plan 02 introduces users/roles seeders. Plan 02 will add `--seed` back.
-  admin-fresh:
-  	docker compose exec -u 1000 admin php artisan migrate:fresh
+  	docker compose exec -u 1000 backend php artisan migrate
 
   admin-test:
-  	docker compose exec -u 1000 admin php artisan test
+  	docker compose exec -u 1000 backend php artisan test --testsuite=Feature --filter=Admin
 
-  admin-artisan:
-  	docker compose exec -u 1000 admin php artisan $(filter-out $@,$(MAKECMDGOALS))
+  admin-create-user:
+  	docker compose exec -u 1000 -it backend php artisan admin:create-user
+
+  admin-filament-assets:
+  	docker compose exec -u 1000 backend php artisan filament:assets
   ```
 
-  Update the existing `test` target (or add `test-all`) to run backend + frontend + admin:
+  `admin-test` filters to the `Admin` namespace under `backend/tests/Feature/`. `admin-create-user` is defined here but the artisan command it calls is created in Plan 02 Task 2 — running it before Plan 02 fails with "command not found," which is fine.
 
-  ```makefile
-  test-all: test-backend test-frontend admin-test
-  ```
+  Do not add a new `test-all` target; the existing `make test` already runs backend (which includes admin tests) + frontend.
 
 - **Acceptance Criteria:**
-  - [ ] `make admin-shell` opens a shell as UID 1000
-  - [ ] `make admin-install` completes without error
-  - [ ] `make admin-migrate` runs (no admin migrations yet, but command succeeds)
-  - [ ] `make admin-fresh` runs `migrate:fresh` without `--seed` (Plan 02 reintroduces seeding once user/role seeders exist)
-  - [ ] `make admin-test` runs the default Laravel test and passes
-  - [ ] `make test-all` runs all three suites
+  - [ ] All five targets added to `Makefile`
+  - [ ] `make admin-shell` opens a shell as UID 1000 in the backend container
+  - [ ] `make admin-test` runs with no filter matches (no admin tests yet) and exits 0 (or reports "no tests executed" — both acceptable in Plan 01)
+  - [ ] `make admin-create-user` fails cleanly with "command not found" until Plan 02 adds the artisan command
+  - [ ] `make admin-filament-assets` runs and re-publishes Filament assets
 
 ---
 
-### Task 8: Scaffold progress journal
+### Task 6: Scaffold progress journal
 
 - **MoSCoW:** Must Have
 - **Complexity:** XS
@@ -334,7 +479,7 @@ If Filament 4 or Laravel 14 is released before Plan 01 executes, stay on the ver
 
   Tracks execution of `docs/plans/admin/v1/*`.
 
-  ## Step 1: Admin App Scaffold & Docker
+  ## Step 1: Admin Panel Scaffold & Nginx Vhost
   **Status:** 🟡 In Progress
   **Started:** YYYY-MM-DD
   **Completed:** —
@@ -358,87 +503,44 @@ If Filament 4 or Laravel 14 is released before Plan 01 executes, stay on the ver
 
   All nine steps scaffolded with status `🔲 Not Started` except Step 1 which is `🟡 In Progress` during execution of this plan.
 
+  Include a one-time WSL2 setup note in the Step 1 body: "Add `admin.finalcut.test 127.0.0.1` to `C:\Windows\System32\drivers\etc\hosts`."
+
 - **Acceptance Criteria:**
   - [ ] `docs/progress/admin-v1.md` exists with all 9 step headers
   - [ ] Format matches `docs/progress/backend-v1.md`
   - [ ] Step 1 reflects in-progress state
-
----
-
-### Task 9: Admin README
-
-- **MoSCoW:** Must Have
-- **Complexity:** XS
-- **Files:**
-  - `admin/README.md` (new)
-- **Details:**
-  Short README inside `admin/` explaining:
-
-  - What this app is (Filament admin panel for Final Cut)
-  - Domain: `https://admin.finalcut.test` (dev) / `https://admin.finalcut.com` (prod)
-  - Commands: `make admin-shell`, `make admin-migrate`, `make admin-test`, etc.
-  - Where the spec and plans live (`docs/plans/admin/v1/`)
-  - **Write-boundary reminder:** "Shared-table mutations with business invariants (bookings, showtimes, seats, gift cards, payments, etc.) must go through the `FinalCut\\Domain\\Services\\*` classes in the `packages/shared-domain` Composer package. Do not introduce direct Filament-to-Eloquent writes for invariant-heavy models — phpstan + deptrac rules (Plan 03 Task 7) fail CI on violations. The shared-package boundary is the ADR-committed mechanism (Plan 03 Task 1 / ADR-001), not a placeholder."
-  - Reminder: progress journal at `docs/progress/admin-v1.md`
-
-  Keep it short — this is a pointer, not a full doc.
-
-- **Acceptance Criteria:**
-  - [ ] `admin/README.md` exists
-  - [ ] Documents domain, commands, and spec pointer
-  - [ ] Notes the write-boundary principle and names the shared-domain Composer package (`packages/shared-domain`, `FinalCut\Domain\` namespace) as the committed mechanism — points at Plan 03 ADR-001 for the full rationale and Plan 03 Task 7 for CI enforcement
-
----
-
-### Task 10: Update root CLAUDE.md
-
-- **MoSCoW:** Must Have
-- **Complexity:** XS
-- **Files:**
-  - `CLAUDE.md` (modify)
-- **Details:**
-  Add an "Admin App" section to `CLAUDE.md` documenting:
-
-  - Separate Laravel 13 app at `admin/`, Filament 3.2, domain `admin.finalcut.test`
-  - Shared DB with backend; admin models mirror backend schema
-  - **Write boundary (principle, not mechanism):** shared-table mutations with business invariants must go through approved domain actions / service boundaries defined in the admin spec. Do not introduce direct Filament-to-Eloquent writes for invariant-heavy models. The concrete integration mechanism (shared package, internal HTTP, shared code, etc.) is an open design question for Plan 03 and later — do not pretend it's settled here.
-  - Make commands: `make admin-shell`, `make admin-migrate`, `make admin-fresh` (no `--seed` until Plan 02), `make admin-test`, `make test-all`
-  - Reference: `docs/plans/admin/v1/00-index.md` and `docs/superpowers/specs/2026-04-20-admin-section-design.md`
-
-  Also add admin to the `## Documentation` section's navigation.
-
-- **Acceptance Criteria:**
-  - [ ] Admin section added to `CLAUDE.md`
-  - [ ] Make commands documented (including the no-`--seed` caveat for `admin-fresh`)
-  - [ ] Write-boundary stated as a principle, with an explicit note that the integration mechanism is still an open question
-  - [ ] Links to spec and plan index
+  - [ ] WSL2 hosts-file setup step documented
 
 ---
 
 ## Testing Requirements
 
-- **Smoke test:** `make up` brings the admin container online, nginx serves `https://admin.finalcut.test/admin/login` with Filament's default login page
-- **No unit tests in this plan** — there is no business logic yet. Plan 02 begins the test suite.
+**Smoke tests** (run after `make up`):
+
+- `curl -ks https://admin.finalcut.test/` returns an HTTP 200/302 from Laravel (Filament login redirect)
+- `curl -ks https://admin.finalcut.test/login` renders Filament's default login page
+- `curl -ks https://finalcut.test/admin/login` returns 404
+- `curl -ks https://admin.finalcut.test/api/movies` returns 404
+
+**Pest tests:**
+
+- `backend/tests/Feature/RouteDomainScopingTest.php` — three tests, all pass under `make test-backend`
+- No other unit tests in this plan — business logic starts in Plan 02.
 
 ## Dependencies Map
 
 ```text
-Task 1 (Laravel skeleton) ← foundational
-Task 2 (Dockerfile) ← needs Task 1
-Task 3 (compose service) ← needs Task 2
-Task 4 (nginx vhost) ← needs Task 3
-Task 5 (hosts docs) ← needs Task 4
-Task 6 (Filament install) ← needs Task 3 (runs inside container)
-Task 7 (Makefile) ← needs Task 3 (targets call docker compose)
-Task 8 (progress journal) ← parallel to rest
-Task 9 (admin README) ← parallel to rest
-Task 10 (CLAUDE.md) ← parallel to rest
+Task 1 (Filament install) ← foundational
+Task 2 (panel config) ← needs Task 1
+Task 3 (nginx vhost) ← parallel to Task 2 (independent)
+Task 4 (route-domain scoping + test) ← needs Task 2 (reads config('filament.admin_domain'))
+Task 5 (Makefile) ← parallel (no dependency on the other tasks)
+Task 6 (progress journal) ← parallel
 ```
 
 ## Risks & Open Questions
 
-1. **Cert generator scope.** If `scripts/generate-certs.sh` hardcodes the customer domain, extending it for the admin subdomain may be more work than assumed. Verify before committing to Task 4's "same CA" approach.
-2. **Filament install inside Docker.** The installer may prompt interactively; use `--no-interaction` flags where possible and document any required manual answers in the admin README.
-3. **PHP-FPM resource contention.** Admin and backend run separate PHP-FPM containers but share postgres and redis. Monitor for connection pool exhaustion in dev if multiple engineers work on both simultaneously. Not a v1 blocker — document if it becomes an issue.
-4. **Admin ↔ backend integration mechanism is undecided.** The spec asserts admin writes to shared tables must go through backend domain services, but the mechanical integration path (shared package, internal HTTP, shared code, etc.) is not settled. Plan 01 deliberately does not pick one. Plan 03 (and whichever plan first introduces a shared-table mutation from admin) must resolve this before any invariant-heavy write ships from the admin app.
-5. **Asset tooling decision is provisional.** Plan 01 keeps the default Laravel frontend scaffolding (`resources/js/`, `resources/css/`, `package.json`, `vite.config.js`) in place in case later plans need a compiled asset step. If by the end of v1 no admin feature has needed custom JS/CSS compilation, a follow-up cleanup plan may strip it. Do not treat it as committed infrastructure.
+1. **Filament installer prompts interactively.** Use `--no-interaction` where possible and document any required manual answers in the progress journal.
+2. **Session cookie scoping via middleware is Filament-3-specific.** If Filament 4 (or a Filament 3 minor bump) exposes a first-class per-panel session config, migrate `ScopeAdminSession` to that API. For now, the middleware approach is the supported path.
+3. **`web.php` growth.** Both `web.php` and `api.php` are wrapped in `Route::domain(config('app.primary_domain'))` in this plan, so any future web routes are primary-domain-scoped by default. If a future feature genuinely needs a cross-domain fallback (e.g., a unified health page), it must register the route *outside* the `then:` closure with its own explicit domain handling and is then captured by the "no null domain" regression test — making such additions a conscious choice, not an accident.
+4. **Shared PHP-FPM process pool.** Admin and customer API run in the same PHP-FPM container. A slow admin operation consumes a worker that the customer API could have used. Not a Plan 01 concern, but Plan 09 documents the risk and its mitigations (queued heavy work, per-vhost resource limits via `location` blocks if needed).
