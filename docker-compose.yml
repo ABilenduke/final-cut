@@ -57,6 +57,16 @@ services:
       backend:
         condition: service_healthy
     restart: unless-stopped
+    # Expose nginx on the configured domain(s) via Docker DNS so sibling
+    # containers (frontend SSR, playwright) can reach it with the real
+    # hostname and match the TLS cert's SAN list. Without this, they'd
+    # have to use the service name `nginx`, which fails both the TLS
+    # cert check and Laravel's route-domain constraint.
+    networks:
+      default:
+        aliases:
+          - ${APP_DOMAIN:-finalcut.test}
+          - admin.${APP_DOMAIN:-finalcut.test}
 
   # ── Fail2Ban sidecar ───────────────────────
   # Watches nginx access logs and bans abusive IPs by writing

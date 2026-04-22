@@ -58,29 +58,17 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Primary (Customer) Domain(s)
+    | Primary (Customer) Domain
     |--------------------------------------------------------------------------
     |
-    | Host(s) the customer-facing surface (Nuxt frontend + Laravel API) is
+    | The hostname the customer-facing surface (Nuxt frontend + Laravel API) is
     | served on. Used by bootstrap/app.php to scope the api and web route
     | groups via Route::domain(), keeping customer routes off the admin
     | subdomain. Asserted by RouteDomainScopingTest.
     |
-    | `APP_PRIMARY_DOMAIN` accepts either a single host (`finalcut.test`) or
-    | a comma-separated list (`finalcut.test,nginx`). The first entry is
-    | the canonical domain and is what tests assert against; additional
-    | entries are alternates that must also be recognised — used in e2e
-    | where Nuxt SSR and Playwright reach the backend via the Docker DNS
-    | hostname `nginx` rather than the APP_URL host.
-    |
     */
 
-    'primary_domain' => explode(',', (string) env('APP_PRIMARY_DOMAIN', 'finalcut.test'))[0],
-
-    'primary_domains' => array_values(array_filter(array_map(
-        'trim',
-        explode(',', (string) env('APP_PRIMARY_DOMAIN', 'finalcut.test')),
-    ))),
+    'primary_domain' => env('APP_PRIMARY_DOMAIN', 'finalcut.test'),
 
     /*
     |--------------------------------------------------------------------------

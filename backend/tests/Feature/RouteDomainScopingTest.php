@@ -10,7 +10,6 @@ use Illuminate\Support\Facades\Route;
  */
 beforeEach(function (): void {
     $this->primaryDomain = config('app.primary_domain');
-    $this->primaryDomains = config('app.primary_domains');
     $this->adminDomain = config('filament.admin_domain');
 });
 
@@ -25,12 +24,10 @@ test('customer api routes are scoped to the primary domain', function (): void {
 
     foreach ($apiRoutes as $route) {
         expect($route->domain())
-            ->toBeIn($this->primaryDomains, sprintf(
-                'Route [%s %s] is scoped to [%s] which is not one of the configured primary domains [%s].',
+            ->toBe($this->primaryDomain, sprintf(
+                'Route [%s %s] is missing the primary-domain scope.',
                 implode('|', $route->methods()),
                 $route->uri(),
-                $route->domain() ?? 'null',
-                implode(', ', $this->primaryDomains),
             ));
     }
 });
@@ -40,16 +37,12 @@ test('web.php fallback routes are scoped to the primary domain', function (): vo
     // domain), so restrict the search to customer-domain routes before
     // matching URIs.
     $customerRoutes = collect(Route::getRoutes()->getRoutes())
-        ->filter(fn ($route) => in_array($route->domain(), $this->primaryDomains, true));
+        ->filter(fn ($route) => $route->domain() === $this->primaryDomain);
 
     foreach (['/', '{fallbackPlaceholder}'] as $uri) {
         $match = $customerRoutes->first(fn ($route) => $route->uri() === $uri);
 
-        expect($match)->not->toBeNull(sprintf(
-            'Expected web fallback route [%s] on one of the primary domains [%s].',
-            $uri,
-            implode(', ', $this->primaryDomains),
-        ));
+        expect($match)->not->toBeNull("Expected web fallback route [{$uri}] on the primary domain.");
     }
 });
 
