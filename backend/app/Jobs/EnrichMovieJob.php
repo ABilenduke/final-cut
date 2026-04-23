@@ -16,7 +16,7 @@ class EnrichMovieJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    public function __construct(public int $movieId) {}
+    public function __construct(public int $movieId, public string $lockOwner) {}
 
     public function handle(TmdbService $tmdb): void
     {
@@ -27,7 +27,10 @@ class EnrichMovieJob implements ShouldQueue
                 $tmdb->enrichMovie($movie);
             }
         } finally {
-            Cache::lock(MovieService::enrichmentLockKey($this->movieId))->forceRelease();
+            // Ownership-checked release: if TTL already expired and a fresh
+            // trigger acquired a new lock, this is a no-op — we don't wipe
+            // another dispatch's lock.
+            Cache::restoreLock(MovieService::enrichmentLockKey($this->movieId), $this->lockOwner)->release();
         }
     }
 }

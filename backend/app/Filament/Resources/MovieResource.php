@@ -3,6 +3,7 @@
 namespace App\Filament\Resources;
 
 use App\Enums\MovieStatus;
+use App\Exceptions\MovieHasBookingsException;
 use App\Filament\Concerns\TimestampColumns;
 use App\Filament\Resources\MovieResource\Pages;
 use App\Filament\Resources\MovieResource\RelationManagers;
@@ -22,6 +23,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Filament\Support\Exceptions\Halt;
 use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
@@ -116,13 +118,21 @@ class MovieResource extends BaseResource
                 ->schema([
                     Repeater::make('cast')
                         ->schema([
+                            // `id` is optional for manual entries but must be declared so
+                            // Filament's pruneStateToMatchKeys preserves TMDB-populated
+                            // person IDs on edit. Also used as the Vue :key on the frontend.
+                            TextInput::make('id')
+                                ->numeric()
+                                ->helperText('TMDB person ID (auto-populated by enrichment)'),
                             TextInput::make('name')->required(),
                             TextInput::make('character')->required(),
                             TextInput::make('profileUrl')->url()->label('Profile URL'),
                         ])
-                        ->columns(3)
+                        ->columns(4)
                         ->reorderable()
-                        ->collapsed(),
+                        ->collapsed()
+                        ->defaultItems(0)
+                        ->helperText('Usually populated by TMDB enrichment — edit manually only for custom entries.'),
                 ]),
         ]);
     }
@@ -133,12 +143,11 @@ class MovieResource extends BaseResource
             ->columns([
                 ImageColumn::make('poster_url')
                     ->label('Poster')
-                    ->defaultImageUrl('/images/movie-placeholder.png')
                     ->extraImgAttributes(['style' => 'max-height:3rem']),
                 TextColumn::make('title')->searchable()->sortable(),
                 TextColumn::make('status')
                     ->badge()
-                    ->formatStateUsing(fn ($state) => self::statusValue($state))
+                    ->formatStateUsing(fn ($state) => self::statusOptions()[self::statusValue($state)] ?? self::statusValue($state))
                     ->color(fn ($state): string => match (self::statusValue($state)) {
                         MovieStatus::NowShowing->value => 'success',
                         MovieStatus::ComingSoon->value => 'warning',
@@ -204,12 +213,26 @@ class MovieResource extends BaseResource
     /**
      * DeleteAction that routes deletion through MovieService so activity_log
      * attribution fires. Stock DeleteAction bypasses the service — guarded by test.
+     * Catches MovieHasBookingsException so the admin sees a clear notification
+     * instead of a generic error toast when the booking-cascade guard trips.
      */
     public static function serviceDeleteAction(): DeleteAction
     {
         return DeleteAction::make()
-            ->using(fn (Movie $record) => app(MovieService::class)
-                ->delete($record, auth('admin')->user()));
+            ->using(function (Movie $record) {
+                try {
+                    app(MovieService::class)->delete($record, auth('admin')->user());
+                } catch (MovieHasBookingsException $e) {
+                    Notification::make()
+                        ->title('Cannot delete movie')
+                        ->body($e->getMessage())
+                        ->danger()
+                        ->persistent()
+                        ->send();
+
+                    throw new Halt;
+                }
+            });
     }
 
     private static function statusBulkAction(string $name, string $label, string $icon, MovieStatus $status): BulkAction

@@ -1,5 +1,6 @@
 <?php
 
+use App\Exceptions\MovieHasBookingsException;
 use App\Filament\Resources\MovieResource\Pages\CreateMovie;
 use App\Filament\Resources\MovieResource\Pages\EditMovie;
 use App\Filament\Resources\MovieResource\Pages\ListMovies;
@@ -166,6 +167,21 @@ test('bulk mark_now_showing calls MovieService::update once per selected record'
 
     Livewire::test(ListMovies::class)
         ->callTableBulkAction('mark_now_showing', $movies);
+});
+
+test('delete action surfaces a danger notification when MovieService throws MovieHasBookingsException', function (): void {
+    $movie = Movie::factory()->create();
+
+    $service = $this->mock(MovieService::class);
+    $service->shouldReceive('delete')
+        ->once()
+        ->andThrow(new MovieHasBookingsException);
+
+    Livewire::test(ListMovies::class)
+        ->callTableAction('delete', $movie);
+
+    Notification::assertNotified('Cannot delete movie');
+    expect(Movie::find($movie->id))->not->toBeNull();
 });
 
 test('editing a movie title does not mutate the slug on an existing record', function (): void {

@@ -22,6 +22,7 @@ class UpcomingShowtimesRelationManager extends RelationManager
                 ->where('start_time', '>=', now())
                 ->orderBy('start_time')
                 ->limit(20))
+            ->paginated(false)
             ->columns([
                 TextColumn::make('start_time')->dateTime()->sortable(),
                 TextColumn::make('auditorium.location.name')->label('Location'),
