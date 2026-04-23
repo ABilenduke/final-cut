@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Models\AdminUser;
 use Illuminate\Auth\Events\Failed;
 use Illuminate\Auth\Events\Login;
 use Illuminate\Auth\Events\Logout;
@@ -34,9 +35,11 @@ class AppServiceProvider extends ServiceProvider
 
         // Admin auth event audit. The guard filter keeps customer (web/sanctum)
         // login/logout/failed events out of the admin activity_log — admin's
-        // audit surface is intentionally guard-scoped.
-        Event::listen(Login::class, function (Login $event) {
-            if ($event->guard !== 'admin') {
+        // audit surface is intentionally guard-scoped. The AdminUser instanceof
+        // check narrows the event's ?Authenticatable to a concrete Eloquent
+        // model for both PHPStan and Spatie's ActivityLogger::causedBy().
+        Event::listen(Login::class, function (Login $event): void {
+            if ($event->guard !== 'admin' || ! $event->user instanceof AdminUser) {
                 return;
             }
 
@@ -48,15 +51,15 @@ class AppServiceProvider extends ServiceProvider
             ])->save();
         });
 
-        Event::listen(Logout::class, function (Logout $event) {
-            if ($event->guard !== 'admin' || $event->user === null) {
+        Event::listen(Logout::class, function (Logout $event): void {
+            if ($event->guard !== 'admin' || ! $event->user instanceof AdminUser) {
                 return;
             }
 
             activity('auth')->causedBy($event->user)->log('logout');
         });
 
-        Event::listen(Failed::class, function (Failed $event) {
+        Event::listen(Failed::class, function (Failed $event): void {
             if ($event->guard !== 'admin') {
                 return;
             }
