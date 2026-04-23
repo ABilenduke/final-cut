@@ -4,6 +4,19 @@ use App\Models\AdminUser;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
 
+test('interactive creation without --role prompts for role selection', function (): void {
+    $this->artisan('admin:create-user', [
+        '--name' => 'Prompted Role',
+        '--email' => 'prompted-role@finalcut.test',
+        '--password' => 'secret',
+    ])
+        ->expectsChoice('Role', 'manager', ['admin', 'manager', 'ops'])
+        ->assertSuccessful();
+
+    $user = AdminUser::where('email', 'prompted-role@finalcut.test')->firstOrFail();
+    expect($user->hasRole('manager'))->toBeTrue();
+});
+
 test('non-interactive creation with flags creates an admin with the correct role', function (): void {
     $this->artisan('admin:create-user', [
         '--name' => 'Manager Create',

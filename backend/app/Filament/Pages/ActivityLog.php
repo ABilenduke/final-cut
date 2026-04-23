@@ -50,7 +50,11 @@ class ActivityLog extends Page implements HasTable
             ->filters([
                 SelectFilter::make('causer_id')
                     ->label('Admin')
-                    ->options(fn () => AdminUser::pluck('email', 'id')),
+                    ->options(fn () => AdminUser::pluck('email', 'id'))
+                    ->query(fn (Builder $query, array $data): Builder => $query
+                        ->when($data['value'] ?? null, fn (Builder $q, $adminId) => $q
+                            ->where('causer_id', $adminId)
+                            ->where('causer_type', AdminUser::class))),
                 SelectFilter::make('subject_type')
                     ->label('Resource')
                     ->options(fn () => Activity::query()

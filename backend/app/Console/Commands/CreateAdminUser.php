@@ -12,7 +12,7 @@ class CreateAdminUser extends Command
         {--name= : Full name (ignored with --reset-password)}
         {--email= : Email address}
         {--password= : Password}
-        {--role=admin : Role (admin, manager, ops) — ignored with --reset-password unless --reassign-role is also passed}
+        {--role= : Role (admin, manager, ops). Defaults to admin when omitted non-interactively; prompts otherwise. Ignored with --reset-password unless --reassign-role is also passed.}
         {--reset-password : Reset the password of an existing admin user matched by --email. Creation is skipped; role is not changed unless --reassign-role is also set.}
         {--reassign-role : With --reset-password, also re-assign the role to the value of --role. Ignored without --reset-password.}';
 
@@ -28,7 +28,10 @@ class CreateAdminUser extends Command
         }
 
         $name = $this->option('name') ?: $this->ask('Name');
-        $role = $this->option('role') ?: $this->choice('Role', ['admin', 'manager', 'ops'], 'admin');
+        $role = $this->option('role')
+            ?: ($this->input->isInteractive()
+                ? $this->choice('Role', ['admin', 'manager', 'ops'], 'admin')
+                : 'admin');
 
         if (AdminUser::where('email', $email)->exists()) {
             $this->error("Email {$email} already exists. Pass --reset-password to reset the password of the existing account instead.");

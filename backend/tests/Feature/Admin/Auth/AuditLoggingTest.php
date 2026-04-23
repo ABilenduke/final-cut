@@ -2,9 +2,7 @@
 
 use App\Models\AdminUser;
 use App\Models\User;
-use Illuminate\Auth\Events\Failed;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Event;
 use Spatie\Activitylog\Models\Activity;
 use Spatie\Permission\Models\Role;
 
@@ -78,6 +76,13 @@ test('LogsActivity is opt-in: writes to unrelated models like Role are not logge
     expect(Activity::count())->toBe(0);
 });
 
-afterEach(function (): void {
-    Event::forget(Failed::class);
+test('admin auth events log to the auth log, not the default admin log', function (): void {
+    $admin = AdminUser::factory()->create(['email' => 'log-name-check@finalcut.test']);
+
+    Auth::guard('admin')->login($admin);
+    Auth::guard('admin')->logout();
+
+    expect(Activity::where('log_name', 'auth')->where('description', 'login')->count())->toBe(1);
+    expect(Activity::where('log_name', 'auth')->where('description', 'logout')->count())->toBe(1);
+    expect(Activity::where('log_name', 'admin')->where('description', 'login')->count())->toBe(0);
 });

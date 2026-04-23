@@ -17,7 +17,7 @@ class AdminUser extends Authenticatable implements FilamentUser
     /** @use HasFactory<AdminUserFactory> */
     use HasFactory, HasRoles, LogsActivity, Notifiable;
 
-    public string $guard_name = 'admin';
+    protected string $guard_name = 'admin';
 
     protected $table = 'admin_users';
 
