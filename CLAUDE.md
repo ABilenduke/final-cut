@@ -41,7 +41,7 @@ make e2e                # Run Playwright e2e tests
 # ── Admin panel (Filament on admin.finalcut.test) ─
 make admin-shell        # Shell into backend container (devuser, UID 1000)
 make admin-migrate      # Run migrations (same as make migrate but -u 1000)
-make admin-test         # Run admin-namespaced backend tests (Feature, --filter=Admin)
+make admin-test         # Run admin-namespaced backend tests (Feature/Admin + Unit/Admin, --filter=Admin)
 make admin-create-user  # php artisan admin:create-user (added in Plan 02)
 make admin-filament-assets  # Republish Filament CSS/JS/fonts to backend/public
 ```

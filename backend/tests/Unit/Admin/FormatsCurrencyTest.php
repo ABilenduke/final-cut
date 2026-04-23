@@ -37,3 +37,18 @@ test('centsToDisplay and displayToCents round-trip', function () use ($fixture):
     $formatted = $fixture::centsToDisplay(1299);
     expect($fixture::displayToCents($formatted))->toBe(1299);
 });
+
+test('displayToCents returns null for input with no digits', function () use ($fixture): void {
+    expect($fixture::displayToCents('abc'))->toBeNull();
+    expect($fixture::displayToCents('$'))->toBeNull();
+    expect($fixture::displayToCents('   '))->toBeNull();
+});
+
+test('displayToCents preserves a leading minus sign', function () use ($fixture): void {
+    expect($fixture::displayToCents('-$12.99'))->toBe(-1299);
+    expect($fixture::displayToCents('-1299.00'))->toBe(-129900);
+});
+
+test('displayToCents trims surrounding whitespace', function () use ($fixture): void {
+    expect($fixture::displayToCents('  $12.99  '))->toBe(1299);
+});
