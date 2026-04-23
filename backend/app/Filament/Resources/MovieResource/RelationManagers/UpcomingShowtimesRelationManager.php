@@ -19,6 +19,7 @@ class UpcomingShowtimesRelationManager extends RelationManager
     {
         return $table
             ->modifyQueryUsing(fn ($query) => $query
+                ->with(['auditorium.location'])
                 ->where('start_time', '>=', now())
                 ->orderBy('start_time')
                 ->limit(20))

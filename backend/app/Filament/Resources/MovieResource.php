@@ -32,6 +32,7 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 use UnitEnum;
 
@@ -168,14 +169,18 @@ class MovieResource extends BaseResource
                 SelectFilter::make('status')->options(self::statusOptions()),
                 SelectFilter::make('genre_name')
                     ->label('Genre')
-                    ->options(fn () => Movie::query()
-                        ->whereNotNull('genres')
-                        ->pluck('genres')
-                        ->flatMap(fn ($genres) => collect($genres)->pluck('name'))
-                        ->unique()
-                        ->sort()
-                        ->mapWithKeys(fn ($name) => [$name => $name])
-                        ->all())
+                    ->options(fn () => Cache::remember(
+                        MovieService::GENRE_FILTER_CACHE_KEY,
+                        300,
+                        fn () => Movie::query()
+                            ->whereNotNull('genres')
+                            ->pluck('genres')
+                            ->flatMap(fn ($genres) => collect($genres)->pluck('name'))
+                            ->unique()
+                            ->sort()
+                            ->mapWithKeys(fn ($name) => [$name => $name])
+                            ->all()
+                    ))
                     ->query(fn (Builder $q, array $data) => $q->when(
                         $data['value'] ?? null,
                         fn ($q, $name) => $q->whereJsonContains('genres', [['name' => $name]])

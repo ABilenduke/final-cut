@@ -26,6 +26,7 @@ class MovieService
         $movie = Movie::create($attributes);
 
         $this->logIfAdmin('movie.created', $movie, $actor, $attributes);
+        $this->forgetGenreFilterCache();
 
         return $movie;
     }
@@ -43,6 +44,10 @@ class MovieService
                 'before' => $before,
                 'after' => $after,
             ]);
+
+            if (array_key_exists('genres', $before) || array_key_exists('genres', $after)) {
+                $this->forgetGenreFilterCache();
+            }
         }
 
         return $movie;
@@ -62,10 +67,15 @@ class MovieService
 
         $this->logIfAdmin('movie.deleted', $movie, $actor);
         $movie->delete();
+        $this->forgetGenreFilterCache();
     }
 
     public function triggerEnrichment(Movie $movie, ?AdminUser $actor = null): bool
     {
+        if (! $movie->tmdb_id) {
+            return false;
+        }
+
         $lock = Cache::lock(self::enrichmentLockKey($movie->id), 300);
 
         if (! $lock->get()) {
@@ -89,6 +99,13 @@ class MovieService
     public static function enrichmentLockKey(int $movieId): string
     {
         return "movie:enrich:{$movieId}";
+    }
+
+    public const GENRE_FILTER_CACHE_KEY = 'movies:genre_filter_options';
+
+    private function forgetGenreFilterCache(): void
+    {
+        Cache::forget(self::GENRE_FILTER_CACHE_KEY);
     }
 
     private function logIfAdmin(string $event, Movie $movie, ?AdminUser $actor, array $properties = []): void

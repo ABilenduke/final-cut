@@ -179,3 +179,34 @@ test('triggerEnrichment releases the lock when the dispatcher throws so the next
     // Lock was released — acquiring it fresh must succeed.
     expect(Cache::lock(MovieService::enrichmentLockKey($movie->id), 300)->get())->toBeTrue();
 });
+
+test('triggerEnrichment returns false without acquiring a lock when the movie has no tmdb_id', function (): void {
+    $admin = $this->actingAsAdmin();
+    Cache::clear();
+    Bus::fake();
+    $movie = Movie::factory()->create(['tmdb_id' => null]);
+
+    expect($this->service->triggerEnrichment($movie, $admin))->toBeFalse();
+
+    Bus::assertNothingDispatched();
+
+    // Lock was never acquired — a new acquire should succeed.
+    expect(Cache::lock(MovieService::enrichmentLockKey($movie->id), 300)->get())->toBeTrue();
+});
+
+test('write operations forget the genre filter options cache', function (): void {
+    $this->actingAsAdmin();
+
+    Cache::put(MovieService::GENRE_FILTER_CACHE_KEY, ['stale'], 60);
+    $this->service->create([
+        'slug' => 'cache-bust-create',
+        'title' => 'Cache Bust Create',
+        'status' => 'coming_soon',
+    ]);
+    expect(Cache::has(MovieService::GENRE_FILTER_CACHE_KEY))->toBeFalse();
+
+    $movie = Movie::factory()->create();
+    Cache::put(MovieService::GENRE_FILTER_CACHE_KEY, ['stale'], 60);
+    $this->service->delete($movie);
+    expect(Cache::has(MovieService::GENRE_FILTER_CACHE_KEY))->toBeFalse();
+});
