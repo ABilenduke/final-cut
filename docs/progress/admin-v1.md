@@ -152,7 +152,45 @@ After `make fresh && make admin-create-user --name="Ops" --email=ops@finalcut.te
 ---
 
 ## Step 3: Base Resource Class & Loyalty Adjustments
-**Status:** 🔲 Not Started
+**Status:** ✅ Complete
+**Started:** 2026-04-22
+**Completed:** 2026-04-22
+
+### Work Done
+- [2026-04-22] Added `App\Filament\Concerns\FormatsCurrency` — `centsToDisplay(?int): string` (null → em-dash, otherwise `$` + `number_format/2`) and `displayToCents(?string): ?int` (null/empty → null, otherwise strip non-digit/dot and multiply by 100). Seven Pest unit tests cover the round-trip including the intentional "parses input as dollars not cents" case (`'1299.00' → 129900`).
+- [2026-04-22] Added `App\Filament\Concerns\TimestampColumns::standardTimestamps()` returning two Filament `TextColumn` instances (`created_at`, `updated_at`), both sortable + toggleable(hidden by default). No dedicated test — trait returns pure-config Filament builder chains; smoke-checked via tinker-style `php -r` (count=2, correct names, toggleable=true, hiddenByDefault=true) rather than Pest.
+- [2026-04-22] Added `App\Filament\Resources\BaseResource` abstract class. `canViewAny/canCreate/canEdit/canDelete` each delegate to `static::crudPermission('view'|'create'|'update'|'delete')` and resolve through `auth('admin')->user()?->can(...)`. `crudPermission()` is `protected static`, rejects non-CRUD verbs with a `LogicException` naming the offending verb, and throws a second `LogicException` naming the subclass when `$permissionPrefix` is null. Nine BaseResourceTest cases lock in: positive permission wiring via `actingAsManager`/`actingAsAdmin`, negative via `actingAsOps`/`actingAsNobody`, and both error paths. Test file declares two inline stub classes (`MoviesResourceStub`, `MissingPrefixResourceStub`) with no-op `getPages()`; `MoviesResourceStub::exposeCrudPermission()` is the public test-only window into the protected verb guard.
+- [2026-04-22] Added `App\Enums\LoyaltyAdjustmentType` (string-backed): `PointsCorrection`, `TierUpgrade`, `TierRevoke`, `GoodwillCredit`, `FraudClawback`.
+- [2026-04-22] Added migration `2026_04_23_000000_create_loyalty_adjustments_table.php`, model `App\Models\LoyaltyAdjustment`, and `LoyaltyAdjustmentFactory`. `change_type` cast to the enum; `LogsActivity` with `logOnly(['user_id','admin_user_id','points_delta','change_type'])->dontLogEmptyChanges()`. Five Pest feature tests cover: enum cast persists + reloads, unknown string raises `ValueError` at hydration, one `created` activity row per insert with correct `causer_id`/`causer_type` (admin auth driver resolves automatically), one `updated` row per mutation with `properties` keys scoped to `logOnly` columns, `user_id` cascade-delete drops the adjustment row.
+- [2026-04-22] Widened `tests/Pest.php` — added `'Unit/Admin'` to both the `AdminAuthHelper` `uses()` binding and the `AdminRolesAndPermissionsSeeder` `beforeEach` seeder. `RefreshDatabase` already covers `Unit` globally via the existing `pest()->extend` chain, so no separate wiring needed.
+- [2026-04-22] `make admin-test`: dropped `--testsuite=Feature` so `--filter=Admin` picks up tests in both `Feature/Admin/**` and `Unit/Admin/**`.
+- [2026-04-22] `make admin-test` now green: 58 tests, 210 assertions (was 33). Full backend suite: 486 tests, 1672 assertions — 0 regressions. Pint clean on all 11 new/changed files.
+
+### Decisions
+- [2026-04-22] **`foreignUuid('user_id')`, not `foreignId('user_id')` as in the plan doc.** `users.id` is a UUID primary key (see `0001_01_01_000000_create_users_table.php`). `foreignId` would emit `unsignedBigInteger` and the FK constraint would fail at migration time. Matches the codebase convention used by `bookings.user_id` and every other `users` FK in the schema.
+- [2026-04-22] **Spatie Activitylog v5 namespaces, not the v4 paths in the plan doc.** Plan doc specified `Spatie\Activitylog\Traits\LogsActivity` + `Spatie\Activitylog\LogOptions`; this codebase (matched to `AdminUser.php`) uses `Spatie\Activitylog\Models\Concerns\LogsActivity` + `Spatie\Activitylog\Support\LogOptions`. Also swapped `dontSubmitEmptyLogs()` → `dontLogEmptyChanges()` (v5 rename). Plan 02 already established this drift; Plan 03 follows the same convention.
+- [2026-04-22] **Explicit `auth('admin')` in BaseResource**, even though `config/auth.defaults.guard` is still the default. Belt-and-braces: any future change that alters the default guard doesn't silently flip admin permission checks to a different guard's user. The call sites would compile and pass tests, but production would silently authorize the wrong accounts. Pinning the guard locally in every method is 8 characters of explicitness that can't drift.
+- [2026-04-22] **Stub classes declared at the top of `BaseResourceTest.php`, not in separate fixture files.** Filament's `Resource::getPages()` is abstract-in-practice — instantiating a subclass requires overriding it. Two trivial stubs (each with `public static function getPages(): array { return []; }`) are cheaper than a fixtures directory for two throwaway test-only classes. `MoviesResourceStub::exposeCrudPermission()` is a public test-only window into the protected verb guard, avoiding the reflection boilerplate the plan alternate suggested.
+- [2026-04-22] **Model `protected function casts(): array` instead of `protected $casts = []`.** Matches `AdminUser`'s Laravel 11+ idiom. Functionally identical for a single enum cast, but keeps the file consistent with the rest of the admin model suite.
+- [2026-04-22] **Activity-log causer tests rely on the config-level `default_auth_driver = 'admin'`**, not an explicit `->causedBy($admin)` on the test factory. Spatie's `ActivitylogServiceProvider` reads `default_auth_driver` at log-write time; because `$this->actingAsAdmin()` sets the `admin` guard user, the causer resolves automatically without a mock. Tests delete `Activity::query()` before create/update steps to isolate the row under test from whatever the `AdminUser::factory()->create()` call inside `actingAsAdmin()` may emit.
+
+### Blockers
+- None.
+
+### Files Changed
+- `backend/app/Filament/Concerns/FormatsCurrency.php` — new.
+- `backend/app/Filament/Concerns/TimestampColumns.php` — new.
+- `backend/app/Filament/Resources/BaseResource.php` — new.
+- `backend/app/Enums/LoyaltyAdjustmentType.php` — new.
+- `backend/app/Models/LoyaltyAdjustment.php` — new.
+- `backend/database/migrations/2026_04_23_000000_create_loyalty_adjustments_table.php` — new.
+- `backend/database/factories/LoyaltyAdjustmentFactory.php` — new.
+- `backend/tests/Unit/Admin/FormatsCurrencyTest.php` — new (7 tests).
+- `backend/tests/Unit/Admin/BaseResourceTest.php` — new (9 tests).
+- `backend/tests/Feature/Admin/LoyaltyAdjustmentTest.php` — new (5 tests).
+- `backend/tests/Pest.php` — extended `AdminAuthHelper` + seeder bindings to include `Unit/Admin`.
+- `Makefile` — dropped `--testsuite=Feature` from `admin-test`.
+- `docs/progress/admin-v1.md` — this file.
 
 ---
 

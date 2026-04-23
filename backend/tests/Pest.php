@@ -39,12 +39,12 @@ pest()->extend(TestCase::class)
     ->in('Feature', 'Unit');
 
 // Layered separately because pest()->extend only accepts one base class per path.
-uses(AdminAuthHelper::class)->in('Feature/Admin');
+uses(AdminAuthHelper::class)->in('Feature/Admin', 'Unit/Admin');
 
 // Per-test (not once-for-suite) because RefreshDatabase truncates between tests.
 uses()->beforeEach(function (): void {
     $this->seed(AdminRolesAndPermissionsSeeder::class);
-})->in('Feature/Admin');
+})->in('Feature/Admin', 'Unit/Admin');
 
 /*
 |--------------------------------------------------------------------------

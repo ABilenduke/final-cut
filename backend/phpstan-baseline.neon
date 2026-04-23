@@ -1,5 +1,20 @@
 parameters:
 	ignoreErrors:
+		# Substrate traits shipped by admin Plan 03. Consumers arrive in Plans 04–08;
+		# until then PHPStan sees zero usages. Entries drop automatically once a
+		# Filament Resource in a later plan mixes them in.
+		-
+			message: '#^Trait App\\Filament\\Concerns\\FormatsCurrency is used zero times and is not analysed\.$#'
+			identifier: trait.unused
+			count: 1
+			path: app/Filament/Concerns/FormatsCurrency.php
+
+		-
+			message: '#^Trait App\\Filament\\Concerns\\TimestampColumns is used zero times and is not analysed\.$#'
+			identifier: trait.unused
+			count: 1
+			path: app/Filament/Concerns/TimestampColumns.php
+
 		-
 			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Relations\\BelongsToMany\:\:currentlyAvailable\(\)\.$#'
 			identifier: method.notFound
