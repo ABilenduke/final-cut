@@ -84,3 +84,43 @@ test('--reset-password targeting an unknown email fails with operator guidance',
 test('admin_users table has no email_verified_at column', function (): void {
     expect(Schema::hasColumn('admin_users', 'email_verified_at'))->toBeFalse();
 });
+
+test('--reset-password --reassign-role with an invalid role leaves the password untouched', function (): void {
+    $user = AdminUser::factory()->create([
+        'email' => 'bogus-role@finalcut.test',
+        'password' => 'original-password',
+    ]);
+    $user->assignRole('manager');
+    $originalHash = $user->fresh()->password;
+
+    $this->artisan('admin:create-user', [
+        '--reset-password' => true,
+        '--reassign-role' => true,
+        '--email' => 'bogus-role@finalcut.test',
+        '--password' => 'new-password',
+        '--role' => 'bogus',
+    ])
+        ->expectsOutputToContain('Role bogus does not exist')
+        ->assertFailed();
+
+    $fresh = $user->fresh();
+    expect($fresh->password)->toBe($originalHash);
+    expect(Hash::check('original-password', $fresh->password))->toBeTrue();
+    expect(Hash::check('new-password', $fresh->password))->toBeFalse();
+    expect($fresh->hasRole('manager'))->toBeTrue();
+});
+
+test('creating an admin with a case-variant email of an existing admin fails', function (): void {
+    AdminUser::factory()->create(['email' => 'case-admin@finalcut.test']);
+
+    $this->artisan('admin:create-user', [
+        '--name' => 'Case Variant',
+        '--email' => 'Case-Admin@finalcut.test',
+        '--password' => 'secret',
+        '--role' => 'admin',
+    ])
+        ->expectsOutputToContain('--reset-password')
+        ->assertFailed();
+
+    expect(AdminUser::count())->toBe(1);
+});

@@ -20,7 +20,7 @@ class CreateAdminUser extends Command
 
     public function handle(): int
     {
-        $email = $this->option('email') ?: $this->ask('Email');
+        $email = strtolower($this->option('email') ?: $this->ask('Email'));
         $password = $this->option('password') ?: $this->secret('Password');
 
         if ($this->option('reset-password')) {
@@ -65,8 +65,6 @@ class CreateAdminUser extends Command
             return self::FAILURE;
         }
 
-        $user->update(['password' => $password]);
-
         if ($this->option('reassign-role')) {
             $role = $this->option('role');
 
@@ -75,9 +73,13 @@ class CreateAdminUser extends Command
 
                 return self::FAILURE;
             }
+        }
 
-            $user->syncRoles([$role]);
-            $this->info("Reset password and reassigned role to {$role} for {$email}.");
+        $user->update(['password' => $password]);
+
+        if ($this->option('reassign-role')) {
+            $user->syncRoles([$this->option('role')]);
+            $this->info("Reset password and reassigned role to {$this->option('role')} for {$email}.");
         } else {
             $this->info("Reset password for {$email}.");
         }
