@@ -12,10 +12,14 @@ return new class extends Migration
             $table->uuid('id')->primary();
             $table->foreignUuid('location_id')->constrained()->cascadeOnDelete();
             $table->string('name');
-            $table->unsignedSmallInteger('total_seats');
+            $table->string('slug');
+            $table->unsignedSmallInteger('cleanup_minutes')->default(20);
+            $table->text('notes')->nullable();
+            $table->unsignedSmallInteger('total_seats')->default(0);
             $table->timestamps();
 
             $table->unique(['location_id', 'name']);
+            $table->unique(['location_id', 'slug']);
         });
     }
 

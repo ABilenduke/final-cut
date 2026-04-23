@@ -6,11 +6,14 @@ use App\Exceptions\MovieHasBookingsException;
 use App\Jobs\EnrichMovieJob;
 use App\Models\AdminUser;
 use App\Models\Movie;
+use App\Services\Concerns\LogsAdminActivity;
 use Illuminate\Support\Facades\Cache;
 use Throwable;
 
 class MovieService
 {
+    use LogsAdminActivity;
+
     /**
      * @param  array{
      *   title: string, slug: string, status: 'now_showing'|'coming_soon',
@@ -106,18 +109,5 @@ class MovieService
     private function forgetGenreFilterCache(): void
     {
         Cache::forget(self::GENRE_FILTER_CACHE_KEY);
-    }
-
-    private function logIfAdmin(string $event, Movie $movie, ?AdminUser $actor, array $properties = []): void
-    {
-        if ($actor === null) {
-            return;
-        }
-
-        activity('admin')
-            ->causedBy($actor)
-            ->performedOn($movie)
-            ->withProperties($properties)
-            ->log($event);
     }
 }

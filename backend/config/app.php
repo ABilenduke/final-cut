@@ -85,6 +85,22 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Default Timezone for New Locations
+    |--------------------------------------------------------------------------
+    |
+    | The timezone offered as the default selection when an admin creates a
+    | new Location in the Filament panel. Deliberately blank so no geographic
+    | bias leaks in unless the operator configures one. When unset, the
+    | LocationResource falls back to the global `app.timezone` (usually UTC),
+    | and the timezone select is `required()` so a conscious choice is made
+    | on every create.
+    |
+    */
+
+    'default_location_timezone' => env('DEFAULT_LOCATION_TIMEZONE'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Locale Configuration
     |--------------------------------------------------------------------------
     |

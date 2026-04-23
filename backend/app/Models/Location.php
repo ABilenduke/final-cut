@@ -11,11 +11,24 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 
-#[Fillable(['name', 'slug', 'address'])]
+#[Fillable([
+    'name', 'slug',
+    'phone', 'email',
+    'street', 'city', 'state', 'postal_code', 'country',
+    'timezone', 'latitude', 'longitude',
+])]
 class Location extends Model
 {
     /** @use HasFactory<LocationFactory> */
     use HasFactory, HasUuids;
+
+    protected function casts(): array
+    {
+        return [
+            'latitude' => 'decimal:6',
+            'longitude' => 'decimal:6',
+        ];
+    }
 
     public function getRouteKeyName(): string
     {

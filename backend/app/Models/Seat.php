@@ -10,7 +10,11 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable(['auditorium_id', 'label', 'row', 'number', 'type'])]
+#[Fillable([
+    'auditorium_id', 'section_id',
+    'label', 'row', 'number', 'type',
+    'unavailable_at',
+])]
 class Seat extends Model
 {
     /** @use HasFactory<SeatFactory> */
@@ -21,11 +25,22 @@ class Seat extends Model
         return [
             'type' => SeatType::class,
             'number' => 'integer',
+            'unavailable_at' => 'datetime',
         ];
     }
 
     public function auditorium(): BelongsTo
     {
         return $this->belongsTo(Auditorium::class);
+    }
+
+    public function section(): BelongsTo
+    {
+        return $this->belongsTo(AuditoriumSection::class, 'section_id');
+    }
+
+    public function isAvailable(): bool
+    {
+        return $this->unavailable_at === null;
     }
 }
