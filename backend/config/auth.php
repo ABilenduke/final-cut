@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\AdminUser;
 use App\Models\User;
 
 return [
@@ -43,13 +44,9 @@ return [
             'provider' => 'users',
         ],
 
-        // Placeholder so Filament's AdminPanelProvider->authGuard('admin') can
-        // resolve at page load. Points at the customer users provider for now
-        // — Plan 02 replaces this with an `admin_users` provider + AdminUser
-        // model and wires spatie/permission on the admin guard.
         'admin' => [
             'driver' => 'session',
-            'provider' => 'users',
+            'provider' => 'admin_users',
         ],
     ],
 
@@ -74,6 +71,11 @@ return [
         'users' => [
             'driver' => 'eloquent',
             'model' => env('AUTH_MODEL', User::class),
+        ],
+
+        'admin_users' => [
+            'driver' => 'eloquent',
+            'model' => AdminUser::class,
         ],
 
         // 'users' => [
@@ -105,6 +107,13 @@ return [
         'users' => [
             'provider' => 'users',
             'table' => env('AUTH_PASSWORD_RESET_TOKEN_TABLE', 'password_reset_tokens'),
+            'expire' => 60,
+            'throttle' => 60,
+        ],
+
+        'admin_users' => [
+            'provider' => 'admin_users',
+            'table' => 'password_reset_tokens',
             'expire' => 60,
             'throttle' => 60,
         ],

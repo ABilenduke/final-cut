@@ -30,6 +30,7 @@ class AdminPanelProvider extends PanelProvider
             ->domain(config('filament.admin_domain'))
             ->path('/')
             ->authGuard('admin')
+            ->authPasswordBroker('admin_users')
             ->login()
             ->colors([
                 'primary' => Color::Amber,
