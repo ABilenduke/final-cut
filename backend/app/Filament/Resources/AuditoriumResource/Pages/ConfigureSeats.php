@@ -23,6 +23,9 @@ use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Support\HtmlString;
 use Throwable;
 
+/**
+ * @property Schema $form injected by the InteractsWithForms trait.
+ */
 class ConfigureSeats extends Page implements HasForms
 {
     use InteractsWithForms;

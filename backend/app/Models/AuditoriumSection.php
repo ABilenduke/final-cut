@@ -26,11 +26,13 @@ class AuditoriumSection extends Model
         ];
     }
 
+    /** @return BelongsTo<Auditorium, $this> */
     public function auditorium(): BelongsTo
     {
         return $this->belongsTo(Auditorium::class);
     }
 
+    /** @return HasMany<Seat, $this> */
     public function seats(): HasMany
     {
         return $this->hasMany(Seat::class, 'section_id');

@@ -9,7 +9,12 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Carbon;
 
+/**
+ * @property SeatType $type
+ * @property ?Carbon $unavailable_at
+ */
 #[Fillable([
     'auditorium_id', 'section_id',
     'label', 'row', 'number', 'type',
@@ -29,11 +34,13 @@ class Seat extends Model
         ];
     }
 
+    /** @return BelongsTo<Auditorium, $this> */
     public function auditorium(): BelongsTo
     {
         return $this->belongsTo(Auditorium::class);
     }
 
+    /** @return BelongsTo<AuditoriumSection, $this> */
     public function section(): BelongsTo
     {
         return $this->belongsTo(AuditoriumSection::class, 'section_id');

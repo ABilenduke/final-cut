@@ -366,7 +366,7 @@ class AuditoriumService
                 'rows' => $rows,
                 'seats_per_row' => $seatsPerRow,
                 'section_map' => $config['section_map'],
-                'unavailable_seats' => array_values(array_keys($unavailableSet)),
+                'unavailable_seats' => array_keys($unavailableSet),
                 'total_seats_created' => count($insert),
             ]);
         });

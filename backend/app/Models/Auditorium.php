@@ -26,21 +26,25 @@ class Auditorium extends Model
         ];
     }
 
+    /** @return BelongsTo<Location, $this> */
     public function location(): BelongsTo
     {
         return $this->belongsTo(Location::class);
     }
 
+    /** @return HasMany<AuditoriumSection, $this> */
     public function sections(): HasMany
     {
         return $this->hasMany(AuditoriumSection::class)->orderBy('display_order');
     }
 
+    /** @return HasMany<Seat, $this> */
     public function seats(): HasMany
     {
         return $this->hasMany(Seat::class);
     }
 
+    /** @return HasMany<Showtime, $this> */
     public function showtimes(): HasMany
     {
         return $this->hasMany(Showtime::class);

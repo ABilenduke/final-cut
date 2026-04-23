@@ -35,16 +35,19 @@ class Location extends Model
         return 'slug';
     }
 
+    /** @return HasMany<Auditorium, $this> */
     public function auditoriums(): HasMany
     {
         return $this->hasMany(Auditorium::class);
     }
 
+    /** @return HasManyThrough<Showtime, Auditorium, $this> */
     public function showtimes(): HasManyThrough
     {
         return $this->hasManyThrough(Showtime::class, Auditorium::class);
     }
 
+    /** @return BelongsToMany<MenuItem, $this> */
     public function menuItems(): BelongsToMany
     {
         return $this->belongsToMany(MenuItem::class)

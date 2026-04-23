@@ -49,8 +49,11 @@ class AuditoriumsRelationManager extends RelationManager
                         $sections = $data['sections'] ?? null;
                         unset($data['sections']);
 
+                        $owner = $livewire->getOwnerRecord();
+                        assert($owner instanceof Location);
+
                         return app(AuditoriumService::class)->saveAuditoriumWithSections(
-                            $livewire->getOwnerRecord(),
+                            $owner,
                             null,
                             $data,
                             $sections,

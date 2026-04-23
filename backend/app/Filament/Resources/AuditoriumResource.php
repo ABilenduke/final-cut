@@ -120,7 +120,8 @@ class AuditoriumResource extends BaseResource
                         ])
                         ->columns(3)
                         ->defaultItems(3)
-                        ->reorderable('display_order')
+                        ->reorderable()
+                        ->orderColumn('display_order')
                         ->collapsible()
                         ->itemLabel(fn (array $state): ?string => $state['name'] ?? null),
                 ]),
@@ -227,7 +228,7 @@ class AuditoriumResource extends BaseResource
                     ->deletable(false)
                     ->reorderable(false)
                     ->collapsed()
-                    ->itemLabel(fn (array $state): ?string => ($state['label'] ?? '—').($state['unavailable'] ?? false ? ' — unavailable' : '')),
+                    ->itemLabel(fn (array $state): string => ($state['label'] ?? '—').($state['unavailable'] ?? false ? ' — unavailable' : '')),
             ])
             ->action(function (array $data, Auditorium $record) {
                 $patches = [];
