@@ -81,7 +81,7 @@ admin-migrate:
 	docker compose exec -u 1000 backend php artisan migrate
 
 admin-test:
-	docker compose exec -u 1000 backend php artisan test --testsuite=Feature --filter=Admin
+	docker compose exec -u 1000 backend php artisan test --filter=Admin
 
 # Lands in Plan 02. Until then the command is absent and this target reports
 # "command not found" — that is expected and documented in docs/progress/admin-v1.md.
