@@ -195,7 +195,49 @@ After `make fresh && make admin-create-user --name="Ops" --email=ops@finalcut.te
 ---
 
 ## Step 4: Movie Catalog Management
-**Status:** 🔲 Not Started
+**Status:** ✅ Complete
+**Started:** 2026-04-22
+**Completed:** 2026-04-23
+
+### Work Done
+- [2026-04-22] Added `App\Services\MovieService` (`backend/app/Services/MovieService.php`) with four write methods — `create`, `update`, `delete`, `triggerEnrichment` — all accepting an optional `?AdminUser $actor` as the last parameter. A private `logIfAdmin()` helper writes `activity('admin')->causedBy($actor)->performedOn($movie)->withProperties(...)->log($event)` when `$actor !== null` and short-circuits otherwise. `genres` and `cast` ride through `Movie::create/fill` as JSON columns (no pivot, no relationship sync).
+- [2026-04-22] Added `App\Jobs\EnrichMovieJob` (`backend/app/Jobs/EnrichMovieJob.php`). Implements `ShouldQueue`, constructor captures `int $movieId` and `string $lockKey`, `handle(TmdbService $tmdb)` looks up the movie and delegates to the existing `TmdbService::enrichMovie`. A `finally` block always releases the cache lock so a failed enrichment does not strand the lock for the full 5-minute TTL.
+- [2026-04-22] Built the Filament resource: `MovieResource` + four pages (`ListMovies`, `CreateMovie`, `EditMovie`, `ViewMovie`) and the read-only `UpcomingShowtimesRelationManager`. Resource navigates under `Catalog`, sort 10, `heroicon-o-film`. `CreateMovie::handleRecordCreation` and `EditMovie::handleRecordUpdate` divert Filament's default persistence into `MovieService`, passing `auth('admin')->user()` as the actor. Every `DeleteAction` on the resource (table row, EditPage header, ViewPage header) uses `->using(fn (Model $record) => app(MovieService::class)->delete($record, auth('admin')->user()))` so audit attribution fires — a stock `DeleteAction::make()` would bypass the service and is treated as a regression (guarded by `MovieResourceTest`).
+- [2026-04-22] Form schema — Identity / Content / Media / Taxonomy / Cast sections. Title auto-slugs via `Str::slug` only when `$record === null`; on edit, the slug is stable. Genres and Cast repeaters write raw JSON (`{id, name}` and `{name, character, profileUrl}` shapes) straight to the `genres` / `cast` JSON columns.
+- [2026-04-22] Table — poster thumbnail, searchable/sortable title, status badge (`now_showing` → success, `coming_soon` → warning — formatted through a `MovieStatus`-aware closure because the model casts status to the enum, not a string), genre badges via `collect($state)->pluck('name')`, enrichment timestamp with `->since()`. Filters: status, genre-name via `whereJsonContains('genres', [['name' => $name]])`, `needs_enrichment` (null `tmdb_enriched_at` AND non-null `tmdb_id`). Row actions: View, Edit, `enrich` (visible iff `tmdb_id` present AND `movies.trigger_enrich`), Delete. Bulk actions: `mark_now_showing` / `mark_coming_soon` (both N-sequential `MovieService::update` calls, gated on `movies.update`). Default sort: `release_date desc`.
+- [2026-04-22] `UpcomingShowtimesRelationManager` — `relationship = 'showtimes'`, title `"Upcoming Showtimes (next 20)"`, `modifyQueryUsing(...)` scopes to `start_time >= now()` ordered ascending with `limit(20)`. Columns: start time, `auditorium.location.name`, `auditorium.name`, standard price through `FormatsCurrency::centsToDisplay`. `headerActions([])`, `recordActions([])`, `isReadOnly() => true`.
+- [2026-04-22] Tests — three new files.
+  - `tests/Unit/Services/MovieServiceTest.php` (5 tests): create persists JSON shapes, update persists and returns fresh model, delete removes row, triggerEnrichment is idempotent under `Bus::fake()` (sync queue would execute the job inline and release the lock — Bus::fake captures the dispatch so lock stays held), no activity rows when `$actor` is null.
+  - `tests/Feature/Admin/Services/MovieServiceIntegrationTest.php` (5 tests): real service + real `activity_log`. Covers `movie.created`, `movie.updated` (with `before`/`after` properties), `movie.deleted`, `movie.enrichment_triggered`, and silence when `$actor` is null. Mirrors the `Activity::query()->delete()` isolation pattern from `LoyaltyAdjustmentTest`.
+  - `tests/Feature/Admin/Resources/MovieResourceTest.php` (9 tests): drives the Filament Livewire components with `$this->mock(MovieService::class)`. Verifies list render, create routes through service with admin actor + genre/cast payload matches the repeater shape, edit routes through service, delete routes through `->using(...)` (regression guard — row must still exist after the mocked call), enrich dispatches surface a success notification and the lock-held case surfaces a warning notification, enrich action is hidden when `tmdb_id` is null, bulk mark_now_showing calls update once per record, and slug stability on edit.
+  - `tests/Feature/Admin/Resources/MovieResourcePermissionTest.php` (3 tests): ops read-only with enrich/bulk hidden, manager full CRUD + bulk/enrich visible, roleless admin user forbidden from `ListMovies`.
+- [2026-04-22] Full backend suite green at 511 tests (up from ~495 pre-plan; +16 new tests). `make admin-test` green at 78 tests.
+
+### Decisions
+- [2026-04-22] **`MovieController` was not touched.** The plan's Task 1 language — "extract movie write orchestration out of the existing `MovieController`" and the matching acceptance criterion "MovieController delegates write operations to the service" — is vestigial. The customer-API `MovieController` is read-only (`index`, `show`, `showtimes`); there are no writes to extract. `MovieService` is a net-new write boundary, not a refactor. The acceptance criterion is treated as satisfied vacuously.
+- [2026-04-22] **`EnrichMoviesCommand` (the hourly scheduler) was not touched.** Plan Risk #1 treated "command + admin single-trigger share one job class" as a nice-to-have; leaving the working command alone and adding `EnrichMovieJob` specifically for the admin action is simpler and keeps TMDB rate-limit pacing in the command untouched. The command still calls `TmdbService::enrichMovie` directly; the job wraps the same call and adds cache-lock release.
+- [2026-04-22] **`activity_log` attribution uses `->causedBy($actor)` explicitly instead of relying on `default_auth_driver = 'admin'`.** The config default only fires when no causer is set; being explicit makes the service's contract independent of request-time guard state and passes correctly when called from non-Filament code paths (e.g. a future console command).
+- [2026-04-22] **Bulk status actions are N sequential single-record updates, not a bulk DB query.** Each selected movie emits its own `activity_log` row and flows through the same code path as a single-record edit. Acceptable for v1's expected admin usage (tens of rows per bulk op). If real usage ever exceeds that scale, add a dedicated batch method to `MovieService` with a single aggregate activity row.
+- [2026-04-22] **`status` column uses an enum-aware closure, not the typed `fn (string $state)` shown in the plan.** `Movie::casts()` hydrates `status` into `MovieStatus`, so the column receives an enum. The color resolver dereferences `$state->value` when it's an enum and falls back to the string otherwise.
+- [2026-04-22] **`Notification::assertNotified(string $title)` not closure-form.** Filament 5's `assertNotified` signature accepts `Notification|string|null`, not `Closure` — the plan snippet using a closure predicate would fail with a TypeError on v5.
+- [2026-04-22] **Filament 5 uses `Schema $schema` / `$schema->components([...])` for forms and `recordActions`/`toolbarActions` for table actions.** Plan snippets were written against Filament 3's `Form $form` / `$form->schema(...)` API. The v5 equivalents are a mechanical rewrite — same component classes, same builder methods — but the outer `form()` signature had to change.
+
+### Blockers
+- None.
+
+### Files Changed
+- `backend/app/Services/MovieService.php` — new; write boundary with optional `?AdminUser $actor` and activity-log emission.
+- `backend/app/Jobs/EnrichMovieJob.php` — new; single-movie enrichment job with lock release in `finally`.
+- `backend/app/Filament/Resources/MovieResource.php` — new; resource with form, table, actions, filters, bulk actions.
+- `backend/app/Filament/Resources/MovieResource/Pages/ListMovies.php` — new.
+- `backend/app/Filament/Resources/MovieResource/Pages/CreateMovie.php` — new; `handleRecordCreation` → `MovieService::create`.
+- `backend/app/Filament/Resources/MovieResource/Pages/EditMovie.php` — new; `handleRecordUpdate` → `MovieService::update`; delete via `->using`.
+- `backend/app/Filament/Resources/MovieResource/Pages/ViewMovie.php` — new; edit/delete header actions, delete via `->using`.
+- `backend/app/Filament/Resources/MovieResource/RelationManagers/UpcomingShowtimesRelationManager.php` — new; read-only next-20 showtimes preview.
+- `backend/tests/Unit/Services/MovieServiceTest.php` — new; 5 unit tests.
+- `backend/tests/Feature/Admin/Services/MovieServiceIntegrationTest.php` — new; 5 real-DB activity-log tests.
+- `backend/tests/Feature/Admin/Resources/MovieResourceTest.php` — new; 9 Livewire-driven resource tests (service mocked).
+- `backend/tests/Feature/Admin/Resources/MovieResourcePermissionTest.php` — new; 3 per-role gating tests.
 
 ---
 
