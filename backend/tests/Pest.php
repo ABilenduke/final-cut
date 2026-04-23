@@ -1,7 +1,9 @@
 <?php
 
+use Database\Seeders\AdminRolesAndPermissionsSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Tests\Helpers\AdminAuthHelper;
 use Tests\TestCase;
 
 /*
@@ -35,6 +37,14 @@ uses()->beforeEach(function () {
 pest()->extend(TestCase::class)
     ->use(RefreshDatabase::class)
     ->in('Feature', 'Unit');
+
+// Layered separately because pest()->extend only accepts one base class per path.
+uses(AdminAuthHelper::class)->in('Feature/Admin');
+
+// Per-test (not once-for-suite) because RefreshDatabase truncates between tests.
+uses()->beforeEach(function (): void {
+    $this->seed(AdminRolesAndPermissionsSeeder::class);
+})->in('Feature/Admin');
 
 /*
 |--------------------------------------------------------------------------

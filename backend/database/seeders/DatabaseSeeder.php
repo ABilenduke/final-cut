@@ -45,6 +45,7 @@ class DatabaseSeeder extends Seeder
 
         // Domain seeders in dependency order
         $this->call([
+            AdminRolesAndPermissionsSeeder::class,
             MovieSeeder::class,
             AuditoriumSeeder::class,
             ShowtimeSeeder::class,

@@ -68,7 +68,86 @@ The `make admin-create-user` target is intentionally wired to an artisan command
 ---
 
 ## Step 2: Auth, Roles, Permissions & Audit Log
-**Status:** 🔲 Not Started
+**Status:** ✅ Complete
+**Started:** 2026-04-22
+**Completed:** 2026-04-22
+
+### Work Done
+- [2026-04-22] Created `admin_users` migration (`2026_04_22_000000_create_admin_users_table.php`) with the documented schema: `id`, `name`, `email` (unique), `password`, `rememberToken`, `last_login_at`, `last_login_ip` (45), `disabled_at`, `timestamps`. No `email_verified_at` column — admin users are created via `admin:create-user`, never self-signup.
+- [2026-04-22] Added `App\Models\AdminUser` extending `Illuminate\Foundation\Auth\User` and implementing `Filament\Models\Contracts\FilamentUser`. Casts: `disabled_at`/`last_login_at` → `datetime`, `password` → `hashed`. `canAccessPanel()` returns true only for the `admin` panel and a non-disabled account.
+- [2026-04-22] `AdminUserFactory` with default `disabled_at = null` and a `disabled()` state for the kill-switch test.
+- [2026-04-22] Replaced the Plan 01 stub `admin` guard in `config/auth.php` (was pointing at `users` provider) with a real session guard against the new `admin_users` provider. Added the `admin_users` Eloquent provider and an `admin_users` password broker that reuses the existing `password_reset_tokens` table.
+- [2026-04-22] Installed `spatie/laravel-permission` (`^7.3`). Published config + migration. Added `HasRoles` trait + `protected string $guard_name = 'admin'` to `AdminUser`.
+- [2026-04-22] Wrote `AdminRolesAndPermissionsSeeder` — idempotent, seeds 45 permissions and 3 roles (`admin`, `manager`, `ops`), all with `guard_name = 'admin'`. The seeder calls `app(PermissionRegistrar::class)->forgetCachedPermissions()` first so `syncPermissions()` sees freshly-created records in the same run. Registered the new seeder in `DatabaseSeeder::run()` (outside the `local|testing` branch since admin roles are required in every environment).
+- [2026-04-22] Installed `spatie/laravel-activitylog` (`^5.0`). Published config + migration. Rewrote `config/activitylog.php`: `clean_after_days = 180`, `default_log_name = 'admin'`, `default_auth_driver = 'admin'`. The published v5 config schema differs from the plan doc (`clean_after_days` not `delete_records_older_than_days`; `include_soft_deleted_subjects` not `subject_returns_soft_deleted_models`) — kept the v5 keys, retained the plan-doc semantics.
+- [2026-04-22] Added `LogsActivity` trait + `getActivitylogOptions()` to `AdminUser` (`logOnly(['name','email','disabled_at'])->logOnlyDirty()->dontLogEmptyChanges()`). v5 namespaces: trait at `Spatie\Activitylog\Models\Concerns\LogsActivity`, options at `Spatie\Activitylog\Support\LogOptions`. Method name in v5 is `dontLogEmptyChanges()` — the plan doc's `dontSubmitEmptyLogs()` is from older versions.
+- [2026-04-22] Finalized `AdminPanelProvider`: added `->authPasswordBroker('admin_users')` next to the existing `->authGuard('admin')`. Middleware stack untouched.
+- [2026-04-22] Wired Laravel auth events in `AppServiceProvider::boot()` — `Login`, `Logout`, `Failed`. Each listener early-returns when `$event->guard !== 'admin'` to keep customer auth out of admin's audit log. `Login` writes a `'login'` row to `log_name = 'auth'`, then force-fills `last_login_at = now()` and `last_login_ip = request()->ip()`. `Logout` writes a `'logout'` row (and skips when no user is attached). `Failed` writes a `'login_failed'` row carrying the attempted email in `properties.email`.
+- [2026-04-22] Created `App\Console\Commands\CreateAdminUser` (`admin:create-user`) — full create + reset paths. Without flags, prompts for name/email/password/role. With `--reset-password`, looks up by `--email` and re-hashes. With `--reset-password --reassign-role`, also re-syncs roles. Duplicate emails on the create path return FAILURE with a message naming the `--reset-password` flag. Unknown roles and missing accounts both return FAILURE with operator-actionable error text.
+- [2026-04-22] Added `Schedule::command('activitylog:clean')->daily()` to `routes/console.php` next to the existing `movies:enrich` hourly. `php artisan schedule:list` now shows both. The 180-day retention from `clean_after_days` is what the command honours.
+- [2026-04-22] Built the global `/activity` Filament page (`App\Filament\Pages\ActivityLog`) under the `System` navigation group. `canAccess()` gates on `activity.view`. Lists the latest 1000 activity rows with three filters: Admin (causer), Resource (subject_type), and a Created Between date range with inclusive `endOfDay()` on the upper bound. Filament 5 quirks honoured: `protected string $view` is an instance property (the plan doc's `protected static $view` is from Filament 3 and doesn't compile in 5); `$navigationIcon` and `$navigationGroup` carry the `string|BackedEnum|null` and `string|UnitEnum|null` union types Filament 5 expects.
+- [2026-04-22] Created `Tests\Helpers\AdminAuthHelper` trait with `actingAsAdmin()`, `actingAsManager()`, `actingAsOps()`, `actingAsNobody()` — each creates an `AdminUser` via factory, assigns the role (or none), and calls `actingAs($user, 'admin')`.
+- [2026-04-22] Registered the trait in `tests/Pest.php` via `uses(AdminAuthHelper::class)->in('Feature/Admin')` (Pest rejects two `pest()->extend(TestCase::class)` calls in the same path tree, so a separate `pest()->extend()` call doesn't work). Added a sibling `uses()->beforeEach(fn () => $this->seed(AdminRolesAndPermissionsSeeder::class))->in('Feature/Admin')` so admin roles exist on a freshly-truncated DB before any `actingAs*` helper runs.
+- [2026-04-22] Wrote 32 admin tests across six files under `tests/Feature/Admin/Auth/` and `tests/Feature/Admin/Console/`: LoginTest (6), PermissionEnforcementTest (5), RoleSeederTest (6), AuditLoggingTest (6), SessionCookieScopingTest (3), CreateAdminUserCommandTest (6). Combined with Plan 01's RouteDomainScopingTest the `--filter=Admin` set is now 33 tests.
+- [2026-04-22] Bumped PHPUnit's PHP `memory_limit` to `512M` via `<ini name="memory_limit" value="512M"/>` in `phpunit.xml`. The default 128M cap (set by the container's `php.ini`) was sufficient for the 429-test pre-Plan-02 baseline; adding Spatie Permission + ActivityLog autoloading + 32 new tests pushed it just over. The phpunit-level ini override only applies to test runs — production CLI is untouched.
+- [2026-04-22] Full backend suite now 461 passing (was 429 pre-Plan-02; +32 admin tests).
+
+### Decisions
+- [2026-04-22] **Filament 5 API drift from the plan doc.** The plan doc was drafted against Filament 3. Three concrete adjustments needed in Filament 5:
+  - `App\Filament\Pages\ActivityLog`: `$view` is an instance property (`protected string $view`), not `protected static string $view`.
+  - `$navigationIcon` and `$navigationGroup` use `string|\BackedEnum|null` and `string|\UnitEnum|null` union types in v5; the plan doc's plain `?string` will deprecate-warn and eventually error.
+  - The `Filter::form([...])` builder is also exposed as `Filter::schema([...])` in v5 — both work; kept the doc's `->form()` alias for fidelity, then switched to `->schema()` because that's the v5-canonical name. (Filament keeps `form()` as an alias.)
+- [2026-04-22] **`Spatie\Activitylog` v5 namespace + method changes.** The package's v5 release moved the trait to `Spatie\Activitylog\Models\Concerns\LogsActivity` (was `Spatie\Activitylog\Traits\LogsActivity`) and the helper to `Spatie\Activitylog\Support\LogOptions` (was `Spatie\Activitylog\LogOptions`). `dontSubmitEmptyLogs()` was renamed to `dontLogEmptyChanges()`. Also `clean_after_days` replaced `delete_records_older_than_days`. Plan doc reflected the v4 names; this code reflects v5.
+- [2026-04-22] **Pest can't extend the same TestCase twice on overlapping path globs.** First attempt was `pest()->extend(TestCase::class)->use(AdminAuthHelper::class)->in('Feature/Admin')` alongside the existing `pest()->extend(TestCase::class)->use(RefreshDatabase::class)->in('Feature','Unit')` — Pest threw `Test case [Tests\TestCase] can not be used. The folder ... already uses the test case [Tests\TestCase].` Switched to `uses(AdminAuthHelper::class)->in('Feature/Admin')` which layers the trait onto the existing TestCase extension instead of redeclaring the base class binding.
+- [2026-04-22] **Seeder runs in a per-test `beforeEach`, not in `DatabaseSeeder` for tests.** RefreshDatabase truncates the schema between tests, so seeder side effects don't carry over. Calling `$this->seed(AdminRolesAndPermissionsSeeder::class)` in a Feature/Admin-scoped `beforeEach` keeps the role catalog present at the start of every admin test, without dragging the rest of the customer-side seed data (movies, locations, bookings) into admin tests that don't need it.
+- [2026-04-22] **Disabled-admin assertion is `assertForbidden`, not `assertRedirect('/login')`.** The plan-doc test #4 said "the Filament Authenticate middleware redirects them back to /login" — but Filament 5's `Authenticate` middleware actually `abort_if(!canAccessPanel, 403)` for an authenticated-but-disallowed user. Redirect-to-login only triggers for unauthenticated requests. The test asserts the real behaviour (403) rather than the doc's mistaken expectation. Both behaviours satisfy the underlying contract (a disabled admin can't use the panel).
+- [2026-04-22] **Customer-User guard-mismatch test rewritten to assert trait absence, not exception.** Plan-doc test #5 expected `$customer->assignRole('admin')` to throw on guard mismatch. In practice the customer `App\Models\User` deliberately has no `HasRoles` trait — calling `assignRole()` on it throws `BadMethodCallException` (no such method), not Spatie's `RoleDoesNotExist`. The defensive surface is "User has no role-assignment method at all" combined with the separate `RoleSeederTest` assertion that every admin role is `guard_name = 'admin'`. The two together prove a customer user can't carry an admin role without code changes to the User model. Rewrote the test to assert `method_exists($customer, 'assignRole') === false`, which is the actual architectural defense.
+- [2026-04-22] **SessionCookieScopingTest verifies config rewrites, not Redis keys.** `phpunit.xml` forces `SESSION_DRIVER=array`, so the plan-doc's `redis-cli -n 2`/`-n 3` style assertions can't run inside Pest (no live Redis sessions are written). The three tests instead assert what `ScopeAdminSession` deterministically does to `config('session.*')` on admin-host vs primary-host requests, and that an `ADMIN_SESSION_DOMAIN` override propagates through. The actual Redis DB isolation is a manual dev sanity check (`redis-cli -n 2 keys '*' | grep session` vs `-n 3` after a real login + admin login).
+- [2026-04-22] **`memory_limit` bumped via phpunit.xml `<ini>`, not Dockerfile.** The container's `php.ini` keeps the default 128M (production CLI doesn't run the test suite). Tests need ~300–400M to load Filament + Spatie packages + the 461-test class graph. PHPUnit's `<ini>` directive applies only to the test process and leaves production CLI alone — least-invasive fix.
+- [2026-04-22] **`session_admin` Redis connection is NOT exercised by the test suite.** It's defined in `config/database.php` per Plan 01 and is the live mechanism that holds admin sessions in dev/prod. Tests use `array` sessions, so the `session_admin` connection is dead code at test time. The middleware contract (`session.connection` is rewritten to `'session_admin'` on admin-host requests) is asserted in `SessionCookieScopingTest`, which is what guarantees the connection is consulted in non-test environments.
+
+### Blockers
+- None.
+
+### Files Changed
+- `backend/composer.json`, `backend/composer.lock` — added `spatie/laravel-permission: ^7.3` and `spatie/laravel-activitylog: ^5.0`.
+- `backend/database/migrations/2026_04_22_000000_create_admin_users_table.php` — new.
+- `backend/database/migrations/2026_04_22_171237_create_permission_tables.php` — vendor-published.
+- `backend/database/migrations/2026_04_22_171356_create_activity_log_table.php` — vendor-published.
+- `backend/app/Models/AdminUser.php` — new. `HasFactory`, `HasRoles`, `LogsActivity`, `Notifiable`. `protected string $guard_name = 'admin'`. `canAccessPanel()` + `getActivitylogOptions()`.
+- `backend/database/factories/AdminUserFactory.php` — new (default state + `disabled()` state).
+- `backend/database/seeders/AdminRolesAndPermissionsSeeder.php` — new (idempotent, 45 permissions + 3 roles, all guard_name=admin).
+- `backend/database/seeders/DatabaseSeeder.php` — registered `AdminRolesAndPermissionsSeeder` in the always-run seeder list.
+- `backend/config/auth.php` — replaced stub `admin` guard with the real `admin_users`-backed session guard. Added `admin_users` provider + `admin_users` password broker.
+- `backend/config/permission.php` — intentionally **not** published. The Spatie Permission defaults (`Role` + `Permission` models, standard table names, no teams) are exactly what we want; republishing would fork an identical copy.
+- `backend/config/activitylog.php` — rewritten: 180-day retention, `default_log_name = 'admin'`, `default_auth_driver = 'admin'`.
+- `backend/app/Providers/Filament/AdminPanelProvider.php` — added `->authPasswordBroker('admin_users')`.
+- `backend/app/Providers/AppServiceProvider.php` — registered Login/Logout/Failed event listeners (admin-guard scoped).
+- `backend/app/Console/Commands/CreateAdminUser.php` — new. `admin:create-user` with `--reset-password` + `--reassign-role` paths.
+- `backend/routes/console.php` — appended `Schedule::command('activitylog:clean')->daily()`.
+- `backend/app/Filament/Pages/ActivityLog.php` — new. `/activity` page under System nav, gated on `activity.view`.
+- `backend/resources/views/filament/pages/activity-log.blade.php` — new (one-line wrapper).
+- `backend/tests/Pest.php` — registered `AdminAuthHelper` trait and `AdminRolesAndPermissionsSeeder` `beforeEach` for `Feature/Admin`.
+- `backend/tests/Helpers/AdminAuthHelper.php` — new. Four `actingAs*` helpers.
+- `backend/tests/Feature/Admin/Auth/LoginTest.php` — new (6 tests).
+- `backend/tests/Feature/Admin/Auth/PermissionEnforcementTest.php` — new (5 tests).
+- `backend/tests/Feature/Admin/Auth/RoleSeederTest.php` — new (6 tests).
+- `backend/tests/Feature/Admin/Auth/AuditLoggingTest.php` — new (6 tests).
+- `backend/tests/Feature/Admin/Auth/SessionCookieScopingTest.php` — new (3 tests).
+- `backend/tests/Feature/Admin/Console/CreateAdminUserCommandTest.php` — new (6 tests).
+- `backend/phpunit.xml` — added `<ini name="memory_limit" value="512M"/>`.
+
+### Manual Dev Verification (out of automated test scope)
+After `make fresh && make admin-create-user --name="Ops" --email=ops@finalcut.test --password=secret --role=ops`:
+1. Browser: `https://admin.finalcut.test/login` accepts ops credentials → `/`.
+2. `/activity` lists the `'login'` row with `log_name = 'auth'` and the ops user as causer.
+3. Logout writes a matching `'logout'` row.
+4. `update admin_users set disabled_at = now() where email = 'ops@finalcut.test';` — re-login is blocked (403).
+5. Redis isolation check (manual, since tests use array sessions):
+   ```bash
+   redis-cli -n 2 KEYS '*' | grep session   # only customer sessions
+   redis-cli -n 3 KEYS '*' | grep session   # only admin sessions
+   ```
 
 ---
 
