@@ -278,7 +278,7 @@ class ShowtimeService
     public function detectConflictsForBatch(string $auditoriumId, Collection $intervals): Collection
     {
         if ($intervals->isEmpty()) {
-            return $intervals;
+            return new Collection;
         }
 
         $batchStart = $intervals->map(fn (array $i) => $i['start'])->min();
@@ -293,12 +293,21 @@ class ShowtimeService
             ->orderBy('start_time')
             ->get();
 
-        return $intervals->map(function (array $interval) use ($candidates) {
-            return $candidates->filter(
-                fn (Showtime $s) => $s->start_time < $interval['end']
-                    && $s->end_time > $interval['start']
-            )->values();
-        });
+        /** @var Collection<int, Collection<int, Showtime>> $partitioned */
+        $partitioned = new Collection;
+
+        foreach ($intervals as $interval) {
+            $partitioned->push(
+                new Collection(
+                    $candidates->filter(
+                        fn (Showtime $s) => $s->start_time < $interval['end']
+                            && $s->end_time > $interval['start']
+                    )->values()->all()
+                )
+            );
+        }
+
+        return $partitioned;
     }
 
     /**
@@ -360,16 +369,19 @@ class ShowtimeService
 
         // Pull the concrete conflicting rows so the exception carries useful
         // data for the UI — the EXCLUDE DETAIL message has ranges, not IDs.
+        /** @var Collection<int, array<string, mixed>> $conflicts */
         $conflicts = new Collection;
 
         if ($start && $end) {
-            $conflicts = $this->detectConflicts($auditoriumId, $start, $end, $ignoreShowtimeId)
-                ->map(fn (Showtime $s) => [
-                    'id' => $s->id,
-                    'movie_title' => $s->movie?->title,
-                    'start_time' => $s->start_time->toIso8601String(),
-                    'end_time' => $s->end_time->toIso8601String(),
-                ]);
+            $conflicts = new Collection(
+                $this->detectConflicts($auditoriumId, $start, $end, $ignoreShowtimeId)
+                    ->map(fn (Showtime $s): array => [
+                        'id' => $s->id,
+                        'movie_title' => $s->movie->title,
+                        'start_time' => $s->start_time->toIso8601String(),
+                        'end_time' => $s->end_time->toIso8601String(),
+                    ])->all()
+            );
         }
 
         return new ShowtimeConflictException($conflicts);

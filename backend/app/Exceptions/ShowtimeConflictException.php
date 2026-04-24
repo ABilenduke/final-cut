@@ -21,7 +21,7 @@ use Illuminate\Support\Collection;
 class ShowtimeConflictException extends DomainException
 {
     /**
-     * @param  Collection<int, array{id?: string, movie_title?: string, start_time: string, end_time: string}>  $conflicts
+     * @param  Collection<int, array<string, mixed>>  $conflicts  Each row carries `id`, `movie_title`, `start_time`, `end_time`.
      */
     public function __construct(public readonly Collection $conflicts)
     {

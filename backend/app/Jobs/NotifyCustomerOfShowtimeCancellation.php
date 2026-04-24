@@ -39,7 +39,7 @@ class NotifyCustomerOfShowtimeCancellation implements ShouldQueue
             return;
         }
 
-        $recipient = $booking->user?->email ?? $booking->guest_email;
+        $recipient = $booking->user ? $booking->user->email : $booking->guest_email;
 
         if ($recipient === null) {
             // No destination — don't hard-fail the worker; log and move on.

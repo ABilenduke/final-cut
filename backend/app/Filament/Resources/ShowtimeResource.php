@@ -34,6 +34,7 @@ use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
 use UnitEnum;
 
@@ -80,10 +81,10 @@ class ShowtimeResource extends BaseResource
                     // resource adds edit-mode hydration so editing an existing row
                     // opens with the cascade already pointing at the right location.
                     self::locationCascadeSelect()
-                        ->default(fn (?Showtime $record) => $record?->auditorium?->location_id)
+                        ->default(fn (?Showtime $record) => $record?->auditorium->location_id)
                         ->afterStateHydrated(function (Select $component, ?Showtime $record) {
                             if ($record !== null && $component->getState() === null) {
-                                $component->state($record->auditorium?->location_id);
+                                $component->state($record->auditorium->location_id);
                             }
                         }),
 
@@ -190,9 +191,9 @@ class ShowtimeResource extends BaseResource
                     ->label('Auditorium')
                     ->options(fn () => Auditorium::with('location')
                         ->get()
-                        ->sortBy(fn (Auditorium $a) => ($a->location?->name ?? '').'/'.$a->name)
+                        ->sortBy(fn (Auditorium $a) => $a->location->name.'/'.$a->name)
                         ->mapWithKeys(fn (Auditorium $a) => [
-                            $a->id => ($a->location?->name ? "{$a->location->name} — " : '')."{$a->name}",
+                            $a->id => "{$a->location->name} — {$a->name}",
                         ])
                         ->all()),
                 Filter::make('upcoming_7_days')
@@ -288,7 +289,7 @@ class ShowtimeResource extends BaseResource
             }
 
             if ($movie->runtime === null) {
-                $editUrl = static::safeMovieEditUrl($movie);
+                $editUrl = self::safeMovieEditUrl($movie);
                 if ($editUrl) {
                     return "This movie has no runtime set. [Edit the movie]({$editUrl}) to add one before scheduling.";
                 }
@@ -370,16 +371,17 @@ class ShowtimeResource extends BaseResource
             return;
         }
 
+        /** @var Collection<int, array<string, mixed>> $rows */
         $rows = $conflicts->map(fn (Showtime $s) => [
             'id' => $s->id,
-            'movie_title' => $s->movie?->title,
+            'movie_title' => $s->movie->title,
             'start_time' => $s->start_time->format('M j, Y g:i A'),
             'end_time' => $s->end_time->format('g:i A'),
-        ])->values()->all();
+        ])->values();
 
         throw ValidationException::withMessages([
             'data.start_time' => 'Showtime overlaps with: '
-                .ShowtimeConflictException::formatConflicts(collect($rows)),
+                .ShowtimeConflictException::formatConflicts($rows),
         ]);
     }
 

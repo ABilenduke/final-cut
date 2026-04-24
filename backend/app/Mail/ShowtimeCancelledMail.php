@@ -24,10 +24,13 @@ class ShowtimeCancelledMail extends Mailable
 
     public function envelope(): Envelope
     {
-        $movieTitle = $this->booking->showtime?->movie?->title ?? 'your showing';
+        $movieTitle = $this->booking->showtime->movie->title;
+        $recipient = $this->booking->user
+            ? $this->booking->user->email
+            : $this->booking->guest_email;
 
         return new Envelope(
-            to: [$this->booking->user?->email ?? $this->booking->guest_email],
+            to: $recipient !== null ? [$recipient] : [],
             subject: "Your {$movieTitle} showtime has been cancelled",
         );
     }
@@ -38,7 +41,7 @@ class ShowtimeCancelledMail extends Mailable
             markdown: 'mail.showtime-cancelled',
             with: [
                 'booking' => $this->booking,
-                'customerName' => $this->booking->user?->name ?? 'there',
+                'customerName' => $this->booking->user ? $this->booking->user->name : 'there',
             ],
         );
     }

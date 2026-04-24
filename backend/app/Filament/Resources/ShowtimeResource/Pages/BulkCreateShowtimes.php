@@ -8,8 +8,10 @@ use App\Filament\Resources\ShowtimeResource;
 use App\Http\Requests\BulkShowtimeRequest;
 use App\Models\Auditorium;
 use App\Models\Movie;
+use App\Models\Showtime;
 use App\Services\ShowtimeService;
 use Carbon\Carbon;
+use Carbon\CarbonInterface;
 use Filament\Actions\Action;
 use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\DatePicker;
@@ -182,7 +184,7 @@ class BulkCreateShowtimes extends Page implements HasForms
 
         $auditorium = Auditorium::findOrFail($data['auditorium_id']);
 
-        $tuples = static::buildTuples($data);
+        $tuples = self::buildTuples($data);
 
         if ($tuples->isEmpty()) {
             Notification::make()
@@ -224,7 +226,7 @@ class BulkCreateShowtimes extends Page implements HasForms
                 $conflicting[] = [
                     'date' => $start->format('Y-m-d'),
                     'time' => $start->format('H:i'),
-                    'conflicts' => $rowConflicts->map(fn ($s) => ($s->movie?->title ?? 'Showtime')
+                    'conflicts' => $rowConflicts->map(fn (Showtime $s) => $s->movie->title
                         .' @ '.$s->start_time->format('M j g:i A'))->all(),
                 ];
             }
@@ -262,8 +264,13 @@ class BulkCreateShowtimes extends Page implements HasForms
             return;
         }
 
+        // Accept row as mixed so the closure's inferred return uses the DTO's
+        // `CarbonInterface` parameter shape rather than the concrete `Carbon`
+        // that `Carbon::parse` returns (Collection<T> is invariant in T).
         $tuples = collect($this->preview['creatable'])
-            ->map(fn (array $row) => ['start_time' => Carbon::parse($row['start_iso'])])
+            ->map(fn (array $row): array => [
+                'start_time' => self::parseStart($row['start_iso']),
+            ])
             ->values();
 
         $request = new BulkShowtimeRequest(
@@ -367,8 +374,15 @@ class BulkCreateShowtimes extends Page implements HasForms
         return new HtmlString($html);
     }
 
+    /** Widens `Carbon::parse`'s concrete return to `CarbonInterface` for DTO typing. */
+    private static function parseStart(string $iso): CarbonInterface
+    {
+        return Carbon::parse($iso);
+    }
+
     /**
-     * @return Collection<int, array{start: Carbon}>
+     * @param  array<string, mixed>  $data
+     * @return Collection<int, array{start: CarbonInterface}>
      */
     private static function buildTuples(array $data): Collection
     {
@@ -412,7 +426,7 @@ class BulkCreateShowtimes extends Page implements HasForms
 
     public static function previewCountMessage(Get $get): string
     {
-        $count = static::buildTuples([
+        $count = self::buildTuples([
             'start_date' => $get('start_date'),
             'end_date' => $get('end_date'),
             'days_of_week' => $get('days_of_week'),

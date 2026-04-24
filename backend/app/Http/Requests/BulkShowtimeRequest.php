@@ -2,7 +2,7 @@
 
 namespace App\Http\Requests;
 
-use Carbon\CarbonImmutable;
+use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
 
 /**
@@ -13,13 +13,14 @@ use Illuminate\Support\Collection;
  *
  * Not a FormRequest because this never comes directly off an HTTP payload —
  * the bulk-create page constructs one after pre-check and user confirmation.
+ *
+ * Tuples carry only `start_time`; the service computes each row's end_time
+ * from movie runtime + auditorium cleanup so the formula has one source.
  */
 final class BulkShowtimeRequest
 {
     /**
-     * @param  Collection<int, array{start_time: CarbonImmutable, end_time: CarbonImmutable}>  $tuples
-     *                                                                                                  Each tuple is the creatable subset — conflicts were already filtered out
-     *                                                                                                  and end_time pre-computed from movie runtime + auditorium cleanup.
+     * @param  Collection<int, array{start_time: CarbonInterface}>  $tuples  Already filtered of conflicts.
      */
     public function __construct(
         public readonly string $movieId,

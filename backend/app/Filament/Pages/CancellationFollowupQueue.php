@@ -87,7 +87,7 @@ class CancellationFollowupQueue extends Page implements HasTable
                     ->copyable(),
                 TextColumn::make('customer_email')
                     ->label('Customer')
-                    ->getStateUsing(fn (Booking $record) => $record->user?->email ?? $record->guest_email ?? '—')
+                    ->getStateUsing(fn (Booking $record) => $record->user ? $record->user->email : ($record->guest_email ?? '—'))
                     ->searchable(
                         query: fn (Builder $q, string $search) => $q
                             ->where('guest_email', 'ilike', "%{$search}%")
