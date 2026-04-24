@@ -12,7 +12,12 @@ return new class extends Migration
             $table->id();
             // users.id is a UUID, so foreignUuid is required.
             $table->foreignUuid('user_id')->constrained('users')->cascadeOnDelete();
-            $table->foreignId('admin_user_id')->constrained('admin_users');
+            // Nullable so system-initiated adjustments (e.g. scheduled premier
+            // expirations) can be recorded without an admin actor. Admin-facing
+            // Filament actions always pass the authenticated admin user.
+            // `nullOnDelete` preserves the audit row if the actor is later
+            // deleted — losing attribution is acceptable; losing the audit is not.
+            $table->foreignId('admin_user_id')->nullable()->constrained('admin_users')->nullOnDelete();
             $table->integer('points_delta');
             $table->text('reason');
             $table->string('change_type');

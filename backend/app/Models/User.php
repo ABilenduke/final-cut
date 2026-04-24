@@ -51,4 +51,12 @@ class User extends Authenticatable
     {
         return $this->hasMany(Booking::class);
     }
+
+    /**
+     * Admin-applied loyalty adjustments for the user.
+     */
+    public function loyaltyAdjustments(): HasMany
+    {
+        return $this->hasMany(LoyaltyAdjustment::class);
+    }
 }

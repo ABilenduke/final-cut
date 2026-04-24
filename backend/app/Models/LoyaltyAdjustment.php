@@ -10,6 +10,16 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
 
+/**
+ * @property int $id
+ * @property string $user_id
+ * @property int|null $admin_user_id
+ * @property int $points_delta
+ * @property string $reason
+ * @property LoyaltyAdjustmentType $change_type
+ * @property User $user
+ * @property AdminUser|null $adminUser
+ */
 class LoyaltyAdjustment extends Model
 {
     /** @use HasFactory<LoyaltyAdjustmentFactory> */
