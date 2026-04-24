@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Services\LoyaltyService;
 use Filament\Actions\ViewAction;
 use Filament\Resources\Pages\EditRecord;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
 
@@ -28,9 +29,10 @@ class EditUser extends EditRecord
      *  - a `loyalty_adjustments` audit row,
      *  - an `activity_log` row with the admin as causer.
      *
-     * Non-loyalty fields are NOT rendered in the form (see UserResource::form),
-     * so `$data` only contains loyalty_points, loyalty_tier, and (conditionally)
-     * premier_expiry.
+     * Permission split is enforced server-side here as defence-in-depth on top
+     * of the field-level `disabled()`/`dehydrated()` guards in `UserResource::form()`:
+     * a payload that tries to sneak a tier change past a points-only admin
+     * (or vice versa) is rejected before it reaches the service.
      */
     protected function handleRecordUpdate(Model $record, array $data): Model
     {
@@ -40,8 +42,15 @@ class EditUser extends EditRecord
         $actor = auth('admin')->user();
 
         $currentPoints = (int) $record->loyalty_points;
-        $newPoints = (int) ($data['loyalty_points'] ?? $currentPoints);
+        $newPoints = array_key_exists('loyalty_points', $data)
+            ? (int) $data['loyalty_points']
+            : $currentPoints;
+
         if ($newPoints !== $currentPoints) {
+            if (! UserResource::actorCanAdjustPoints()) {
+                throw new AuthorizationException('Missing loyalty.adjust_points permission.');
+            }
+
             $service->adjustPoints(
                 $record,
                 $newPoints - $currentPoints,
@@ -52,12 +61,23 @@ class EditUser extends EditRecord
 
         $currentTier = $record->loyalty_tier->value;
         $newTier = $data['loyalty_tier'] ?? $currentTier;
-        if ($newTier !== $currentTier) {
+        $submittedExpiry = $data['premier_expiry'] ?? null;
+
+        $tierChanged = $newTier !== $currentTier;
+        $expiryRolled = ! $tierChanged
+            && $newTier === LoyaltyTier::Premier->value
+            && $submittedExpiry !== null
+            && Carbon::parse($submittedExpiry)->toDateString() !== $record->premier_expiry?->toDateString();
+
+        if ($tierChanged || $expiryRolled) {
+            if (! UserResource::actorCanAdjustTier()) {
+                throw new AuthorizationException('Missing loyalty.adjust_tier permission.');
+            }
+
             if ($newTier === LoyaltyTier::Premier->value) {
-                $expiry = $data['premier_expiry'] ?? null;
                 $service->grantPremier(
                     $record,
-                    $expiry ? Carbon::parse($expiry) : Carbon::now()->addYear(),
+                    $submittedExpiry ? Carbon::parse($submittedExpiry) : Carbon::now()->addYear(),
                     'Edited via profile form',
                     $actor,
                 );
@@ -68,18 +88,6 @@ class EditUser extends EditRecord
                     $actor,
                 );
             }
-        } elseif ($newTier === LoyaltyTier::Premier->value
-            && isset($data['premier_expiry'])
-            && Carbon::parse($data['premier_expiry'])->toDateString() !== $record->premier_expiry?->toDateString()
-        ) {
-            // Tier unchanged but expiry moved — re-grant to roll the expiry
-            // under the same lockForUpdate + audit contract.
-            $service->grantPremier(
-                $record,
-                Carbon::parse($data['premier_expiry']),
-                'Edited via profile form',
-                $actor,
-            );
         }
 
         return $record->fresh();

@@ -173,7 +173,9 @@ class UserResource extends BaseResource
                     TextInput::make('loyalty_points')
                         ->label('Loyalty points')
                         ->numeric()
-                        ->required(),
+                        ->required()
+                        ->disabled(fn (): bool => ! self::actorCanAdjustPoints())
+                        ->dehydrated(fn (): bool => self::actorCanAdjustPoints()),
                     Select::make('loyalty_tier')
                         ->label('Tier')
                         ->options([
@@ -181,13 +183,27 @@ class UserResource extends BaseResource
                             LoyaltyTier::Premier->value => 'Premier',
                         ])
                         ->required()
-                        ->live(),
+                        ->live()
+                        ->disabled(fn (): bool => ! self::actorCanAdjustTier())
+                        ->dehydrated(fn (): bool => self::actorCanAdjustTier()),
                     DatePicker::make('premier_expiry')
                         ->label('Premier expiry')
-                        ->visible(fn (Get $get) => $get('loyalty_tier') === LoyaltyTier::Premier->value),
+                        ->visible(fn (Get $get): bool => $get('loyalty_tier') === LoyaltyTier::Premier->value)
+                        ->disabled(fn (): bool => ! self::actorCanAdjustTier())
+                        ->dehydrated(fn (): bool => self::actorCanAdjustTier()),
                 ])
                 ->columns(2),
         ]);
+    }
+
+    public static function actorCanAdjustPoints(): bool
+    {
+        return (bool) (auth('admin')->user()?->can('loyalty.adjust_points'));
+    }
+
+    public static function actorCanAdjustTier(): bool
+    {
+        return (bool) (auth('admin')->user()?->can('loyalty.adjust_tier'));
     }
 
     /**
