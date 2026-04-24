@@ -4,6 +4,7 @@ use App\Enums\BookingStatus;
 use App\Enums\SeatType;
 use App\Exceptions\SeatConflictException;
 use App\Models\Auditorium;
+use App\Models\AuditoriumSection;
 use App\Models\Booking;
 use App\Models\BookingSeat;
 use App\Models\Location;
@@ -86,6 +87,34 @@ test('checkAvailability ignores cancelled bookings', function () {
     $result = $service->checkAvailability($showtime->id, [$seat->id]);
 
     expect($result)->toBeEmpty();
+});
+
+test('checkAvailability flags seats held by Held and RefundPending bookings', function () {
+    ['auditorium' => $auditorium, 'showtime' => $showtime] = makeShowtimeFixture();
+
+    $heldSeat = Seat::factory()->create(['auditorium_id' => $auditorium->id]);
+    $refundPendingSeat = Seat::factory()->create(['auditorium_id' => $auditorium->id]);
+
+    $heldBooking = Booking::factory()->create(['showtime_id' => $showtime->id, 'status' => BookingStatus::Held]);
+    BookingSeat::factory()->create([
+        'booking_id' => $heldBooking->id,
+        'showtime_id' => $showtime->id,
+        'seat_id' => $heldSeat->id,
+    ]);
+
+    $refundBooking = Booking::factory()->create(['showtime_id' => $showtime->id, 'status' => BookingStatus::RefundPending]);
+    BookingSeat::factory()->create([
+        'booking_id' => $refundBooking->id,
+        'showtime_id' => $showtime->id,
+        'seat_id' => $refundPendingSeat->id,
+    ]);
+
+    $service = app(SeatAvailabilityService::class);
+    $result = $service->checkAvailability($showtime->id, [$heldSeat->id, $refundPendingSeat->id]);
+
+    expect($result)->toHaveCount(2);
+    expect($result)->toContain($heldSeat->id);
+    expect($result)->toContain($refundPendingSeat->id);
 });
 
 test('reserveSeats creates BookingSeat records with correct prices', function () {
@@ -178,4 +207,88 @@ test('reserveSeats validates seats belong to showtime auditorium', function () {
 
     expect(fn () => $service->reserveSeats($showtime, [$foreignSeat->id], $booking))
         ->toThrow(ValidationException::class);
+});
+
+test('checkAvailability flags admin-marked unavailable_at seats as unavailable', function () {
+    ['auditorium' => $auditorium, 'showtime' => $showtime] = makeShowtimeFixture();
+
+    $available = Seat::factory()->create(['auditorium_id' => $auditorium->id]);
+    $unavailable = Seat::factory()->create([
+        'auditorium_id' => $auditorium->id,
+        'unavailable_at' => now()->subDay(),
+    ]);
+
+    $service = app(SeatAvailabilityService::class);
+    $result = $service->checkAvailability($showtime->id, [$available->id, $unavailable->id]);
+
+    expect($result)->toHaveCount(1);
+    expect($result)->toContain($unavailable->id);
+});
+
+test('reserveSeats refuses to charge an unavailable_at seat', function () {
+    ['auditorium' => $auditorium, 'showtime' => $showtime] = makeShowtimeFixture();
+
+    $seat = Seat::factory()->create([
+        'auditorium_id' => $auditorium->id,
+        'unavailable_at' => now()->subDay(),
+    ]);
+
+    $booking = Booking::factory()->create(['showtime_id' => $showtime->id]);
+
+    $service = app(SeatAvailabilityService::class);
+
+    expect(fn () => $service->reserveSeats($showtime, [$seat->id], $booking))
+        ->toThrow(SeatConflictException::class);
+
+    expect(BookingSeat::where('booking_id', $booking->id)->count())->toBe(0);
+});
+
+test('reserveSeats charges the section price_multiplier and snapshots the section name', function () {
+    ['auditorium' => $auditorium, 'showtime' => $showtime] = makeShowtimeFixture([
+        'price_standard' => 1000,
+    ]);
+
+    $section = AuditoriumSection::factory()->for($auditorium)->create([
+        'name' => 'Balcony',
+        'price_multiplier' => 1.50,
+    ]);
+    $seat = Seat::factory()->create([
+        'auditorium_id' => $auditorium->id,
+        'section_id' => $section->id,
+        'type' => SeatType::Standard,
+    ]);
+
+    $booking = Booking::factory()->create(['showtime_id' => $showtime->id]);
+
+    $service = app(SeatAvailabilityService::class);
+    $total = $service->reserveSeats($showtime, [$seat->id], $booking);
+
+    expect($total)->toBe(1500);
+
+    $bookingSeat = BookingSeat::where('booking_id', $booking->id)->first();
+    expect($bookingSeat->price)->toBe(1500);
+    expect($bookingSeat->section)->toBe('Balcony');
+});
+
+test('reserveSeats falls back to base price and SeatType when a seat has no section', function () {
+    ['auditorium' => $auditorium, 'showtime' => $showtime] = makeShowtimeFixture([
+        'price_premium' => 2000,
+    ]);
+
+    $seat = Seat::factory()->create([
+        'auditorium_id' => $auditorium->id,
+        'section_id' => null,
+        'type' => SeatType::Premium,
+    ]);
+
+    $booking = Booking::factory()->create(['showtime_id' => $showtime->id]);
+
+    $service = app(SeatAvailabilityService::class);
+    $total = $service->reserveSeats($showtime, [$seat->id], $booking);
+
+    expect($total)->toBe(2000);
+
+    $bookingSeat = BookingSeat::where('booking_id', $booking->id)->first();
+    expect($bookingSeat->price)->toBe(2000);
+    expect($bookingSeat->section)->toBe('premium');
 });

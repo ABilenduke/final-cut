@@ -3,6 +3,7 @@
 use App\Enums\BookingStatus;
 use App\Enums\SeatType;
 use App\Models\Auditorium;
+use App\Models\AuditoriumSection;
 use App\Models\Booking;
 use App\Models\BookingSeat;
 use App\Models\Location;
@@ -295,4 +296,73 @@ test('cancelled booking seat can be rebooked by another booking', function () {
 
     $seats = collect($response->json('data.seats'));
     expect($seats->first()['status'])->toBe('taken');
+});
+
+test('admin-flagged unavailable_at seats render as taken and are not offered to customers', function () {
+    $location = Location::factory()->create();
+    $auditorium = Auditorium::factory()->create(['location_id' => $location->id]);
+
+    $availableSeat = Seat::factory()->create([
+        'auditorium_id' => $auditorium->id,
+        'row' => 'A',
+        'number' => 1,
+        'label' => 'A1',
+    ]);
+    $outOfServiceSeat = Seat::factory()->create([
+        'auditorium_id' => $auditorium->id,
+        'row' => 'A',
+        'number' => 2,
+        'label' => 'A2',
+        'unavailable_at' => now()->subDay(),
+    ]);
+
+    $showtime = Showtime::factory()->create(['auditorium_id' => $auditorium->id]);
+
+    $response = getJson("/api/locations/{$location->slug}/showtimes/{$showtime->id}")->assertOk();
+
+    $seats = collect($response->json('data.seats'));
+    expect($seats->firstWhere('label', 'A1')['status'])->toBe('available');
+    expect($seats->firstWhere('label', 'A2')['status'])->toBe('taken');
+});
+
+test('section price_multiplier is applied to the seat map displayed to customers', function () {
+    $location = Location::factory()->create();
+    $auditorium = Auditorium::factory()->create(['location_id' => $location->id]);
+
+    $vipSection = AuditoriumSection::factory()->for($auditorium)->create([
+        'name' => 'VIP',
+        'price_multiplier' => 1.50,
+    ]);
+    $standardSection = AuditoriumSection::factory()->for($auditorium)->create([
+        'name' => 'Standard',
+        'price_multiplier' => 1.00,
+    ]);
+
+    $vipSeat = Seat::factory()->create([
+        'auditorium_id' => $auditorium->id,
+        'section_id' => $vipSection->id,
+        'type' => SeatType::Standard,
+        'row' => 'A',
+        'number' => 1,
+        'label' => 'A1',
+    ]);
+    $standardSeat = Seat::factory()->create([
+        'auditorium_id' => $auditorium->id,
+        'section_id' => $standardSection->id,
+        'type' => SeatType::Standard,
+        'row' => 'B',
+        'number' => 1,
+        'label' => 'B1',
+    ]);
+
+    $showtime = Showtime::factory()->create([
+        'auditorium_id' => $auditorium->id,
+        'price_standard' => 1000,
+    ]);
+
+    $response = getJson("/api/locations/{$location->slug}/showtimes/{$showtime->id}")->assertOk();
+
+    $seats = collect($response->json('data.seats'));
+    expect($seats->firstWhere('label', 'A1')['price'])->toBe(1500); // 1000 × 1.50
+    expect($seats->firstWhere('label', 'B1')['price'])->toBe(1000); // 1000 × 1.00
 });

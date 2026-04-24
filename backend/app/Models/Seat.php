@@ -9,8 +9,18 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Carbon;
 
-#[Fillable(['auditorium_id', 'label', 'row', 'number', 'type'])]
+/**
+ * @property SeatType $type
+ * @property ?Carbon $unavailable_at
+ * @property-read ?AuditoriumSection $section
+ */
+#[Fillable([
+    'auditorium_id', 'section_id',
+    'label', 'row', 'number', 'type',
+    'unavailable_at',
+])]
 class Seat extends Model
 {
     /** @use HasFactory<SeatFactory> */
@@ -21,11 +31,24 @@ class Seat extends Model
         return [
             'type' => SeatType::class,
             'number' => 'integer',
+            'unavailable_at' => 'datetime',
         ];
     }
 
+    /** @return BelongsTo<Auditorium, $this> */
     public function auditorium(): BelongsTo
     {
         return $this->belongsTo(Auditorium::class);
+    }
+
+    /** @return BelongsTo<AuditoriumSection, $this> */
+    public function section(): BelongsTo
+    {
+        return $this->belongsTo(AuditoriumSection::class, 'section_id');
+    }
+
+    public function isAvailable(): bool
+    {
+        return $this->unavailable_at === null;
     }
 }

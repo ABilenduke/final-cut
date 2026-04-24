@@ -242,7 +242,90 @@ After `make fresh && make admin-create-user --name="Ops" --email=ops@finalcut.te
 ---
 
 ## Step 5: Locations, Auditoriums & Seat Editor
-**Status:** 🔲 Not Started
+**Status:** ✅ Complete
+**Started:** 2026-04-23
+**Completed:** 2026-04-23
+
+### Work Done
+- [2026-04-23] Created feature branch `feat/admin-plan-05-locations-auditoriums-seats` from `main`.
+- [2026-04-23] **Task 1 schema expansion complete.** Edited `create_locations_table`, `create_auditoriums_table`, `create_seats_table` migrations in place (pre-launch rule); added two new migrations: `create_auditorium_sections_table` and `create_seat_holds_table`. The seats `section_id` FK constraint lives in the auditorium_sections migration (runs later) because that's when the referenced table first exists. Used explicit `constrained('auditoriums')` — Laravel's pluralizer turns "auditorium" into "auditoria" otherwise. New models: `AuditoriumSection`, `SeatHold`. Updated `Location`/`Auditorium`/`Seat` fillable + casts + relationships. Added `config('app.default_location_timezone')` (blank default). Updated factories + `AuditoriumSeeder` (three sections per auditorium, all seats carry `section_id`). Extended `BookingStatus` enum with `Held` and `RefundPending` cases plus a `BookingStatus::occupyingStatuses()` helper for the regeneration-safety check. `LocationResource` (customer API JsonResource) now derives a single-line `address` string from the structured parts to preserve the customer frontend contract. Updated `LocationControllerTest` accordingly. `make fresh` + full backend suite green (518 tests, +1 net from Task 1).
+- [2026-04-23] **Task 2 `AuditoriumService` complete.** Created at `backend/app/Services/AuditoriumService.php`. Methods: `createLocation/updateLocation/deleteLocation/createAuditorium/updateAuditorium/deleteAuditorium/updateSectionConfig/generateSeats/updateSeatBatch/markSeatUnavailable/markSeatAvailable/getRegenerationBlockers`. Every write takes `?AdminUser $actor = null`; `logIfAdmin()` skips attribution when null. Two typed exceptions: `AuditoriumSeatRegenerationBlockedException` (carries structured blocker counts) and `AuditoriumSectionInUseException`. `generateSeats` wraps refusal-check → delete → rebuild in `DB::transaction`; blocker check queries showtimes, occupying-status bookings via `booking_seats`, and live `seat_holds`. `updateSeatBatch` pre-validates UUID shape + section-belongs-to-auditorium to raise `\InvalidArgumentException` instead of letting Postgres throw a `QueryException`.
+- [2026-04-23] **Task 3 `LocationResource` complete.** Form sections Identity / Contact / Address / Geography. Timezone Select is `required()`, searchable, default falls back from `config('app.default_location_timezone')` → `config('app.timezone')`. `serviceDeleteAction()` wraps `DeleteAction::make()->using(...)` → `AuditoriumService::deleteLocation`. `AuditoriumsRelationManager` attached. Manager role gets view + update only (matches seeder).
+- [2026-04-23] **Task 4 `AuditoriumResource` + relation manager complete.** Shared `AuditoriumResource::getFormSchema()` consumed by both standalone resource and `AuditoriumsRelationManager::form()`. Drift is guarded by a Layer A source-scan test. Sections repeater goes through `updateSectionConfig` (in-use guard fires on attempted deletion). Row actions: Edit, Configure seats (→ custom sub-page), Visual seat editor (→ custom sub-page), Fix seat sections (modal with Repeater of seats), service-routed Delete. All section-mutating paths route through the service for audit-log attribution.
+- [2026-04-23] **Task 5 seat generator complete.** `ConfigureSeats` custom Filament page at `/admin/auditoriums/{record}/configure-seats`. Row-range validator supports single letter (`A`) and contiguous range (`A-C`); rejects reversed ranges, multi-letter labels, mixed case, numeric rows. `TagsInput` for unavailable seats accepts both per-tag entry and comma-separated paste (handled by coercing string → array during `buildConfig`). Pre-flight calls `getRegenerationBlockers()` and disables submit when non-zero. `generateSeats` exception renders structured blocker counts via a danger notification; generic failure explicitly reassures that "the existing seat layout has not been changed".
+- [2026-04-23] **Task 6 visual seat editor complete.** Livewire page at `/admin/auditoriums/{record}/visual-editor`. Alpine handles drag-select + shift-click; Livewire owns authoritative `$seats` keyed by id and a `$dirty` patch map. `cycleSection` rotates through sections sorted by `display_order`; `toggleUnavailable` flips the flag; `bulkApplyActiveSection` applies the toolbar selection. `save` dispatches to `updateSeatBatch` with the admin actor; no new service method. `beforeunload` prompt fires when `$dirty` is non-empty. Grid partial renders seat cells colored by a deterministic per-section palette (`colorForSection($sectionId)`); unavailable seats render as translucent gray.
+- [2026-04-23] **Task 7 test suite complete.** 8 new test files covering Layer A (service mocked) and Layer B (real DB): Location resource + permissions, Auditorium resource + permissions (including the stock-`DeleteAction` regression guards on both resources and the shared-schema drift guard), `ConfigureAuditoriumSeats`, `VisualSeatEditor`, `AuditoriumServiceIntegrationTest`, and the critical `AuditoriumServiceRegenerationSafetyTest` (future-showtime blocker, confirmed/held/refund-pending booking blockers, live `seat_holds` blocker, past-only success path, mid-generation rollback, `force = true` guardrail). Total: **573 backend tests passing** (baseline 518 + 55 new).
+
+### Decisions
+- [2026-04-23] **Scope expansion confirmed with user at planning time.** Plan 05 as written assumes schema that doesn't exist in the v1 backend; user approved filling the gaps in this plan rather than trimming the plan or punting them.
+  - **Schema:** edit existing migrations in place (pre-launch rule per `CLAUDE.md`) to add Location contact/address/timezone/geo fields, `auditoriums.slug`/`cleanup_minutes`/`notes`, and `seats.section_id`/`unavailable_at`. Create new `auditorium_sections` and `seat_holds` tables as net-new additive migrations. Extend `BookingStatus` enum with `Held` and `RefundPending`.
+  - **Held-seat mechanism:** add the `seat_holds` table and the two `BookingStatus` cases so `AuditoriumService::generateSeats` can honestly refuse regeneration when seats are held. Customer-side wiring (the checkout flow that would create holds) is explicitly deferred; PURCHASE_FLOW.md's MVP already defers it to a later plan.
+  - **Visual Seat Editor (Task 6):** in scope for this iteration. Ships alongside the MVP generator form and the `updateSeatBatch` row action.
+- [2026-04-23] **`activity_log` polymorphic columns are strings, not bigint.** Plan 04 shipped `nullableMorphs('subject')`/`nullableMorphs('causer')` which creates `bigint` columns — fine for Movie (bigint PK) + AdminUser but Postgres rejects UUIDs in bigint. Since every new Plan 05 subject (Location/Auditorium/AuditoriumSection/Seat) is UUID-keyed, widened the columns to plain `string` via an in-place edit to the activity-log migration. Existing Movie test assertions that compared `$activity->causer_id` strictly (`toBe(int)`) needed to cast to `(int)` — trivially cheap and resilient to either shape. Spatie's polymorphic lookup compares string-keyed IDs correctly whether the model has int or string keys.
+- [2026-04-23] **`seats.section_id` FK is wired in the auditorium_sections migration, not in `create_seats_table`.** Seats migration runs before sections, so the FK constraint declared in the seats file would fail. Edited seats migration in place to add `uuid('section_id')->nullable()` + an index; put the actual `Schema::table('seats', fn ($t) => $t->foreign('section_id')...)` call inside `create_auditorium_sections_table.up()`. Matching `Schema::table('seats', fn ($t) => $t->dropForeign(['section_id']))` lives in its `down()`.
+- [2026-04-23] **Custom Filament pages use `public string $record` + a `getRecord()` accessor, not `public Auditorium $record`.** Livewire's test-time property hydration tries to assign `['record' => $routeKey]` directly to the typed property, triggering a `TypeError` when the value is a string. Keeping the public property a string and resolving via `Auditorium::findOrFail($this->record)` in an accessor dodges the conflict cleanly; the views use `$this->getRecord()` instead of `$record`.
+- [2026-04-23] **Shared-form drift guard is source-level, not rendered-schema diff.** Attempting to introspect the rendered schema from both surfaces (standalone `AuditoriumResource::form()` and `AuditoriumsRelationManager::form()`) hits Filament components' "container must not be accessed before initialization" — those components expect a mounted Livewire host. The Task 7 guard instead asserts that both `AuditoriumResource.php` and `AuditoriumsRelationManager.php` literally call `AuditoriumResource::getFormSchema()` via `file_get_contents` + `toContain`. Cheap to run; catches the exact regression (inlining a second schema) it needs to catch.
+- [2026-04-23] **"Fix seat sections" Layer A test submits the prefilled state instead of overriding via `data:`.** Livewire's `callTableAction(..., data: [...])` does not round-trip cleanly into a Filament Repeater whose item keys are UUIDs — the keys don't match so the overrides are ignored. Test verifies the action mounts, submits, and routes through `updateSeatBatch` with the admin actor; the richer toggle-unavailable round-trip is exercised directly against the service in Layer B (where no Repeater is in the way).
+
+### Blockers
+- None.
+
+### Files Changed
+
+Migrations + models + factories + config:
+- `backend/database/migrations/2026_04_04_200000_create_locations_table.php` — rewrote in place; split address into structured fields + added timezone + lat/lng.
+- `backend/database/migrations/2026_04_04_200002_create_auditoriums_table.php` — rewrote in place; added `slug`, `cleanup_minutes`, `notes`, `location_id+slug` unique index.
+- `backend/database/migrations/2026_04_04_200003_create_seats_table.php` — rewrote in place; added `section_id` (nullable uuid, indexed; FK wired later) + `unavailable_at`.
+- `backend/database/migrations/2026_04_22_171356_create_activity_log_table.php` — rewrote in place; polymorphic subject/causer columns are now `string`, not `bigint`.
+- `backend/database/migrations/2026_04_23_100000_create_auditorium_sections_table.php` — new.
+- `backend/database/migrations/2026_04_23_100001_create_seat_holds_table.php` — new.
+- `backend/app/Models/AuditoriumSection.php` — new.
+- `backend/app/Models/SeatHold.php` — new.
+- `backend/app/Models/Location.php` — fillable + casts for new columns.
+- `backend/app/Models/Auditorium.php` — fillable + casts + `sections()` hasMany.
+- `backend/app/Models/Seat.php` — fillable + `section()` belongsTo + `unavailable_at` cast + `isAvailable()`.
+- `backend/app/Enums/BookingStatus.php` — added `Held` + `RefundPending` + `occupyingStatuses()`.
+- `backend/config/app.php` — added `default_location_timezone` key (blank by default).
+- `backend/database/factories/LocationFactory.php` — structured fields + `America/New_York`.
+- `backend/database/factories/AuditoriumFactory.php` — adds `slug`, `cleanup_minutes`.
+- `backend/database/factories/AuditoriumSectionFactory.php` — new, with `standard/premium/accessible` states.
+- `backend/database/factories/SeatHoldFactory.php` — new, with `expired()` state.
+- `backend/database/seeders/AuditoriumSeeder.php` — seeds three sections per auditorium + assigns `section_id` on every seat + populates new location fields.
+
+Services + exceptions:
+- `backend/app/Services/AuditoriumService.php` — new; full write boundary.
+- `backend/app/Exceptions/AuditoriumSeatRegenerationBlockedException.php` — new.
+- `backend/app/Exceptions/AuditoriumSectionInUseException.php` — new.
+
+Filament resources + pages + views:
+- `backend/app/Filament/Resources/LocationResource.php` — new.
+- `backend/app/Filament/Resources/LocationResource/Pages/{ListLocations,CreateLocation,EditLocation,ViewLocation}.php` — new.
+- `backend/app/Filament/Resources/LocationResource/RelationManagers/AuditoriumsRelationManager.php` — new.
+- `backend/app/Filament/Resources/AuditoriumResource.php` — new; shared `getFormSchema()` + `seatRowActions()` + `serviceDeleteAction()` + `fixSeatSectionsAction()`.
+- `backend/app/Filament/Resources/AuditoriumResource/Pages/{ListAuditoriums,CreateAuditorium,EditAuditorium,ViewAuditorium,ConfigureSeats,VisualEditor}.php` — new.
+- `backend/resources/views/filament/resources/auditorium-resource/pages/configure-seats.blade.php` — new.
+- `backend/resources/views/filament/resources/auditorium-resource/pages/visual-editor.blade.php` — new.
+- `backend/resources/views/filament/resources/auditorium-resource/pages/partials/seat-grid.blade.php` — new.
+
+Customer API adjustments for the Location schema change:
+- `backend/app/Http/Resources/LocationResource.php` — `address` derived from structured parts.
+- `backend/tests/Feature/Api/LocationControllerTest.php` — updated to use structured fields.
+
+Tests:
+- `backend/tests/Feature/Admin/Resources/LocationResourceTest.php` — new.
+- `backend/tests/Feature/Admin/Resources/LocationResourcePermissionTest.php` — new.
+- `backend/tests/Feature/Admin/Resources/AuditoriumResourceTest.php` — new.
+- `backend/tests/Feature/Admin/Resources/AuditoriumResourcePermissionTest.php` — new.
+- `backend/tests/Feature/Admin/Pages/ConfigureAuditoriumSeatsTest.php` — new.
+- `backend/tests/Feature/Admin/Pages/VisualSeatEditorTest.php` — new.
+- `backend/tests/Feature/Admin/Services/AuditoriumServiceIntegrationTest.php` — new.
+- `backend/tests/Feature/Admin/Services/AuditoriumServiceRegenerationSafetyTest.php` — new (critical).
+- `backend/tests/Feature/Admin/Services/MovieServiceIntegrationTest.php` — cast `causer_id` to int on assertions (column is string now).
+- `backend/tests/Feature/Admin/Auth/AuditLoggingTest.php` — same cast.
+- `backend/tests/Feature/Admin/LoyaltyAdjustmentTest.php` — same cast.
+
+Journal:
+- `docs/progress/admin-v1.md` — this file.
 
 ---
 

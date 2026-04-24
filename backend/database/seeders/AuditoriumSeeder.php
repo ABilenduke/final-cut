@@ -4,9 +4,11 @@ namespace Database\Seeders;
 
 use App\Enums\SeatType;
 use App\Models\Auditorium;
+use App\Models\AuditoriumSection;
 use App\Models\Location;
 use App\Models\Seat;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Str;
 
 class AuditoriumSeeder extends Seeder
 {
@@ -14,12 +16,36 @@ class AuditoriumSeeder extends Seeder
     {
         $downtown = Location::updateOrCreate(
             ['slug' => 'downtown'],
-            ['name' => 'Downtown', 'address' => '123 Main Street, Downtown, NY 10001'],
+            [
+                'name' => 'Downtown',
+                'phone' => '(212) 555-0101',
+                'email' => 'downtown@finalcut.test',
+                'street' => '123 Main Street',
+                'city' => 'Downtown',
+                'state' => 'NY',
+                'postal_code' => '10001',
+                'country' => 'US',
+                'timezone' => 'America/New_York',
+                'latitude' => 40.712776,
+                'longitude' => -74.005974,
+            ],
         );
 
         $eastside = Location::updateOrCreate(
             ['slug' => 'eastside'],
-            ['name' => 'Eastside', 'address' => '456 East Avenue, Eastside, NY 10002'],
+            [
+                'name' => 'Eastside',
+                'phone' => '(212) 555-0202',
+                'email' => 'eastside@finalcut.test',
+                'street' => '456 East Avenue',
+                'city' => 'Eastside',
+                'state' => 'NY',
+                'postal_code' => '10002',
+                'country' => 'US',
+                'timezone' => 'America/New_York',
+                'latitude' => 40.730610,
+                'longitude' => -73.935242,
+            ],
         );
 
         $locationLayouts = [
@@ -40,10 +66,35 @@ class AuditoriumSeeder extends Seeder
                 $auditorium = Auditorium::create([
                     'location_id' => $locationId,
                     'name' => $layout['name'],
+                    'slug' => Str::slug($layout['name']),
+                    'cleanup_minutes' => 20,
                     'total_seats' => $totalSeats,
                 ]);
 
+                $sections = [
+                    SeatType::Standard->value => AuditoriumSection::create([
+                        'auditorium_id' => $auditorium->id,
+                        'name' => 'Standard',
+                        'price_multiplier' => 1.00,
+                        'display_order' => 10,
+                    ]),
+                    SeatType::Premium->value => AuditoriumSection::create([
+                        'auditorium_id' => $auditorium->id,
+                        'name' => 'Premium',
+                        'price_multiplier' => 1.25,
+                        'display_order' => 20,
+                    ]),
+                    SeatType::Accessible->value => AuditoriumSection::create([
+                        'auditorium_id' => $auditorium->id,
+                        'name' => 'Accessible',
+                        'price_multiplier' => 1.00,
+                        'display_order' => 30,
+                    ]),
+                ];
+
                 $lastRowLetter = chr(ord('A') + $layout['rows'] - 1);
+                $now = now();
+                $seatRows = [];
 
                 for ($r = 0; $r < $layout['rows']; $r++) {
                     $rowLetter = chr(ord('A') + $r);
@@ -52,7 +103,7 @@ class AuditoriumSeeder extends Seeder
                         $type = SeatType::Standard;
 
                         if ($rowLetter === $lastRowLetter) {
-                            // Last row: accessible (aisle seats only — seats 1, 2, last-1, last)
+                            // Last row aisle seats are accessible (seats 1, 2, last-1, last).
                             if ($s <= 2 || $s >= $layout['seats_per_row'] - 1) {
                                 $type = SeatType::Accessible;
                             }
@@ -60,15 +111,22 @@ class AuditoriumSeeder extends Seeder
                             $type = SeatType::Premium;
                         }
 
-                        Seat::create([
+                        $seatRows[] = [
+                            'id' => (string) Str::uuid(),
                             'auditorium_id' => $auditorium->id,
+                            'section_id' => $sections[$type->value]->id,
                             'label' => $rowLetter.$s,
                             'row' => $rowLetter,
                             'number' => $s,
-                            'type' => $type,
-                        ]);
+                            'type' => $type->value,
+                            'unavailable_at' => null,
+                            'created_at' => $now,
+                            'updated_at' => $now,
+                        ];
                     }
                 }
+
+                Seat::insert($seatRows);
             }
         }
     }

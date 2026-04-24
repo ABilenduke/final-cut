@@ -9,13 +9,23 @@ use App\Models\Booking;
 use App\Models\BookingSeat;
 use App\Models\Seat;
 use App\Models\Showtime;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class SeatAvailabilityService
 {
     /**
-     * Return the subset of the given seat IDs that are already taken
-     * by a confirmed booking on this showtime.
+     * Return the subset of the given seat IDs that are unavailable for
+     * reservation on this showtime. A seat is unavailable if any of:
+     *   - it has an occupying booking (Confirmed / Held / RefundPending),
+     *   - it is flagged out-of-service by admin (`seats.unavailable_at` set),
+     *   - it does not exist / does not belong to this showtime's auditorium.
+     *
+     * The last case matters for the 3DS confirm window: if the layout was
+     * regenerated between `store()` and `confirm()`, missing seat IDs
+     * should be reported here so the confirm path can bail BEFORE the
+     * payment is captured, rather than blowing up inside `reserveSeats`
+     * and triggering a compensating refund.
      *
      * An empty array means all requested seats are available.
      *
@@ -28,11 +38,31 @@ class SeatAvailabilityService
             return [];
         }
 
-        return BookingSeat::where('showtime_id', $showtimeId)
+        $auditoriumId = DB::table('showtimes')
+            ->where('id', $showtimeId)
+            ->value('auditorium_id');
+
+        $validSeatIds = $auditoriumId === null
+            ? []
+            : Seat::whereIn('id', $seatIds)
+                ->where('auditorium_id', $auditoriumId)
+                ->pluck('id')
+                ->all();
+
+        $missingOrForeign = array_values(array_diff($seatIds, $validSeatIds));
+
+        $occupied = BookingSeat::where('showtime_id', $showtimeId)
             ->whereIn('seat_id', $seatIds)
-            ->whereHas('booking', fn ($q) => $q->where('status', BookingStatus::Confirmed))
+            ->whereHas('booking', fn ($q) => $q->whereIn('status', BookingStatus::occupyingStatuses()))
             ->pluck('seat_id')
             ->all();
+
+        $adminUnavailable = Seat::whereIn('id', $seatIds)
+            ->whereNotNull('unavailable_at')
+            ->pluck('id')
+            ->all();
+
+        return array_values(array_unique(array_merge($missingOrForeign, $occupied, $adminUnavailable)));
     }
 
     /**
@@ -41,17 +71,25 @@ class SeatAvailabilityService
      * Precondition: the caller must hold a lockForUpdate on the Showtime row
      * before calling this method to prevent concurrent double-bookings.
      *
+     * Each reserved seat is priced as `showtime.price_for(seat.type) × section.price_multiplier`
+     * when the seat is assigned to an `AuditoriumSection`; otherwise the
+     * multiplier defaults to 1.0. The `booking_seats.section` snapshot stores
+     * the admin-defined section name when present (falling back to the seat's
+     * SeatType for un-sectioned seats) so refund/audit payloads reflect what
+     * the customer was actually charged.
+     *
      * @param  string[]  $seatIds
      * @return int Total cost of all reserved seats in cents.
      *
      * @throws ValidationException When any seat does not belong to the showtime's auditorium.
-     * @throws SeatConflictException When any seat is already taken by a confirmed booking.
+     * @throws SeatConflictException When any seat is already taken or flagged unavailable.
      */
     public function reserveSeats(Showtime $showtime, array $seatIds, Booking $booking): int
     {
         $seatIds = array_values(array_unique($seatIds));
 
-        $seats = Seat::whereIn('id', $seatIds)
+        $seats = Seat::with('section')
+            ->whereIn('id', $seatIds)
             ->where('auditorium_id', $showtime->auditorium_id)
             ->get()
             ->keyBy('id');
@@ -75,17 +113,13 @@ class SeatAvailabilityService
         foreach ($seatIds as $seatId) {
             $seat = $seats->get($seatId);
 
-            $price = match ($seat->type) {
-                SeatType::Standard => $showtime->price_standard,
-                SeatType::Premium => $showtime->price_premium,
-                SeatType::Accessible => $showtime->price_accessible,
-            };
+            $price = self::priceForSeat($showtime, $seat);
 
             BookingSeat::create([
                 'booking_id' => $booking->id,
                 'showtime_id' => $showtime->id,
                 'seat_id' => $seatId,
-                'section' => $seat->type->value,
+                'section' => $seat->section !== null ? $seat->section->name : $seat->type->value,
                 'price' => $price,
             ]);
 
@@ -93,5 +127,70 @@ class SeatAvailabilityService
         }
 
         return $total;
+    }
+
+    /**
+     * Final charged price for a seat at a given showtime: the showtime's
+     * type-based base price multiplied by the seat's section multiplier when
+     * one is assigned. Shared by reserveSeats (charge/snapshot) and
+     * ShowtimeController (seat-map display) so customer-visible and
+     * persisted prices stay in sync.
+     */
+    public static function priceForSeat(Showtime $showtime, Seat $seat): int
+    {
+        $base = match ($seat->type) {
+            SeatType::Standard => $showtime->price_standard,
+            SeatType::Premium => $showtime->price_premium,
+            SeatType::Accessible => $showtime->price_accessible,
+        };
+
+        $multiplier = $seat->section?->price_multiplier;
+
+        if ($multiplier === null) {
+            return (int) $base;
+        }
+
+        return self::applyPriceMultiplier((int) $base, (string) $multiplier);
+    }
+
+    /**
+     * Apply a decimal section multiplier to a base cents amount using integer
+     * math only. The project-wide money rule forbids floats for currency (see
+     * CLAUDE.md / docs/architecture/DATA_MODELS.md): float × int can drift by a
+     * cent on values that round trip through IEEE-754.
+     *
+     * `price_multiplier` is persisted as `decimal(5,2)` and returned from the
+     * model as a 2-place decimal string (e.g. "1.50", "0.85"), which gives us a
+     * clean integer pivot: scale the multiplier to hundredths, multiply, then
+     * half-up round the /100 result.
+     */
+    private static function applyPriceMultiplier(int $baseCents, string $multiplier): int
+    {
+        $normalized = trim($multiplier);
+        $negative = str_starts_with($normalized, '-');
+        if ($negative || str_starts_with($normalized, '+')) {
+            $normalized = substr($normalized, 1);
+        }
+
+        [$whole, $fraction] = array_pad(explode('.', $normalized, 2), 2, '');
+        $fraction = substr(str_pad($fraction, 2, '0', STR_PAD_RIGHT), 0, 2);
+        $hundredths = ((int) $whole) * 100 + (int) $fraction;
+
+        if ($negative) {
+            $hundredths = -$hundredths;
+        }
+
+        $scaled = $baseCents * $hundredths;
+        $result = intdiv($scaled, 100);
+        $remainder = $scaled - ($result * 100);
+
+        // Half-away-from-zero rounding, symmetric for negative products.
+        if ($remainder >= 50) {
+            $result++;
+        } elseif ($remainder <= -50) {
+            $result--;
+        }
+
+        return $result;
     }
 }

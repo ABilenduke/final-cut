@@ -437,3 +437,38 @@ All data is served from PostgreSQL. The backend includes comprehensive seeders f
 - `GiftCardSeeder` — Creates gift cards in various states for testing stateful scenarios
 
 Run `make fresh` from the project root to reset the database with fresh migrations and seeds. See `@docs/plans/backend/v1/08-testing-and-seeding.md` for details.
+
+### Location-hierarchy schema (Plan 05)
+
+The admin-side location hierarchy persists more detail than the TS wire contract above exposes. The customer API derives its response from these tables:
+
+- **`locations`** — beyond `name`/`slug`, carries `phone`, `email`, `street`/`city`/`state`/`postal_code`/`country` (ISO-2, default `US`), required IANA `timezone`, and optional `latitude`/`longitude`. The customer `LocationResource` collapses the structured address back into a single `address` string to keep the Nuxt contract stable. Timezone default: `config('app.default_location_timezone')` (env `DEFAULT_LOCATION_TIMEZONE`), falling back to `config('app.timezone')` / UTC.
+- **`auditoriums`** — adds `slug` (unique per location), `cleanup_minutes` (turnover buffer for Plan 06's showtime conflict detection), `notes`. `total_seats` is a denormalised count kept in sync by `AuditoriumService::generateSeats` and `updateSeatBatch`.
+- **`auditorium_sections`** — new table: `id`, `auditorium_id`, `name`, `price_multiplier` (decimal 5,2), `display_order`. Final seat price is `showtime.price_for(seat.type) × section.price_multiplier`, applied uniformly at seat-map display and at booking reservation.
+- **`seats`** — adds nullable `section_id` FK and `unavailable_at` (timestamp). Admin-flagged unavailable seats render as `'taken'` in the customer seat map and are refused by `SeatAvailabilityService::reserveSeats`.
+- **`seat_holds`** — new per-showtime, per-seat hold table: `id`, `showtime_id`, `seat_id`, `expires_at`. Mechanism exists so `AuditoriumService::generateSeats` can refuse destructive regeneration while customers are mid-checkout. The customer checkout flow that would populate this table is explicitly deferred (see `PURCHASE_FLOW.md` MVP notes).
+
+### Booking status lifecycle
+
+`BookingStatus` values and their effect on seat availability:
+
+| Status | `booking_seats` occupies seat? | Customer-path consumer |
+| ------ | ------------------------------ | --------------------- |
+| `confirmed` | yes | Current checkout flow |
+| `held` | yes | Reserved — populated by future checkout-hold implementation |
+| `refund_pending` | yes | Reserved — prevents re-selling until refund completes |
+| `cancelled` | no | Terminal |
+| `refunded` | no | Terminal |
+
+`BookingStatus::occupyingStatuses()` returns the first three — used by both `SeatAvailabilityService::checkAvailability` (customer) and `AuditoriumService::getRegenerationBlockers` (admin) so the two sides of the system agree on what "taken" means.
+
+### Admin write boundary
+
+All admin mutations on locations, auditoriums, sections, and seats go through `App\Services\AuditoriumService`. The service's contract (see its class docblock) enforces:
+
+- Regeneration-safety refusal when any live dependency exists.
+- `updateSectionConfig` rejects section deletes while seats still reference them (`AuditoriumSectionInUseException`) and rejects payloads carrying an `id` that isn't in the target auditorium.
+- `generateSeats` and `saveAuditoriumWithSections` wrap in `DB::transaction` so partial failures roll back the auditorium row and its `activity_log` entry together.
+- Every write method accepts `?AdminUser $actor = null` — attribution is written when non-null, skipped for customer-originated writes.
+
+`activity_log.subject_id` / `causer_id` are string columns (not bigint) so UUID-keyed subjects (Location / Auditorium / Seat / Booking) coexist with bigint-keyed subjects (Movie / AdminUser).

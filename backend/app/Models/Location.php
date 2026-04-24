@@ -11,27 +11,43 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 
-#[Fillable(['name', 'slug', 'address'])]
+#[Fillable([
+    'name', 'slug',
+    'phone', 'email',
+    'street', 'city', 'state', 'postal_code', 'country',
+    'timezone', 'latitude', 'longitude',
+])]
 class Location extends Model
 {
     /** @use HasFactory<LocationFactory> */
     use HasFactory, HasUuids;
+
+    protected function casts(): array
+    {
+        return [
+            'latitude' => 'decimal:6',
+            'longitude' => 'decimal:6',
+        ];
+    }
 
     public function getRouteKeyName(): string
     {
         return 'slug';
     }
 
+    /** @return HasMany<Auditorium, $this> */
     public function auditoriums(): HasMany
     {
         return $this->hasMany(Auditorium::class);
     }
 
+    /** @return HasManyThrough<Showtime, Auditorium, $this> */
     public function showtimes(): HasManyThrough
     {
         return $this->hasManyThrough(Showtime::class, Auditorium::class);
     }
 
+    /** @return BelongsToMany<MenuItem, $this> */
     public function menuItems(): BelongsToMany
     {
         return $this->belongsToMany(MenuItem::class)

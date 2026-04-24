@@ -16,7 +16,7 @@ test('admin login + logout write rows to activity_log scoped to auth log', funct
     $authRows = Activity::where('log_name', 'auth')->orderBy('id')->get();
 
     expect($authRows->pluck('description')->all())->toBe(['login', 'logout']);
-    expect($authRows->first()->causer_id)->toBe($admin->id);
+    expect((int) $authRows->first()->causer_id)->toBe($admin->id);
     expect($authRows->first()->causer_type)->toBe(AdminUser::class);
 });
 
