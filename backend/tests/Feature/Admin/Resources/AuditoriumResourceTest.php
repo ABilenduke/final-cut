@@ -1,5 +1,6 @@
 <?php
 
+use App\Exceptions\AuditoriumHasBookingsException;
 use App\Filament\Resources\AuditoriumResource;
 use App\Filament\Resources\AuditoriumResource\Pages\CreateAuditorium;
 use App\Filament\Resources\AuditoriumResource\Pages\EditAuditorium;
@@ -11,6 +12,7 @@ use App\Models\AuditoriumSection;
 use App\Models\Location;
 use App\Models\Seat;
 use App\Services\AuditoriumService;
+use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Livewire\Livewire;
@@ -206,4 +208,90 @@ test('shared getFormSchema is the single source of truth for both surfaces (drif
 
     expect($standaloneSource)->toContain('self::getFormSchema()');
     expect($relationManagerSource)->toContain('AuditoriumResource::getFormSchema()');
+});
+
+test('duplicate slug within the same location is refused at the form layer (no 500)', function (): void {
+    $location = Location::factory()->create();
+    Auditorium::factory()->create(['location_id' => $location->id, 'slug' => 'main']);
+
+    $service = $this->mock(AuditoriumService::class);
+    $service->shouldReceive('saveAuditoriumWithSections')->never();
+
+    Livewire::test(CreateAuditorium::class)
+        ->set('data.location_id', $location->id)
+        ->set('data.name', 'Main Hall')
+        ->set('data.slug', 'main')
+        ->set('data.cleanup_minutes', 20)
+        ->set('data.sections', [])
+        ->call('create')
+        ->assertHasFormErrors(['slug']);
+});
+
+test('same slug is allowed under a different location', function (): void {
+    Auditorium::factory()->create(['slug' => 'main']);
+    $otherLocation = Location::factory()->create();
+
+    $service = $this->mock(AuditoriumService::class);
+    $service->shouldReceive('saveAuditoriumWithSections')
+        ->once()
+        ->andReturnUsing(function (Location $loc, $record, array $attributes, $sections, $actor) use ($otherLocation) {
+            return Auditorium::factory()->create([
+                'location_id' => $otherLocation->id,
+                'name' => $attributes['name'],
+                'slug' => $attributes['slug'],
+            ]);
+        });
+
+    Livewire::test(CreateAuditorium::class)
+        ->set('data.location_id', $otherLocation->id)
+        ->set('data.name', 'Main Hall')
+        ->set('data.slug', 'main')
+        ->set('data.cleanup_minutes', 20)
+        ->set('data.sections', [])
+        ->call('create')
+        ->assertHasNoFormErrors();
+});
+
+test('location_id field is disabled on edit — re-parenting intentionally blocked', function (): void {
+    $auditorium = Auditorium::factory()->create();
+
+    Livewire::test(EditAuditorium::class, ['record' => $auditorium->getRouteKey()])
+        ->assertFormFieldIsDisabled('location_id');
+});
+
+test('delete action surfaces a danger notification when AuditoriumHasBookingsException fires', function (): void {
+    $auditorium = Auditorium::factory()->create();
+
+    $service = $this->mock(AuditoriumService::class);
+    $service->shouldReceive('deleteAuditorium')
+        ->once()
+        ->andThrow(new AuditoriumHasBookingsException);
+
+    Livewire::test(ListAuditoriums::class)
+        ->callTableAction('delete', $auditorium);
+
+    Notification::assertNotified('Cannot delete auditorium');
+    expect(Auditorium::find($auditorium->id))->not->toBeNull();
+});
+
+test('fix_seat_sections does not rewrite unavailable_at when the toggle did not change (real service)', function (): void {
+    $auditorium = Auditorium::factory()->create();
+    $section = AuditoriumSection::factory()->for($auditorium)->standard()->create();
+
+    // Pre-existing unavailable seat stamped well in the past.
+    $seat = Seat::factory()->create([
+        'auditorium_id' => $auditorium->id,
+        'section_id' => $section->id,
+        'unavailable_at' => now()->subMonth(),
+    ]);
+    $originalTimestamp = $seat->unavailable_at->toIso8601String();
+
+    // Resubmit the modal with the toggle still ON and section unchanged —
+    // should be a complete no-op on this seat.
+    Livewire::test(ListAuditoriums::class)
+        ->callTableAction('fix_seat_sections', $auditorium);
+
+    $seat->refresh();
+    expect($seat->unavailable_at)->not->toBeNull();
+    expect($seat->unavailable_at->toIso8601String())->toBe($originalTimestamp);
 });

@@ -1,11 +1,13 @@
 <?php
 
+use App\Exceptions\LocationHasBookingsException;
 use App\Filament\Resources\LocationResource\Pages\CreateLocation;
 use App\Filament\Resources\LocationResource\Pages\EditLocation;
 use App\Filament\Resources\LocationResource\Pages\ListLocations;
 use App\Models\AdminUser;
 use App\Models\Location;
 use App\Services\AuditoriumService;
+use Filament\Notifications\Notification;
 use Livewire\Livewire;
 
 beforeEach(function (): void {
@@ -124,4 +126,19 @@ test('creating a location without a timezone produces a validation error', funct
         ->set('data.country', 'US')
         ->call('create')
         ->assertHasFormErrors(['timezone']);
+});
+
+test('delete action surfaces a danger notification when LocationHasBookingsException fires', function (): void {
+    $location = Location::factory()->create();
+
+    $service = $this->mock(AuditoriumService::class);
+    $service->shouldReceive('deleteLocation')
+        ->once()
+        ->andThrow(new LocationHasBookingsException);
+
+    Livewire::test(ListLocations::class)
+        ->callTableAction('delete', $location);
+
+    Notification::assertNotified('Cannot delete location');
+    expect(Location::find($location->id))->not->toBeNull();
 });

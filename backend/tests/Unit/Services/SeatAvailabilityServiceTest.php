@@ -88,6 +88,34 @@ test('checkAvailability ignores cancelled bookings', function () {
     expect($result)->toBeEmpty();
 });
 
+test('checkAvailability flags seats held by Held and RefundPending bookings', function () {
+    ['auditorium' => $auditorium, 'showtime' => $showtime] = makeShowtimeFixture();
+
+    $heldSeat = Seat::factory()->create(['auditorium_id' => $auditorium->id]);
+    $refundPendingSeat = Seat::factory()->create(['auditorium_id' => $auditorium->id]);
+
+    $heldBooking = Booking::factory()->create(['showtime_id' => $showtime->id, 'status' => BookingStatus::Held]);
+    BookingSeat::factory()->create([
+        'booking_id' => $heldBooking->id,
+        'showtime_id' => $showtime->id,
+        'seat_id' => $heldSeat->id,
+    ]);
+
+    $refundBooking = Booking::factory()->create(['showtime_id' => $showtime->id, 'status' => BookingStatus::RefundPending]);
+    BookingSeat::factory()->create([
+        'booking_id' => $refundBooking->id,
+        'showtime_id' => $showtime->id,
+        'seat_id' => $refundPendingSeat->id,
+    ]);
+
+    $service = app(SeatAvailabilityService::class);
+    $result = $service->checkAvailability($showtime->id, [$heldSeat->id, $refundPendingSeat->id]);
+
+    expect($result)->toHaveCount(2);
+    expect($result)->toContain($heldSeat->id);
+    expect($result)->toContain($refundPendingSeat->id);
+});
+
 test('reserveSeats creates BookingSeat records with correct prices', function () {
     ['auditorium' => $auditorium, 'showtime' => $showtime] = makeShowtimeFixture();
 

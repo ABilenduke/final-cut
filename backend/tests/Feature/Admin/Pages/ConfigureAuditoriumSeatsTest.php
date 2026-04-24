@@ -167,3 +167,50 @@ test('ops role cannot mount the configure-seats page', function (): void {
     $this->get(ConfigureSeats::getUrl(['record' => $auditorium]))
         ->assertForbidden();
 });
+
+test('unavailable_seats tags are upper-cased before being forwarded to the service', function (): void {
+    $auditorium = Auditorium::factory()->create();
+    $section = AuditoriumSection::factory()->for($auditorium)->standard()->create();
+
+    $capturedConfig = null;
+
+    $service = $this->mock(AuditoriumService::class);
+    $service->shouldReceive('getRegenerationBlockers')
+        ->zeroOrMoreTimes()
+        ->andReturn(['future_showtimes' => 0, 'active_bookings' => 0, 'held_seats' => 0]);
+    $service->shouldReceive('generateSeats')
+        ->once()
+        ->andReturnUsing(function ($a, array $config, $actor) use (&$capturedConfig) {
+            $capturedConfig = $config;
+        });
+
+    Livewire::test(ConfigureSeats::class, ['record' => $auditorium->getRouteKey()])
+        ->set('data.rows', 4)
+        ->set('data.seats_per_row', 4)
+        ->set('data.section_map', [['row_range' => 'A-D', 'section_id' => $section->id, 'type' => 'standard']])
+        ->set('data.unavailable_seats', ['a3', ' b2 ', 'C1'])
+        ->call('submit')
+        ->assertHasNoFormErrors();
+
+    expect($capturedConfig['unavailable_seats'])->toBe(['A3', 'B2', 'C1']);
+});
+
+test('section_map rejects rows outside the configured grid', function (): void {
+    $auditorium = Auditorium::factory()->create();
+    $section = AuditoriumSection::factory()->for($auditorium)->standard()->create();
+
+    $service = $this->mock(AuditoriumService::class);
+    $service->shouldReceive('getRegenerationBlockers')
+        ->zeroOrMoreTimes()
+        ->andReturn(['future_showtimes' => 0, 'active_bookings' => 0, 'held_seats' => 0]);
+    $service->shouldReceive('generateSeats')->never();
+
+    // rows=3 allows A-C; submitting A-J should fail validation without calling the service.
+    Livewire::test(ConfigureSeats::class, ['record' => $auditorium->getRouteKey()])
+        ->set('data.rows', 3)
+        ->set('data.seats_per_row', 4)
+        ->set('data.section_map', [['row_range' => 'A-J', 'section_id' => $section->id, 'type' => 'standard']])
+        ->set('data.unavailable_seats', [])
+        ->call('submit')
+        ->assertHasFormErrors();
+});

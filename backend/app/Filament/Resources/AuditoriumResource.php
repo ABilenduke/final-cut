@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources;
 
+use App\Exceptions\AuditoriumHasBookingsException;
 use App\Filament\Concerns\TimestampColumns;
 use App\Filament\Resources\AuditoriumResource\Pages;
 use App\Models\Auditorium;
@@ -21,10 +22,13 @@ use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Component;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
+use Filament\Support\Exceptions\Halt;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rules\Unique;
 use UnitEnum;
 
 class AuditoriumResource extends BaseResource
@@ -47,6 +51,10 @@ class AuditoriumResource extends BaseResource
                 ->required()
                 ->searchable()
                 ->preload()
+                // Re-parenting an auditorium is out of scope for v1. The edit
+                // form previously accepted a new value silently but the service
+                // discarded it, so lock the field on edit to match behaviour.
+                ->disabledOn('edit')
                 ->helperText('The theater this auditorium belongs to.'),
             ...self::getFormSchema(),
         ]);
@@ -72,6 +80,7 @@ class AuditoriumResource extends BaseResource
                     TextInput::make('name')
                         ->required()
                         ->maxLength(255)
+                        ->unique(ignoreRecord: true, modifyRuleUsing: self::scopeUniqueToLocation())
                         ->live(onBlur: true)
                         ->afterStateUpdated(function ($state, callable $set, $record) {
                             if ($record === null) {
@@ -81,6 +90,7 @@ class AuditoriumResource extends BaseResource
                     TextInput::make('slug')
                         ->required()
                         ->maxLength(255)
+                        ->unique(ignoreRecord: true, modifyRuleUsing: self::scopeUniqueToLocation())
                         ->helperText('Lowercase URL-friendly identifier. Unique within the location.'),
                     TextInput::make('cleanup_minutes')
                         ->numeric()
@@ -231,13 +241,28 @@ class AuditoriumResource extends BaseResource
                     ->itemLabel(fn (array $state): string => ($state['label'] ?? '—').($state['unavailable'] ?? false ? ' — unavailable' : '')),
             ])
             ->action(function (array $data, Auditorium $record) {
+                // Snapshot current unavailable timestamps so we only include
+                // `unavailable_at` in a patch when the toggle actually changed.
+                // Without this guard, resaving the modal rewrites every
+                // already-unavailable seat's timestamp to `now()` and fires a
+                // spurious activity_log row per seat.
+                $currentUnavailable = $record->seats()
+                    ->pluck('unavailable_at', 'id');
+
                 $patches = [];
                 foreach ($data['seats'] ?? [] as $row) {
-                    $patches[] = [
-                        'seat_id' => $row['id'],
+                    $seatId = $row['id'];
+                    $wasUnavailable = $currentUnavailable->get($seatId) !== null;
+                    $isUnavailable = (bool) ($row['unavailable'] ?? false);
+
+                    $patch = [
+                        'seat_id' => $seatId,
                         'section_id' => $row['section_id'],
-                        'unavailable_at' => ($row['unavailable'] ?? false) ? now() : null,
                     ];
+                    if ($isUnavailable !== $wasUnavailable) {
+                        $patch['unavailable_at'] = $isUnavailable ? now() : null;
+                    }
+                    $patches[] = $patch;
                 }
 
                 app(AuditoriumService::class)
@@ -251,6 +276,27 @@ class AuditoriumResource extends BaseResource
     }
 
     /**
+     * Scope the `unique` validator on `name`/`slug` to the auditorium's
+     * location. Works for both the standalone resource (reads `location_id`
+     * from the form state via `Get`) and the `AuditoriumsRelationManager`
+     * (falls back to the owner record when the form has no location_id field).
+     */
+    private static function scopeUniqueToLocation(): \Closure
+    {
+        return function (Unique $rule, Get $get, \Livewire\Component $livewire) {
+            $locationId = $get('location_id');
+            if ($locationId === null && method_exists($livewire, 'getOwnerRecord')) {
+                $owner = $livewire->getOwnerRecord();
+                $locationId = $owner?->getKey();
+            }
+
+            return $locationId !== null
+                ? $rule->where('location_id', $locationId)
+                : $rule;
+        };
+    }
+
+    /**
      * DeleteAction routed through the service for audit-log attribution.
      * Stock `DeleteAction::make()` without `->using()` is a test-caught
      * regression (Task 7 Layer A).
@@ -258,10 +304,22 @@ class AuditoriumResource extends BaseResource
     public static function serviceDeleteAction(): DeleteAction
     {
         return DeleteAction::make()
-            ->using(fn (Auditorium $record) => app(AuditoriumService::class)
-                ->deleteAuditorium($record, auth('admin')->user()))
+            ->using(function (Auditorium $record) {
+                try {
+                    app(AuditoriumService::class)->deleteAuditorium($record, auth('admin')->user());
+                } catch (AuditoriumHasBookingsException $e) {
+                    Notification::make()
+                        ->title('Cannot delete auditorium')
+                        ->body($e->getMessage())
+                        ->danger()
+                        ->persistent()
+                        ->send();
+
+                    throw new Halt;
+                }
+            })
             ->requiresConfirmation()
-            ->modalDescription('Deleting this auditorium cascades to its showtimes and seats. Past bookings keep their historical seat references.');
+            ->modalDescription('Deleting this auditorium cascades to its showtimes, seats, and sections. Deletion is refused while any showtime still has bookings — cancel or refund affected bookings first.');
     }
 
     public static function getPages(): array

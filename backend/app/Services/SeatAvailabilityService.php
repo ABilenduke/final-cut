@@ -14,10 +14,10 @@ use Illuminate\Validation\ValidationException;
 class SeatAvailabilityService
 {
     /**
-     * Return the subset of the given seat IDs that are already taken
-     * by a confirmed booking on this showtime.
-     *
-     * An empty array means all requested seats are available.
+     * Return the subset of the given seat IDs that are already taken by an
+     * occupying booking on this showtime — Confirmed, Held, or RefundPending
+     * (see BookingStatus::occupyingStatuses()). An empty array means all
+     * requested seats are available.
      *
      * @param  string[]  $seatIds
      * @return string[]
@@ -30,7 +30,7 @@ class SeatAvailabilityService
 
         return BookingSeat::where('showtime_id', $showtimeId)
             ->whereIn('seat_id', $seatIds)
-            ->whereHas('booking', fn ($q) => $q->where('status', BookingStatus::Confirmed))
+            ->whereHas('booking', fn ($q) => $q->whereIn('status', BookingStatus::occupyingStatuses()))
             ->pluck('seat_id')
             ->all();
     }

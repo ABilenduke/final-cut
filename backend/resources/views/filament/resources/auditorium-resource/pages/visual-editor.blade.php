@@ -5,17 +5,29 @@
             dragging: false,
             dragStart: null,
             dragEnd: null,
+            // Hoisted ref so add/removeEventListener see the same Function
+            // instance — bind() returns a fresh function each call.
+            _beforeUnloadRef: null,
             beforeUnload(e) {
-                if (this.$wire.hasUnsavedChanges()) {
+                // `$wire.dirty` is a Livewire PROPERTY access (synchronous).
+                // Calling `$wire.hasUnsavedChanges()` would return a Promise —
+                // always truthy — causing the confirm dialog to fire on every
+                // navigation.
+                const dirty = this.$wire.dirty || {};
+                if (Object.keys(dirty).length > 0) {
                     e.preventDefault();
                     e.returnValue = '';
                 }
             },
             init() {
-                window.addEventListener('beforeunload', this.beforeUnload.bind(this));
+                this._beforeUnloadRef = this.beforeUnload.bind(this);
+                window.addEventListener('beforeunload', this._beforeUnloadRef);
             },
             destroy() {
-                window.removeEventListener('beforeunload', this.beforeUnload.bind(this));
+                if (this._beforeUnloadRef) {
+                    window.removeEventListener('beforeunload', this._beforeUnloadRef);
+                    this._beforeUnloadRef = null;
+                }
             },
             onMouseDown(event, seatId) {
                 if (event.shiftKey) {

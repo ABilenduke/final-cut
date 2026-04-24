@@ -24,9 +24,10 @@ class ShowtimeController extends Controller
             return $this->errorResponse(['message' => 'Showtime not found'], 404);
         }
 
-        // Single query: get all booked seat IDs for this showtime (confirmed bookings only)
+        // Single query: all seat IDs taken by an occupying booking on this
+        // showtime (Confirmed + Held + RefundPending — see BookingStatus).
         $takenSeatLookup = BookingSeat::where('showtime_id', $showtime->id)
-            ->whereHas('booking', fn ($q) => $q->where('status', BookingStatus::Confirmed))
+            ->whereHas('booking', fn ($q) => $q->whereIn('status', BookingStatus::occupyingStatuses()))
             ->pluck('seat_id')
             ->flip();
 

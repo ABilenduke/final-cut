@@ -4,8 +4,10 @@ namespace App\Services;
 
 use App\Enums\BookingStatus;
 use App\Enums\SeatType;
+use App\Exceptions\AuditoriumHasBookingsException;
 use App\Exceptions\AuditoriumSeatRegenerationBlockedException;
 use App\Exceptions\AuditoriumSectionInUseException;
+use App\Exceptions\LocationHasBookingsException;
 use App\Models\AdminUser;
 use App\Models\Auditorium;
 use App\Models\AuditoriumSection;
@@ -80,8 +82,19 @@ class AuditoriumService
         return $location;
     }
 
+    /**
+     * @throws LocationHasBookingsException if any showtime at any auditorium of this
+     *                                      location still carries a booking. The FK chain is cascade-on-delete,
+     *                                      so without this guard `$location->delete()` silently destroys
+     *                                      historical `stripe_payment_intent_id` / `confirmation_code` values
+     *                                      needed for refund reconciliation.
+     */
     public function deleteLocation(Location $location, ?AdminUser $actor = null): void
     {
+        if ($location->showtimes()->whereHas('bookings')->exists()) {
+            throw new LocationHasBookingsException;
+        }
+
         $this->logIfAdmin('location.deleted', $location, $actor);
         $location->delete();
     }
@@ -146,8 +159,17 @@ class AuditoriumService
         return $auditorium;
     }
 
+    /**
+     * @throws AuditoriumHasBookingsException when any of the auditorium's showtimes
+     *                                        still carries a booking. Same rationale as MovieService::delete —
+     *                                        the FK cascade would silently destroy historical payment data.
+     */
     public function deleteAuditorium(Auditorium $auditorium, ?AdminUser $actor = null): void
     {
+        if ($auditorium->showtimes()->whereHas('bookings')->exists()) {
+            throw new AuditoriumHasBookingsException;
+        }
+
         $this->logIfAdmin('auditorium.deleted', $auditorium, $actor);
         $auditorium->delete();
     }
@@ -307,6 +329,26 @@ class AuditoriumService
                 $blockers = $this->getRegenerationBlockers($auditorium);
                 if (array_sum($blockers) > 0) {
                     throw new AuditoriumSeatRegenerationBlockedException($blockers);
+                }
+            }
+
+            // Reject any section_id in the section_map that doesn't belong to
+            // this auditorium — the FK only checks row existence, not
+            // ownership, so a UUID from a sibling auditorium's section would
+            // otherwise pass and yield cross-venue pricing (see
+            // updateSeatBatch for the sibling enforcement of the same rule).
+            $referencedSectionIds = array_values(array_unique(array_filter(
+                array_column($config['section_map'] ?? [], 'section_id'),
+                fn ($v) => $v !== null,
+            )));
+            if ($referencedSectionIds !== []) {
+                $validSectionCount = $auditorium->sections()
+                    ->whereIn('id', $referencedSectionIds)
+                    ->count();
+                if ($validSectionCount !== count($referencedSectionIds)) {
+                    throw new \InvalidArgumentException(
+                        'One or more section ids do not belong to this auditorium.'
+                    );
                 }
             }
 

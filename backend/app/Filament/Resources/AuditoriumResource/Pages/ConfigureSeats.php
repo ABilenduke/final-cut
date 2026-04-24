@@ -21,6 +21,7 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Support\HtmlString;
+use Illuminate\Validation\ValidationException;
 use Throwable;
 
 /**
@@ -217,24 +218,49 @@ class ConfigureSeats extends Page implements HasForms
      */
     private function buildConfig(array $data): array
     {
+        $rows = (int) $data['rows'];
+        $seatsPerRow = (int) $data['seats_per_row'];
+        $lastRowLetter = chr(ord('A') + $rows - 1);
+
         $sectionMap = [];
         foreach ($data['section_map'] ?? [] as $entry) {
+            $expanded = self::expandRowRange($entry['row_range']);
+            // Reject rows past the configured grid — otherwise the mapping
+            // sits in `$rowToSection` but the insert loop never sees it and
+            // admin intent is silently lost.
+            foreach ($expanded as $rowLetter) {
+                if ($rowLetter > $lastRowLetter) {
+                    throw ValidationException::withMessages([
+                        'data.section_map' => sprintf(
+                            'Row %s in "%s" is outside the configured %d-row grid (max %s).',
+                            $rowLetter,
+                            $entry['row_range'],
+                            $rows,
+                            $lastRowLetter,
+                        ),
+                    ]);
+                }
+            }
             $sectionMap[] = [
-                'rows' => self::expandRowRange($entry['row_range']),
+                'rows' => $expanded,
                 'section_id' => $entry['section_id'],
                 'type' => $entry['type'],
             ];
         }
 
+        // Uppercase normalise tags: the insert loop builds labels as `chr('A'+r).$s`
+        // so anything lowercase would silently fail to match.
+        $unavailableSeats = is_array($data['unavailable_seats'] ?? null)
+            ? $data['unavailable_seats']
+            : explode(',', (string) ($data['unavailable_seats'] ?? ''));
+
         return [
-            'rows' => (int) $data['rows'],
-            'seats_per_row' => (int) $data['seats_per_row'],
+            'rows' => $rows,
+            'seats_per_row' => $seatsPerRow,
             'section_map' => $sectionMap,
             'unavailable_seats' => array_values(array_filter(array_map(
-                'trim',
-                is_array($data['unavailable_seats'] ?? null)
-                    ? $data['unavailable_seats']
-                    : explode(',', (string) ($data['unavailable_seats'] ?? '')),
+                fn ($v) => strtoupper(trim((string) $v)),
+                $unavailableSeats,
             ))),
         ];
     }

@@ -1,7 +1,9 @@
 <?php
 
 use App\Enums\BookingStatus;
+use App\Exceptions\AuditoriumHasBookingsException;
 use App\Exceptions\AuditoriumSectionInUseException;
+use App\Exceptions\LocationHasBookingsException;
 use App\Models\AdminUser;
 use App\Models\Auditorium;
 use App\Models\AuditoriumSection;
@@ -230,4 +232,92 @@ test('adding a new section does not auto-populate seats', function (): void {
     $newSection = $auditorium->sections()->where('name', 'Accessible')->first();
     expect($newSection)->not->toBeNull();
     expect($newSection->seats()->count())->toBe(0);
+});
+
+test('deleteAuditorium refuses when any showtime still carries a booking (cascade-safety guard)', function (): void {
+    $admin = $this->actingAsAdmin();
+    $auditorium = Auditorium::factory()->create();
+    $showtime = Showtime::factory()->create([
+        'auditorium_id' => $auditorium->id,
+        'start_time' => now()->subDay(),
+        'end_time' => now()->subDay()->addHours(2),
+    ]);
+    Booking::factory()->create(['showtime_id' => $showtime->id]);
+
+    $thrown = null;
+    try {
+        $this->service->deleteAuditorium($auditorium, $admin);
+    } catch (AuditoriumHasBookingsException $e) {
+        $thrown = $e;
+    }
+
+    expect($thrown)->toBeInstanceOf(AuditoriumHasBookingsException::class);
+    expect(Auditorium::find($auditorium->id))->not->toBeNull();
+});
+
+test('deleteLocation refuses when any auditorium still has a booking (cascade-safety guard)', function (): void {
+    $admin = $this->actingAsAdmin();
+    $location = Location::factory()->create();
+    $auditorium = Auditorium::factory()->create(['location_id' => $location->id]);
+    $showtime = Showtime::factory()->create([
+        'auditorium_id' => $auditorium->id,
+        'start_time' => now()->subDay(),
+        'end_time' => now()->subDay()->addHours(2),
+    ]);
+    Booking::factory()->create(['showtime_id' => $showtime->id]);
+
+    $thrown = null;
+    try {
+        $this->service->deleteLocation($location, $admin);
+    } catch (LocationHasBookingsException $e) {
+        $thrown = $e;
+    }
+
+    expect($thrown)->toBeInstanceOf(LocationHasBookingsException::class);
+    expect(Location::find($location->id))->not->toBeNull();
+});
+
+test('deleteAuditorium succeeds once all bookings are gone', function (): void {
+    $admin = $this->actingAsAdmin();
+    $auditorium = Auditorium::factory()->create();
+    Showtime::factory()->create([
+        'auditorium_id' => $auditorium->id,
+        'start_time' => now()->subDay(),
+        'end_time' => now()->subDay()->addHours(2),
+    ]);
+
+    $this->service->deleteAuditorium($auditorium, $admin);
+
+    expect(Auditorium::find($auditorium->id))->toBeNull();
+});
+
+test('generateSeats rejects section_ids that belong to a different auditorium', function (): void {
+    $admin = $this->actingAsAdmin();
+    $auditoriumA = Auditorium::factory()->create();
+    $auditoriumB = Auditorium::factory()->create();
+    $sectionFromB = AuditoriumSection::factory()->for($auditoriumB)->standard()->create();
+
+    // Seed an existing seat on A so we can prove the previous layout survives.
+    $existingSeat = Seat::factory()->create(['auditorium_id' => $auditoriumA->id]);
+
+    $config = [
+        'rows' => 2,
+        'seats_per_row' => 2,
+        'section_map' => [
+            ['rows' => ['A', 'B'], 'section_id' => $sectionFromB->id, 'type' => 'standard'],
+        ],
+        'unavailable_seats' => [],
+    ];
+
+    $thrown = null;
+    try {
+        $this->service->generateSeats($auditoriumA, $config, $admin);
+    } catch (InvalidArgumentException $e) {
+        $thrown = $e;
+    }
+
+    expect($thrown)->not->toBeNull();
+    expect($thrown->getMessage())->toContain('section ids do not belong');
+    // Previous layout intact because the pre-check throws before the destructive delete.
+    expect(Seat::find($existingSeat->id))->not->toBeNull();
 });

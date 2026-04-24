@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources;
 
+use App\Exceptions\LocationHasBookingsException;
 use App\Filament\Concerns\TimestampColumns;
 use App\Filament\Resources\LocationResource\Pages;
 use App\Filament\Resources\LocationResource\RelationManagers;
@@ -13,8 +14,10 @@ use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
+use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Filament\Support\Exceptions\Halt;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Support\Str;
@@ -127,10 +130,22 @@ class LocationResource extends BaseResource
     public static function serviceDeleteAction(): DeleteAction
     {
         return DeleteAction::make()
-            ->using(fn (Location $record) => app(AuditoriumService::class)
-                ->deleteLocation($record, auth('admin')->user()))
+            ->using(function (Location $record) {
+                try {
+                    app(AuditoriumService::class)->deleteLocation($record, auth('admin')->user());
+                } catch (LocationHasBookingsException $e) {
+                    Notification::make()
+                        ->title('Cannot delete location')
+                        ->body($e->getMessage())
+                        ->danger()
+                        ->persistent()
+                        ->send();
+
+                    throw new Halt;
+                }
+            })
             ->requiresConfirmation()
-            ->modalDescription('Deleting this location cascades to its auditoriums, seats, and showtimes. Past bookings keep their historical references.');
+            ->modalDescription('Deleting this location cascades to its auditoriums, sections, and seats. Deletion is refused while any showtime still has bookings — cancel or refund affected bookings first.');
     }
 
     public static function getRelations(): array
