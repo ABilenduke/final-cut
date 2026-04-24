@@ -18,7 +18,12 @@ class LocationFactory extends Factory
         return [
             'name' => $name,
             'slug' => Str::slug($name),
-            'phone' => fake()->phoneNumber(),
+            // `fake()->phoneNumber()` occasionally emits formats (e.g. with
+            // `x1234` extensions, or digits-before-parens like `+1 (555)…`)
+            // that Filament's `->tel()` regex rejects — the rule accepts at
+            // most one leading parenthesised group. Pin to a
+            // `NNN-NNN-NNNN` format that is unambiguously valid.
+            'phone' => fake()->numerify('###-###-####'),
             'email' => fake()->unique()->safeEmail(),
             'street' => fake()->streetAddress(),
             'city' => fake()->city(),
