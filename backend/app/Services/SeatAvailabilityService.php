@@ -150,6 +150,47 @@ class SeatAvailabilityService
             return (int) $base;
         }
 
-        return (int) round(((int) $base) * (float) $multiplier);
+        return self::applyPriceMultiplier((int) $base, (string) $multiplier);
+    }
+
+    /**
+     * Apply a decimal section multiplier to a base cents amount using integer
+     * math only. The project-wide money rule forbids floats for currency (see
+     * CLAUDE.md / docs/architecture/DATA_MODELS.md): float × int can drift by a
+     * cent on values that round trip through IEEE-754.
+     *
+     * `price_multiplier` is persisted as `decimal(5,2)` and returned from the
+     * model as a 2-place decimal string (e.g. "1.50", "0.85"), which gives us a
+     * clean integer pivot: scale the multiplier to hundredths, multiply, then
+     * half-up round the /100 result.
+     */
+    private static function applyPriceMultiplier(int $baseCents, string $multiplier): int
+    {
+        $normalized = trim($multiplier);
+        $negative = str_starts_with($normalized, '-');
+        if ($negative || str_starts_with($normalized, '+')) {
+            $normalized = substr($normalized, 1);
+        }
+
+        [$whole, $fraction] = array_pad(explode('.', $normalized, 2), 2, '');
+        $fraction = substr(str_pad($fraction, 2, '0', STR_PAD_RIGHT), 0, 2);
+        $hundredths = ((int) $whole) * 100 + (int) $fraction;
+
+        if ($negative) {
+            $hundredths = -$hundredths;
+        }
+
+        $scaled = $baseCents * $hundredths;
+        $result = intdiv($scaled, 100);
+        $remainder = $scaled - ($result * 100);
+
+        // Half-away-from-zero rounding, symmetric for negative products.
+        if ($remainder >= 50) {
+            $result++;
+        } elseif ($remainder <= -50) {
+            $result--;
+        }
+
+        return $result;
     }
 }

@@ -229,7 +229,7 @@ class AuditoriumResource extends BaseResource
                         Select::make('section_id')
                             ->label('Section')
                             ->options(fn () => $record->sections->pluck('name', 'id'))
-                            ->required(),
+                            ->placeholder('No section'),
                         Toggle::make('unavailable')
                             ->label('Unavailable'),
                     ])
@@ -255,9 +255,17 @@ class AuditoriumResource extends BaseResource
                     $wasUnavailable = $currentUnavailable->get($seatId) !== null;
                     $isUnavailable = (bool) ($row['unavailable'] ?? false);
 
+                    // Filament's Select returns '' when the placeholder is
+                    // selected; the service contract expects null for
+                    // "unassigned", so normalize here.
+                    $sectionId = $row['section_id'] ?? null;
+                    if ($sectionId === '') {
+                        $sectionId = null;
+                    }
+
                     $patch = [
                         'seat_id' => $seatId,
-                        'section_id' => $row['section_id'],
+                        'section_id' => $sectionId,
                     ];
                     if ($isUnavailable !== $wasUnavailable) {
                         $patch['unavailable_at'] = $isUnavailable ? now() : null;

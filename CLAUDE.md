@@ -95,6 +95,7 @@ Backend env vars worth knowing:
 
 - `BOOST_ENABLED=false` keeps browser-facing Laravel Boost routes disabled in local API development
 - `BOOST_BROWSER_LOGS_WATCHER=false` keeps the browser logs watcher off unless intentionally enabled
+- `DEFAULT_LOCATION_TIMEZONE` seeds the IANA timezone applied to newly created `Location` rows when the admin form leaves the field blank. Read through `config('app.default_location_timezone')`; falls back to `config('app.timezone')` (then UTC) when unset. Existing locations are never mutated — this only affects defaults at create-time
 
 `backend/phpunit.xml` forces the backend test environment to stay isolated: `APP_ENV=testing`, PostgreSQL points at `final_cut_test`, cache/session use in-memory array drivers, the queue is `sync`, and observability tooling like Pulse, Telescope, and Nightwatch is disabled during tests.
 
