@@ -22,16 +22,20 @@
                 @if ($seat === null)
                     <span class="h-8 w-8"></span>
                 @else
+                    @php($sectionName = $seat['section_id'] !== null ? ($sections[$seat['section_id']]['name'] ?? null) : null)
+                    @php($ariaLabel = 'Seat '.$seat['label'].($sectionName ? ', '.$sectionName.' section' : '').($seat['unavailable'] ? ', unavailable' : ''))
                     <button
                         type="button"
                         wire:key="seat-{{ $seat['id'] }}-{{ $seat['section_id'] ?? 'none' }}-{{ $seat['unavailable'] ? 'u' : 'a' }}"
-                        class="fi-seat relative h-8 w-8 rounded-sm text-[10px] font-mono transition-transform hover:scale-110"
+                        class="fi-seat relative h-8 w-8 rounded-sm text-[0.625rem] font-mono transition-transform hover:scale-110"
                         style="background-color: {{ $cellColor($seat) }}; color: rgba(255,255,255,0.85);"
                         x-on:mousedown.prevent="onMouseDown($event, '{{ $seat['id'] }}')"
                         x-on:mouseenter="onMouseEnter('{{ $seat['id'] }}')"
                         x-on:mouseup="onMouseUp('{{ $seat['id'] }}')"
                         :class="{ 'ring-2 ring-primary-500': selection.has('{{ $seat['id'] }}') }"
-                        title="Seat {{ $seat['label'] }}{{ $seat['unavailable'] ? ' (unavailable)' : '' }}"
+                        aria-label="{{ $ariaLabel }}"
+                        aria-pressed="{{ $seat['unavailable'] ? 'true' : 'false' }}"
+                        title="{{ $ariaLabel }}"
                     >
                         {{ $seat['number'] }}
                     </button>

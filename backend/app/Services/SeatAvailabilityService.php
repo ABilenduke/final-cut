@@ -9,15 +9,23 @@ use App\Models\Booking;
 use App\Models\BookingSeat;
 use App\Models\Seat;
 use App\Models\Showtime;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class SeatAvailabilityService
 {
     /**
      * Return the subset of the given seat IDs that are unavailable for
-     * reservation on this showtime. A seat is unavailable if either:
-     *   - it has an occupying booking (Confirmed / Held / RefundPending), or
-     *   - it is flagged out-of-service by admin (`seats.unavailable_at` set).
+     * reservation on this showtime. A seat is unavailable if any of:
+     *   - it has an occupying booking (Confirmed / Held / RefundPending),
+     *   - it is flagged out-of-service by admin (`seats.unavailable_at` set),
+     *   - it does not exist / does not belong to this showtime's auditorium.
+     *
+     * The last case matters for the 3DS confirm window: if the layout was
+     * regenerated between `store()` and `confirm()`, missing seat IDs
+     * should be reported here so the confirm path can bail BEFORE the
+     * payment is captured, rather than blowing up inside `reserveSeats`
+     * and triggering a compensating refund.
      *
      * An empty array means all requested seats are available.
      *
@@ -30,6 +38,19 @@ class SeatAvailabilityService
             return [];
         }
 
+        $auditoriumId = DB::table('showtimes')
+            ->where('id', $showtimeId)
+            ->value('auditorium_id');
+
+        $validSeatIds = $auditoriumId === null
+            ? []
+            : Seat::whereIn('id', $seatIds)
+                ->where('auditorium_id', $auditoriumId)
+                ->pluck('id')
+                ->all();
+
+        $missingOrForeign = array_values(array_diff($seatIds, $validSeatIds));
+
         $occupied = BookingSeat::where('showtime_id', $showtimeId)
             ->whereIn('seat_id', $seatIds)
             ->whereHas('booking', fn ($q) => $q->whereIn('status', BookingStatus::occupyingStatuses()))
@@ -41,7 +62,7 @@ class SeatAvailabilityService
             ->pluck('id')
             ->all();
 
-        return array_values(array_unique(array_merge($occupied, $adminUnavailable)));
+        return array_values(array_unique(array_merge($missingOrForeign, $occupied, $adminUnavailable)));
     }
 
     /**

@@ -10,6 +10,7 @@ use App\Models\Seat;
 use App\Models\SeatHold;
 use App\Models\Showtime;
 use App\Services\AuditoriumService;
+use Illuminate\Support\Facades\DB;
 use Spatie\Activitylog\Models\Activity;
 
 /**
@@ -166,47 +167,28 @@ test('succeeds when only past showtimes exist and all bookings are in terminal s
 });
 
 test('mid-generation DB failure rolls back fully — previous seat layout intact, no success activity row', function (): void {
-    // Inject a malformed section_map row that passes pre-flight but fails when
-    // the loop runs — the section_id points to a section on a DIFFERENT
-    // auditorium. The FK nullOnDelete rule allows this at the DB level, but the
-    // outer service's transaction still rolls back cleanly because we call
-    // inside DB::transaction and the SQL layer doesn't reject this particular
-    // path. To genuinely force a mid-flight failure, drop a bogus
-    // `unavailable_seats` containing a seat label that would collide on insert.
-    //
-    // Simpler approach: use a row count > 26 to exceed A–Z and produce an
-    // invalid `chr()` value. We bypass the UI's validation which caps at 26 and
-    // go straight at the service, so the service itself produces a
-    // downstream constraint violation during Seat::insert.
-    $config = $this->validConfig;
-    $config['rows'] = 30; // > 26 → non-letter row characters are generated → non-unique/strange.
-    // Actually this may still succeed with multi-byte chars. Let's force a
-    // unique constraint violation instead by including a duplicate label in
-    // unavailable_seats — not an error per se, they're just flags. Use
-    // `seats_per_row` that's 0 to force the Seat::insert to receive rows
-    // referencing a constrained column with an invalid value.
-    $config = $this->validConfig;
-    $config['seats_per_row'] = 0; // unsignedSmallInteger allows this; but then no seats inserted → no failure.
-
-    // Actually, the simplest way to force a mid-generation failure is to inject
-    // an invalid section_id (FK nullOnDelete is set, but we want the insert to
-    // throw). Use an invalid uuid that will fail FK validation.
-    $config = $this->validConfig;
-    $config['section_map'] = [
-        ['rows' => ['A', 'B'], 'section_id' => '00000000-0000-0000-0000-000000000000', 'type' => 'standard'],
-    ];
-
     $before = $this->auditorium->seats()->pluck('id')->sort()->values()->all();
     Activity::query()->delete();
 
+    // Force a failure AFTER the destructive `$auditorium->seats()->delete()`
+    // runs by throwing from a query listener the first time PostgreSQL sees
+    // `INSERT INTO "seats"`. That proves the outer DB::transaction rolls
+    // back the prior delete (and any activity_log entry) as a unit.
+    DB::listen(function ($query) {
+        if (str_starts_with(strtolower($query->sql), 'insert into "seats"')) {
+            throw new RuntimeException('Simulated insert failure');
+        }
+    });
+
     $thrown = null;
     try {
-        $this->service->generateSeats($this->auditorium, $config, $this->admin);
-    } catch (Throwable $e) {
+        $this->service->generateSeats($this->auditorium, $this->validConfig, $this->admin);
+    } catch (RuntimeException $e) {
         $thrown = $e;
     }
 
     expect($thrown)->not->toBeNull();
+    expect($thrown->getMessage())->toBe('Simulated insert failure');
 
     // Previous layout intact — same seat ids present afterwards.
     $after = $this->auditorium->seats()->pluck('id')->sort()->values()->all();

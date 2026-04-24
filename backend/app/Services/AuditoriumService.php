@@ -209,7 +209,17 @@ class AuditoriumService
             foreach ($sections as $row) {
                 $rowId = $row['id'] ?? null;
 
-                if ($rowId !== null && $existing->has($rowId)) {
+                // Reject payloads carrying a section id that isn't in this
+                // auditorium — the previous silent-create branch would hide
+                // corrupted form state and could trigger unintended deletes
+                // because the original id would not land in `$keepIds`.
+                if ($rowId !== null && ! $existing->has($rowId)) {
+                    throw new \InvalidArgumentException(
+                        "Section id [{$rowId}] does not belong to auditorium [{$auditorium->id}]."
+                    );
+                }
+
+                if ($rowId !== null) {
                     $section = $existing->get($rowId);
                     $section->fill([
                         'name' => $row['name'],
