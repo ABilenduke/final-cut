@@ -18,6 +18,7 @@ class ShowtimeController extends Controller
     {
         $showtime = Showtime::with(['movie', 'auditorium.seats.section'])
             ->whereHas('auditorium', fn ($q) => $q->where('location_id', $location->id))
+            ->whereNull('cancelled_at')
             ->find($id);
 
         if (! $showtime) {

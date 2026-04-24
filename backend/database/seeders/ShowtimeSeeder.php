@@ -22,26 +22,48 @@ class ShowtimeSeeder extends Seeder
         foreach (range(-3, 13) as $dayOffset) {
             $date = Carbon::today()->addDays($dayOffset);
 
-            foreach ($movies as $movie) {
-                foreach ($locations as $location) {
-                    $locationAuditoriums = $location->auditoriums;
-                    if ($locationAuditoriums->isEmpty()) {
-                        continue;
-                    }
+            foreach ($locations as $location) {
+                $locationAuditoriums = $location->auditoriums;
+                if ($locationAuditoriums->isEmpty()) {
+                    continue;
+                }
 
-                    // Every (movie × location × day) gets 3 showtimes
+                foreach ($movies as $movie) {
+                    // Every (movie × location × day) targets 3 showtimes
                     // covering morning, afternoon, and evening.
                     $timesForDay = fake()->randomElements($screenTimes, 3);
                     sort($timesForDay);
 
                     foreach ($timesForDay as $time) {
-                        $auditorium = $locationAuditoriums->random();
                         $startTime = $date->copy()->setTimeFromTimeString($time);
                         $endTime = $startTime->copy()->addMinutes($movie->runtime + 15);
 
+                        // Pick the first auditorium without an overlap — the
+                        // EXCLUDE USING gist constraint (showtimes_no_overlap)
+                        // would reject a colliding insert otherwise. Skip the
+                        // tuple silently when every auditorium at the location
+                        // is already booked for this slot.
+                        $chosenAuditorium = null;
+                        foreach ($locationAuditoriums->shuffle() as $auditorium) {
+                            $hasConflict = Showtime::where('auditorium_id', $auditorium->id)
+                                ->whereNull('cancelled_at')
+                                ->where('start_time', '<', $endTime)
+                                ->where('end_time', '>', $startTime)
+                                ->exists();
+
+                            if (! $hasConflict) {
+                                $chosenAuditorium = $auditorium;
+                                break;
+                            }
+                        }
+
+                        if ($chosenAuditorium === null) {
+                            continue;
+                        }
+
                         Showtime::create([
                             'movie_id' => $movie->id,
-                            'auditorium_id' => $auditorium->id,
+                            'auditorium_id' => $chosenAuditorium->id,
                             'start_time' => $startTime,
                             'end_time' => $endTime,
                             'price_standard' => 1200,

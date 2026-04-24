@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  */
 #[Fillable([
     'movie_id', 'auditorium_id', 'start_time', 'end_time',
+    'cancelled_at', 'cancellation_reason',
     'price_standard', 'price_premium', 'price_accessible',
 ])]
 class Showtime extends Model
@@ -28,6 +29,7 @@ class Showtime extends Model
         return [
             'start_time' => 'datetime',
             'end_time' => 'datetime',
+            'cancelled_at' => 'datetime',
             'price_standard' => 'integer',
             'price_premium' => 'integer',
             'price_accessible' => 'integer',

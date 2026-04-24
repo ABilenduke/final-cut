@@ -21,7 +21,8 @@ use Sqids\Sqids;
  */
 #[Fillable([
     'confirmation_code', 'showtime_id', 'user_id', 'guest_email',
-    'status', 'subtotal', 'discount', 'total', 'payment_method',
+    'status', 'flagged_at', 'flag_reason', 'notes',
+    'subtotal', 'discount', 'total', 'payment_method',
     'stripe_payment_intent_id',
 ])]
 #[Hidden(['stripe_payment_intent_id'])]
@@ -53,6 +54,7 @@ class Booking extends Model
         return [
             'status' => BookingStatus::class,
             'payment_method' => PaymentMethod::class,
+            'flagged_at' => 'datetime',
             'subtotal' => 'integer',
             'discount' => 'integer',
             'total' => 'integer',

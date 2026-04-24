@@ -330,7 +330,140 @@ Journal:
 ---
 
 ## Step 6: Showtime Management
-**Status:** 🔲 Not Started
+**Status:** ✅ Complete
+**Started:** 2026-04-24
+**Completed:** 2026-04-24
+
+### Work Done
+- [2026-04-24] Task 2 — schema + models:
+  - Edited `create_showtimes_table` in place: added `cancelled_at`, `cancellation_reason`, composite `(auditorium_id, start_time)` index (`showtimes_aud_start_idx`).
+  - Edited `create_bookings_table` in place: added `flagged_at`, `flag_reason`, `notes` (text).
+  - Additive migration `2026_04_24_000000_add_showtime_exclusion_constraint` — Postgres EXCLUDE USING gist on `(auditorium_id, tsrange(start_time, end_time, '[)'))` WHERE cancelled_at IS NULL, with `CREATE EXTENSION IF NOT EXISTS btree_gist`.
+  - Additive migration `2026_04_24_000001_create_dispatch_outbox_table` — generalised outbox table with a `dispatchable()` scope.
+  - Model updates: `Showtime` + `cancelled_at` cast/fillable; `Booking` + `flagged_at` cast/fillable + `notes`; new `DispatchOutbox` model.
+  - Customer-API filter at 5 sites: `ShowtimeController::show`, `BookingController::store` (x2 locked reads), `BookingController::confirm`, `MovieController::showtimes`.
+  - `ShowtimeFactory` fixed: `end_time` closure now reads `$attrs['start_time']` so test-supplied start-time overrides keep `end > start`.
+  - `ShowtimeSeeder` rewritten to pick a conflict-free auditorium per (location × day × time) — the EXCLUDE constraint caught the prior seeder's overlapping-random-auditorium behaviour.
+  - Added 3 regression tests (public API cancelled-showtime → 404 on ShowtimeController, MovieController, and BookingController routes).
+- [2026-04-24] Task 1 — ShowtimeService + exceptions + DTO:
+  - `App\Services\ShowtimeService` with `create/update/cancel/bulkCreate/detectConflicts`. Uses `LogsAdminActivity` trait; every write takes `?AdminUser $actor = null`.
+  - Catches `QueryException` SQLSTATE 23P01 and translates to `ShowtimeConflictException` carrying conflicting-row metadata.
+  - `cancel()` uses `lockForUpdate()` + re-read + `ShowtimeAlreadyCancelledException` for idempotency. Writes one `DispatchOutbox` row per affected booking inside the transaction.
+  - New exceptions: `MovieRuntimeMissingException`, `ShowtimeAlreadyCancelledException`, `ShowtimeConflictException`.
+  - New DTO: `App\Http\Requests\BulkShowtimeRequest` (readonly properties, tuples as a Collection).
+  - 15 Pest unit tests covering back-to-back / exact / nested / 1-min boundary / cancelled-excluded conflict edge cases, runtime precondition, idempotent cancel, bulk-create rollback.
+- [2026-04-24] Task 3 — ShowtimeResource MVP:
+  - `ShowtimeResource` extends `BaseResource`, `$permissionPrefix = 'showtimes'`, `$navigationGroup = 'Catalog'`.
+  - Cascading `location_id → auditorium_id` select (real reactive form field, not persisted). `location_id` hydrates from the record on edit via `afterStateHydrated`.
+  - Reactive `computed_end_time` Placeholder with 3-case messaging: missing input / missing runtime (with link to movie edit) / valid with cleanup hint.
+  - Pre-submit `validateAgainstConflicts` raises `ValidationException` keyed with `data.*` so Livewire attaches errors to the right form field.
+  - `cancelAction()` static helper shared between the row action (table) and header action (view/edit pages); visible only for future non-cancelled showtimes + `showtimes.cancel` permission.
+  - `getEloquentQuery()` override handles eager loading (movie + auditorium.location). `modifyQueryUsing(fn $q => $q->with(...))` at the table level triggered a `newQueryWithoutRelationships()` error in Filament's summary-query path — switching to `getEloquentQuery()` avoids it.
+  - 8 Layer A tests (ShowtimeResourceTest) + 3 permission tests (ShowtimeResourcePermissionTest).
+- [2026-04-24] Task 4 — BulkCreateShowtimes page:
+  - Custom Filament page at `/showtimes/bulk-create`, reachable via a header action on the list page (gated by `showtimes.create`).
+  - Form: movie, location→auditorium cascade, date range, days-of-week checkbox, times (TagsInput with `HH:MM` validation), pricing.
+  - Submit flow splits tuples into `creatable` / `conflicting` via `detectConflicts()`, stores both in a `$preview` property. Phase-2 `commit()` sends only the creatable subset to `ShowtimeService::bulkCreate` — single `DB::transaction`; any failure rolls back the full subset (no partial success).
+  - Uses `options()` (not `relationship()`) on the movie Select since the page has no backing model — `relationship()` on Select requires `$record->hasAttribute()`.
+  - 6 tests covering preview counting, conflict split, phase-two commit, missing-runtime guard, permission gating.
+- [2026-04-24] Task 5 — Cancel action + Mailable + outbox writes:
+  - `ShowtimeCancelledMail` mailable + `resources/views/mail/showtime-cancelled.blade.php` template.
+  - `NotifyCustomerOfShowtimeCancellation` job — stub destination for the Plan 09 outbox worker (not dispatched by Plan 06 code). Reads booking fresh + sends mail; no-op on deleted bookings.
+  - Cancel action wiring was already finished in Task 3 (via `ShowtimeResource::cancelAction()`); Task 5 adds the mail/job targets the outbox worker will need.
+  - 6 integration tests (ShowtimeCancellationFlowTest) verify: flag-all-bookings, outbox row per booking in the same transaction, actor-skip when null, idempotent second cancel, customer API hides cancelled, mailable renders correctly.
+- [2026-04-24] Task 6 — CancellationFollowupQueue page:
+  - Custom Filament page at `/cancelled-showtime-followup`, `bookings.view` gates access, navigation badge shows pending count.
+  - `mark_resolved` row action gated by `bookings.resolve_refund`; requires 10+ char notes, writes `status = refunded` + `notes`, logs `booking.manually_marked_refunded` activity with causer + notes.
+  - Seeder verification: `bookings.resolve_refund` was already in the Plan 02 seeder (line 31 admin, 59 manager) — no seeder changes needed, criterion satisfied by verification rather than new code.
+  - 6 tests covering queue filter, notes minlength, status transition, activity log, ops vs manager visibility, nobody-role rejection, navigation badge count.
+- [2026-04-24] Task 7 — Visual schedule planner (user opted in):
+  - Custom Filament page at `/schedule`, `showtimes.view` gates access. URL query carries `week` (Monday ISO date) + `loc` (slug) so views are shareable.
+  - Weekly grid: auditoriums as columns × days as rows. Each cell renders stacked showtime blocks → link to ViewShowtime; empty cells (for users with `showtimes.create`) show an "+ Add" link to CreateShowtime with auditorium/date hints in the query string.
+  - Cancelled showtimes hidden. Click-to-open design — drag-and-drop deferred per plan doc (too heavy a JS dependency decision for this pass).
+  - 9 tests covering week navigation, location tab switching, cancelled-hidden, ops-sees-no-add-button, nobody-role rejection.
+- [2026-04-24] Task 8 — test sweep:
+  - `ShowtimeServiceIntegrationTest` (5 tests) exercises the real service + activity_log writes for create/update + bulk-create.
+  - `ShowtimeConflictConcurrencyTest` (4 tests) exercises the TOCTOU EXCLUDE constraint via direct INSERT + service translation + cancel-frees-slot + bulk-create rollback.
+  - Final: `make admin-test` green at 202 tests (+36 from Plan 05 baseline); `make test-backend` green at 658 tests (+65 from Plan 05 baseline).
+
+### Decisions
+- [2026-04-24] EXCLUDE constraint uses `tsrange(...)` not `tstzrange(...)` — the `showtimes.start_time` / `end_time` columns are `timestamp` (without time zone) per Laravel's `dateTime()`, and `tstzrange` over a non-timestamptz column isn't IMMUTABLE. `tsrange` preserves the half-open `[)` semantics matching `detectConflicts`.
+- [2026-04-24] UUID typing fix: plan doc specified `int $auditoriumId` / `?int $ignoreShowtimeId` but showtimes + auditoriums are UUIDs. Corrected to `string` throughout the service + DTO.
+- [2026-04-24] Outbox worker deferred to Plan 09 per user direction. Plan 06 ships: outbox writes inside the cancellation transaction, the job class, the mailable, and the template. Plan 09 wires the actual worker + prune command.
+- [2026-04-24] `bookings.resolve_refund` permission was already present in the Plan 02 seeder — Task 6's "register new permission" acceptance criterion becomes a verification, not a seeder edit.
+- [2026-04-24] ValidationException keys in Filament Resource form handlers must use `data.*` prefix to attach to the correct field via Livewire's error bag. Discovered when `throw ValidationException::withMessages(['movie_id' => ...])` produced "Component missing error: data.movie_id".
+- [2026-04-24] Action data in tests is addressed via `mountedActions.0.data.*` — `fillForm($data)` silently misses this state path. Workaround: `->mountAction('name')->set('mountedActions.0.data.reason', $value)->callMountedAction()`.
+- [2026-04-24] `modifyQueryUsing(fn $q => $q->with([...]))` at the table level triggered a `newQueryWithoutRelationships() on null` error in Filament's summary-query construction. Moved eager loading to `getEloquentQuery()` override on the resource.
+- [2026-04-24] Visual planner: click-to-open instead of drag-and-drop. Drag requires a JS dep we're not picking now; the MVP list/form + bulk-create already cover the write-path needs, so the planner is a navigation aid in v1.
+- [2026-04-24] Race between customer booking and admin cancel (plan Risk #5): accepted v1 behaviour — a last-second confirmation may land right before cancellation flags it. Customer receives both a confirmation and a cancellation email. Documented; v2 may pre-lock the showtime at cancel time.
+
+### Blockers
+- [2026-04-24] `ShowtimeSeeder` was silently producing overlapping showtimes under the new EXCLUDE constraint (picked random auditoriums without conflict checks). → Rewrote to iterate (location × day × time) and greedily pick a conflict-free auditorium, skipping tuples where every auditorium is already booked.
+- [2026-04-24] `ShowtimeFactory` default `end_time` was computed from its own internal `$start`, so tests overriding `start_time` got unrelated end times (end < start) that violated the EXCLUDE range check. → Made `end_time` a closure that reads `$attrs['start_time']`.
+- [2026-04-24] `BookingFactory` defaults `guest_email` to null when `user_id` is populated, and the notification job prefers `user.email`. Test that asserted `hasTo('ticket-holder@example.com')` needed `->guest()` state to drop the user FK.
+
+### Files Changed
+Migrations:
+- `backend/database/migrations/2026_04_04_200008_create_showtimes_table.php` — in-place: cancelled_at, cancellation_reason, composite index.
+- `backend/database/migrations/2026_04_04_200009_create_bookings_table.php` — in-place: flagged_at, flag_reason, notes.
+- `backend/database/migrations/2026_04_24_000000_add_showtime_exclusion_constraint.php` — new (btree_gist + EXCLUDE).
+- `backend/database/migrations/2026_04_24_000001_create_dispatch_outbox_table.php` — new.
+
+Models:
+- `backend/app/Models/Showtime.php` — fillable/cast for cancelled_at, cancellation_reason.
+- `backend/app/Models/Booking.php` — fillable/cast for flagged_at, flag_reason, notes.
+- `backend/app/Models/DispatchOutbox.php` — new (with `dispatchable()` scope).
+
+Factories + seeders:
+- `backend/database/factories/ShowtimeFactory.php` — end_time closure reads attrs['start_time'].
+- `backend/database/seeders/ShowtimeSeeder.php` — conflict-free auditorium assignment per (location × day × time).
+
+Services + exceptions + DTOs:
+- `backend/app/Services/ShowtimeService.php` — new.
+- `backend/app/Exceptions/MovieRuntimeMissingException.php` — new.
+- `backend/app/Exceptions/ShowtimeAlreadyCancelledException.php` — new.
+- `backend/app/Exceptions/ShowtimeConflictException.php` — new.
+- `backend/app/Http/Requests/BulkShowtimeRequest.php` — new.
+
+Jobs + Mail:
+- `backend/app/Jobs/NotifyCustomerOfShowtimeCancellation.php` — new (dispatched by Plan 09's worker).
+- `backend/app/Mail/ShowtimeCancelledMail.php` — new.
+- `backend/resources/views/mail/showtime-cancelled.blade.php` — new.
+
+Customer API filter updates (whereNull('cancelled_at')):
+- `backend/app/Http/Controllers/Api/ShowtimeController.php` — show()
+- `backend/app/Http/Controllers/Api/BookingController.php` — store() initial fetch + locked fetch + confirm() locked fetch
+- `backend/app/Http/Controllers/Api/MovieController.php` — showtimes()
+
+Filament resources + pages + views:
+- `backend/app/Filament/Resources/ShowtimeResource.php` — new.
+- `backend/app/Filament/Resources/ShowtimeResource/Pages/ListShowtimes.php` — new (with bulk_create header action).
+- `backend/app/Filament/Resources/ShowtimeResource/Pages/CreateShowtime.php` — new.
+- `backend/app/Filament/Resources/ShowtimeResource/Pages/EditShowtime.php` — new.
+- `backend/app/Filament/Resources/ShowtimeResource/Pages/ViewShowtime.php` — new.
+- `backend/app/Filament/Resources/ShowtimeResource/Pages/BulkCreateShowtimes.php` — new.
+- `backend/resources/views/filament/resources/showtime-resource/pages/bulk-create.blade.php` — new.
+- `backend/app/Filament/Pages/CancellationFollowupQueue.php` — new.
+- `backend/resources/views/filament/pages/cancellation-followup-queue.blade.php` — new.
+- `backend/app/Filament/Pages/SchedulePlanner.php` — new.
+- `backend/resources/views/filament/pages/schedule-planner.blade.php` — new.
+
+Tests:
+- `backend/tests/Unit/Services/ShowtimeServiceTest.php` — 15 tests.
+- `backend/tests/Feature/Admin/Resources/ShowtimeResourceTest.php` — 8 tests.
+- `backend/tests/Feature/Admin/Resources/ShowtimeResourcePermissionTest.php` — 3 tests.
+- `backend/tests/Feature/Admin/Pages/BulkCreateShowtimesTest.php` — 6 tests.
+- `backend/tests/Feature/Admin/Pages/CancellationFollowupQueueTest.php` — 6 tests.
+- `backend/tests/Feature/Admin/Pages/SchedulePlannerTest.php` — 9 tests.
+- `backend/tests/Feature/Admin/ShowtimeCancellationFlowTest.php` — 6 tests.
+- `backend/tests/Feature/Admin/ShowtimeConflictConcurrencyTest.php` — 4 tests.
+- `backend/tests/Feature/Admin/Services/ShowtimeServiceIntegrationTest.php` — 5 tests.
+- `backend/tests/Feature/Api/ShowtimeControllerTest.php` — +1 (cancelled hidden).
+- `backend/tests/Feature/Api/MovieControllerTest.php` — +1 (cancelled hidden).
+- `backend/tests/Feature/Api/BookingControllerTest.php` — +1 (cancelled cannot book).
+
+Journal:
+- `docs/progress/admin-v1.md` — this file.
 
 ---
 

@@ -38,6 +38,7 @@ class BookingController extends Controller
     public function store(Location $location, CreateBookingRequest $request): JsonResponse
     {
         $showtime = Showtime::whereHas('auditorium', fn ($q) => $q->where('location_id', $location->id))
+            ->whereNull('cancelled_at')
             ->find($request->input('showtimeId'));
 
         if (! $showtime || $showtime->start_time->isPast()) {
@@ -108,6 +109,7 @@ class BookingController extends Controller
         ) {
             $showtime = Showtime::with('auditorium', 'movie')
                 ->whereHas('auditorium', fn ($q) => $q->where('location_id', $location->id))
+                ->whereNull('cancelled_at')
                 ->lockForUpdate()
                 ->find($showtime->id);
 
@@ -302,6 +304,7 @@ class BookingController extends Controller
         // Stripe is never charged when seats are no longer available.
         $result = DB::transaction(function () use ($location, $pendingData, $paymentIntentId) {
             $showtime = Showtime::whereHas('auditorium', fn ($q) => $q->where('location_id', $location->id))
+                ->whereNull('cancelled_at')
                 ->lockForUpdate()
                 ->find($pendingData['showtime_id']);
 

@@ -268,6 +268,27 @@ test('GET showtimes returns empty for no showtimes on date', function () {
         ->assertJsonPath('data', []);
 });
 
+test('GET showtimes hides cancelled showtimes from the movie listing', function () {
+    $location = Location::factory()->create();
+    $auditorium = Auditorium::factory()->create(['location_id' => $location->id]);
+    $movie = Movie::factory()->create(['slug' => 'cancelled-filter']);
+
+    $startTime = now()->addDay()->setTime(19, 0);
+
+    Showtime::factory()->create([
+        'movie_id' => $movie->id,
+        'auditorium_id' => $auditorium->id,
+        'start_time' => $startTime,
+        'end_time' => $startTime->copy()->addMinutes(120),
+        'cancelled_at' => now(),
+        'cancellation_reason' => 'staffing',
+    ]);
+
+    getJson("/api/locations/{$location->slug}/movies/cancelled-filter/showtimes")
+        ->assertOk()
+        ->assertJsonPath('data', []);
+});
+
 test('GET showtimes returns 404 for unknown movie slug', function () {
     $location = Location::factory()->create();
 
