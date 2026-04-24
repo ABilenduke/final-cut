@@ -95,4 +95,14 @@ class Booking extends Model
     {
         return $this->hasMany(BookingFoodItem::class);
     }
+
+    /**
+     * Admin-facing status label that collapses `flagged_at IS NOT NULL` into a
+     * synthetic `flagged` state. The DB column remains the source of truth; this
+     * synthesis exists so every Filament surface renders the same label.
+     */
+    public function displayStatus(): string
+    {
+        return $this->flagged_at !== null ? 'flagged' : $this->status->value;
+    }
 }

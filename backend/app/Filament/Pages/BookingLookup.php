@@ -51,9 +51,17 @@ class BookingLookup extends Page
 
         $needle = trim($this->query ?? '');
 
+        // Codes are generated as `CVF-<suffix>`. Support users who paste just
+        // the suffix by prepending the prefix when missing — docblock promises
+        // this, and the DB stores the full prefixed form.
+        $confirmationCode = strtoupper($needle);
+        if (! str_starts_with($confirmationCode, 'CVF-')) {
+            $confirmationCode = 'CVF-'.$confirmationCode;
+        }
+
         $booking = Booking::query()
-            ->where(function (Builder $q) use ($needle) {
-                $q->where('confirmation_code', strtoupper($needle))
+            ->where(function (Builder $q) use ($needle, $confirmationCode) {
+                $q->where('confirmation_code', $confirmationCode)
                     ->orWhere('guest_email', 'ilike', $needle)
                     ->orWhereHas('user', fn (Builder $u) => $u->where('email', 'ilike', $needle));
             })

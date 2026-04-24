@@ -15,7 +15,9 @@ return new class extends Migration
             // Nullable so system-initiated adjustments (e.g. scheduled premier
             // expirations) can be recorded without an admin actor. Admin-facing
             // Filament actions always pass the authenticated admin user.
-            $table->foreignId('admin_user_id')->nullable()->constrained('admin_users');
+            // `nullOnDelete` preserves the audit row if the actor is later
+            // deleted — losing attribution is acceptable; losing the audit is not.
+            $table->foreignId('admin_user_id')->nullable()->constrained('admin_users')->nullOnDelete();
             $table->integer('points_delta');
             $table->text('reason');
             $table->string('change_type');

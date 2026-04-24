@@ -60,6 +60,20 @@ test('lowercase confirmation code is uppercased and still redirects', function (
         ->assertRedirect(BookingResource::getUrl('view', ['record' => $booking]));
 });
 
+test('prefixless confirmation code gets CVF- prepended and still redirects', function (): void {
+    $booking = Booking::factory()->create([
+        'showtime_id' => $this->fixture['showtime']->id,
+    ]);
+
+    // Strip the "CVF-" prefix to simulate a user pasting just the suffix.
+    $suffix = substr($booking->confirmation_code, 4);
+
+    Livewire::test(BookingLookup::class)
+        ->set('query', $suffix)
+        ->call('search')
+        ->assertRedirect(BookingResource::getUrl('view', ['record' => $booking]));
+});
+
 test('email hit on an authenticated user redirects to the most recent matching booking', function (): void {
     $alice = User::factory()->create(['email' => 'alice@example.com']);
 

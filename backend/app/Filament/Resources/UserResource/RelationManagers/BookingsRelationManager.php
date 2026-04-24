@@ -35,7 +35,7 @@ class BookingsRelationManager extends RelationManager
                     ->formatStateUsing(fn ($state) => self::centsToDisplay($state)),
                 TextColumn::make('status')
                     ->badge()
-                    ->getStateUsing(fn (Booking $r): string => $r->status->value),
+                    ->getStateUsing(fn (Booking $r): string => $r->displayStatus()),
             ])
             ->headerActions([])
             ->recordActions([]);

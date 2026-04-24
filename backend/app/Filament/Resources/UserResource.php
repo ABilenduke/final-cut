@@ -3,7 +3,6 @@
 namespace App\Filament\Resources;
 
 use App\Enums\LoyaltyTier;
-use App\Filament\Concerns\TimestampColumns;
 use App\Filament\Resources\UserResource\Pages;
 use App\Filament\Resources\UserResource\RelationManagers;
 use App\Models\User;
@@ -128,7 +127,13 @@ class UserResource extends BaseResource
                     ->label('Bookings')
                     ->numeric()
                     ->sortable(),
-                ...TimestampColumns::standardTimestamps(),
+                // `created_at` is already rendered as the visible "Joined" column
+                // above; only surface `updated_at` from the standard timestamp set
+                // to avoid a duplicate column + toggle entry.
+                TextColumn::make('updated_at')
+                    ->dateTime('M j, Y g:i A')
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
                 SelectFilter::make('loyalty_tier')

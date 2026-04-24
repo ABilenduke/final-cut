@@ -11,18 +11,17 @@ use Illuminate\Support\Facades\DB;
 /**
  * Proves the `lockForUpdate` contract holds inside LoyaltyService.
  *
- * Pest runs against a single PostgreSQL connection, and RefreshDatabase wraps
- * every test in a transaction — which would serialize everything inside a
- * single savepoint stack. To actually exercise a race, we open a second,
- * unwrapped connection (pointed at the same DB) and run one of the two writes
- * there. The primary connection's RefreshDatabase transaction will still roll
- * back at the end of the test, so long as we clean up the parallel-written
- * rows explicitly — or scope the concurrency test to records created through
- * the second connection too.
+ * Pest runs against a single PostgreSQL connection and RefreshDatabase wraps
+ * each test in a transaction, so these tests do not stage a true
+ * multi-connection race inside the suite itself.
  *
- * In practice the simplest proof uses sequenced serialized writes and asserts
- * the row lock forces both to observe the locked balance rather than a stale
- * snapshot. The lock contract is what gives us correctness under the real
+ * Instead, the tests verify the contract in two ways:
+ * - query-log assertions confirm the service re-reads the user row with
+ *   `SELECT ... FOR UPDATE` inside the transaction; and
+ * - sequenced writes confirm the persisted balance/tier state and audit rows
+ *   converge as expected when updates are serialized.
+ *
+ * That locking contract is what preserves correctness under the real
  * multi-connection contention that happens in production.
  */
 test('two sequential adjustPoints calls converge on the sum and write two adjustment rows', function (): void {

@@ -112,11 +112,7 @@ class BookingResource extends BaseResource
                     ->sortable(),
                 TextColumn::make('status')
                     ->badge()
-                    ->getStateUsing(function (Booking $r): string {
-                        return $r->flagged_at !== null
-                            ? 'flagged'
-                            : $r->status->value;
-                    })
+                    ->getStateUsing(fn (Booking $r): string => $r->displayStatus())
                     ->color(fn (string $state): string => match ($state) {
                         BookingStatus::Confirmed->value => 'success',
                         'flagged' => 'warning',
