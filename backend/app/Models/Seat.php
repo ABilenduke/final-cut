@@ -14,6 +14,7 @@ use Illuminate\Support\Carbon;
 /**
  * @property SeatType $type
  * @property ?Carbon $unavailable_at
+ * @property-read ?AuditoriumSection $section
  */
 #[Fillable([
     'auditorium_id', 'section_id',

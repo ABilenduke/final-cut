@@ -148,15 +148,21 @@ class AuditoriumService
         ?array $sections = null,
         ?AdminUser $actor = null,
     ): Auditorium {
-        $auditorium = $record === null
-            ? $this->createAuditorium($location, $attributes, $actor)
-            : $this->updateAuditorium($record, $attributes, $actor);
+        // Outer transaction so the auditorium row and its activity_log entry
+        // roll back if section reconciliation fails (AuditoriumSectionInUseException,
+        // unique-name violation, etc.). updateSectionConfig starts its own
+        // nested transaction — Postgres savepoints compose cleanly.
+        return DB::transaction(function () use ($location, $record, $attributes, $sections, $actor) {
+            $auditorium = $record === null
+                ? $this->createAuditorium($location, $attributes, $actor)
+                : $this->updateAuditorium($record, $attributes, $actor);
 
-        if ($sections !== null) {
-            $this->updateSectionConfig($auditorium, $sections, $actor);
-        }
+            if ($sections !== null) {
+                $this->updateSectionConfig($auditorium, $sections, $actor);
+            }
 
-        return $auditorium;
+            return $auditorium;
+        });
     }
 
     /**

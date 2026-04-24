@@ -321,3 +321,41 @@ test('generateSeats rejects section_ids that belong to a different auditorium', 
     // Previous layout intact because the pre-check throws before the destructive delete.
     expect(Seat::find($existingSeat->id))->not->toBeNull();
 });
+
+test('saveAuditoriumWithSections is atomic — partial failure in section sync rolls back the auditorium update', function () {
+    $admin = $this->actingAsAdmin();
+    $auditorium = Auditorium::factory()->create(['name' => 'Before', 'cleanup_minutes' => 20]);
+    $section = AuditoriumSection::factory()->for($auditorium)->standard()->create();
+    Seat::factory()->create([
+        'auditorium_id' => $auditorium->id,
+        'section_id' => $section->id,
+    ]);
+
+    Activity::query()->delete();
+
+    // Attempt to drop the section that still has a seat — updateSectionConfig
+    // throws AuditoriumSectionInUseException. Because saveAuditoriumWithSections
+    // wraps create/update + section sync in one transaction, the auditorium
+    // name change must roll back too.
+    $thrown = null;
+    try {
+        $this->service->saveAuditoriumWithSections(
+            $auditorium->location,
+            $auditorium,
+            ['name' => 'After', 'cleanup_minutes' => 25, 'slug' => $auditorium->slug],
+            [], // empty sections list — implies delete the existing section
+            $admin,
+        );
+    } catch (AuditoriumSectionInUseException $e) {
+        $thrown = $e;
+    }
+
+    expect($thrown)->not->toBeNull();
+
+    $auditorium->refresh();
+    expect($auditorium->name)->toBe('Before');
+    expect($auditorium->cleanup_minutes)->toBe(20);
+
+    // No activity_log row survives the rollback.
+    expect(Activity::where('subject_type', Auditorium::class)->count())->toBe(0);
+});

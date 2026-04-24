@@ -14,10 +14,12 @@ use Illuminate\Validation\ValidationException;
 class SeatAvailabilityService
 {
     /**
-     * Return the subset of the given seat IDs that are already taken by an
-     * occupying booking on this showtime — Confirmed, Held, or RefundPending
-     * (see BookingStatus::occupyingStatuses()). An empty array means all
-     * requested seats are available.
+     * Return the subset of the given seat IDs that are unavailable for
+     * reservation on this showtime. A seat is unavailable if either:
+     *   - it has an occupying booking (Confirmed / Held / RefundPending), or
+     *   - it is flagged out-of-service by admin (`seats.unavailable_at` set).
+     *
+     * An empty array means all requested seats are available.
      *
      * @param  string[]  $seatIds
      * @return string[]
@@ -28,11 +30,18 @@ class SeatAvailabilityService
             return [];
         }
 
-        return BookingSeat::where('showtime_id', $showtimeId)
+        $occupied = BookingSeat::where('showtime_id', $showtimeId)
             ->whereIn('seat_id', $seatIds)
             ->whereHas('booking', fn ($q) => $q->whereIn('status', BookingStatus::occupyingStatuses()))
             ->pluck('seat_id')
             ->all();
+
+        $adminUnavailable = Seat::whereIn('id', $seatIds)
+            ->whereNotNull('unavailable_at')
+            ->pluck('id')
+            ->all();
+
+        return array_values(array_unique(array_merge($occupied, $adminUnavailable)));
     }
 
     /**
@@ -41,17 +50,25 @@ class SeatAvailabilityService
      * Precondition: the caller must hold a lockForUpdate on the Showtime row
      * before calling this method to prevent concurrent double-bookings.
      *
+     * Each reserved seat is priced as `showtime.price_for(seat.type) × section.price_multiplier`
+     * when the seat is assigned to an `AuditoriumSection`; otherwise the
+     * multiplier defaults to 1.0. The `booking_seats.section` snapshot stores
+     * the admin-defined section name when present (falling back to the seat's
+     * SeatType for un-sectioned seats) so refund/audit payloads reflect what
+     * the customer was actually charged.
+     *
      * @param  string[]  $seatIds
      * @return int Total cost of all reserved seats in cents.
      *
      * @throws ValidationException When any seat does not belong to the showtime's auditorium.
-     * @throws SeatConflictException When any seat is already taken by a confirmed booking.
+     * @throws SeatConflictException When any seat is already taken or flagged unavailable.
      */
     public function reserveSeats(Showtime $showtime, array $seatIds, Booking $booking): int
     {
         $seatIds = array_values(array_unique($seatIds));
 
-        $seats = Seat::whereIn('id', $seatIds)
+        $seats = Seat::with('section')
+            ->whereIn('id', $seatIds)
             ->where('auditorium_id', $showtime->auditorium_id)
             ->get()
             ->keyBy('id');
@@ -75,17 +92,13 @@ class SeatAvailabilityService
         foreach ($seatIds as $seatId) {
             $seat = $seats->get($seatId);
 
-            $price = match ($seat->type) {
-                SeatType::Standard => $showtime->price_standard,
-                SeatType::Premium => $showtime->price_premium,
-                SeatType::Accessible => $showtime->price_accessible,
-            };
+            $price = self::priceForSeat($showtime, $seat);
 
             BookingSeat::create([
                 'booking_id' => $booking->id,
                 'showtime_id' => $showtime->id,
                 'seat_id' => $seatId,
-                'section' => $seat->type->value,
+                'section' => $seat->section !== null ? $seat->section->name : $seat->type->value,
                 'price' => $price,
             ]);
 
@@ -93,5 +106,29 @@ class SeatAvailabilityService
         }
 
         return $total;
+    }
+
+    /**
+     * Final charged price for a seat at a given showtime: the showtime's
+     * type-based base price multiplied by the seat's section multiplier when
+     * one is assigned. Shared by reserveSeats (charge/snapshot) and
+     * ShowtimeController (seat-map display) so customer-visible and
+     * persisted prices stay in sync.
+     */
+    public static function priceForSeat(Showtime $showtime, Seat $seat): int
+    {
+        $base = match ($seat->type) {
+            SeatType::Standard => $showtime->price_standard,
+            SeatType::Premium => $showtime->price_premium,
+            SeatType::Accessible => $showtime->price_accessible,
+        };
+
+        $multiplier = $seat->section?->price_multiplier;
+
+        if ($multiplier === null) {
+            return (int) $base;
+        }
+
+        return (int) round(((int) $base) * (float) $multiplier);
     }
 }
