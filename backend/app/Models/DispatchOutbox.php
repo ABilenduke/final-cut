@@ -22,7 +22,19 @@ use Illuminate\Support\Carbon;
  * @property int $attempts
  * @property ?string $last_error
  */
-#[Fillable(['event_type', 'payload', 'available_at'])]
+// Worker columns (`processed_at`, `failed_at`, `attempts`, `last_error`) are
+// fillable so Plan 09's outbox worker can update rows via `$row->update([...])`
+// without tripping MassAssignmentException. Producers set `event_type`,
+// `payload`, and optionally `available_at`; the worker owns the rest.
+#[Fillable([
+    'event_type',
+    'payload',
+    'available_at',
+    'processed_at',
+    'failed_at',
+    'attempts',
+    'last_error',
+])]
 class DispatchOutbox extends Model
 {
     protected $table = 'dispatch_outbox';

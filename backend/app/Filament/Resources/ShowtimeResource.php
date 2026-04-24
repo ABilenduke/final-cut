@@ -33,8 +33,10 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
+use Illuminate\Support\HtmlString;
 use Illuminate\Validation\ValidationException;
 use UnitEnum;
 
@@ -267,8 +269,11 @@ class ShowtimeResource extends BaseResource
      * - Movie with runtime=null → block with actionable link to edit the movie.
      * - Valid inputs → render "HH:MM (includes N min cleanup)".
      * - Any unexpected error → surface it rather than silently rendering "—".
+     *
+     * Returns HtmlString when an anchor is needed so Filament's Placeholder
+     * renders the link rather than the raw markdown-style brackets.
      */
-    protected static function computeEndTimePreview(Get $get): string
+    protected static function computeEndTimePreview(Get $get): string|Htmlable
     {
         $movieId = $get('movie_id');
         $auditoriumId = $get('auditorium_id');
@@ -291,7 +296,10 @@ class ShowtimeResource extends BaseResource
             if ($movie->runtime === null) {
                 $editUrl = self::safeMovieEditUrl($movie);
                 if ($editUrl) {
-                    return "This movie has no runtime set. [Edit the movie]({$editUrl}) to add one before scheduling.";
+                    return new HtmlString(sprintf(
+                        'This movie has no runtime set. <a href="%s" class="fi-link underline">Edit the movie</a> to add one before scheduling.',
+                        e($editUrl),
+                    ));
                 }
 
                 return 'This movie has no runtime set — edit the movie to add one before scheduling.';

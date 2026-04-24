@@ -6,6 +6,7 @@ use App\Enums\MovieStatus;
 use App\Models\Location;
 use App\Models\Movie;
 use App\Models\Showtime;
+use App\Services\ShowtimeService;
 use Carbon\Carbon;
 use Illuminate\Database\Seeder;
 
@@ -36,15 +37,18 @@ class ShowtimeSeeder extends Seeder
 
                     foreach ($timesForDay as $time) {
                         $startTime = $date->copy()->setTimeFromTimeString($time);
-                        $endTime = $startTime->copy()->addMinutes($movie->runtime + 15);
 
                         // Pick the first auditorium without an overlap — the
                         // EXCLUDE USING gist constraint (showtimes_no_overlap)
-                        // would reject a colliding insert otherwise. Skip the
-                        // tuple silently when every auditorium at the location
-                        // is already booked for this slot.
+                        // would reject a colliding insert otherwise. Each
+                        // auditorium has its own cleanup_minutes, so end_time
+                        // is computed via ShowtimeService::computeEndTime so
+                        // seeded rows use the same formula as the write path.
                         $chosenAuditorium = null;
+                        $chosenEndTime = null;
                         foreach ($locationAuditoriums->shuffle() as $auditorium) {
+                            $endTime = ShowtimeService::computeEndTime($movie, $auditorium, $startTime);
+
                             $hasConflict = Showtime::where('auditorium_id', $auditorium->id)
                                 ->whereNull('cancelled_at')
                                 ->where('start_time', '<', $endTime)
@@ -53,11 +57,12 @@ class ShowtimeSeeder extends Seeder
 
                             if (! $hasConflict) {
                                 $chosenAuditorium = $auditorium;
+                                $chosenEndTime = $endTime;
                                 break;
                             }
                         }
 
-                        if ($chosenAuditorium === null) {
+                        if ($chosenAuditorium === null || $chosenEndTime === null) {
                             continue;
                         }
 
@@ -65,7 +70,7 @@ class ShowtimeSeeder extends Seeder
                             'movie_id' => $movie->id,
                             'auditorium_id' => $chosenAuditorium->id,
                             'start_time' => $startTime,
-                            'end_time' => $endTime,
+                            'end_time' => $chosenEndTime,
                             'price_standard' => 1200,
                             'price_premium' => 1800,
                             'price_accessible' => 1000,

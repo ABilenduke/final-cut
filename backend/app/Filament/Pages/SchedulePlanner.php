@@ -59,9 +59,11 @@ class SchedulePlanner extends Page
     {
         abort_unless(static::canAccess(), 403);
 
-        if ($this->weekStart === null) {
-            $this->weekStart = now()->startOfWeek(Carbon::MONDAY)->toDateString();
-        }
+        // `weekStart` comes off the URL; fall back to this Monday if the caller
+        // passed nothing or something unparseable. Anchoring every path on
+        // `self::parseWeekStart` also guarantees the stored value is a clean
+        // `Y-m-d` Monday regardless of the input shape.
+        $this->weekStart = self::parseWeekStart($this->weekStart);
 
         if ($this->locationSlug === null) {
             $first = Location::orderBy('name')->first();
@@ -71,17 +73,40 @@ class SchedulePlanner extends Page
 
     public function previousWeek(): void
     {
-        $this->weekStart = Carbon::parse($this->weekStart)->subWeek()->toDateString();
+        $this->weekStart = self::parseWeekStartAsCarbon($this->weekStart)->subWeek()->toDateString();
     }
 
     public function nextWeek(): void
     {
-        $this->weekStart = Carbon::parse($this->weekStart)->addWeek()->toDateString();
+        $this->weekStart = self::parseWeekStartAsCarbon($this->weekStart)->addWeek()->toDateString();
     }
 
     public function thisWeek(): void
     {
         $this->weekStart = now()->startOfWeek(Carbon::MONDAY)->toDateString();
+    }
+
+    /**
+     * Parse and normalise a user-supplied week anchor to a Monday `Y-m-d`.
+     * Invalid input falls back to the current week so a hand-edited URL can't
+     * 500 the page.
+     */
+    public static function parseWeekStart(?string $raw): string
+    {
+        return self::parseWeekStartAsCarbon($raw)->toDateString();
+    }
+
+    private static function parseWeekStartAsCarbon(?string $raw): Carbon
+    {
+        if ($raw === null || $raw === '') {
+            return now()->startOfWeek(Carbon::MONDAY);
+        }
+
+        try {
+            return Carbon::parse($raw)->startOfWeek(Carbon::MONDAY);
+        } catch (\Throwable) {
+            return now()->startOfWeek(Carbon::MONDAY);
+        }
     }
 
     public function setLocation(string $slug): void
@@ -116,7 +141,7 @@ class SchedulePlanner extends Page
             return new Collection;
         }
 
-        $weekStart = Carbon::parse($this->weekStart)->startOfDay();
+        $weekStart = self::parseWeekStartAsCarbon($this->weekStart)->startOfDay();
         $weekEnd = $weekStart->copy()->addDays(7)->startOfDay();
 
         return Auditorium::where('location_id', $location->id)
@@ -141,7 +166,7 @@ class SchedulePlanner extends Page
      */
     public function getWeekDays(): array
     {
-        $start = Carbon::parse($this->weekStart);
+        $start = self::parseWeekStartAsCarbon($this->weekStart);
 
         return collect(range(0, 6))->map(function (int $offset) use ($start) {
             $day = $start->copy()->addDays($offset);

@@ -173,7 +173,12 @@ class ShowtimeService
                 'cancellation_reason' => $reason,
             ]);
 
+            // Scope to bookings that currently occupy a seat. `flagged_at IS NULL`
+            // alone would include already-cancelled and already-refunded bookings
+            // (neither flow sets `flagged_at`), and the update below would force
+            // them back to `refund_pending`, silently undoing a completed refund.
             $bookingIds = $fresh->bookings()
+                ->whereIn('status', BookingStatus::occupyingStatuses())
                 ->whereNull('flagged_at')
                 ->pluck('id');
 
@@ -198,14 +203,24 @@ class ShowtimeService
                 'flagged_bookings' => $bookingIds->count(),
             ]);
 
-            foreach ($bookingIds as $id) {
-                DispatchOutbox::create([
-                    'event_type' => self::EVENT_CANCELLED,
-                    'payload' => [
-                        'booking_id' => $id,
-                        'showtime_id' => $fresh->id,
-                    ],
-                ]);
+            // Bulk-insert outbox rows — N individual create() calls multiply the
+            // lock time of this transaction for fully booked auditoriums.
+            if ($bookingIds->isNotEmpty()) {
+                $timestamp = now();
+                $outboxRows = $bookingIds
+                    ->map(fn ($id) => [
+                        'event_type' => self::EVENT_CANCELLED,
+                        'payload' => json_encode([
+                            'booking_id' => $id,
+                            'showtime_id' => $fresh->id,
+                        ], JSON_THROW_ON_ERROR),
+                        'available_at' => $timestamp,
+                        'created_at' => $timestamp,
+                        'updated_at' => $timestamp,
+                    ])
+                    ->all();
+
+                DispatchOutbox::insert($outboxRows);
             }
         });
     }

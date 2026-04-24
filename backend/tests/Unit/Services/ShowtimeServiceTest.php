@@ -370,6 +370,38 @@ test('cancel flags all bookings once and writes one outbox row per booking', fun
     expect(DispatchOutbox::where('event_type', ShowtimeService::EVENT_CANCELLED)->count())->toBe(3);
 });
 
+test('cancel does not touch bookings already in a terminal status', function (): void {
+    $showtime = Showtime::factory()->create([
+        'movie_id' => $this->movie->id,
+        'auditorium_id' => $this->auditorium->id,
+        'start_time' => '2026-05-01 19:00:00',
+        'end_time' => '2026-05-01 21:15:00',
+    ]);
+
+    // Already refunded from a prior workflow — must not be re-flagged or
+    // transitioned back to RefundPending by this cancellation.
+    $refunded = Booking::factory()->create([
+        'showtime_id' => $showtime->id,
+        'status' => BookingStatus::Refunded,
+    ]);
+    $cancelled = Booking::factory()->cancelled()->create([
+        'showtime_id' => $showtime->id,
+    ]);
+    $active = Booking::factory()->create(['showtime_id' => $showtime->id]);
+
+    $this->service->cancel($showtime, 'Projector failure');
+
+    expect($refunded->fresh()->status)->toBe(BookingStatus::Refunded);
+    expect($refunded->fresh()->flagged_at)->toBeNull();
+    expect($cancelled->fresh()->status)->toBe(BookingStatus::Cancelled);
+    expect($cancelled->fresh()->flagged_at)->toBeNull();
+    expect($active->fresh()->status)->toBe(BookingStatus::RefundPending);
+    expect($active->fresh()->flagged_at)->not->toBeNull();
+
+    // Outbox row only for the one active booking — no emails for the terminal ones.
+    expect(DispatchOutbox::where('event_type', ShowtimeService::EVENT_CANCELLED)->count())->toBe(1);
+});
+
 test('cancel on an already-cancelled showtime throws ShowtimeAlreadyCancelledException', function (): void {
     $showtime = Showtime::factory()->create([
         'movie_id' => $this->movie->id,

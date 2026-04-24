@@ -87,6 +87,7 @@ test('mark_resolved action rejects notes shorter than 10 characters', function (
     $booking = Booking::factory()->guest()->create([
         'showtime_id' => $this->showtime->id,
         'flagged_at' => now()->subHour(),
+        'flag_reason' => "showtime_cancelled:{$this->showtime->id}",
         'status' => BookingStatus::Confirmed,
     ]);
 
@@ -104,6 +105,7 @@ test('ops can view the queue but cannot invoke mark_resolved', function (): void
     $booking = Booking::factory()->guest()->create([
         'showtime_id' => $this->showtime->id,
         'flagged_at' => now()->subHour(),
+        'flag_reason' => "showtime_cancelled:{$this->showtime->id}",
         'status' => BookingStatus::Confirmed,
     ]);
 
@@ -128,8 +130,35 @@ test('navigation badge reflects pending count for permitted users', function ():
     Booking::factory()->guest()->count(2)->create([
         'showtime_id' => $this->showtime->id,
         'flagged_at' => now()->subHour(),
+        'flag_reason' => "showtime_cancelled:{$this->showtime->id}",
         'status' => BookingStatus::Confirmed,
     ]);
 
     expect(CancellationFollowupQueue::getNavigationBadge())->toBe('2');
+});
+
+test('flagged bookings without a showtime_cancelled flag_reason stay out of the queue', function (): void {
+    $this->actingAsAdmin();
+
+    // Flagged but for a different reason (e.g. a future fraud-hold flow). This
+    // must not surface in the cancellation follow-up queue.
+    Booking::factory()->guest()->create([
+        'showtime_id' => $this->showtime->id,
+        'flagged_at' => now()->subHour(),
+        'flag_reason' => 'fraud_hold:review',
+        'status' => BookingStatus::Confirmed,
+    ]);
+
+    $cancellationBooking = Booking::factory()->guest()->create([
+        'showtime_id' => $this->showtime->id,
+        'flagged_at' => now()->subHour(),
+        'flag_reason' => "showtime_cancelled:{$this->showtime->id}",
+        'status' => BookingStatus::Confirmed,
+    ]);
+
+    Livewire::test(CancellationFollowupQueue::class)
+        ->assertCanSeeTableRecords([$cancellationBooking])
+        ->assertCountTableRecords(1);
+
+    expect(CancellationFollowupQueue::getNavigationBadge())->toBe('1');
 });

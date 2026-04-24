@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Enums\BookingStatus;
 use App\Filament\Concerns\FormatsCurrency;
 use App\Models\AdminUser;
 use App\Models\Booking;
@@ -34,6 +35,13 @@ class CancellationFollowupQueue extends Page implements HasTable
 
     public const EVENT_MANUALLY_REFUNDED = 'booking.manually_marked_refunded';
 
+    /**
+     * Prefix `ShowtimeService::cancel` writes to `bookings.flag_reason` — the
+     * queue scopes to rows starting with this so future flagging reasons
+     * (refund disputes, fraud holds, etc.) don't bleed into this page.
+     */
+    public const SHOWTIME_CANCEL_FLAG_PREFIX = 'showtime_cancelled:';
+
     protected string $view = 'filament.pages.cancellation-followup-queue';
 
     protected static ?string $slug = 'cancelled-showtime-followup';
@@ -63,21 +71,25 @@ class CancellationFollowupQueue extends Page implements HasTable
             return null;
         }
 
-        $count = Booking::query()
-            ->whereNotNull('flagged_at')
-            ->whereNotIn('status', ['refunded', 'cancelled'])
-            ->count();
+        $count = self::baseQuery()->count();
 
         return $count > 0 ? (string) $count : null;
+    }
+
+    /** Base query used by both the navigation badge and the table. */
+    private static function baseQuery(): Builder
+    {
+        return Booking::query()
+            ->whereNotNull('flagged_at')
+            ->where('flag_reason', 'like', self::SHOWTIME_CANCEL_FLAG_PREFIX.'%')
+            ->whereNotIn('status', [BookingStatus::Refunded, BookingStatus::Cancelled]);
     }
 
     public function table(Table $table): Table
     {
         return $table
             ->query(
-                Booking::query()
-                    ->whereNotNull('flagged_at')
-                    ->whereNotIn('status', ['refunded', 'cancelled'])
+                self::baseQuery()
                     ->with(['showtime.movie', 'showtime.auditorium.location', 'user'])
             )
             ->columns([
@@ -89,9 +101,12 @@ class CancellationFollowupQueue extends Page implements HasTable
                     ->label('Customer')
                     ->getStateUsing(fn (Booking $record) => $record->user ? $record->user->email : ($record->guest_email ?? '—'))
                     ->searchable(
-                        query: fn (Builder $q, string $search) => $q
+                        // Wrap the OR chain in a grouped where() so it does not
+                        // widen the base flagged_at / status / flag_reason filters.
+                        query: fn (Builder $q, string $search) => $q->where(fn (Builder $qq) => $qq
                             ->where('guest_email', 'ilike', "%{$search}%")
-                            ->orWhereHas('user', fn (Builder $qq) => $qq->where('email', 'ilike', "%{$search}%"))
+                            ->orWhereHas('user', fn (Builder $userQuery) => $userQuery->where('email', 'ilike', "%{$search}%"))
+                        )
                     ),
                 TextColumn::make('showtime.movie.title')->label('Movie'),
                 TextColumn::make('showtime.auditorium.location.name')->label('Location'),
@@ -136,7 +151,7 @@ class CancellationFollowupQueue extends Page implements HasTable
                         $admin = auth('admin')->user();
 
                         $record->update([
-                            'status' => 'refunded',
+                            'status' => BookingStatus::Refunded,
                             'notes' => $data['notes'],
                         ]);
 

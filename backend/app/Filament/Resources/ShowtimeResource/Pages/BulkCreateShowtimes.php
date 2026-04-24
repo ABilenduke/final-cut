@@ -123,9 +123,27 @@ class BulkCreateShowtimes extends Page implements HasForms
                     ->schema([
                         TagsInput::make('times')
                             ->placeholder('19:00, 21:30')
-                            ->helperText('Type each time and press Enter, or paste a comma-separated list. 24-hour format (HH:MM).')
+                            ->helperText('Type each time and press Enter, or paste a comma-separated list. Use 24-hour format (HH:MM), e.g. 19:00. Duplicates are rejected.')
                             ->required()
-                            ->live(),
+                            ->live()
+                            // Fail loudly on malformed or duplicate tags so the
+                            // admin sees a field error instead of the preview
+                            // silently dropping them (which would misrepresent
+                            // the batch count).
+                            ->rules([
+                                'array',
+                                'min:1',
+                            ])
+                            ->nestedRecursiveRules([
+                                'required',
+                                'string',
+                                'regex:/^(?:[01]\d|2[0-3]):[0-5]\d$/',
+                                'distinct',
+                            ])
+                            ->validationMessages([
+                                'regex' => 'Each time must use 24-hour format (HH:MM), e.g. 19:00.',
+                                'distinct' => 'Each time must be unique.',
+                            ]),
                     ]),
 
                 Section::make('Pricing (cents)')
@@ -483,7 +501,7 @@ class BulkCreateShowtimes extends Page implements HasForms
             return 'Set date range, days of week, and times to preview how many showtimes will be created.';
         }
 
-        return "{$count} showtime(s) will be created (conflicts will be flagged before commit).";
+        return "{$count} showtime(s) scheduled. Conflicts (existing or intra-batch) are detected and skipped on the preview — the DB's exclusion constraint is the final guard.";
     }
 
     public function getTitle(): string|Htmlable

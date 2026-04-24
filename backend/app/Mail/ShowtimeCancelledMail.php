@@ -24,13 +24,17 @@ class ShowtimeCancelledMail extends Mailable
 
     public function envelope(): Envelope
     {
+        // Recipient is chosen by the dispatcher (NotifyCustomerOfShowtimeCancellation
+        // via Mail::to()); the envelope only owns the subject so we don't end up
+        // with two recipient sources that could drift.
+        //
+        // The NotifyCustomerOfShowtimeCancellation job eager-loads
+        // showtime.movie before constructing this mailable, so accessing
+        // `$this->booking->showtime->movie->title` here is safe even though
+        // the chain isn't null-guarded.
         $movieTitle = $this->booking->showtime->movie->title;
-        $recipient = $this->booking->user
-            ? $this->booking->user->email
-            : $this->booking->guest_email;
 
         return new Envelope(
-            to: $recipient !== null ? [$recipient] : [],
             subject: "Your {$movieTitle} showtime has been cancelled",
         );
     }

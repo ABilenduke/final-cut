@@ -63,6 +63,30 @@ test('cancelled showtimes are hidden from the planner', function (): void {
         ->assertDontSee('Interstellar');
 });
 
+test('a malformed ?week= URL param falls back to the current week instead of 500ing', function (): void {
+    $this->actingAsAdmin();
+
+    $thisMonday = now()->startOfWeek(Carbon::MONDAY)->toDateString();
+
+    Livewire::test(SchedulePlanner::class, [
+        'weekStart' => 'not-a-date',
+        'locationSlug' => $this->location->slug,
+    ])
+        ->assertSet('weekStart', $thisMonday)
+        ->assertOk();
+});
+
+test('a mid-week ?week= param is normalised to that week\'s Monday', function (): void {
+    $this->actingAsAdmin();
+
+    // 2026-05-06 is a Wednesday; the planner should render the Monday of that week.
+    Livewire::test(SchedulePlanner::class, [
+        'weekStart' => '2026-05-06',
+        'locationSlug' => $this->location->slug,
+    ])
+        ->assertSet('weekStart', '2026-05-04');
+});
+
 test('week navigation shifts the visible week', function (): void {
     $this->actingAsAdmin();
 

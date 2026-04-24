@@ -20,7 +20,8 @@
                 Next
             </x-filament::button>
             <span class="text-sm font-medium px-3">
-                Week of {{ \Carbon\Carbon::parse($this->weekStart)->format('F j, Y') }}
+                {{-- weekStart is normalised to a Monday Y-m-d in mount() / nav actions. --}}
+                Week of {{ \Carbon\Carbon::parse(\App\Filament\Pages\SchedulePlanner::parseWeekStart($this->weekStart))->format('F j, Y') }}
             </span>
         </div>
 
@@ -28,7 +29,10 @@
             <span class="text-sm text-gray-500">Location:</span>
             @foreach ($locations as $loc)
                 <x-filament::button
-                    wire:click="setLocation('{{ $loc->slug }}')"
+                    {{-- @js escapes the slug to a JS literal so a value
+                         containing a quote or backslash can't break the
+                         generated attribute. --}}
+                    wire:click="setLocation({{ \Illuminate\Support\Js::from($loc->slug) }})"
                     size="sm"
                     :color="$activeLocation && $activeLocation->id === $loc->id ? 'primary' : 'gray'">
                     {{ $loc->name }}
