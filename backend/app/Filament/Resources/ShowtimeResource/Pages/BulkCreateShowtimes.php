@@ -209,27 +209,45 @@ class BulkCreateShowtimes extends Page implements HasForms
 
         $conflictsByIndex = $service->detectConflictsForBatch($auditorium->id, $intervals);
 
+        // Intra-batch overlaps: if the operator enters overlapping times in the
+        // same request (e.g. "19:00" plus "19:30" with a 2h runtime), the DB
+        // check alone won't catch them — and committing would trip the EXCLUDE
+        // constraint and roll back the whole batch. Surface them now so each
+        // overlapping row lands in `conflicting` alongside any DB collisions.
+        $siblingConflicts = self::detectSiblingOverlaps($intervals);
+
         $creatable = [];
         $conflicting = [];
 
         foreach ($intervals as $index => $interval) {
             $start = $interval['start'];
-            $rowConflicts = $conflictsByIndex[$index];
+            $rowDbConflicts = $conflictsByIndex[$index];
+            $rowSiblings = $siblingConflicts[$index] ?? [];
 
-            if ($rowConflicts->isEmpty()) {
+            if ($rowDbConflicts->isEmpty() && $rowSiblings === []) {
                 $creatable[] = [
                     'date' => $start->format('Y-m-d'),
                     'time' => $start->format('H:i'),
                     'start_iso' => $start->toIso8601String(),
                 ];
-            } else {
-                $conflicting[] = [
-                    'date' => $start->format('Y-m-d'),
-                    'time' => $start->format('H:i'),
-                    'conflicts' => $rowConflicts->map(fn (Showtime $s) => $s->movie->title
-                        .' @ '.$s->start_time->format('M j g:i A'))->all(),
-                ];
+
+                continue;
             }
+
+            $labels = $rowDbConflicts
+                ->map(fn (Showtime $s) => $s->movie->title.' @ '.$s->start_time->format('M j g:i A'))
+                ->all();
+
+            foreach ($rowSiblings as $siblingIndex) {
+                $sibling = $intervals[$siblingIndex];
+                $labels[] = 'another entry in this batch at '.$sibling['start']->format('M j g:i A');
+            }
+
+            $conflicting[] = [
+                'date' => $start->format('Y-m-d'),
+                'time' => $start->format('H:i'),
+                'conflicts' => $labels,
+            ];
         }
 
         $this->preview = [
@@ -378,6 +396,34 @@ class BulkCreateShowtimes extends Page implements HasForms
     private static function parseStart(string $iso): CarbonInterface
     {
         return Carbon::parse($iso);
+    }
+
+    /**
+     * Pairwise half-open overlap check within a single batch. O(N²) in PHP —
+     * fine for the form's expected N (days × times within a two-week bulk
+     * request is typically <100). Returns a map of index => indices-it-overlaps
+     * so the preview can label each side of the collision.
+     *
+     * @param  Collection<int, array{start: CarbonInterface, end: CarbonInterface}>  $intervals
+     * @return array<int, list<int>>
+     */
+    private static function detectSiblingOverlaps(Collection $intervals): array
+    {
+        $out = [];
+        $items = $intervals->all();
+        $count = count($items);
+
+        for ($i = 0; $i < $count; $i++) {
+            for ($j = $i + 1; $j < $count; $j++) {
+                // Half-open [start, end): overlap iff a.start < b.end AND a.end > b.start.
+                if ($items[$i]['start'] < $items[$j]['end'] && $items[$i]['end'] > $items[$j]['start']) {
+                    $out[$i][] = $j;
+                    $out[$j][] = $i;
+                }
+            }
+        }
+
+        return $out;
     }
 
     /**

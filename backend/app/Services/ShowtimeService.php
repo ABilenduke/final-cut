@@ -2,9 +2,11 @@
 
 namespace App\Services;
 
+use App\Enums\BookingStatus;
 use App\Exceptions\MovieRuntimeMissingException;
 use App\Exceptions\ShowtimeAlreadyCancelledException;
 use App\Exceptions\ShowtimeConflictException;
+use App\Exceptions\ShowtimeHasBookingsException;
 use App\Http\Requests\BulkShowtimeRequest;
 use App\Models\AdminUser;
 use App\Models\Auditorium;
@@ -95,6 +97,25 @@ class ShowtimeService
         [$movie, $auditorium, $start] = $this->resolveInputs($blended);
         $end = self::computeEndTime($movie, $auditorium, $start);
 
+        // Refuse structural edits (movie / auditorium / start_time) once any
+        // booking exists — booking_seats point at the *current* auditorium's
+        // seat rows, and silently re-parenting the showtime would orphan them
+        // and hand the house a double-booking window. Pricing-only edits are
+        // still allowed (they don't touch booking_seats).
+        $structurallyChanged = (string) $movie->id !== (string) $showtime->movie_id
+            || (string) $auditorium->id !== (string) $showtime->auditorium_id
+            || ! $start->equalTo($showtime->start_time);
+
+        if ($structurallyChanged) {
+            $bookingCount = $showtime->bookings()
+                ->whereIn('status', BookingStatus::occupyingStatuses())
+                ->count();
+
+            if ($bookingCount > 0) {
+                throw new ShowtimeHasBookingsException($showtime, $bookingCount);
+            }
+        }
+
         try {
             $updated = DB::transaction(function () use ($showtime, $attributes, $movie, $auditorium, $start, $end, $actor) {
                 $showtime->fill([
@@ -157,9 +178,16 @@ class ShowtimeService
                 ->pluck('id');
 
             if ($bookingIds->isNotEmpty()) {
+                // Transition to RefundPending alongside flagging: it's in
+                // `occupyingStatuses()` so the seat remains blocked at this
+                // (now-cancelled) showtime, AND the customer-facing upcoming
+                // bookings endpoint only returns `Confirmed`, so the booking
+                // drops out of the customer's active list immediately rather
+                // than lingering until the manual refund is recorded.
                 $fresh->bookings()
                     ->whereIn('id', $bookingIds)
                     ->update([
+                        'status' => BookingStatus::RefundPending,
                         'flagged_at' => now(),
                         'flag_reason' => "showtime_cancelled:{$fresh->id}",
                     ]);

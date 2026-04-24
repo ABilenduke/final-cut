@@ -1,8 +1,10 @@
 <?php
 
+use App\Enums\BookingStatus;
 use App\Exceptions\MovieRuntimeMissingException;
 use App\Exceptions\ShowtimeAlreadyCancelledException;
 use App\Exceptions\ShowtimeConflictException;
+use App\Exceptions\ShowtimeHasBookingsException;
 use App\Http\Requests\BulkShowtimeRequest;
 use App\Models\Auditorium;
 use App\Models\Booking;
@@ -253,6 +255,95 @@ test('create translates Postgres exclusion violation into ShowtimeConflictExcept
 
 /*
 |--------------------------------------------------------------------------
+| update — structural-edit guard for sold showtimes
+|--------------------------------------------------------------------------
+*/
+
+test('update refuses to move a sold showtime to a different auditorium', function (): void {
+    $showtime = Showtime::factory()->create([
+        'movie_id' => $this->movie->id,
+        'auditorium_id' => $this->auditorium->id,
+        'start_time' => '2026-05-01 19:00:00',
+    ]);
+    Booking::factory()->create(['showtime_id' => $showtime->id]);
+
+    $otherAuditorium = Auditorium::factory()->create([
+        'location_id' => $this->location->id,
+        'cleanup_minutes' => 15,
+    ]);
+
+    $this->service->update($showtime, [
+        'auditorium_id' => $otherAuditorium->id,
+    ]);
+})->throws(ShowtimeHasBookingsException::class);
+
+test('update refuses to change start_time on a sold showtime', function (): void {
+    $showtime = Showtime::factory()->create([
+        'movie_id' => $this->movie->id,
+        'auditorium_id' => $this->auditorium->id,
+        'start_time' => '2026-05-01 19:00:00',
+    ]);
+    Booking::factory()->create(['showtime_id' => $showtime->id]);
+
+    $this->service->update($showtime, [
+        'start_time' => '2026-05-01 20:00:00',
+    ]);
+})->throws(ShowtimeHasBookingsException::class);
+
+test('update refuses to change movie on a sold showtime', function (): void {
+    $showtime = Showtime::factory()->create([
+        'movie_id' => $this->movie->id,
+        'auditorium_id' => $this->auditorium->id,
+        'start_time' => '2026-05-01 19:00:00',
+    ]);
+    Booking::factory()->create(['showtime_id' => $showtime->id]);
+
+    $otherMovie = Movie::factory()->create(['runtime' => 90]);
+
+    $this->service->update($showtime, [
+        'movie_id' => $otherMovie->id,
+    ]);
+})->throws(ShowtimeHasBookingsException::class);
+
+test('update allows pricing changes on a sold showtime', function (): void {
+    $showtime = $this->service->create([
+        'movie_id' => $this->movie->id,
+        'auditorium_id' => $this->auditorium->id,
+        'start_time' => '2026-05-01 19:00:00',
+        'price_standard' => 1200,
+        'price_premium' => 1800,
+        'price_accessible' => 1000,
+    ]);
+    Booking::factory()->create(['showtime_id' => $showtime->id]);
+
+    $updated = $this->service->update($showtime, [
+        'price_standard' => 1500,
+        'price_premium' => 2000,
+        'price_accessible' => 1200,
+    ]);
+
+    expect($updated->price_standard)->toBe(1500);
+    expect($updated->price_premium)->toBe(2000);
+});
+
+test('update only blocks when an occupying-status booking exists — cancelled bookings do not block', function (): void {
+    $showtime = Showtime::factory()->create([
+        'movie_id' => $this->movie->id,
+        'auditorium_id' => $this->auditorium->id,
+        'start_time' => '2026-05-01 19:00:00',
+    ]);
+    Booking::factory()->cancelled()->create(['showtime_id' => $showtime->id]);
+
+    // Should succeed — the cancelled booking does not occupy a seat.
+    $updated = $this->service->update($showtime, [
+        'start_time' => '2026-05-01 20:00:00',
+    ]);
+
+    expect($updated->start_time->format('H:i'))->toBe('20:00');
+});
+
+/*
+|--------------------------------------------------------------------------
 | cancel — idempotency + outbox writes
 |--------------------------------------------------------------------------
 */
@@ -273,6 +364,9 @@ test('cancel flags all bookings once and writes one outbox row per booking', fun
     expect($fresh->cancelled_at)->not->toBeNull();
     expect($fresh->cancellation_reason)->toBe('Projector failure');
     expect($fresh->bookings()->whereNotNull('flagged_at')->count())->toBe(3);
+    // Cancelled bookings transition to RefundPending so they drop off the
+    // customer's upcoming-bookings view (which filters status = Confirmed).
+    expect($fresh->bookings()->where('status', BookingStatus::RefundPending)->count())->toBe(3);
     expect(DispatchOutbox::where('event_type', ShowtimeService::EVENT_CANCELLED)->count())->toBe(3);
 });
 

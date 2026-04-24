@@ -104,6 +104,38 @@ test('bulk create splits into creatable and conflicting subsets when some tuples
     expect($preview['conflicting'][0]['time'])->toBe('21:30');
 });
 
+test('bulk create detects intra-batch overlaps without a DB round-trip', function (): void {
+    $service = $this->mock(ShowtimeService::class);
+
+    // No DB conflicts — the only overlaps come from within the request.
+    $service->shouldReceive('detectConflictsForBatch')
+        ->once()
+        ->andReturnUsing(fn (string $_id, Collection $intervals) => $intervals->map(fn () => collect()));
+    $service->shouldNotReceive('bulkCreate');
+
+    // Movie runtime 120 min + auditorium cleanup 15 min = 135 min. Times
+    // "19:00" and "19:30" both occupy the 19:00-21:15 and 19:30-21:45 windows
+    // — they overlap each other even though neither hits an existing DB row.
+    $component = Livewire::test(BulkCreateShowtimes::class)
+        ->set('data.movie_id', $this->movie->id)
+        ->set('data.location_id', $this->location->id)
+        ->set('data.auditorium_id', $this->auditorium->id)
+        ->set('data.start_date', '2026-05-01')
+        ->set('data.end_date', '2026-05-01')
+        ->set('data.days_of_week', ['Fri'])
+        ->set('data.times', ['19:00', '19:30'])
+        ->set('data.price_standard', 1200)
+        ->set('data.price_premium', 1800)
+        ->set('data.price_accessible', 1000)
+        ->call('submit');
+
+    $preview = $component->get('preview');
+
+    expect($preview['creatable'])->toHaveCount(0);
+    expect($preview['conflicting'])->toHaveCount(2);
+    expect($preview['conflicting'][0]['conflicts'][0])->toContain('another entry in this batch');
+});
+
 test('phase-two commit calls bulkCreate with only the creatable subset', function (): void {
     $service = $this->mock(ShowtimeService::class);
     $service->shouldReceive('detectConflictsForBatch')
