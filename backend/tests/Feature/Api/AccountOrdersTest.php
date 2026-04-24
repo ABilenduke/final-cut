@@ -5,6 +5,7 @@ use App\Models\Booking;
 use App\Models\BookingFoodItem;
 use App\Models\BookingSeat;
 use App\Models\User;
+use App\Services\ShowtimeService;
 use Tests\Helpers\BookingTestHelper;
 
 use function Pest\Laravel\actingAs;
@@ -229,6 +230,26 @@ test('upcoming bookings returns only future showtimes', function () {
     $data = $response->json('data');
     expect($data)->toHaveCount(1);
     expect($data[0]['id'])->toBe($future->id);
+});
+
+test('upcoming bookings excludes bookings on cancelled showtimes', function () {
+    $user = User::factory()->create();
+
+    // Future booking on a showtime that then gets cancelled.
+    $booking = createBookingForUser($user, showtimeOverrides: [
+        'start_time' => now()->addDays(3),
+        'end_time' => now()->addDays(3)->addHours(2),
+    ]);
+
+    app(ShowtimeService::class)->cancel($booking->showtime, 'Projector failure');
+
+    $response = actingAs($user)->getJson('/api/account/bookings');
+
+    $response->assertOk();
+    // Cancelling should transition the booking to RefundPending, which the
+    // endpoint's `status = Confirmed` filter drops. Customer no longer sees
+    // the cancelled showtime sitting in their upcoming list.
+    expect($response->json('data'))->toBeEmpty();
 });
 
 test('upcoming bookings returns data envelope without pagination meta', function () {

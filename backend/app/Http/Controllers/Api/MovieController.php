@@ -60,6 +60,7 @@ class MovieController extends Controller
 
         $query = $movie->showtimes()
             ->whereHas('auditorium', fn ($q) => $q->where('location_id', $location->id))
+            ->whereNull('cancelled_at')
             ->with('movie', 'auditorium')
             ->where('start_time', '>', now())
             ->orderBy('start_time');

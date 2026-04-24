@@ -18,6 +18,9 @@ return new class extends Migration
             $table->foreignUuid('user_id')->nullable()->constrained()->nullOnDelete();
             $table->string('guest_email')->nullable();
             $table->string('status')->default('confirmed');
+            $table->timestamp('flagged_at')->nullable();
+            $table->string('flag_reason')->nullable();
+            $table->text('notes')->nullable();
             $table->unsignedInteger('subtotal');
             $table->unsignedInteger('discount')->default(0);
             $table->unsignedInteger('total');

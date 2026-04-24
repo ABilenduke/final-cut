@@ -11,24 +11,6 @@ parameters:
 			path: app/Filament/Concerns/TimestampColumns.php
 
 		-
-			message: '#^Cannot call method isPast\(\) on string\.$#'
-			identifier: method.nonObject
-			count: 3
-			path: app/Http/Controllers/Api/BookingController.php
-
-		-
-			message: '#^Property App\\Models\\Booking\:\:\$payment_method \(string\|null\) does not accept App\\Enums\\PaymentMethod\.$#'
-			identifier: assign.propertyType
-			count: 1
-			path: app/Http/Controllers/Api/BookingController.php
-
-		-
-			message: '#^Property App\\Models\\Booking\:\:\$status \(string\) does not accept App\\Enums\\BookingStatus\:\:Confirmed\.$#'
-			identifier: assign.propertyType
-			count: 2
-			path: app/Http/Controllers/Api/BookingController.php
-
-		-
 			message: '#^Cannot access property \$value on string\.$#'
 			identifier: property.nonObject
 			count: 1

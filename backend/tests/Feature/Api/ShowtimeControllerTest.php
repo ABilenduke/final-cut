@@ -189,6 +189,23 @@ test('returns 404 for non-existent showtime', function () {
         ->assertNotFound();
 });
 
+test('cancelled showtimes are hidden from the public showtime endpoint', function () {
+    $location = Location::factory()->create();
+    $movie = Movie::factory()->create();
+    $auditorium = Auditorium::factory()->create(['location_id' => $location->id, 'total_seats' => 1]);
+    Seat::factory()->create(['auditorium_id' => $auditorium->id, 'row' => 'A', 'number' => 1, 'label' => 'A1']);
+
+    $showtime = Showtime::factory()->create([
+        'movie_id' => $movie->id,
+        'auditorium_id' => $auditorium->id,
+        'cancelled_at' => now(),
+        'cancellation_reason' => 'Projector failure',
+    ]);
+
+    getJson("/api/locations/{$location->slug}/showtimes/{$showtime->id}")
+        ->assertNotFound();
+});
+
 test('returns 404 for showtime at wrong location', function () {
     $location1 = Location::factory()->create();
     $location2 = Location::factory()->create();

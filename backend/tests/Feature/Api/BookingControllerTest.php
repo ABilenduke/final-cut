@@ -127,6 +127,24 @@ test('expired showtime returns 410', function () {
     $response->assertStatus(410);
 });
 
+test('cancelled showtime cannot be booked', function () {
+    $fixture = $this->createShowtimeWithSeats();
+    $fixture['showtime']->update([
+        'cancelled_at' => now(),
+        'cancellation_reason' => 'Equipment failure',
+    ]);
+    $this->fakeStripe();
+
+    $response = postJson($this->bookingUrl($fixture['location']), [
+        'showtimeId' => $fixture['showtime']->id,
+        'seatIds' => [$fixture['seats'][0]->id],
+        'paymentMethodId' => 'pm_test_visa',
+        'email' => 'guest@example.com',
+    ]);
+
+    $response->assertStatus(410);
+});
+
 test('payment declined returns 402', function () {
     $fixture = $this->createShowtimeWithSeats();
     $this->fakeStripe()->shouldDecline();
