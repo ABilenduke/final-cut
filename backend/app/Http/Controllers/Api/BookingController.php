@@ -12,9 +12,12 @@ use App\Models\Booking;
 use App\Models\BookingFoodItem;
 use App\Models\GiftCard;
 use App\Models\Location;
+use App\Models\PromoCode;
 use App\Models\Showtime;
 use App\Models\User;
+use App\Services\GiftCardService;
 use App\Services\LoyaltyService;
+use App\Services\PromoCodeService;
 use App\Services\SeatAvailabilityService;
 use App\Services\StripeService;
 use Illuminate\Http\JsonResponse;
@@ -33,6 +36,8 @@ class BookingController extends Controller
         private readonly SeatAvailabilityService $seatService,
         private readonly StripeService $stripeService,
         private readonly LoyaltyService $loyaltyService,
+        private readonly PromoCodeService $promoCodeService,
+        private readonly GiftCardService $giftCardService,
     ) {}
 
     public function store(Location $location, CreateBookingRequest $request): JsonResponse
@@ -82,12 +87,12 @@ class BookingController extends Controller
             ];
         }
 
-        // Validate promo code
-        $promoConfig = null;
+        // Validate promo code — DB-backed via PromoCodeService (replaced config/promo_codes.php).
+        $promo = null;
         if ($promoCode) {
-            $promoConfig = config("promo_codes.{$promoCode}");
+            $promo = $this->promoCodeService->validateCode($promoCode, 0);
 
-            if (! $promoConfig) {
+            if (! $promo) {
                 return $this->errorResponse([['field' => 'promoCode', 'message' => 'Invalid promo code.']], 400);
             }
         }
@@ -104,8 +109,7 @@ class BookingController extends Controller
         }
 
         return DB::transaction(function () use (
-            $location, $showtime, $seatIds, $resolvedFoodItems, $foodTotal,
-            $promoConfig, $giftCardCode, $paymentMethodId, $request,
+            $location, $showtime, $seatIds, $resolvedFoodItems, $foodTotal, $promo, $giftCardCode, $paymentMethodId, $request,
         ) {
             $showtime = Showtime::with('auditorium', 'movie')
                 ->whereHas('auditorium', fn ($q) => $q->where('location_id', $location->id))
@@ -131,7 +135,9 @@ class BookingController extends Controller
             $seatTotal = $this->seatService->reserveSeats($showtime, $seatIds, $booking);
 
             $subtotal = $seatTotal + $foodTotal;
-            $promoDiscount = $this->calculatePromoDiscount($promoConfig, $subtotal);
+            $promoDiscount = $promo
+                ? $this->promoCodeService->calculateDiscount($promo, $subtotal)
+                : 0;
 
             // Apply gift card (lock for concurrent use protection)
             $giftCard = null;
@@ -192,6 +198,7 @@ class BookingController extends Controller
                             'card_amount' => $cardAmount,
                             'gift_card_id' => $giftCard?->id,
                             'gift_card_amount' => $giftCardAmount,
+                            'promo_code_id' => $promo?->id,
                             'payment_method' => $this->determinePaymentMethod($cardAmount, $giftCardAmount),
                         ], now()->addMinutes(15));
 
@@ -241,7 +248,7 @@ class BookingController extends Controller
                     'stripe_payment_intent_id' => $stripePaymentIntentId,
                 ]);
 
-                $this->finalizeBooking($booking, $resolvedFoodItems, $giftCard, $giftCardAmount, $request->user()?->id, $total);
+                $this->finalizeBooking($booking, $resolvedFoodItems, $giftCard, $giftCardAmount, $promo, $request->user()?->id, $total);
             } catch (\Throwable $e) {
                 if ($stripePaymentIntentId) {
                     $this->refundOrReport($stripePaymentIntentId);
@@ -391,11 +398,17 @@ class BookingController extends Controller
 
                 $this->seatService->reserveSeats($showtime, $pendingData['seat_ids'], $booking);
 
+                $promo = null;
+                if (! empty($pendingData['promo_code_id'])) {
+                    $promo = PromoCode::query()->find($pendingData['promo_code_id']);
+                }
+
                 $this->finalizeBooking(
                     $booking,
                     $pendingData['food_items'],
                     $giftCard,
                     $giftCardAmount,
+                    $promo,
                     $pendingData['user_id'],
                     $total,
                 );
@@ -425,6 +438,7 @@ class BookingController extends Controller
         array $foodItems,
         ?GiftCard $giftCard,
         int $giftCardAmount,
+        ?PromoCode $promo,
         ?string $userId,
         int $total,
     ): void {
@@ -435,12 +449,16 @@ class BookingController extends Controller
         }
 
         if ($giftCard && $giftCardAmount > 0) {
-            $deduction = min($giftCardAmount, $giftCard->current_balance);
-            $newBalance = $giftCard->current_balance - $deduction;
-            $giftCard->update([
-                'current_balance' => max(0, $newBalance),
-                'status' => $newBalance <= 0 ? GiftCardStatus::Depleted : GiftCardStatus::Active,
-            ]);
+            $this->giftCardService->redeemAgainstBooking(
+                $giftCard,
+                $giftCardAmount,
+                $booking,
+                null,
+            );
+        }
+
+        if ($promo) {
+            $this->promoCodeService->incrementUsage($promo, null);
         }
 
         /** @var User|null $user */
@@ -448,24 +466,6 @@ class BookingController extends Controller
         if ($user) {
             $this->loyaltyService->awardPointsForPurchase($user, $total);
         }
-    }
-
-    private function calculatePromoDiscount(?array $promoConfig, int $subtotal): int
-    {
-        if (! $promoConfig) {
-            return 0;
-        }
-
-        if ($promoConfig['type'] === 'percentage') {
-            $discount = (int) floor($subtotal * $promoConfig['value'] / 100);
-            if (isset($promoConfig['max_discount'])) {
-                $discount = min($discount, $promoConfig['max_discount']);
-            }
-        } else {
-            $discount = $promoConfig['value'];
-        }
-
-        return min($discount, $subtotal);
     }
 
     /**

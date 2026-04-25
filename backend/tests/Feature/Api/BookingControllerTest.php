@@ -1,12 +1,15 @@
 <?php
 
 use App\Enums\BookingStatus;
+use App\Enums\GiftCardLedgerType;
 use App\Enums\GiftCardStatus;
 use App\Models\Booking;
 use App\Models\BookingSeat;
 use App\Models\GiftCard;
+use App\Models\GiftCardLedgerEntry;
 use App\Models\Location;
 use App\Models\MenuItem;
+use App\Models\PromoCode;
 use App\Models\User;
 use Illuminate\Support\Facades\Cache;
 use Tests\Helpers\BookingTestHelper;
@@ -19,6 +22,19 @@ uses(BookingTestHelper::class);
 
 beforeEach(function () {
     $this->fakeStripe();
+
+    // Seed the DB-backed equivalents of the former config/promo_codes.php
+    // fixtures — individual tests reference these by code.
+    PromoCode::factory()->create([
+        'code' => 'WELCOME5',
+        'discount_type' => PromoCode::TYPE_FIXED_CENTS,
+        'amount' => 500,
+    ]);
+    PromoCode::factory()->create([
+        'code' => 'SAVE10',
+        'discount_type' => PromoCode::TYPE_PERCENTAGE,
+        'amount' => 10,
+    ]);
 });
 
 /*
@@ -288,6 +304,8 @@ test('valid promo code applies discount', function () {
     expect($data['subtotal'])->toBe(1200)
         ->and($data['discount'])->toBe(500) // $5 off
         ->and($data['total'])->toBe(700);   // $12 - $5
+
+    expect(PromoCode::where('code', 'WELCOME5')->first()->uses_count)->toBe(1);
 });
 
 test('invalid promo code returns 400', function () {
@@ -333,6 +351,13 @@ test('gift card covers full payment without Stripe call', function () {
 
     $giftCard->refresh();
     expect($giftCard->current_balance)->toBe(3800); // 5000 - 1200
+
+    $ledger = GiftCardLedgerEntry::where('gift_card_id', $giftCard->id)
+        ->where('type', GiftCardLedgerType::Redemption)
+        ->first();
+    expect($ledger)->not->toBeNull()
+        ->and($ledger->amount_cents)->toBe(-1200)
+        ->and($ledger->balance_after_cents)->toBe(3800);
 });
 
 test('gift card partial payment uses mixed payment method', function () {

@@ -57,7 +57,7 @@ class AdminRolesAndPermissionsSeeder extends Seeder
         'events.view', 'events.create', 'events.update', 'events.delete',
         'promos.view', 'promos.create', 'promos.update', 'promos.delete',
         'bookings.view', 'bookings.resolve_refund',
-        'gift_cards.view',
+        'gift_cards.view', 'gift_cards.void',
         'users.view',
         'loyalty.view', 'loyalty.adjust_points', 'loyalty.adjust_tier',
         'activity.view',
@@ -66,6 +66,7 @@ class AdminRolesAndPermissionsSeeder extends Seeder
     public const OPS_PERMISSIONS = [
         'bookings.view', 'users.view', 'loyalty.view', 'gift_cards.view',
         'movies.view', 'showtimes.view', 'locations.view', 'auditoriums.view',
+        'menu.view', 'promos.view',
         'activity.view',
     ];
 
