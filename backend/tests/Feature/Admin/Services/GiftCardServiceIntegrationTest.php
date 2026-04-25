@@ -3,11 +3,11 @@
 use App\Enums\GiftCardLedgerType;
 use App\Enums\GiftCardStatus;
 use App\Exceptions\GiftCardNotVoidableException;
-use App\Mail\GiftCardVoidedMail;
 use App\Models\AdminUser;
 use App\Models\Auditorium;
 use App\Models\AuditoriumSection;
 use App\Models\Booking;
+use App\Models\DispatchOutbox;
 use App\Models\GiftCard;
 use App\Models\GiftCardLedgerEntry;
 use App\Models\Location;
@@ -15,7 +15,6 @@ use App\Models\Movie;
 use App\Models\Showtime;
 use App\Services\GiftCardService;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Mail;
 use Spatie\Activitylog\Models\Activity;
 
 /**
@@ -24,7 +23,6 @@ use Spatie\Activitylog\Models\Activity;
  * Layer A (Resource, service mocked) cannot.
  */
 beforeEach(function (): void {
-    Mail::fake();
     $this->service = app(GiftCardService::class);
 });
 
@@ -70,7 +68,7 @@ test('redeemAgainstBooking with null actor writes ledger entry and no activity l
     expect(Activity::where('log_name', 'admin')->count())->toBe(0);
 });
 
-test('void with admin actor writes status, ledger, activity, and queued mail in one transaction', function (): void {
+test('void with admin actor writes status, ledger, activity, and dispatch_outbox row in one transaction', function (): void {
     $admin = AdminUser::factory()->create();
     $card = GiftCard::factory()->active()->create(['current_balance' => 2000, 'initial_balance' => 2000]);
 
@@ -83,10 +81,12 @@ test('void with admin actor writes status, ledger, activity, and queued mail in 
     expect(Activity::where('description', GiftCardService::EVENT_VOIDED)
         ->where('causer_id', $admin->id)->count())->toBe(1);
 
-    Mail::assertQueued(GiftCardVoidedMail::class);
+    expect(DispatchOutbox::where('event_type', GiftCardService::EVENT_VOIDED)
+        ->whereNull('processed_at')
+        ->count())->toBe(1);
 });
 
-test('void on Voided card throws REASON_ALREADY_VOIDED — no second ledger or mail', function (): void {
+test('void on Voided card throws REASON_ALREADY_VOIDED — no second ledger or outbox row', function (): void {
     $admin = AdminUser::factory()->create();
     $card = GiftCard::factory()->voided()->create();
 
@@ -100,7 +100,7 @@ test('void on Voided card throws REASON_ALREADY_VOIDED — no second ledger or m
     expect($caught?->reason)->toBe(GiftCardNotVoidableException::REASON_ALREADY_VOIDED);
     expect(GiftCardLedgerEntry::where('gift_card_id', $card->id)
         ->where('type', GiftCardLedgerType::Void)->count())->toBe(0);
-    Mail::assertNothingQueued();
+    expect(DispatchOutbox::where('event_type', GiftCardService::EVENT_VOIDED)->count())->toBe(0);
 });
 
 test('void on Depleted card throws REASON_DEPLETED', function (): void {

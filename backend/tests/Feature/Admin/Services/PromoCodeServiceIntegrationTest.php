@@ -90,12 +90,12 @@ test('validateCode normalises uppercase and returns row only when active and not
     expect($this->service->validateCode('NOTHERE', 100))->toBeNull();
 });
 
-test('incrementUsage atomically increments uses_count under sequential calls', function (): void {
+test('consume atomically increments uses_count under sequential calls', function (): void {
     $promo = PromoCode::factory()->create(['uses_count' => 0]);
 
-    DB::transaction(fn () => $this->service->incrementUsage($promo));
-    DB::transaction(fn () => $this->service->incrementUsage($promo));
-    DB::transaction(fn () => $this->service->incrementUsage($promo));
+    DB::transaction(fn () => $this->service->consume($promo));
+    DB::transaction(fn () => $this->service->consume($promo));
+    DB::transaction(fn () => $this->service->consume($promo));
 
     expect($promo->fresh()->uses_count)->toBe(3);
 });

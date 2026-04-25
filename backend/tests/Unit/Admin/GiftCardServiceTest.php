@@ -3,22 +3,20 @@
 use App\Enums\GiftCardLedgerType;
 use App\Enums\GiftCardStatus;
 use App\Exceptions\GiftCardNotVoidableException;
-use App\Mail\GiftCardVoidedMail;
 use App\Models\AdminUser;
 use App\Models\Auditorium;
 use App\Models\AuditoriumSection;
 use App\Models\Booking;
+use App\Models\DispatchOutbox;
 use App\Models\GiftCard;
 use App\Models\GiftCardLedgerEntry;
 use App\Models\Location;
 use App\Models\Movie;
 use App\Models\Showtime;
 use App\Services\GiftCardService;
-use Illuminate\Support\Facades\Mail;
 use Spatie\Activitylog\Models\Activity;
 
 beforeEach(function (): void {
-    Mail::fake();
     $this->service = app(GiftCardService::class);
 });
 
@@ -114,7 +112,7 @@ test('getBalance returns current_balance', function (): void {
     expect($this->service->getBalance($giftCard))->toBe(7500);
 });
 
-test('void success mutates status, writes ledger, activity, and queues mail', function (): void {
+test('void success mutates status, writes ledger, activity, and writes a dispatch_outbox row', function (): void {
     $admin = AdminUser::factory()->create();
     $giftCard = GiftCard::factory()->active()->create(['current_balance' => 2000, 'initial_balance' => 2000]);
 
@@ -136,9 +134,15 @@ test('void success mutates status, writes ledger, activity, and queues mail', fu
 
     expect(Activity::where('description', GiftCardService::EVENT_VOIDED)->count())->toBe(1);
 
-    Mail::assertQueued(GiftCardVoidedMail::class, fn ($mail) => $mail->giftCard->id === $giftCard->id
-        && $mail->balanceVoided === 2000
-        && $mail->by?->id === $admin->id);
+    // Durable outbox row written inside the void transaction. Plan 09's
+    // worker will drain this and dispatch NotifyFinanceOfGiftCardVoid.
+    $outbox = DispatchOutbox::where('event_type', GiftCardService::EVENT_VOIDED)->first();
+    expect($outbox)->not->toBeNull()
+        ->and($outbox->payload['gift_card_id'])->toBe($giftCard->id)
+        ->and($outbox->payload['balance_voided'])->toBe(2000)
+        ->and($outbox->payload['voided_by_admin_user_id'])->toBe($admin->id)
+        ->and($outbox->payload['reason'])->toBe('customer requested refund due to duplicate purchase')
+        ->and($outbox->processed_at)->toBeNull();
 });
 
 test('void on a voided card throws GiftCardNotVoidableException::REASON_ALREADY_VOIDED', function (): void {
@@ -155,7 +159,8 @@ test('void on a voided card throws GiftCardNotVoidableException::REASON_ALREADY_
     expect($caught)->not->toBeNull()
         ->and($caught->reason)->toBe(GiftCardNotVoidableException::REASON_ALREADY_VOIDED);
 
-    Mail::assertNothingQueued();
+    // Failed void must not leave behind an outbox row.
+    expect(DispatchOutbox::where('event_type', GiftCardService::EVENT_VOIDED)->count())->toBe(0);
 });
 
 test('void on a depleted card throws REASON_DEPLETED', function (): void {

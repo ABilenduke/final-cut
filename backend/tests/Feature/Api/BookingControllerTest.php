@@ -1006,3 +1006,87 @@ test('3DS confirm preserves pending state on seat conflict for retry', function 
     $pendingData = Cache::get("pending_booking:{$paymentIntentId}");
     expect($pendingData)->not->toBeNull();
 });
+
+/*
+|--------------------------------------------------------------------------
+| Regression: Promo race / 3DS revalidation
+|--------------------------------------------------------------------------
+*/
+
+// The post-charge race where `validateCode` passes and `consume()` then
+// finds the row exhausted requires interleaved execution that is not
+// reproducible at HTTP scope — the `validateCode` pre-check on a single
+// thread always catches a limit-reached row before Stripe is touched. The
+// `consume()` revalidation contract is verified at the service layer in
+// `tests/Unit/Admin/PromoCodeServiceTest.php` ("consume throws
+// REASON_LIMIT_REACHED when uses_count caught up to usage_limit between
+// validate and consume"), which exercises the locked re-read directly.
+
+test('3DS confirm refunds and returns 409 when promo was deleted during the 3DS window', function () {
+    $fixture = $this->createShowtimeWithSeats();
+    $fakeStripe = $this->fakeStripe();
+
+    PromoCode::factory()->fixed(500)->create(['code' => 'GONE5']);
+
+    $fakeStripe->shouldRequire3ds();
+    $response = postJson($this->bookingUrl($fixture['location']), [
+        'showtimeId' => $fixture['showtime']->id,
+        'seatIds' => [$fixture['seats'][0]->id],
+        'paymentMethodId' => 'pm_test_3ds',
+        'email' => 'guest@example.com',
+        'promoCode' => 'GONE5',
+    ]);
+
+    $response->assertOk();
+    $paymentIntentId = $response->json('data.paymentIntentId');
+
+    // Admin hard-deletes the promo while 3DS is in flight.
+    PromoCode::where('code', 'GONE5')->delete();
+
+    $fakeStripe->shouldSucceed();
+    $confirmResponse = postJson($this->bookingUrl($fixture['location'], 'confirm'), [
+        'paymentIntentId' => $paymentIntentId,
+    ]);
+
+    $confirmResponse->assertStatus(409);
+    expect($confirmResponse->json('errors.0.field'))->toBe('promoCode');
+
+    // Compensating refund issued.
+    expect($fakeStripe->refundedPaymentIntents)->toHaveCount(1);
+
+    // No booking persisted.
+    expect(Booking::where('stripe_payment_intent_id', $paymentIntentId)->exists())->toBeFalse();
+});
+
+test('3DS confirm refunds and returns 409 when promo was deactivated during the 3DS window', function () {
+    $fixture = $this->createShowtimeWithSeats();
+    $fakeStripe = $this->fakeStripe();
+
+    PromoCode::factory()->fixed(500)->create(['code' => 'OFF5']);
+
+    $fakeStripe->shouldRequire3ds();
+    $response = postJson($this->bookingUrl($fixture['location']), [
+        'showtimeId' => $fixture['showtime']->id,
+        'seatIds' => [$fixture['seats'][0]->id],
+        'paymentMethodId' => 'pm_test_3ds',
+        'email' => 'guest@example.com',
+        'promoCode' => 'OFF5',
+    ]);
+
+    $response->assertOk();
+    $paymentIntentId = $response->json('data.paymentIntentId');
+
+    // Admin deactivates the promo while 3DS is in flight.
+    PromoCode::where('code', 'OFF5')->update(['is_active' => false]);
+
+    $fakeStripe->shouldSucceed();
+    $confirmResponse = postJson($this->bookingUrl($fixture['location'], 'confirm'), [
+        'paymentIntentId' => $paymentIntentId,
+    ]);
+
+    $confirmResponse->assertStatus(409);
+    expect($fakeStripe->refundedPaymentIntents)->toHaveCount(1);
+    expect(Booking::where('stripe_payment_intent_id', $paymentIntentId)->exists())->toBeFalse();
+    // The deactivated promo's uses_count must NOT have been incremented.
+    expect(PromoCode::where('code', 'OFF5')->first()->uses_count)->toBe(0);
+});

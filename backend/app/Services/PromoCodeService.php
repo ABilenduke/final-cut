@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Exceptions\PromoCodeInUseException;
+use App\Exceptions\PromoCodeNotConsumableException;
 use App\Models\AdminUser;
 use App\Models\PromoCode;
 use App\Services\Concerns\LogsAdminActivity;
@@ -16,8 +17,8 @@ use Illuminate\Support\Facades\DB;
  * `LogsAdminActivity`). Customer callers pass `null` for `$actor` — the
  * `uses_count` increment on the row is the customer-path audit trail.
  *
- * `validateCode()` and `incrementUsage()` are the only methods called from
- * the customer booking flow.
+ * `validateCode()` is a pre-check; `consume()` is the authoritative
+ * locked validate-and-increment used during booking finalisation.
  */
 class PromoCodeService
 {
@@ -165,27 +166,68 @@ class PromoCodeService
     }
 
     /**
-     * Atomically increment `uses_count`. Called from the booking confirmation
-     * transaction; customer callers pass `null` for `$actor` so no activity
-     * log row is written — the counter change itself is the audit trail.
+     * Atomically validate + consume one usage of a promo code.
      *
-     * `lockForUpdate` serialises concurrent confirmations so two simultaneous
-     * bookings cannot both succeed on the last remaining use.
+     * `lockForUpdate` serialises concurrent confirmations and the row is
+     * re-read under the lock so we can re-check `is_active`, `expires_at`,
+     * and `usage_limit` before incrementing — closing the race that
+     * existed between `validateCode()` (read-only pre-check) and the
+     * older `incrementUsage()`. Two confirmations both passing the
+     * pre-check on a code with one remaining use cannot both succeed:
+     * the second sees the post-increment count under its own lock and
+     * throws `PromoCodeNotConsumableException`.
+     *
+     * The same revalidation handles the case where an admin deactivates,
+     * expires, or deletes a code mid-flight (e.g. during a 3DS window).
+     *
+     * Customer callers pass `null` for `$actor` so no activity log row is
+     * written — the `uses_count` increment is the customer-path audit
+     * trail.
+     *
+     * @throws PromoCodeNotConsumableException if the code is no longer
+     *                                         redeemable when the lock is acquired.
      */
-    public function incrementUsage(PromoCode $promo, ?AdminUser $actor = null): void
+    public function consume(PromoCode $promo, ?AdminUser $actor = null): PromoCode
     {
-        DB::transaction(function () use ($promo, $actor): void {
-            /** @var PromoCode $locked */
-            $locked = PromoCode::query()->whereKey($promo->id)->lockForUpdate()->firstOrFail();
+        return DB::transaction(function () use ($promo, $actor): PromoCode {
+            /** @var PromoCode|null $locked */
+            $locked = PromoCode::query()->whereKey($promo->id)->lockForUpdate()->first();
+
+            if ($locked === null) {
+                throw new PromoCodeNotConsumableException(
+                    PromoCodeNotConsumableException::REASON_NOT_FOUND,
+                );
+            }
+
+            if (! $locked->is_active) {
+                throw new PromoCodeNotConsumableException(
+                    PromoCodeNotConsumableException::REASON_INACTIVE,
+                );
+            }
+
+            if ($locked->expires_at !== null && $locked->expires_at->isPast()) {
+                throw new PromoCodeNotConsumableException(
+                    PromoCodeNotConsumableException::REASON_EXPIRED,
+                );
+            }
+
+            if ($locked->usage_limit !== null && $locked->uses_count >= $locked->usage_limit) {
+                throw new PromoCodeNotConsumableException(
+                    PromoCodeNotConsumableException::REASON_LIMIT_REACHED,
+                );
+            }
+
             $locked->increment('uses_count');
             $promo->setRawAttributes($locked->getAttributes(), sync: true);
 
-            // Not expected to fire in customer path (actor = null), but supported
-            // in case a future admin-path "apply on behalf of" emerges.
+            // Not expected to fire in customer path (actor = null), but
+            // supported for a future admin-path "apply on behalf of".
             $this->logIfAdmin('promo_code.used', $locked, $actor, [
                 'code' => $locked->code,
                 'uses_count' => $locked->uses_count,
             ]);
+
+            return $locked;
         });
     }
 }

@@ -1,6 +1,7 @@
 <?php
 
 use App\Exceptions\PromoCodeInUseException;
+use App\Exceptions\PromoCodeNotConsumableException;
 use App\Models\AdminUser;
 use App\Models\PromoCode;
 use App\Services\PromoCodeService;
@@ -121,18 +122,78 @@ test('validateCode returns null for empty code', function (): void {
     expect($this->service->validateCode('', 5000))->toBeNull();
 });
 
-test('incrementUsage atomically increments uses_count', function (): void {
+test('consume atomically increments uses_count under lock', function (): void {
     $promo = PromoCode::factory()->create(['uses_count' => 5]);
 
-    $this->service->incrementUsage($promo);
+    $this->service->consume($promo);
 
     expect($promo->fresh()->uses_count)->toBe(6);
 });
 
-test('incrementUsage does not write activity when actor is null', function (): void {
+test('consume does not write activity when actor is null', function (): void {
     $promo = PromoCode::factory()->create(['uses_count' => 0]);
 
-    $this->service->incrementUsage($promo, null);
+    $this->service->consume($promo, null);
 
     expect(Activity::where('log_name', 'admin')->count())->toBe(0);
+});
+
+test('consume throws REASON_INACTIVE when the locked row is no longer active', function (): void {
+    $promo = PromoCode::factory()->inactive()->create();
+
+    $caught = null;
+    try {
+        $this->service->consume($promo);
+    } catch (PromoCodeNotConsumableException $e) {
+        $caught = $e;
+    }
+
+    expect($caught?->reason)->toBe(PromoCodeNotConsumableException::REASON_INACTIVE);
+    expect($promo->fresh()->uses_count)->toBe(0);
+});
+
+test('consume throws REASON_EXPIRED when the locked row is expired', function (): void {
+    $promo = PromoCode::factory()->expired()->create();
+
+    $caught = null;
+    try {
+        $this->service->consume($promo);
+    } catch (PromoCodeNotConsumableException $e) {
+        $caught = $e;
+    }
+
+    expect($caught?->reason)->toBe(PromoCodeNotConsumableException::REASON_EXPIRED);
+});
+
+test('consume throws REASON_LIMIT_REACHED when uses_count caught up to usage_limit between validate and consume', function (): void {
+    // Simulate the race: caller validated against (uses_count = 4, limit = 5),
+    // then a concurrent confirmation pushed uses_count to 5 before this
+    // consume took its lock. The locked re-read sees the new state and
+    // refuses to over-consume.
+    $promo = PromoCode::factory()->withUsage(4, 5)->create();
+    PromoCode::query()->whereKey($promo->id)->update(['uses_count' => 5]);
+
+    $caught = null;
+    try {
+        $this->service->consume($promo);
+    } catch (PromoCodeNotConsumableException $e) {
+        $caught = $e;
+    }
+
+    expect($caught?->reason)->toBe(PromoCodeNotConsumableException::REASON_LIMIT_REACHED);
+    expect($promo->fresh()->uses_count)->toBe(5);
+});
+
+test('consume throws REASON_NOT_FOUND when the row was deleted before the lock', function (): void {
+    $promo = PromoCode::factory()->create();
+    PromoCode::query()->whereKey($promo->id)->delete();
+
+    $caught = null;
+    try {
+        $this->service->consume($promo);
+    } catch (PromoCodeNotConsumableException $e) {
+        $caught = $e;
+    }
+
+    expect($caught?->reason)->toBe(PromoCodeNotConsumableException::REASON_NOT_FOUND);
 });

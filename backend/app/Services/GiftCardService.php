@@ -5,14 +5,13 @@ namespace App\Services;
 use App\Enums\GiftCardLedgerType;
 use App\Enums\GiftCardStatus;
 use App\Exceptions\GiftCardNotVoidableException;
-use App\Mail\GiftCardVoidedMail;
 use App\Models\AdminUser;
 use App\Models\Booking;
+use App\Models\DispatchOutbox;
 use App\Models\GiftCard;
 use App\Models\GiftCardLedgerEntry;
 use App\Services\Concerns\LogsAdminActivity;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Mail;
 
 /**
  * Gift card domain service: customer purchase/redemption + admin void.
@@ -135,10 +134,11 @@ class GiftCardService
     }
 
     /**
-     * Admin void: mark the card inactive and dispatch a queued finance
+     * Admin void: mark the card inactive and queue a durable finance
      * notification. Single transaction covers status mutation, ledger entry,
-     * activity-log write, and queued mail (mail is queued via `ShouldQueue`
-     * so the `send()` call does not block on SMTP).
+     * activity-log write, and a `dispatch_outbox` row of type
+     * `gift_card.voided` — Plan 09's outbox worker drains it and dispatches
+     * `NotifyFinanceOfGiftCardVoid`.
      *
      * Voids are NOT idempotent — a second call on an already-voided card
      * throws `GiftCardNotVoidableException(reason: already_voided)`. Two
@@ -199,13 +199,27 @@ class GiftCardService
             // code sees the voided status without an extra fetch.
             $giftCard->setRawAttributes($locked->getAttributes(), sync: true);
 
-            // Defer mail dispatch until after the transaction commits — queue
-            // drivers (`config/queue.php` ships `after_commit: false` for every
-            // connection) push the job at dispatch time, so an in-transaction
-            // `Mail::send()` would deliver a "voided" email even if the
-            // surrounding write rolls back.
-            DB::afterCommit(fn () => Mail::to(config('finance.notification_email'))
-                ->send(new GiftCardVoidedMail($locked, $reason, $actor, $balanceBefore)));
+            // Durable outbox handoff (Plan 06 pattern). Writing the row inside
+            // this transaction guarantees that a successful void always has an
+            // accompanying notification record — direct `Mail::send()` via
+            // `DB::afterCommit` could silently drop the finance email on a
+            // queue/Redis outage, leaving the card voided with no audit
+            // trail. Plan 09's outbox worker drains rows and dispatches
+            // `NotifyFinanceOfGiftCardVoid`; until that worker ships rows
+            // accumulate safely and can be replayed.
+            $now = now();
+            DispatchOutbox::create([
+                'event_type' => self::EVENT_VOIDED,
+                'payload' => [
+                    'gift_card_id' => $locked->id,
+                    'reason' => $reason,
+                    'balance_voided' => $balanceBefore,
+                    'voided_by_admin_user_id' => $actor?->id,
+                ],
+                'available_at' => $now,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
         });
     }
 }
