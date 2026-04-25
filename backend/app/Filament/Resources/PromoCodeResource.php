@@ -55,7 +55,10 @@ class PromoCodeResource extends BaseResource
                     TextInput::make('code')
                         ->required()
                         ->maxLength(32)
-                        ->alphaDash()
+                        // Match the helper-text contract literally: A-Z, 0-9,
+                        // and `-` only. Filament's `alphaDash()` would also
+                        // accept `_`, which the helper text disallows.
+                        ->regex('/^[A-Za-z0-9-]+$/')
                         ->live(onBlur: true)
                         ->afterStateUpdated(fn ($state, callable $set) => $set('code', strtoupper((string) $state)))
                         ->dehydrateStateUsing(fn ($state) => strtoupper((string) $state))
@@ -76,6 +79,12 @@ class PromoCodeResource extends BaseResource
                         ->numeric()
                         ->required()
                         ->minValue(1)
+                        // 100% is the natural ceiling for percentage promos —
+                        // higher values would make the discount exceed the
+                        // subtotal (the service caps to subtotal at apply
+                        // time, but accepting > 100 in the admin form is a
+                        // misleading UX). Fixed-cents has no upper bound.
+                        ->maxValue(fn ($get) => $get('discount_type') === PromoCode::TYPE_PERCENTAGE ? 100 : null)
                         ->suffix(fn ($get) => $get('discount_type') === PromoCode::TYPE_PERCENTAGE ? '%' : ' ¢')
                         ->helperText(fn ($get) => $get('discount_type') === PromoCode::TYPE_PERCENTAGE
                             ? '1–100 (percentage)'

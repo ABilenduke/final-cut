@@ -180,4 +180,11 @@ class MenuItemResource extends BaseResource
             'edit' => Pages\EditMenuItem::route('/{record}/edit'),
         ];
     }
+
+    public static function getEloquentQuery(): Builder
+    {
+        // Eager-load `locations` so the `locations.name` table column
+        // doesn't trigger lazy loads per row in the admin list.
+        return parent::getEloquentQuery()->with('locations');
+    }
 }

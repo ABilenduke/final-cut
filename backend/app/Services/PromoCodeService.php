@@ -90,21 +90,33 @@ class PromoCodeService
      * Hard delete. Used codes must be deactivated (not deleted) to preserve
      * historical records. Throws `PromoCodeInUseException` when the service
      * layer sees `uses_count > 0`, independent of any UI guard.
+     *
+     * The check happens AFTER taking `lockForUpdate` on the row so a
+     * customer-side `consume()` racing this admin action can't slip an
+     * increment in between a stale-model pre-check and the actual delete.
      */
     public function delete(PromoCode $promo, ?AdminUser $actor = null): void
     {
-        if ($promo->uses_count > 0) {
-            throw new PromoCodeInUseException;
-        }
-
         DB::transaction(function () use ($promo, $actor): void {
+            /** @var PromoCode|null $locked */
+            $locked = PromoCode::query()->whereKey($promo->id)->lockForUpdate()->first();
+
+            // Already deleted by a concurrent admin action — nothing to do.
+            if ($locked === null) {
+                return;
+            }
+
+            if ($locked->uses_count > 0) {
+                throw new PromoCodeInUseException;
+            }
+
             $snapshot = [
-                'code' => $promo->code,
-                'discount_type' => $promo->discount_type,
-                'amount' => $promo->amount,
+                'code' => $locked->code,
+                'discount_type' => $locked->discount_type,
+                'amount' => $locked->amount,
             ];
-            $this->logIfAdmin(self::EVENT_DELETED, $promo, $actor, $snapshot);
-            $promo->delete();
+            $this->logIfAdmin(self::EVENT_DELETED, $locked, $actor, $snapshot);
+            $locked->delete();
         });
     }
 

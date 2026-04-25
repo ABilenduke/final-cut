@@ -140,13 +140,13 @@ class GiftCardResource extends BaseResource
                     ->requiresConfirmation()
                     ->modalDescription(fn ($record) => 'This will void the gift card with remaining balance '
                         .self::centsToDisplay($record->current_balance)
-                        .'. Finance will be notified by email to process a refund to the original purchaser.')
+                        .'. A finance notification will be queued so the refund can be processed against the original purchaser.')
                     ->action(function ($record, array $data) {
                         try {
                             app(GiftCardService::class)
                                 ->void($record, $data['reason'], auth('admin')->user());
                             Notification::make()
-                                ->title('Gift card voided. Finance notified.')
+                                ->title('Gift card voided. Finance notification queued.')
                                 ->success()
                                 ->send();
                         } catch (GiftCardNotVoidableException $e) {

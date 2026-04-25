@@ -99,6 +99,7 @@ Backend env vars worth knowing:
 - `BOOST_BROWSER_LOGS_WATCHER=false` keeps the browser logs watcher off unless intentionally enabled
 - `DEFAULT_LOCATION_TIMEZONE` seeds the IANA timezone applied to newly created `Location` rows when the admin form leaves the field blank. Read through `config('app.default_location_timezone')`; falls back to `config('app.timezone')` (then UTC) when unset. Existing locations are never mutated — this only affects defaults at create-time
 - `LOYALTY_LARGE_ADJUSTMENT_THRESHOLD` (default `1000`) is the absolute points delta at or above which the admin **Adjust Points** action surfaces an elevated confirmation modal. Read through `config('loyalty.large_adjustment_threshold')`. The threshold + the audit log are v1's compensating controls for large-delta corrections; dual-control approval is deferred to v2
+- `FINANCE_NOTIFICATION_EMAIL` (default `finance@finalcut.test`) is the recipient for admin-triggered finance events — currently the gift-card void notification (Plan 08). Read through `config('finance.notification_email')`. In dev, Mailpit captures these; in prod, point this at an internal distribution list with appropriate access controls because the payload includes the recipient email and remaining balance (PII)
 
 `backend/phpunit.xml` forces the backend test environment to stay isolated: `APP_ENV=testing`, PostgreSQL points at `final_cut_test`, cache/session use in-memory array drivers, the queue is `sync`, and observability tooling like Pulse, Telescope, and Nightwatch is disabled during tests.
 
