@@ -138,7 +138,7 @@ class MenuItemResource extends BaseResource
                     ->separator(','),
                 TextColumn::make('category')
                     ->badge()
-                    ->formatStateUsing(fn ($state) => ucfirst((string) ($state?->value ?? $state))),
+                    ->formatStateUsing(fn (MenuCategory $state): string => ucfirst($state->value)),
                 TextColumn::make('price')
                     ->formatStateUsing(fn ($state) => self::centsToDisplay((int) $state))
                     ->sortable(),

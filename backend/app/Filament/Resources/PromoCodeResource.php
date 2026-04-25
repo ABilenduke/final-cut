@@ -23,7 +23,6 @@ use Filament\Support\Exceptions\Halt;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Model;
 use UnitEnum;
 
 /**
@@ -142,7 +141,7 @@ class PromoCodeResource extends BaseResource
                 DeleteAction::make()
                     ->visible(fn ($record) => $record->uses_count === 0
                         && auth('admin')->user()?->can('promos.delete'))
-                    ->using(function (Model $record) {
+                    ->using(function (PromoCode $record) {
                         try {
                             app(PromoCodeService::class)
                                 ->delete($record, auth('admin')->user());
