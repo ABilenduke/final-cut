@@ -1,0 +1,113 @@
+/* Final Cut Admin Design System -- CSS Custom Properties
+   For one-off HTML mocks and standalone Blade prototypes.
+   Production code uses the compiled Tailwind theme at
+   backend/resources/css/filament/admin/theme.css.
+
+   Usage: <link rel="stylesheet" href="tokens.css"> in a standalone HTML file.
+   Then reference tokens via var(--token-name) in inline styles or a local <style> block.
+
+   Canonical source: docs/design-system/DESIGN_SYSTEM.md
+   Customer live tokens: frontend/app/assets/css/tokens.css
+*/
+
+:root {
+
+  /* ——— Surfaces (shared with customer site) ——— */
+  --surface:                   #131313;  /* Page background */
+  --surface-container-lowest:  #0e0e0e;  /* Recessed panels */
+  --surface-container-low:     #1c1b1b;  /* Base card layer */
+  --surface-container:         #201f1f;  /* Content sections, sidebar */
+  --surface-container-high:    #2a2a2a;  /* Elevated cards, modals, table header */
+  --surface-variant:           #3B3636;  /* Glassmorphism substrate (use at 60% opacity) */
+
+  /* ——— Brand fills (shared with customer site) ——— */
+  --primary-container:         #550000;  /* Maroon: button fill, active pill, accent row */
+  --secondary-container:       #675900;  /* Secondary accent fills (rare) */
+  --tertiary-container:        #29261b;  /* Subtle warm highlights */
+
+  /* ——— Foreground / text (shared with customer site) ——— */
+  --primary:                   #FFB4A8;  /* Salmon: text ON --primary-container ONLY */
+  --secondary:                 #DAC769;  /* Gold: CTA text, active nav, focused input */
+  --tertiary:                  #CCC6B6;  /* Ivory: body text, subdued labels */
+  --on-surface:                #E5E2E1;  /* Default readable text on dark surfaces */
+  --on-tertiary-fixed-variant: #A89F91;  /* Low-emphasis telemetry */
+
+  /* ——— Edges (shared with customer site) ——— */
+  --outline-variant:           #57423E;  /* Decorative edge catches (15% opacity only) */
+  --outline:                   #A58B86;  /* Input underlines, functional interactive boundaries */
+
+  /* ——— Admin-only semantic accents ——— */
+  --success:                   #5b8f6c;  /* Confirmed bookings, published state */
+  --destructive:               #b5443d;  /* Void, cancel, delete, errors */
+  --warning:                   #c78438;  /* Refund pending, flags, elevated caution */
+  --info:                      #5a8aa0;  /* Held state, info banners */
+
+  /* ——— Spacing (aligned with customer token scale, 4px base) ——— */
+  --space-2xs: 0.125rem;  /* 2px  -- optical adjustment only */
+  --space-xs:  0.25rem;   /* 4px  -- optical adjustment only */
+  --space-sm:  0.5rem;    /* 8px  */
+  --space-md:  1rem;      /* 16px */
+  --space-lg:  1.5rem;    /* 24px */
+  --space-xl:  2rem;      /* 32px */
+  --space-2xl: 3rem;      /* 48px */
+  --space-3xl: 4rem;      /* 64px */
+  --space-4xl: 6rem;      /* 96px */
+
+  /* ——— Radii ——— */
+  --radius-sm:   0.125rem;  /* Default for all admin components */
+  --radius-none: 0rem;
+
+  /* ——— Motion ——— */
+  --ease-standard: cubic-bezier(0.2, 0.0, 0.0, 1.0);
+  --ease-enter:    cubic-bezier(0.0, 0.0, 0.0, 1.0);
+  --ease-exit:     cubic-bezier(0.2, 0.0, 1.0, 1.0);
+  --duration-micro:    100ms;
+  --duration-standard: 250ms;
+
+  /* ——— Z-index ——— */
+  --z-base:           0;
+  --z-card:         100;
+  --z-sticky:       200;
+  --z-dropdown:     300;
+  --z-modal-backdrop: 400;
+  --z-modal:        500;
+  --z-toast:        600;
+  --z-tooltip:      700;
+}
+
+/* ——— Utility: tabular figures ——— */
+/* Apply to any column where numbers will be compared (totals, counts, timestamps). */
+.tabular,
+.admin-tabular {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum';
+}
+
+/* ——— Utility: status pill base ——— */
+/* Override --pill-color and --pill-bg per state. */
+.admin-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.125rem 0.375rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--pill-color, var(--on-surface));
+  background-color: var(--pill-bg, var(--surface-container-high));
+}
+
+.admin-pill--confirmed     { --pill-bg: color-mix(in srgb, var(--success) 20%, transparent);     --pill-color: var(--success); }
+.admin-pill--held          { --pill-bg: color-mix(in srgb, var(--info) 20%, transparent);         --pill-color: var(--info); }
+.admin-pill--refund-pending { --pill-bg: color-mix(in srgb, var(--warning) 20%, transparent);    --pill-color: var(--warning); }
+.admin-pill--cancelled     { --pill-bg: color-mix(in srgb, var(--destructive) 20%, transparent); --pill-color: var(--destructive); }
+.admin-pill--refunded      { --pill-bg: var(--surface-container-high);                           --pill-color: var(--tertiary); }
+
+/* ——— Reduced motion ——— */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

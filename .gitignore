@@ -32,4 +32,5 @@ nginx/certs/.domain
 
 # Git worktrees
 .worktrees
-.claude/
+# Ignore local Claude Code config but track committed skills
+.claude/settings.local.json
