@@ -1,6 +1,5 @@
 <?php
 
-use App\Models\AdminUser;
 use App\Models\User;
 use Illuminate\Support\Facades\Auth;
 
@@ -16,7 +15,7 @@ test('unauthenticated GET to admin host redirects to login', function (): void {
 });
 
 test('authenticated admin reaches the dashboard', function (): void {
-    $user = AdminUser::factory()->create();
+    $user = User::factory()->admin()->create();
     $user->assignRole('admin');
 
     $this->actingAs($user, 'admin')
@@ -25,7 +24,7 @@ test('authenticated admin reaches the dashboard', function (): void {
 });
 
 test('Auth::attempt with wrong password rejects the credentials', function (): void {
-    AdminUser::factory()->create([
+    User::factory()->admin()->create([
         'email' => 'real-admin@finalcut.test',
         'password' => 'correct-password',
     ]);
@@ -40,7 +39,7 @@ test('Auth::attempt with wrong password rejects the credentials', function (): v
 });
 
 test('disabled admin cannot access the panel', function (): void {
-    $user = AdminUser::factory()->disabled()->create();
+    $user = User::factory()->admin()->disabled()->create();
     $user->assignRole('admin');
 
     expect($user->canAccessPanel(filament()->getPanel('admin')))->toBeFalse();
@@ -53,14 +52,14 @@ test('disabled admin cannot access the panel', function (): void {
 });
 
 test('re-enabling a disabled admin restores panel access', function (): void {
-    $user = AdminUser::factory()->disabled()->create();
+    $user = User::factory()->admin()->disabled()->create();
     $user->assignRole('admin');
 
     $this->actingAs($user, 'admin')
         ->get("http://{$this->adminHost}/")
         ->assertForbidden();
 
-    $user->forceFill(['disabled_at' => null])->save();
+    $user->adminProfile()->update(['disabled_at' => null]);
 
     expect($user->fresh()->canAccessPanel(filament()->getPanel('admin')))->toBeTrue();
 
@@ -70,7 +69,7 @@ test('re-enabling a disabled admin restores panel access', function (): void {
 });
 
 test('admin guard does not authenticate against customer api routes', function (): void {
-    $admin = AdminUser::factory()->create();
+    $admin = User::factory()->admin()->create();
     $admin->assignRole('admin');
 
     // Acting as an admin (admin guard) — the customer /api routes use sanctum

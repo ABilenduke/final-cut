@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\User;
+use Filament\Facades\Filament;
 use Spatie\Permission\Models\Permission;
 
 test('admin role grants every permission', function (): void {
@@ -33,14 +34,23 @@ test('a roleless admin user has no permissions', function (): void {
     }
 });
 
-test('customer User has no role-assignment surface', function (): void {
-    // Admin roles live on guard_name = 'admin'. The customer User model is
-    // intentionally NOT given Spatie\Permission\Traits\HasRoles, so there is
-    // no method by which a customer account can be assigned an admin role.
-    // RoleSeederTest separately asserts that every admin role is guard-scoped
-    // — the two checks together prevent admin role leakage to customer users.
+test('a customer User without an AdminProfile cannot access the admin panel', function (): void {
     $customer = User::factory()->create();
 
-    expect(method_exists($customer, 'assignRole'))->toBeFalse();
-    expect(method_exists($customer, 'hasRole'))->toBeFalse();
+    expect($customer->isAdmin())->toBeFalse();
+    expect($customer->canAccessPanel(Filament::getPanel('admin')))->toBeFalse();
+
+    // And without an admin role assignment, no admin permission resolves.
+    foreach (Permission::where('guard_name', 'admin')->pluck('name') as $permission) {
+        expect($customer->can($permission))->toBeFalse("customer should not have permission {$permission}");
+    }
+});
+
+test('a User with an AdminProfile that is disabled cannot access the admin panel', function (): void {
+    $user = User::factory()->admin()->create();
+    $user->assignRole('admin');
+    $user->adminProfile()->update(['disabled_at' => now()]);
+
+    expect($user->fresh()->isAdmin())->toBeFalse();
+    expect($user->fresh()->canAccessPanel(Filament::getPanel('admin')))->toBeFalse();
 });

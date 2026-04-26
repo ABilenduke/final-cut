@@ -28,7 +28,8 @@ return new class extends Migration
             // Running balance snapshot after this entry; never negative.
             $table->unsignedInteger('balance_after_cents');
             $table->foreignUuid('booking_id')->nullable()->constrained()->nullOnDelete();
-            $table->foreignId('admin_user_id')->nullable()->constrained('admin_users')->nullOnDelete();
+            // FK references users.id (UUID); see loyalty_adjustments for naming rationale.
+            $table->foreignUuid('admin_user_id')->nullable()->constrained('users')->nullOnDelete();
             $table->text('reason')->nullable();
             // Append-only: no `updated_at`.
             $table->timestamp('created_at')->useCurrent();

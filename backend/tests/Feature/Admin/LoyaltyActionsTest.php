@@ -3,7 +3,6 @@
 use App\Enums\LoyaltyAdjustmentType;
 use App\Enums\LoyaltyTier;
 use App\Filament\Resources\UserResource\Pages\ViewUser;
-use App\Models\AdminUser;
 use App\Models\LoyaltyAdjustment;
 use App\Models\User;
 use App\Services\LoyaltyService;
@@ -139,8 +138,8 @@ test('revoke_premier is hidden for users who are Member', function (): void {
 */
 
 test('a user with only loyalty.adjust_points cannot see tier actions', function (): void {
-    /** @var AdminUser $actor */
-    $actor = AdminUser::factory()->create();
+    /** @var User $actor */
+    $actor = User::factory()->admin()->create();
     $actor->givePermissionTo(Permission::findByName('loyalty.adjust_points', 'admin'));
     // Base access permission so the page renders at all.
     $actor->givePermissionTo(Permission::findByName('users.view', 'admin'));
@@ -155,8 +154,8 @@ test('a user with only loyalty.adjust_points cannot see tier actions', function 
 });
 
 test('a user with only loyalty.adjust_tier cannot see adjust_points', function (): void {
-    /** @var AdminUser $actor */
-    $actor = AdminUser::factory()->create();
+    /** @var User $actor */
+    $actor = User::factory()->admin()->create();
     $actor->givePermissionTo(Permission::findByName('loyalty.adjust_tier', 'admin'));
     $actor->givePermissionTo(Permission::findByName('users.view', 'admin'));
     $this->actingAs($actor, 'admin');

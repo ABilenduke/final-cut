@@ -18,10 +18,12 @@ return new class extends Migration
         Schema::table('gift_cards', function (Blueprint $table) {
             $table->timestamp('voided_at')->nullable()->after('purchased_at');
             $table->text('voided_reason')->nullable()->after('voided_at');
-            $table->foreignId('voided_by_admin_user_id')
+            // FK references users.id (UUID); column name preserves the semantic
+            // intent that the voider is an admin user.
+            $table->foreignUuid('voided_by_admin_user_id')
                 ->nullable()
                 ->after('voided_reason')
-                ->constrained('admin_users')
+                ->constrained('users')
                 ->nullOnDelete();
         });
     }

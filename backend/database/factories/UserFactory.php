@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Models\AdminProfile;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Facades\Hash;
@@ -48,5 +49,27 @@ class UserFactory extends Factory
         return $this->state(fn (array $attributes) => [
             'email_verified_at' => null,
         ]);
+    }
+
+    /**
+     * Attach an AdminProfile so this User can authenticate against the admin
+     * panel. Role assignment is the caller's responsibility.
+     */
+    public function admin(): static
+    {
+        return $this->afterCreating(function (User $user): void {
+            AdminProfile::updateOrCreate(['user_id' => $user->id]);
+        });
+    }
+
+    /** Composes with `admin()`; updateOrCreate so chaining order doesn't matter. */
+    public function disabled(): static
+    {
+        return $this->afterCreating(function (User $user): void {
+            AdminProfile::updateOrCreate(
+                ['user_id' => $user->id],
+                ['disabled_at' => now()],
+            );
+        });
     }
 }

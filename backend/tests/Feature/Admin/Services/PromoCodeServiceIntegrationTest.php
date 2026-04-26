@@ -1,7 +1,7 @@
 <?php
 
 use App\Exceptions\PromoCodeInUseException;
-use App\Models\AdminUser;
+use App\Models\User;
 use App\Models\PromoCode;
 use App\Services\PromoCodeService;
 use Illuminate\Support\Facades\DB;
@@ -12,7 +12,7 @@ beforeEach(function (): void {
 });
 
 test('create with admin actor writes activity row with description and causer', function (): void {
-    $admin = AdminUser::factory()->create();
+    $admin = User::factory()->admin()->create();
 
     $promo = $this->service->create([
         'code' => 'INTCREATE',
@@ -30,7 +30,7 @@ test('create with admin actor writes activity row with description and causer', 
 });
 
 test('update with admin actor writes activity row', function (): void {
-    $admin = AdminUser::factory()->create();
+    $admin = User::factory()->admin()->create();
     $promo = PromoCode::factory()->create(['amount' => 10]);
 
     $this->service->update($promo, ['amount' => 25], $admin);
@@ -50,7 +50,7 @@ test('writes with null actor do not produce activity rows', function (): void {
 });
 
 test('delete on a code with uses_count > 0 throws PromoCodeInUseException', function (): void {
-    $admin = AdminUser::factory()->create();
+    $admin = User::factory()->admin()->create();
     $promo = PromoCode::factory()->withUsage(2)->create();
 
     $caught = null;
@@ -66,7 +66,7 @@ test('delete on a code with uses_count > 0 throws PromoCodeInUseException', func
 });
 
 test('delete on an unused code with admin actor removes the row and writes activity', function (): void {
-    $admin = AdminUser::factory()->create();
+    $admin = User::factory()->admin()->create();
     $promo = PromoCode::factory()->create(['uses_count' => 0]);
 
     $this->service->delete($promo, $admin);

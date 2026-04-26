@@ -4,7 +4,7 @@ use App\Enums\BookingStatus;
 use App\Exceptions\AuditoriumHasBookingsException;
 use App\Exceptions\AuditoriumSectionInUseException;
 use App\Exceptions\LocationHasBookingsException;
-use App\Models\AdminUser;
+use App\Models\User;
 use App\Models\Auditorium;
 use App\Models\AuditoriumSection;
 use App\Models\Booking;
@@ -36,8 +36,8 @@ test('createLocation with actor writes a location.created activity row', functio
 
     expect($activity)->not->toBeNull();
     expect($activity->description)->toBe('location.created');
-    expect($activity->causer_type)->toBe(AdminUser::class);
-    expect((int) $activity->causer_id)->toBe($admin->id);
+    expect($activity->causer_type)->toBe(User::class);
+    expect($activity->causer_id)->toBe($admin->id);
     expect($activity->log_name)->toBe('admin');
 });
 
@@ -82,7 +82,7 @@ test('deleteLocation logs before deletion and routes through the service', funct
 
     $a = Activity::where('subject_type', Location::class)->latest('id')->first();
     expect($a?->description)->toBe('location.deleted');
-    expect((int) $a->causer_id)->toBe($admin->id);
+    expect($a->causer_id)->toBe($admin->id);
     expect(Location::find($location->id))->toBeNull();
 });
 
@@ -99,7 +99,7 @@ test('createAuditorium writes an auditorium.created row attributed to the admin'
 
     $a = Activity::where('subject_type', Auditorium::class)->latest('id')->first();
     expect($a?->description)->toBe('auditorium.created');
-    expect((int) $a->causer_id)->toBe($admin->id);
+    expect($a->causer_id)->toBe($admin->id);
     expect($auditorium->location_id)->toBe($location->id);
 });
 

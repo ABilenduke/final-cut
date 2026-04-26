@@ -4,7 +4,6 @@ namespace App\Filament\Pages;
 
 use App\Enums\BookingStatus;
 use App\Filament\Concerns\FormatsCurrency;
-use App\Models\AdminUser;
 use App\Models\Booking;
 use BackedEnum;
 use Filament\Actions\Action;
@@ -147,7 +146,7 @@ class CancellationFollowupQueue extends Page implements HasTable
                             ->helperText('Required. Include the Stripe refund reference or the reason this case is being closed without a refund.'),
                     ])
                     ->action(function (Booking $record, array $data): void {
-                        /** @var AdminUser $admin */
+                        /** @var User $admin */
                         $admin = auth('admin')->user();
 
                         $record->update([

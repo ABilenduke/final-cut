@@ -3,7 +3,7 @@
 use App\Filament\Resources\PromoCodeResource\Pages\CreatePromoCode;
 use App\Filament\Resources\PromoCodeResource\Pages\EditPromoCode;
 use App\Filament\Resources\PromoCodeResource\Pages\ListPromoCodes;
-use App\Models\AdminUser;
+use App\Models\User;
 use App\Models\PromoCode;
 use App\Services\PromoCodeService;
 use Livewire\Livewire;
@@ -30,7 +30,7 @@ test('creating a promo routes through PromoCodeService with the admin actor', fu
     $service = $this->mock(PromoCodeService::class);
     $service->shouldReceive('create')
         ->once()
-        ->andReturnUsing(function (array $data, ?AdminUser $actor) use (&$capturedData, &$capturedActor, $expected) {
+        ->andReturnUsing(function (array $data, ?User $actor) use (&$capturedData, &$capturedActor, $expected) {
             $capturedData = $data;
             $capturedActor = $actor;
 
@@ -57,7 +57,7 @@ test('editing a promo routes through PromoCodeService with the admin actor', fun
     $service = $this->mock(PromoCodeService::class);
     $service->shouldReceive('update')
         ->once()
-        ->andReturnUsing(function ($record, array $data, ?AdminUser $actor) use (&$capturedActor, $promo) {
+        ->andReturnUsing(function ($record, array $data, ?User $actor) use (&$capturedActor, $promo) {
             $capturedActor = $actor;
 
             return $promo;

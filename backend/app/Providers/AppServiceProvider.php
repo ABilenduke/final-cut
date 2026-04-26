@@ -2,7 +2,7 @@
 
 namespace App\Providers;
 
-use App\Models\AdminUser;
+use App\Models\User;
 use Illuminate\Auth\Events\Failed;
 use Illuminate\Auth\Events\Login;
 use Illuminate\Auth\Events\Logout;
@@ -34,26 +34,25 @@ class AppServiceProvider extends ServiceProvider
             return "{$frontendUrl}/auth/reset-password?token={$token}&email={$email}";
         });
 
-        // Admin auth event audit. The guard filter keeps customer (web/sanctum)
-        // login/logout/failed events out of the admin activity_log — admin's
-        // audit surface is intentionally guard-scoped. The AdminUser instanceof
-        // check narrows the event's ?Authenticatable to a concrete Eloquent
-        // model for both PHPStan and Spatie's ActivityLogger::causedBy().
+        // Customer (web/sanctum) login/logout/failed events are intentionally
+        // not audited here — admin's audit surface is guard-scoped.
         Event::listen(Login::class, function (Login $event): void {
-            if ($event->guard !== 'admin' || ! $event->user instanceof AdminUser) {
+            if ($event->guard !== 'admin' || ! $event->user instanceof User) {
                 return;
             }
 
             activity('auth')->causedBy($event->user)->log('login');
 
-            $event->user->forceFill([
+            // updateOrCreate is resilient to a panel-accessible User that is
+            // somehow missing its profile row mid-session.
+            $event->user->adminProfile()->updateOrCreate([], [
                 'last_login_at' => now(),
                 'last_login_ip' => request()->ip(),
-            ])->save();
+            ]);
         });
 
         Event::listen(Logout::class, function (Logout $event): void {
-            if ($event->guard !== 'admin' || ! $event->user instanceof AdminUser) {
+            if ($event->guard !== 'admin' || ! $event->user instanceof User) {
                 return;
             }
 

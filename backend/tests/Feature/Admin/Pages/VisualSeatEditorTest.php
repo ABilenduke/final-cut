@@ -1,7 +1,7 @@
 <?php
 
 use App\Filament\Resources\AuditoriumResource\Pages\VisualEditor;
-use App\Models\AdminUser;
+use App\Models\User;
 use App\Models\Auditorium;
 use App\Models\AuditoriumSection;
 use App\Models\Seat;
@@ -58,7 +58,7 @@ test('save dispatches the accumulated dirty patch to updateSeatBatch with the ad
     $service = $this->mock(AuditoriumService::class);
     $service->shouldReceive('updateSeatBatch')
         ->once()
-        ->andReturnUsing(function (Auditorium $a, array $patches, ?AdminUser $actor) use (&$capturedAuditorium, &$capturedPatches, &$capturedActor) {
+        ->andReturnUsing(function (Auditorium $a, array $patches, ?User $actor) use (&$capturedAuditorium, &$capturedPatches, &$capturedActor) {
             $capturedAuditorium = $a;
             $capturedPatches = $patches;
             $capturedActor = $actor;

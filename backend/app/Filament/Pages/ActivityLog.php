@@ -2,7 +2,7 @@
 
 namespace App\Filament\Pages;
 
-use App\Models\AdminUser;
+use App\Models\User;
 use Carbon\Carbon;
 use Filament\Forms\Components\DatePicker;
 use Filament\Pages\Page;
@@ -50,11 +50,15 @@ class ActivityLog extends Page implements HasTable
             ->filters([
                 SelectFilter::make('causer_id')
                     ->label('Admin')
-                    ->options(fn () => AdminUser::pluck('email', 'id'))
+                    // Only Users with an AdminProfile appear in the picker, so
+                    // the resulting filter is admin-only without an extra scope.
+                    ->options(fn () => User::query()
+                        ->whereHas('adminProfile')
+                        ->pluck('email', 'id'))
                     ->query(fn (Builder $query, array $data): Builder => $query
                         ->when($data['value'] ?? null, fn (Builder $q, $adminId) => $q
                             ->where('causer_id', $adminId)
-                            ->where('causer_type', AdminUser::class))),
+                            ->where('causer_type', User::class))),
                 SelectFilter::make('subject_type')
                     ->label('Resource')
                     ->options(fn () => Activity::query()

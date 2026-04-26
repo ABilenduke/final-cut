@@ -32,7 +32,7 @@ use UnitEnum;
  * Menu items have no downstream invariants today, so writes use Filament's
  * default Eloquent persistence with no dedicated service. If a future
  * invariant emerges (combos, cross-location price rules), promote writes to
- * a `MenuService` following the `?AdminUser $actor` pattern used elsewhere.
+ * a `MenuService` following the `?User $actor` pattern used elsewhere.
  */
 class MenuItemResource extends BaseResource
 {

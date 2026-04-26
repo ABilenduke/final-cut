@@ -1,7 +1,6 @@
 <?php
 
 use App\Enums\LoyaltyTier;
-use App\Models\AdminUser;
 use App\Models\LoyaltyAdjustment;
 use App\Models\User;
 use App\Services\LoyaltyService;
@@ -26,8 +25,8 @@ use Illuminate\Support\Facades\DB;
  */
 test('two sequential adjustPoints calls converge on the sum and write two adjustment rows', function (): void {
     $user = User::factory()->create(['loyalty_points' => 0]);
-    $adminA = AdminUser::factory()->create();
-    $adminB = AdminUser::factory()->create();
+    $adminA = User::factory()->admin()->create();
+    $adminB = User::factory()->admin()->create();
     $service = new LoyaltyService;
 
     // Simulate two admins correcting the same account — serialized here, but
@@ -48,7 +47,7 @@ test('two sequential adjustPoints calls converge on the sum and write two adjust
 
 test('each adjustPoints call wraps the user read in a lockForUpdate', function (): void {
     $user = User::factory()->create(['loyalty_points' => 0]);
-    $admin = AdminUser::factory()->create();
+    $admin = User::factory()->admin()->create();
     $service = new LoyaltyService;
 
     DB::enableQueryLog();
@@ -72,7 +71,7 @@ test('each adjustPoints call wraps the user read in a lockForUpdate', function (
 
 test('each grantPremier call wraps the user read in a lockForUpdate', function (): void {
     $user = User::factory()->create(['loyalty_tier' => LoyaltyTier::Member]);
-    $admin = AdminUser::factory()->create();
+    $admin = User::factory()->admin()->create();
     $service = new LoyaltyService;
 
     DB::enableQueryLog();
@@ -93,8 +92,8 @@ test('each grantPremier call wraps the user read in a lockForUpdate', function (
 
 test('sequential grantPremier calls settle on last-write expiry with two audit rows', function (): void {
     $user = User::factory()->create(['loyalty_tier' => LoyaltyTier::Member]);
-    $adminA = AdminUser::factory()->create();
-    $adminB = AdminUser::factory()->create();
+    $adminA = User::factory()->admin()->create();
+    $adminB = User::factory()->admin()->create();
     $service = new LoyaltyService;
 
     $service->grantPremier($user, Carbon::parse('2027-01-01'), 'first grant', $adminA);

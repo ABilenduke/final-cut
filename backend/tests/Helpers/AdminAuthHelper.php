@@ -2,40 +2,37 @@
 
 namespace Tests\Helpers;
 
-use App\Models\AdminUser;
+use App\Models\User;
 
 trait AdminAuthHelper
 {
-    protected function actingAsAdmin(): AdminUser
+    protected function actingAsAdmin(): User
     {
-        $user = AdminUser::factory()->create();
-        $user->assignRole('admin');
-        $this->actingAs($user, 'admin');
-
-        return $user;
+        return $this->actingAsAdminWithRole('admin');
     }
 
-    protected function actingAsManager(): AdminUser
+    protected function actingAsManager(): User
     {
-        $user = AdminUser::factory()->create();
-        $user->assignRole('manager');
-        $this->actingAs($user, 'admin');
-
-        return $user;
+        return $this->actingAsAdminWithRole('manager');
     }
 
-    protected function actingAsOps(): AdminUser
+    protected function actingAsOps(): User
     {
-        $user = AdminUser::factory()->create();
-        $user->assignRole('ops');
-        $this->actingAs($user, 'admin');
-
-        return $user;
+        return $this->actingAsAdminWithRole('ops');
     }
 
-    protected function actingAsNobody(): AdminUser
+    /** A User with an AdminProfile but no role — exercises the roleless permission-deny path. */
+    protected function actingAsNobody(): User
     {
-        $user = AdminUser::factory()->create();
+        return $this->actingAsAdminWithRole(null);
+    }
+
+    private function actingAsAdminWithRole(?string $role): User
+    {
+        $user = User::factory()->admin()->create();
+        if ($role !== null) {
+            $user->assignRole($role);
+        }
         $this->actingAs($user, 'admin');
 
         return $user;

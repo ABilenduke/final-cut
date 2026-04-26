@@ -1,6 +1,5 @@
 <?php
 
-use App\Models\AdminUser;
 use App\Models\User;
 
 return [
@@ -73,9 +72,12 @@ return [
             'model' => env('AUTH_MODEL', User::class),
         ],
 
+        // The `admin` guard authenticates the same User identity as `web`,
+        // but its ScopeAdminSession middleware isolates session cookies and
+        // Redis DB. User::canAccessPanel() requires an AdminProfile row.
         'admin_users' => [
             'driver' => 'eloquent',
-            'model' => AdminUser::class,
+            'model' => User::class,
         ],
 
         // 'users' => [

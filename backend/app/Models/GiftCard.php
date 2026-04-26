@@ -44,8 +44,12 @@ class GiftCard extends Model
         return $this->hasMany(GiftCardLedgerEntry::class)->orderByDesc('created_at');
     }
 
+    /**
+     * The admin who voided this gift card. Returns a User; by convention this
+     * column references a User who has an AdminProfile.
+     */
     public function voidedByAdminUser(): BelongsTo
     {
-        return $this->belongsTo(AdminUser::class, 'voided_by_admin_user_id');
+        return $this->belongsTo(User::class, 'voided_by_admin_user_id');
     }
 }

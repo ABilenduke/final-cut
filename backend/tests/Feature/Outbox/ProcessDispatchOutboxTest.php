@@ -48,13 +48,15 @@ test('it dispatches the mapped job for a showtime.cancelled row and marks it pro
 });
 
 test('it dispatches the mapped job for a gift_card.voided row', function (): void {
+    $adminUuid = '01ARZ3NDEKTSV4RRFFQ69G5FAX';
+
     DispatchOutbox::create([
         'event_type' => GiftCardService::EVENT_VOIDED,
         'payload' => [
             'gift_card_id' => '01ARZ3NDEKTSV4RRFFQ69G5FAV',
             'reason' => 'Test void reason',
             'balance_voided' => 5000,
-            'voided_by_admin_user_id' => 1,
+            'voided_by_admin_user_id' => $adminUuid,
         ],
     ]);
 
@@ -65,7 +67,7 @@ test('it dispatches the mapped job for a gift_card.voided row', function (): voi
         fn ($job) => $job->giftCardId === '01ARZ3NDEKTSV4RRFFQ69G5FAV'
             && $job->reason === 'Test void reason'
             && $job->balanceVoided === 5000
-            && $job->voidedByAdminUserId === 1,
+            && $job->voidedByAdminUserId === $adminUuid,
     );
 });
 

@@ -19,7 +19,7 @@ return [
 
     /*
      * If no log name is passed to the activity() helper we use this default.
-     * AdminUser model writes default to 'admin'; admin auth events are
+     * AdminProfile model writes default to 'admin'; admin auth events are
      * explicitly logged to 'auth' by their listeners.
      */
     'default_log_name' => 'admin',

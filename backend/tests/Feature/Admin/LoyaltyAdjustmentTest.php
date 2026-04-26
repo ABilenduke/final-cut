@@ -1,7 +1,6 @@
 <?php
 
 use App\Enums\LoyaltyAdjustmentType;
-use App\Models\AdminUser;
 use App\Models\LoyaltyAdjustment;
 use App\Models\User;
 use Spatie\Activitylog\Models\Activity;
@@ -45,8 +44,8 @@ test('creating a LoyaltyAdjustment writes an activity row attributed to the admi
 
     expect($activities)->toHaveCount(1);
     expect($activities->first()->description)->toBe('created');
-    expect($activities->first()->causer_type)->toBe(AdminUser::class);
-    expect((int) $activities->first()->causer_id)->toBe($admin->id);
+    expect($activities->first()->causer_type)->toBe(User::class);
+    expect($activities->first()->causer_id)->toBe($admin->id);
 });
 
 test('updating a LoyaltyAdjustment writes a second activity row with a diff limited to logOnly columns', function (): void {

@@ -3,7 +3,7 @@
 use App\Enums\GiftCardLedgerType;
 use App\Enums\GiftCardStatus;
 use App\Exceptions\GiftCardNotVoidableException;
-use App\Models\AdminUser;
+use App\Models\User;
 use App\Models\Auditorium;
 use App\Models\AuditoriumSection;
 use App\Models\Booking;
@@ -69,7 +69,7 @@ test('redeemAgainstBooking with null actor writes ledger entry and no activity l
 });
 
 test('void with admin actor writes status, ledger, activity, and dispatch_outbox row in one transaction', function (): void {
-    $admin = AdminUser::factory()->create();
+    $admin = User::factory()->admin()->create();
     $card = GiftCard::factory()->active()->create(['current_balance' => 2000, 'initial_balance' => 2000]);
 
     $this->service->void($card, 'customer requested refund per duplicate purchase', $admin);
@@ -87,7 +87,7 @@ test('void with admin actor writes status, ledger, activity, and dispatch_outbox
 });
 
 test('void on Voided card throws REASON_ALREADY_VOIDED — no second ledger or outbox row', function (): void {
-    $admin = AdminUser::factory()->create();
+    $admin = User::factory()->admin()->create();
     $card = GiftCard::factory()->voided()->create();
 
     $caught = null;
@@ -104,7 +104,7 @@ test('void on Voided card throws REASON_ALREADY_VOIDED — no second ledger or o
 });
 
 test('void on Depleted card throws REASON_DEPLETED', function (): void {
-    $admin = AdminUser::factory()->create();
+    $admin = User::factory()->admin()->create();
     $card = GiftCard::factory()->depleted()->create();
 
     $caught = null;
@@ -118,7 +118,7 @@ test('void on Depleted card throws REASON_DEPLETED', function (): void {
 });
 
 test('void on Expired card throws REASON_EXPIRED', function (): void {
-    $admin = AdminUser::factory()->create();
+    $admin = User::factory()->admin()->create();
     $card = GiftCard::factory()->expired()->create();
 
     $caught = null;
@@ -132,7 +132,7 @@ test('void on Expired card throws REASON_EXPIRED', function (): void {
 });
 
 test('forced rollback inside void transaction leaves no orphaned ledger rows', function (): void {
-    $admin = AdminUser::factory()->create();
+    $admin = User::factory()->admin()->create();
     $card = GiftCard::factory()->active()->create();
 
     DB::beginTransaction();

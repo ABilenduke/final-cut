@@ -3,7 +3,6 @@
 namespace App\Jobs;
 
 use App\Mail\GiftCardVoidedMail;
-use App\Models\AdminUser;
 use App\Models\GiftCard;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -34,7 +33,7 @@ class NotifyFinanceOfGiftCardVoid implements ShouldQueue
         public readonly string $giftCardId,
         public readonly string $reason,
         public readonly int $balanceVoided,
-        public readonly ?int $voidedByAdminUserId,
+        public readonly ?string $voidedByAdminUserId,
     ) {}
 
     public function handle(): void
@@ -48,7 +47,7 @@ class NotifyFinanceOfGiftCardVoid implements ShouldQueue
         }
 
         $admin = $this->voidedByAdminUserId !== null
-            ? AdminUser::find($this->voidedByAdminUserId)
+            ? User::find($this->voidedByAdminUserId)
             : null;
 
         Mail::to(config('finance.notification_email'))

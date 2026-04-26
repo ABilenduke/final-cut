@@ -49,8 +49,12 @@ class GiftCardLedgerEntry extends Model
         return $this->belongsTo(Booking::class);
     }
 
+    /**
+     * The admin who initiated this ledger entry, if any. Returns a User; by
+     * convention this column references a User who has an AdminProfile.
+     */
     public function adminUser(): BelongsTo
     {
-        return $this->belongsTo(AdminUser::class);
+        return $this->belongsTo(User::class, 'admin_user_id');
     }
 }

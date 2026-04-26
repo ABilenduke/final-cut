@@ -1,7 +1,7 @@
 <?php
 
 use App\Http\Requests\BulkShowtimeRequest;
-use App\Models\AdminUser;
+use App\Models\User;
 use App\Models\Auditorium;
 use App\Models\Location;
 use App\Models\Movie;
@@ -37,8 +37,8 @@ test('creating a showtime with an actor writes an admin activity log row', funct
         ->first();
 
     expect($activity)->not->toBeNull();
-    expect((int) $activity->causer_id)->toBe((int) $this->admin->id);
-    expect($activity->causer_type)->toBe(AdminUser::class);
+    expect($activity->causer_id)->toBe($this->admin->id);
+    expect($activity->causer_type)->toBe(User::class);
     expect($activity->properties->get('movie_id'))->toBe($this->movie->id);
 });
 
@@ -74,7 +74,7 @@ test('updating a showtime with an actor writes an activity log row with before/a
         ->first();
 
     expect($activity)->not->toBeNull();
-    expect((int) $activity->causer_id)->toBe((int) $this->admin->id);
+    expect($activity->causer_id)->toBe($this->admin->id);
 
     $before = $activity->properties->get('before');
     $after = $activity->properties->get('after');

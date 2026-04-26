@@ -3,7 +3,6 @@
 use App\Enums\BookingStatus;
 use App\Enums\LoyaltyAdjustmentType;
 use App\Enums\LoyaltyTier;
-use App\Models\AdminUser;
 use App\Models\Booking;
 use App\Models\LoyaltyAdjustment;
 use App\Models\User;
@@ -182,7 +181,7 @@ test('getHistory is ordered most recent first', function () {
 
 test('adjustPoints with positive delta increases balance and writes PointsCorrection row with actor + activity log', function () {
     $user = User::factory()->create(['loyalty_points' => 100]);
-    $admin = AdminUser::factory()->create();
+    $admin = User::factory()->admin()->create();
     $service = new LoyaltyService;
 
     $service->adjustPoints($user, 250, 'Goodwill for complaint', $admin);
@@ -204,7 +203,7 @@ test('adjustPoints with positive delta increases balance and writes PointsCorrec
 
 test('adjustPoints with negative delta decreases balance (negative allowed)', function () {
     $user = User::factory()->create(['loyalty_points' => 50]);
-    $admin = AdminUser::factory()->create();
+    $admin = User::factory()->admin()->create();
     $service = new LoyaltyService;
 
     $service->adjustPoints($user, -200, 'Fraud clawback from disputed purchase #9912', $admin);
@@ -238,7 +237,7 @@ test('adjustPoints with null actor stores null admin_user_id and writes no activ
 
 test('grantPremier sets tier and expiry and writes TierUpgrade adjustment + activity log', function () {
     $user = User::factory()->create(['loyalty_tier' => LoyaltyTier::Member, 'premier_expiry' => null]);
-    $admin = AdminUser::factory()->create();
+    $admin = User::factory()->admin()->create();
     $expiry = Carbon::parse('2027-04-24');
     $service = new LoyaltyService;
 
@@ -263,7 +262,7 @@ test('revokePremier sets tier to member, nulls expiry, writes TierRevoke adjustm
         'loyalty_tier' => LoyaltyTier::Premier,
         'premier_expiry' => now()->addYear(),
     ]);
-    $admin = AdminUser::factory()->create();
+    $admin = User::factory()->admin()->create();
     $service = new LoyaltyService;
 
     $service->revokePremier($user, 'Membership fraud — account terminated', $admin);
@@ -288,7 +287,7 @@ test('revokePremier sets tier to member, nulls expiry, writes TierRevoke adjustm
 
 test('adjustPoints rolls back balance + adjustment on transaction failure', function () {
     $user = User::factory()->create(['loyalty_points' => 100]);
-    $admin = AdminUser::factory()->create();
+    $admin = User::factory()->admin()->create();
 
     // Subclass the service to simulate a throw between the user save and any
     // subsequent write. Because adjustPoints is a single transaction, a throw
@@ -296,7 +295,7 @@ test('adjustPoints rolls back balance + adjustment on transaction failure', func
     // any prior LoyaltyAdjustment insert within that closure.
     $brokenService = new class extends LoyaltyService
     {
-        public function adjustPoints(User $user, int $delta, string $reason, ?AdminUser $actor = null): void
+        public function adjustPoints(User $user, int $delta, string $reason, ?User $actor = null): void
         {
             DB::transaction(function () use ($user, $delta) {
                 $fresh = User::whereKey($user->id)->lockForUpdate()->firstOrFail();
