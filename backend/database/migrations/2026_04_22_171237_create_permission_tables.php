@@ -55,7 +55,9 @@ return new class extends Migration
             $table->unsignedBigInteger($pivotPermission);
 
             $table->string('model_type');
-            $table->unsignedBigInteger($columnNames['model_morph_key']);
+            // String to support both UUID (App\Models\User) and bigint
+            // model PKs uniformly. Mirrors activity_log.causer_id.
+            $table->string($columnNames['model_morph_key'], 36);
             $table->index([$columnNames['model_morph_key'], 'model_type'], 'model_has_permissions_model_id_model_type_index');
 
             $table->foreign($pivotPermission)
@@ -78,7 +80,9 @@ return new class extends Migration
             $table->unsignedBigInteger($pivotRole);
 
             $table->string('model_type');
-            $table->unsignedBigInteger($columnNames['model_morph_key']);
+            // String to support both UUID (App\Models\User) and bigint
+            // model PKs uniformly. Mirrors activity_log.causer_id.
+            $table->string($columnNames['model_morph_key'], 36);
             $table->index([$columnNames['model_morph_key'], 'model_type'], 'model_has_roles_model_id_model_type_index');
 
             $table->foreign($pivotRole)

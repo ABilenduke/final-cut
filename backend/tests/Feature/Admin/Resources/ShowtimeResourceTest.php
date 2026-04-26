@@ -4,11 +4,11 @@ use App\Filament\Resources\ShowtimeResource\Pages\CreateShowtime;
 use App\Filament\Resources\ShowtimeResource\Pages\EditShowtime;
 use App\Filament\Resources\ShowtimeResource\Pages\ListShowtimes;
 use App\Filament\Resources\ShowtimeResource\Pages\ViewShowtime;
-use App\Models\AdminUser;
 use App\Models\Auditorium;
 use App\Models\Location;
 use App\Models\Movie;
 use App\Models\Showtime;
+use App\Models\User;
 use App\Services\ShowtimeService;
 use Illuminate\Support\Str;
 use Livewire\Livewire;
@@ -54,7 +54,7 @@ test('creating a showtime routes through ShowtimeService with the admin actor', 
         ->andReturn(collect());
     $service->shouldReceive('create')
         ->once()
-        ->andReturnUsing(function (array $data, ?AdminUser $actor) use (&$capturedData, &$capturedActor, $expected) {
+        ->andReturnUsing(function (array $data, ?User $actor) use (&$capturedData, &$capturedActor, $expected) {
             $capturedData = $data;
             $capturedActor = $actor;
 
@@ -96,7 +96,7 @@ test('editing a showtime routes through ShowtimeService with the admin actor', f
         ->andReturn(collect());
     $service->shouldReceive('update')
         ->once()
-        ->andReturnUsing(function ($record, array $data, ?AdminUser $actor) use (&$capturedActor) {
+        ->andReturnUsing(function ($record, array $data, ?User $actor) use (&$capturedActor) {
             $capturedActor = $actor;
 
             return $record;
@@ -193,7 +193,7 @@ test('cancel action calls ShowtimeService::cancel with the actor', function (): 
     $service = $this->mock(ShowtimeService::class);
     $service->shouldReceive('cancel')
         ->once()
-        ->andReturnUsing(function ($record, $reason, ?AdminUser $actor) use (&$capturedReason, &$capturedActor) {
+        ->andReturnUsing(function ($record, $reason, ?User $actor) use (&$capturedReason, &$capturedActor) {
             $capturedReason = $reason;
             $capturedActor = $actor;
         });

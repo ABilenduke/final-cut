@@ -4,8 +4,8 @@ namespace App\Services;
 
 use App\Exceptions\MovieHasBookingsException;
 use App\Jobs\EnrichMovieJob;
-use App\Models\AdminUser;
 use App\Models\Movie;
+use App\Models\User;
 use App\Services\Concerns\LogsAdminActivity;
 use Illuminate\Support\Facades\Cache;
 use Throwable;
@@ -24,7 +24,7 @@ class MovieService
      *   cast?: array<int, array{id?: int, name: string, character: string, profileUrl?: ?string}>
      * }  $attributes
      */
-    public function create(array $attributes, ?AdminUser $actor = null): Movie
+    public function create(array $attributes, ?User $actor = null): Movie
     {
         $movie = Movie::create($attributes);
 
@@ -34,7 +34,7 @@ class MovieService
         return $movie;
     }
 
-    public function update(Movie $movie, array $attributes, ?AdminUser $actor = null): Movie
+    public function update(Movie $movie, array $attributes, ?User $actor = null): Movie
     {
         $movie->fill($attributes);
         $dirtyKeys = array_keys($movie->getDirty());
@@ -62,7 +62,7 @@ class MovieService
      *                                   be deleted; the FK cascade would otherwise silently destroy the payment
      *                                   intent IDs needed to issue refunds.
      */
-    public function delete(Movie $movie, ?AdminUser $actor = null): void
+    public function delete(Movie $movie, ?User $actor = null): void
     {
         if ($movie->showtimes()->whereHas('bookings')->exists()) {
             throw new MovieHasBookingsException;
@@ -73,7 +73,7 @@ class MovieService
         $this->forgetGenreFilterCache();
     }
 
-    public function triggerEnrichment(Movie $movie, ?AdminUser $actor = null): bool
+    public function triggerEnrichment(Movie $movie, ?User $actor = null): bool
     {
         if (! $movie->tmdb_id) {
             return false;

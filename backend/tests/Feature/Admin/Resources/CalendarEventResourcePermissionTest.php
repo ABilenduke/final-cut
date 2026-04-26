@@ -19,7 +19,10 @@ test('ops cannot view, create, edit, or delete calendar events', function (): vo
 
 test('manager can create, edit, and delete calendar events', function (): void {
     $this->actingAsManager();
-    $event = CalendarEvent::factory()->create();
+    // Force a non-Showtime type — CalendarEventResource hard-blocks edit/delete
+    // for Showtime events regardless of role, so a random type from the factory
+    // would intermittently fail this permission-matrix test.
+    $event = CalendarEvent::factory()->specialEvent()->create();
 
     expect(CalendarEventResource::canViewAny())->toBeTrue();
     expect(CalendarEventResource::canCreate())->toBeTrue();
@@ -29,7 +32,7 @@ test('manager can create, edit, and delete calendar events', function (): void {
 
 test('admin can create, edit, and delete calendar events', function (): void {
     $this->actingAsAdmin();
-    $event = CalendarEvent::factory()->create();
+    $event = CalendarEvent::factory()->specialEvent()->create();
 
     expect(CalendarEventResource::canViewAny())->toBeTrue();
     expect(CalendarEventResource::canCreate())->toBeTrue();

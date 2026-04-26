@@ -4,8 +4,8 @@ use App\Exceptions\MovieHasBookingsException;
 use App\Filament\Resources\MovieResource\Pages\CreateMovie;
 use App\Filament\Resources\MovieResource\Pages\EditMovie;
 use App\Filament\Resources\MovieResource\Pages\ListMovies;
-use App\Models\AdminUser;
 use App\Models\Movie;
+use App\Models\User;
 use App\Services\MovieService;
 use Filament\Notifications\Notification;
 use Livewire\Livewire;
@@ -33,7 +33,7 @@ test('creating a movie routes through MovieService with the admin actor', functi
     $service = $this->mock(MovieService::class);
     $service->shouldReceive('create')
         ->once()
-        ->andReturnUsing(function (array $data, ?AdminUser $actor) use (&$capturedData, &$capturedActor, $expected) {
+        ->andReturnUsing(function (array $data, ?User $actor) use (&$capturedData, &$capturedActor, $expected) {
             $capturedData = $data;
             $capturedActor = $actor;
 
@@ -79,7 +79,7 @@ test('editing a movie routes through MovieService with the admin actor', functio
     $service = $this->mock(MovieService::class);
     $service->shouldReceive('update')
         ->once()
-        ->andReturnUsing(function (Movie $record, array $data, ?AdminUser $actor) use (&$capturedData, &$capturedActor, $movie) {
+        ->andReturnUsing(function (Movie $record, array $data, ?User $actor) use (&$capturedData, &$capturedActor, $movie) {
             $capturedData = $data;
             $capturedActor = $actor;
 
@@ -101,7 +101,7 @@ test('deleting a movie routes through MovieService — the row survives if the s
     $service = $this->mock(MovieService::class);
     $service->shouldReceive('delete')
         ->once()
-        ->withArgs(function (Movie $record, ?AdminUser $actor) use ($movie) {
+        ->withArgs(function (Movie $record, ?User $actor) use ($movie) {
             expect($record->id)->toBe($movie->id);
             expect($actor?->id)->toBe($this->admin->id);
 
@@ -157,7 +157,7 @@ test('bulk mark_now_showing calls MovieService::update once per selected record'
     $service = $this->mock(MovieService::class);
     $service->shouldReceive('update')
         ->times(3)
-        ->withArgs(function (Movie $record, array $data, ?AdminUser $actor) {
+        ->withArgs(function (Movie $record, array $data, ?User $actor) {
             expect($data)->toBe(['status' => 'now_showing']);
             expect($actor?->id)->toBe($this->admin->id);
 

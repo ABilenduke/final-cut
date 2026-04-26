@@ -3,7 +3,6 @@
 use App\Enums\GiftCardLedgerType;
 use App\Enums\GiftCardStatus;
 use App\Exceptions\GiftCardNotVoidableException;
-use App\Models\AdminUser;
 use App\Models\Auditorium;
 use App\Models\AuditoriumSection;
 use App\Models\Booking;
@@ -13,6 +12,7 @@ use App\Models\GiftCardLedgerEntry;
 use App\Models\Location;
 use App\Models\Movie;
 use App\Models\Showtime;
+use App\Models\User;
 use App\Services\GiftCardService;
 use Spatie\Activitylog\Models\Activity;
 
@@ -56,7 +56,7 @@ test('purchase writes a Purchase ledger entry and no activity when actor is null
 });
 
 test('purchase writes activity when actor is set', function (): void {
-    $admin = AdminUser::factory()->create();
+    $admin = User::factory()->admin()->create();
 
     $this->service->purchase([
         'code' => 'GC-UNIT02',
@@ -113,7 +113,7 @@ test('getBalance returns current_balance', function (): void {
 });
 
 test('void success mutates status, writes ledger, activity, and writes a dispatch_outbox row', function (): void {
-    $admin = AdminUser::factory()->create();
+    $admin = User::factory()->admin()->create();
     $giftCard = GiftCard::factory()->active()->create(['current_balance' => 2000, 'initial_balance' => 2000]);
 
     $this->service->void($giftCard, 'customer requested refund due to duplicate purchase', $admin);
@@ -146,7 +146,7 @@ test('void success mutates status, writes ledger, activity, and writes a dispatc
 });
 
 test('void on a voided card throws GiftCardNotVoidableException::REASON_ALREADY_VOIDED', function (): void {
-    $admin = AdminUser::factory()->create();
+    $admin = User::factory()->admin()->create();
     $giftCard = GiftCard::factory()->voided()->create();
 
     $caught = null;
@@ -164,7 +164,7 @@ test('void on a voided card throws GiftCardNotVoidableException::REASON_ALREADY_
 });
 
 test('void on a depleted card throws REASON_DEPLETED', function (): void {
-    $admin = AdminUser::factory()->create();
+    $admin = User::factory()->admin()->create();
     $giftCard = GiftCard::factory()->depleted()->create();
 
     $caught = null;
@@ -178,7 +178,7 @@ test('void on a depleted card throws REASON_DEPLETED', function (): void {
 });
 
 test('void on an expired card throws REASON_EXPIRED', function (): void {
-    $admin = AdminUser::factory()->create();
+    $admin = User::factory()->admin()->create();
     $giftCard = GiftCard::factory()->expired()->create();
 
     $caught = null;

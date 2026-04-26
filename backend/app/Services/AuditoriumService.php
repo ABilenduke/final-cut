@@ -8,11 +8,11 @@ use App\Exceptions\AuditoriumHasBookingsException;
 use App\Exceptions\AuditoriumSeatRegenerationBlockedException;
 use App\Exceptions\AuditoriumSectionInUseException;
 use App\Exceptions\LocationHasBookingsException;
-use App\Models\AdminUser;
 use App\Models\Auditorium;
 use App\Models\AuditoriumSection;
 use App\Models\Location;
 use App\Models\Seat;
+use App\Models\User;
 use App\Services\Concerns\LogsAdminActivity;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -35,7 +35,7 @@ use Illuminate\Support\Str;
  *     bookings keep their historical `booking_seats.section` snapshot.
  *
  * Admin attribution:
- *   - Every write method accepts `?AdminUser $actor = null`.
+ *   - Every write method accepts `?User $actor = null`.
  *   - Activity-log rows are only emitted when `$actor !== null`.
  *   - Customer-side writes (none today) pass `null`.
  *
@@ -55,7 +55,7 @@ class AuditoriumService
     // Location
     // ------------------------------------------------------------------
 
-    public function createLocation(array $attributes, ?AdminUser $actor = null): Location
+    public function createLocation(array $attributes, ?User $actor = null): Location
     {
         $location = Location::create($attributes);
 
@@ -64,7 +64,7 @@ class AuditoriumService
         return $location;
     }
 
-    public function updateLocation(Location $location, array $attributes, ?AdminUser $actor = null): Location
+    public function updateLocation(Location $location, array $attributes, ?User $actor = null): Location
     {
         $location->fill($attributes);
         $dirtyKeys = array_keys($location->getDirty());
@@ -89,7 +89,7 @@ class AuditoriumService
      *                                      historical `stripe_payment_intent_id` / `confirmation_code` values
      *                                      needed for refund reconciliation.
      */
-    public function deleteLocation(Location $location, ?AdminUser $actor = null): void
+    public function deleteLocation(Location $location, ?User $actor = null): void
     {
         if ($location->showtimes()->whereHas('bookings')->exists()) {
             throw new LocationHasBookingsException;
@@ -103,7 +103,7 @@ class AuditoriumService
     // Auditorium
     // ------------------------------------------------------------------
 
-    public function createAuditorium(Location $location, array $attributes, ?AdminUser $actor = null): Auditorium
+    public function createAuditorium(Location $location, array $attributes, ?User $actor = null): Auditorium
     {
         $auditorium = $location->auditoriums()->create($attributes);
 
@@ -112,7 +112,7 @@ class AuditoriumService
         return $auditorium;
     }
 
-    public function updateAuditorium(Auditorium $auditorium, array $attributes, ?AdminUser $actor = null): Auditorium
+    public function updateAuditorium(Auditorium $auditorium, array $attributes, ?User $actor = null): Auditorium
     {
         $auditorium->fill($attributes);
         $dirtyKeys = array_keys($auditorium->getDirty());
@@ -146,7 +146,7 @@ class AuditoriumService
         ?Auditorium $record,
         array $attributes,
         ?array $sections = null,
-        ?AdminUser $actor = null,
+        ?User $actor = null,
     ): Auditorium {
         // Outer transaction so the auditorium row and its activity_log entry
         // roll back if section reconciliation fails (AuditoriumSectionInUseException,
@@ -170,7 +170,7 @@ class AuditoriumService
      *                                        still carries a booking. Same rationale as MovieService::delete —
      *                                        the FK cascade would silently destroy historical payment data.
      */
-    public function deleteAuditorium(Auditorium $auditorium, ?AdminUser $actor = null): void
+    public function deleteAuditorium(Auditorium $auditorium, ?User $actor = null): void
     {
         if ($auditorium->showtimes()->whereHas('bookings')->exists()) {
             throw new AuditoriumHasBookingsException;
@@ -200,7 +200,7 @@ class AuditoriumService
      *
      * @param  array<int, array{id?: ?string, name: string, price_multiplier?: float|string, display_order?: int}>  $sections
      */
-    public function updateSectionConfig(Auditorium $auditorium, array $sections, ?AdminUser $actor = null): void
+    public function updateSectionConfig(Auditorium $auditorium, array $sections, ?User $actor = null): void
     {
         DB::transaction(function () use ($auditorium, $sections, $actor) {
             $existing = $auditorium->sections()->get()->keyBy('id');
@@ -337,7 +337,7 @@ class AuditoriumService
     public function generateSeats(
         Auditorium $auditorium,
         array $config,
-        ?AdminUser $actor = null,
+        ?User $actor = null,
         bool $force = false,
     ): void {
         DB::transaction(function () use ($auditorium, $config, $actor, $force) {
@@ -450,7 +450,7 @@ class AuditoriumService
      *
      * @param  array<int, array{seat_id: string, section_id?: ?string, unavailable_at?: ?\DateTimeInterface}>  $seatUpdates
      */
-    public function updateSeatBatch(Auditorium $auditorium, array $seatUpdates, ?AdminUser $actor = null): void
+    public function updateSeatBatch(Auditorium $auditorium, array $seatUpdates, ?User $actor = null): void
     {
         if ($seatUpdates === []) {
             return;
@@ -539,7 +539,7 @@ class AuditoriumService
         });
     }
 
-    public function markSeatUnavailable(Seat $seat, ?string $reason = null, ?AdminUser $actor = null): void
+    public function markSeatUnavailable(Seat $seat, ?string $reason = null, ?User $actor = null): void
     {
         if ($seat->unavailable_at !== null) {
             return;
@@ -554,7 +554,7 @@ class AuditoriumService
         ]);
     }
 
-    public function markSeatAvailable(Seat $seat, ?AdminUser $actor = null): void
+    public function markSeatAvailable(Seat $seat, ?User $actor = null): void
     {
         if ($seat->unavailable_at === null) {
             return;

@@ -6,11 +6,11 @@ use App\Filament\Resources\AuditoriumResource\Pages\CreateAuditorium;
 use App\Filament\Resources\AuditoriumResource\Pages\EditAuditorium;
 use App\Filament\Resources\AuditoriumResource\Pages\ListAuditoriums;
 use App\Filament\Resources\LocationResource\RelationManagers\AuditoriumsRelationManager;
-use App\Models\AdminUser;
 use App\Models\Auditorium;
 use App\Models\AuditoriumSection;
 use App\Models\Location;
 use App\Models\Seat;
+use App\Models\User;
 use App\Services\AuditoriumService;
 use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Section;
@@ -40,7 +40,7 @@ test('creating an auditorium routes through AuditoriumService with the admin act
     $service = $this->mock(AuditoriumService::class);
     $service->shouldReceive('saveAuditoriumWithSections')
         ->once()
-        ->andReturnUsing(function (Location $loc, ?Auditorium $record, array $attributes, ?array $sections, ?AdminUser $actor) use (&$capturedLocation, &$capturedRecord, &$capturedData, &$capturedActor, $stub) {
+        ->andReturnUsing(function (Location $loc, ?Auditorium $record, array $attributes, ?array $sections, ?User $actor) use (&$capturedLocation, &$capturedRecord, &$capturedData, &$capturedActor, $stub) {
             $capturedLocation = $loc;
             $capturedRecord = $record;
             $capturedData = $attributes;
@@ -77,7 +77,7 @@ test('editing an auditorium routes through AuditoriumService with the admin acto
     $service = $this->mock(AuditoriumService::class);
     $service->shouldReceive('saveAuditoriumWithSections')
         ->once()
-        ->andReturnUsing(function (Location $loc, ?Auditorium $record, array $attributes, ?array $sections, ?AdminUser $actor) use (&$capturedRecord, &$capturedData, &$capturedActor, $auditorium) {
+        ->andReturnUsing(function (Location $loc, ?Auditorium $record, array $attributes, ?array $sections, ?User $actor) use (&$capturedRecord, &$capturedData, &$capturedActor, $auditorium) {
             $capturedRecord = $record;
             $capturedData = $attributes;
             $capturedActor = $actor;
@@ -103,7 +103,7 @@ test('deleting an auditorium routes through AuditoriumService — row survives w
     $service = $this->mock(AuditoriumService::class);
     $service->shouldReceive('deleteAuditorium')
         ->once()
-        ->withArgs(function (Auditorium $record, ?AdminUser $actor) use ($auditorium) {
+        ->withArgs(function (Auditorium $record, ?User $actor) use ($auditorium) {
             expect($record->id)->toBe($auditorium->id);
             expect($actor?->id)->toBe($this->admin->id);
 
@@ -129,7 +129,7 @@ test('section repeater is forwarded to saveAuditoriumWithSections on edit', func
     $service = $this->mock(AuditoriumService::class);
     $service->shouldReceive('saveAuditoriumWithSections')
         ->once()
-        ->andReturnUsing(function (Location $loc, ?Auditorium $record, array $attributes, ?array $sections, ?AdminUser $actor) use (&$capturedSections, &$capturedActor, $auditorium) {
+        ->andReturnUsing(function (Location $loc, ?Auditorium $record, array $attributes, ?array $sections, ?User $actor) use (&$capturedSections, &$capturedActor, $auditorium) {
             $capturedSections = $sections;
             $capturedActor = $actor;
 
@@ -165,7 +165,7 @@ test('Fix seat sections row action calls updateSeatBatch with actor', function (
     $service = $this->mock(AuditoriumService::class);
     $service->shouldReceive('updateSeatBatch')
         ->once()
-        ->andReturnUsing(function (Auditorium $a, array $patches, ?AdminUser $actor) use (&$capturedAuditorium, &$capturedPatches, &$capturedActor) {
+        ->andReturnUsing(function (Auditorium $a, array $patches, ?User $actor) use (&$capturedAuditorium, &$capturedPatches, &$capturedActor) {
             $capturedAuditorium = $a;
             $capturedPatches = $patches;
             $capturedActor = $actor;

@@ -3,8 +3,8 @@
 namespace Database\Factories;
 
 use App\Enums\GiftCardStatus;
-use App\Models\AdminUser;
 use App\Models\GiftCard;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
 
@@ -43,7 +43,7 @@ class GiftCardFactory extends Factory
         ]);
     }
 
-    public function voided(?AdminUser $by = null, string $reason = 'voided via admin'): static
+    public function voided(?User $by = null, string $reason = 'voided via admin'): static
     {
         return $this->state(fn () => [
             'status' => GiftCardStatus::Voided,

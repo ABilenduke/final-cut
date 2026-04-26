@@ -4,15 +4,15 @@ namespace App\Services;
 
 use App\Exceptions\PromoCodeInUseException;
 use App\Exceptions\PromoCodeNotConsumableException;
-use App\Models\AdminUser;
 use App\Models\PromoCode;
+use App\Models\User;
 use App\Services\Concerns\LogsAdminActivity;
 use Illuminate\Support\Facades\DB;
 
 /**
  * Promo code CRUD + customer-path validation/consumption.
  *
- * Write methods accept an optional `?AdminUser $actor` and emit an
+ * Write methods accept an optional `?User $actor` and emit an
  * `activity_log` row on the 'admin' channel when `$actor !== null` (via
  * `LogsAdminActivity`). Customer callers pass `null` for `$actor` — the
  * `uses_count` increment on the row is the customer-path audit trail.
@@ -39,7 +39,7 @@ class PromoCodeService
      *
      * @param  array<string, mixed>  $attributes
      */
-    public function create(array $attributes, ?AdminUser $actor = null): PromoCode
+    public function create(array $attributes, ?User $actor = null): PromoCode
     {
         return DB::transaction(function () use ($attributes, $actor): PromoCode {
             $attributes['code'] = strtoupper((string) $attributes['code']);
@@ -58,7 +58,7 @@ class PromoCodeService
     /**
      * @param  array<string, mixed>  $attributes
      */
-    public function update(PromoCode $promo, array $attributes, ?AdminUser $actor = null): PromoCode
+    public function update(PromoCode $promo, array $attributes, ?User $actor = null): PromoCode
     {
         return DB::transaction(function () use ($promo, $attributes, $actor): PromoCode {
             if (array_key_exists('code', $attributes)) {
@@ -74,7 +74,7 @@ class PromoCodeService
         });
     }
 
-    public function deactivate(PromoCode $promo, ?AdminUser $actor = null): void
+    public function deactivate(PromoCode $promo, ?User $actor = null): void
     {
         DB::transaction(function () use ($promo, $actor): void {
             $promo->is_active = false;
@@ -95,7 +95,7 @@ class PromoCodeService
      * customer-side `consume()` racing this admin action can't slip an
      * increment in between a stale-model pre-check and the actual delete.
      */
-    public function delete(PromoCode $promo, ?AdminUser $actor = null): void
+    public function delete(PromoCode $promo, ?User $actor = null): void
     {
         DB::transaction(function () use ($promo, $actor): void {
             /** @var PromoCode|null $locked */
@@ -199,7 +199,7 @@ class PromoCodeService
      * @throws PromoCodeNotConsumableException if the code is no longer
      *                                         redeemable when the lock is acquired.
      */
-    public function consume(PromoCode $promo, ?AdminUser $actor = null): PromoCode
+    public function consume(PromoCode $promo, ?User $actor = null): PromoCode
     {
         return DB::transaction(function () use ($promo, $actor): PromoCode {
             /** @var PromoCode|null $locked */

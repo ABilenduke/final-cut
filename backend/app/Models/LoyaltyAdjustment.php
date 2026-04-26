@@ -13,12 +13,12 @@ use Spatie\Activitylog\Support\LogOptions;
 /**
  * @property int $id
  * @property string $user_id
- * @property int|null $admin_user_id
+ * @property string|null $admin_user_id
  * @property int $points_delta
  * @property string $reason
  * @property LoyaltyAdjustmentType $change_type
  * @property User $user
- * @property AdminUser|null $adminUser
+ * @property User|null $adminUser
  */
 class LoyaltyAdjustment extends Model
 {
@@ -41,9 +41,13 @@ class LoyaltyAdjustment extends Model
         return $this->belongsTo(User::class);
     }
 
+    /**
+     * The admin who initiated this adjustment. Returns a User; by convention
+     * this column references a User who has an AdminProfile.
+     */
     public function adminUser(): BelongsTo
     {
-        return $this->belongsTo(AdminUser::class);
+        return $this->belongsTo(User::class, 'admin_user_id');
     }
 
     public function getActivitylogOptions(): LogOptions

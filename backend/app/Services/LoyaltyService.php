@@ -5,7 +5,6 @@ namespace App\Services;
 use App\Enums\BookingStatus;
 use App\Enums\LoyaltyAdjustmentType;
 use App\Enums\LoyaltyTier;
-use App\Models\AdminUser;
 use App\Models\Booking;
 use App\Models\LoyaltyAdjustment;
 use App\Models\User;
@@ -24,7 +23,7 @@ use Illuminate\Support\Facades\DB;
  *     — this is non-negotiable: without the row lock, two parallel adjustments
  *     can read the same starting balance and one write silently clobbers the other
  *  3. mutates the freshly-locked row, never the outer `$user` reference
- *  4. accepts an optional `?AdminUser $actor`; admin-path methods
+ *  4. accepts an optional `?User $actor`; admin-path methods
  *     (`adjustPoints`, `grantPremier`, `revokePremier`) additionally insert a
  *     `loyalty_adjustments` audit row inside the same transaction
  *  5. emits an `activity_log` row on the 'admin' channel only when `$actor !== null`
@@ -85,7 +84,7 @@ class LoyaltyService
      * Admin-initiated point correction. `$delta` may be positive or negative;
      * negative balances are permitted (fraud clawbacks).
      */
-    public function adjustPoints(User $user, int $delta, string $reason, ?AdminUser $actor = null): void
+    public function adjustPoints(User $user, int $delta, string $reason, ?User $actor = null): void
     {
         $this->withLoyaltyLock(
             user: $user,
@@ -104,7 +103,7 @@ class LoyaltyService
      * reason is persisted on the audit row and the activity log; callers
      * should provide something meaningful (e.g. "Corporate partnership").
      */
-    public function grantPremier(User $user, Carbon $expiry, string $reason, ?AdminUser $actor = null): void
+    public function grantPremier(User $user, Carbon $expiry, string $reason, ?User $actor = null): void
     {
         $this->withLoyaltyLock(
             user: $user,
@@ -124,7 +123,7 @@ class LoyaltyService
     /**
      * Revoke premier tier, returning the user to member.
      */
-    public function revokePremier(User $user, string $reason, ?AdminUser $actor = null): void
+    public function revokePremier(User $user, string $reason, ?User $actor = null): void
     {
         $this->withLoyaltyLock(
             user: $user,
@@ -155,7 +154,7 @@ class LoyaltyService
         LoyaltyAdjustmentType $type,
         int $delta,
         string $reason,
-        ?AdminUser $actor,
+        ?User $actor,
         string $event,
         array $extraLogProperties = [],
     ): void {

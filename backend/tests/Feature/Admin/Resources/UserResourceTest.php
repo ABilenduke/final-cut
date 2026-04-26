@@ -4,7 +4,6 @@ use App\Enums\LoyaltyTier;
 use App\Filament\Resources\UserResource;
 use App\Filament\Resources\UserResource\Pages\EditUser;
 use App\Filament\Resources\UserResource\Pages\ListUsers;
-use App\Models\AdminUser;
 use App\Models\User;
 use App\Services\LoyaltyService;
 use Illuminate\Support\Carbon;
@@ -95,7 +94,7 @@ test('editing loyalty_points routes through LoyaltyService::adjustPoints with th
     $service = $this->mock(LoyaltyService::class);
     $service->shouldReceive('adjustPoints')
         ->once()
-        ->andReturnUsing(function (User $u, int $delta, string $reason, ?AdminUser $actor) use (&$captured) {
+        ->andReturnUsing(function (User $u, int $delta, string $reason, ?User $actor) use (&$captured) {
             $captured = compact('delta', 'reason', 'actor');
         });
 
@@ -122,7 +121,7 @@ test('switching tier to premier routes through LoyaltyService::grantPremier with
     $service = $this->mock(LoyaltyService::class);
     $service->shouldReceive('grantPremier')
         ->once()
-        ->andReturnUsing(function (User $u, Carbon $expiry, string $reason, ?AdminUser $actor) use (&$capturedExpiry, &$capturedReason, &$capturedActor) {
+        ->andReturnUsing(function (User $u, Carbon $expiry, string $reason, ?User $actor) use (&$capturedExpiry, &$capturedReason, &$capturedActor) {
             $capturedExpiry = $expiry;
             $capturedReason = $reason;
             $capturedActor = $actor;
@@ -151,7 +150,7 @@ test('switching tier back to member routes through LoyaltyService::revokePremier
     $service = $this->mock(LoyaltyService::class);
     $service->shouldReceive('revokePremier')
         ->once()
-        ->andReturnUsing(function (User $u, string $reason, ?AdminUser $actor) use (&$capturedReason, &$capturedActor) {
+        ->andReturnUsing(function (User $u, string $reason, ?User $actor) use (&$capturedReason, &$capturedActor) {
             $capturedReason = $reason;
             $capturedActor = $actor;
         });
@@ -176,7 +175,7 @@ test('switching tier back to member routes through LoyaltyService::revokePremier
 */
 
 test('a points-only admin cannot submit a tier change via the edit form', function (): void {
-    $actor = AdminUser::factory()->create();
+    $actor = User::factory()->admin()->create();
     $actor->givePermissionTo(Permission::findByName('loyalty.adjust_points', 'admin'));
     $actor->givePermissionTo(Permission::findByName('users.view', 'admin'));
     $this->actingAs($actor, 'admin');
@@ -201,7 +200,7 @@ test('a points-only admin cannot submit a tier change via the edit form', functi
 });
 
 test('a tier-only admin cannot submit a points change via the edit form', function (): void {
-    $actor = AdminUser::factory()->create();
+    $actor = User::factory()->admin()->create();
     $actor->givePermissionTo(Permission::findByName('loyalty.adjust_tier', 'admin'));
     $actor->givePermissionTo(Permission::findByName('users.view', 'admin'));
     $this->actingAs($actor, 'admin');

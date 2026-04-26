@@ -69,7 +69,7 @@ class OutboxDispatcher
             (int) $this->requirePayloadValue($row, $payload, 'balance_voided'),
             // Nullable: a customer-originated void wouldn't have an actor.
             array_key_exists('voided_by_admin_user_id', $payload) && $payload['voided_by_admin_user_id'] !== null
-                ? (int) $payload['voided_by_admin_user_id']
+                ? (string) $payload['voided_by_admin_user_id']
                 : null,
         );
     }

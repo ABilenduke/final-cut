@@ -3,11 +3,11 @@
 use App\Filament\Resources\ShowtimeResource\Pages\BulkCreateShowtimes;
 use App\Filament\Resources\ShowtimeResource\Pages\ListShowtimes;
 use App\Http\Requests\BulkShowtimeRequest;
-use App\Models\AdminUser;
 use App\Models\Auditorium;
 use App\Models\Location;
 use App\Models\Movie;
 use App\Models\Showtime;
+use App\Models\User;
 use App\Services\ShowtimeService;
 use Illuminate\Support\Collection;
 use Livewire\Livewire;
@@ -34,7 +34,7 @@ test('bulk create preview counts upcoming showtimes across date range × days ×
     $capturedActor = null;
     $service->shouldReceive('bulkCreate')
         ->once()
-        ->andReturnUsing(function (BulkShowtimeRequest $r, ?AdminUser $actor) use (&$capturedRequest, &$capturedActor) {
+        ->andReturnUsing(function (BulkShowtimeRequest $r, ?User $actor) use (&$capturedRequest, &$capturedActor) {
             $capturedRequest = $r;
             $capturedActor = $actor;
 

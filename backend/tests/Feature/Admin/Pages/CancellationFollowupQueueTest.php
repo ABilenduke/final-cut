@@ -2,12 +2,12 @@
 
 use App\Enums\BookingStatus;
 use App\Filament\Pages\CancellationFollowupQueue;
-use App\Models\AdminUser;
 use App\Models\Auditorium;
 use App\Models\Booking;
 use App\Models\Location;
 use App\Models\Movie;
 use App\Models\Showtime;
+use App\Models\User;
 use Livewire\Livewire;
 use Spatie\Activitylog\Models\Activity;
 
@@ -76,8 +76,8 @@ test('mark_resolved action requires 10+ character notes, flips status to refunde
         ->first();
 
     expect($activity)->not->toBeNull();
-    expect((int) $activity->causer_id)->toBe((int) $admin->id);
-    expect($activity->causer_type)->toBe(AdminUser::class);
+    expect($activity->causer_id)->toBe($admin->id);
+    expect($activity->causer_type)->toBe(User::class);
     expect($activity->properties->get('notes'))->toContain('ref_12345');
 });
 

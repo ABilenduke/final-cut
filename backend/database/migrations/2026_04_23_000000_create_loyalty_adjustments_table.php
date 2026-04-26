@@ -17,7 +17,10 @@ return new class extends Migration
             // Filament actions always pass the authenticated admin user.
             // `nullOnDelete` preserves the audit row if the actor is later
             // deleted — losing attribution is acceptable; losing the audit is not.
-            $table->foreignId('admin_user_id')->nullable()->constrained('admin_users')->nullOnDelete();
+            // FK references users.id (UUID). Column kept named `admin_user_id`
+            // to preserve the semantic intent that the actor is an admin user;
+            // by convention only Users with an AdminProfile populate this column.
+            $table->foreignUuid('admin_user_id')->nullable()->constrained('users')->nullOnDelete();
             $table->integer('points_delta');
             $table->text('reason');
             $table->string('change_type');

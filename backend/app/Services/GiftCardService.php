@@ -5,11 +5,11 @@ namespace App\Services;
 use App\Enums\GiftCardLedgerType;
 use App\Enums\GiftCardStatus;
 use App\Exceptions\GiftCardNotVoidableException;
-use App\Models\AdminUser;
 use App\Models\Booking;
 use App\Models\DispatchOutbox;
 use App\Models\GiftCard;
 use App\Models\GiftCardLedgerEntry;
+use App\Models\User;
 use App\Services\Concerns\LogsAdminActivity;
 use Illuminate\Support\Facades\DB;
 
@@ -51,7 +51,7 @@ class GiftCardService
      *
      * @param  array<string, mixed>  $attributes
      */
-    public function purchase(array $attributes, ?AdminUser $actor = null): GiftCard
+    public function purchase(array $attributes, ?User $actor = null): GiftCard
     {
         return DB::transaction(function () use ($attributes, $actor): GiftCard {
             /** @var GiftCard $giftCard */
@@ -94,7 +94,7 @@ class GiftCardService
         GiftCard $giftCard,
         int $amountCents,
         Booking $booking,
-        ?AdminUser $actor = null,
+        ?User $actor = null,
     ): void {
         DB::transaction(function () use ($giftCard, $amountCents, $booking, $actor): void {
             $deduct = min($amountCents, $giftCard->current_balance);
@@ -147,7 +147,7 @@ class GiftCardService
      *
      * @throws GiftCardNotVoidableException When status is not `Active`.
      */
-    public function void(GiftCard $giftCard, string $reason, ?AdminUser $actor = null): void
+    public function void(GiftCard $giftCard, string $reason, ?User $actor = null): void
     {
         DB::transaction(function () use ($giftCard, $reason, $actor): void {
             /** @var GiftCard $locked */

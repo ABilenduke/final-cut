@@ -4,8 +4,8 @@ use App\Exceptions\LocationHasBookingsException;
 use App\Filament\Resources\LocationResource\Pages\CreateLocation;
 use App\Filament\Resources\LocationResource\Pages\EditLocation;
 use App\Filament\Resources\LocationResource\Pages\ListLocations;
-use App\Models\AdminUser;
 use App\Models\Location;
+use App\Models\User;
 use App\Services\AuditoriumService;
 use Filament\Notifications\Notification;
 use Livewire\Livewire;
@@ -30,7 +30,7 @@ test('creating a location routes through AuditoriumService with the admin actor'
     $service = $this->mock(AuditoriumService::class);
     $service->shouldReceive('createLocation')
         ->once()
-        ->andReturnUsing(function (array $data, ?AdminUser $actor) use (&$capturedData, &$capturedActor, $stub) {
+        ->andReturnUsing(function (array $data, ?User $actor) use (&$capturedData, &$capturedActor, $stub) {
             $capturedData = $data;
             $capturedActor = $actor;
             $stub->save();
@@ -61,7 +61,7 @@ test('editing a location routes through AuditoriumService with the admin actor',
     $service = $this->mock(AuditoriumService::class);
     $service->shouldReceive('updateLocation')
         ->once()
-        ->andReturnUsing(function (Location $record, array $data, ?AdminUser $actor) use (&$capturedData, &$capturedActor, $location) {
+        ->andReturnUsing(function (Location $record, array $data, ?User $actor) use (&$capturedData, &$capturedActor, $location) {
             $capturedData = $data;
             $capturedActor = $actor;
 
@@ -83,7 +83,7 @@ test('deleting a location routes through AuditoriumService — the row survives 
     $service = $this->mock(AuditoriumService::class);
     $service->shouldReceive('deleteLocation')
         ->once()
-        ->withArgs(function (Location $record, ?AdminUser $actor) use ($location) {
+        ->withArgs(function (Location $record, ?User $actor) use ($location) {
             expect($record->id)->toBe($location->id);
             expect($actor?->id)->toBe($this->admin->id);
 

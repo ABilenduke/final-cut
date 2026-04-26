@@ -2,8 +2,8 @@
 
 namespace App\Mail;
 
-use App\Models\AdminUser;
 use App\Models\GiftCard;
+use App\Models\User;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
@@ -26,7 +26,7 @@ class GiftCardVoidedMail extends Mailable implements ShouldQueue
     public function __construct(
         public readonly GiftCard $giftCard,
         public readonly string $reason,
-        public readonly ?AdminUser $by,
+        public readonly ?User $by,
         public readonly int $balanceVoided,
     ) {
         $this->onQueue('notifications');

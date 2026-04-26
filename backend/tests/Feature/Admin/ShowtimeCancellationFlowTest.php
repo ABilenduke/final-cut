@@ -3,13 +3,13 @@
 use App\Exceptions\ShowtimeAlreadyCancelledException;
 use App\Jobs\NotifyCustomerOfShowtimeCancellation;
 use App\Mail\ShowtimeCancelledMail;
-use App\Models\AdminUser;
 use App\Models\Auditorium;
 use App\Models\Booking;
 use App\Models\DispatchOutbox;
 use App\Models\Location;
 use App\Models\Movie;
 use App\Models\Showtime;
+use App\Models\User;
 use App\Services\ShowtimeService;
 use Illuminate\Support\Facades\Mail;
 use Spatie\Activitylog\Models\Activity;
@@ -62,8 +62,8 @@ test('cancelling a showtime flags all its bookings and writes an outbox row per 
         ->first();
 
     expect($activity)->not->toBeNull();
-    expect((int) $activity->causer_id)->toBe((int) $this->admin->id);
-    expect($activity->causer_type)->toBe(AdminUser::class);
+    expect($activity->causer_id)->toBe($this->admin->id);
+    expect($activity->causer_type)->toBe(User::class);
     expect($activity->properties->get('flagged_bookings'))->toBe(3);
     expect($activity->properties->get('reason'))->toBe('Projector failure');
 });

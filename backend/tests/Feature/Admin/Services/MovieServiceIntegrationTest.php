@@ -2,10 +2,10 @@
 
 use App\Exceptions\MovieHasBookingsException;
 use App\Jobs\EnrichMovieJob;
-use App\Models\AdminUser;
 use App\Models\Booking;
 use App\Models\Movie;
 use App\Models\Showtime;
+use App\Models\User;
 use App\Services\MovieService;
 use Illuminate\Contracts\Bus\Dispatcher;
 use Illuminate\Support\Facades\Bus;
@@ -33,8 +33,8 @@ test('create with actor writes a movie.created activity row attributed to the ad
 
     expect($activity)->not->toBeNull();
     expect($activity->description)->toBe('movie.created');
-    expect($activity->causer_type)->toBe(AdminUser::class);
-    expect((int) $activity->causer_id)->toBe($admin->id);
+    expect($activity->causer_type)->toBe(User::class);
+    expect($activity->causer_id)->toBe($admin->id);
     expect($activity->log_name)->toBe('admin');
 });
 
@@ -101,7 +101,7 @@ test('delete with actor writes a movie.deleted activity row before the row is re
 
     expect($activity)->not->toBeNull();
     expect($activity->description)->toBe('movie.deleted');
-    expect((int) $activity->causer_id)->toBe($admin->id);
+    expect($activity->causer_id)->toBe($admin->id);
     expect(Movie::find($movie->id))->toBeNull();
 });
 
@@ -143,7 +143,7 @@ test('triggerEnrichment is idempotent — second call inside the lock TTL dispat
         ->get();
 
     expect($activities)->toHaveCount(1);
-    expect((int) $activities->first()->causer_id)->toBe($admin->id);
+    expect($activities->first()->causer_id)->toBe($admin->id);
 });
 
 test('triggerEnrichment passes the acquired lock owner token to the dispatched job', function (): void {

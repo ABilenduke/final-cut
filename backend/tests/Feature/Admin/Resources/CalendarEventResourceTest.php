@@ -143,7 +143,9 @@ test('editing preserves the existing date when only the title changes', function
 });
 
 test('admin can delete a calendar event', function (): void {
-    $event = CalendarEvent::factory()->create();
+    // Force a non-Showtime type — CalendarEventResource hard-blocks delete on
+    // Showtime events, so a random factory type would intermittently fail.
+    $event = CalendarEvent::factory()->specialEvent()->create();
 
     Livewire::test(EditCalendarEvent::class, ['record' => $event->getRouteKey()])
         ->callAction('delete');

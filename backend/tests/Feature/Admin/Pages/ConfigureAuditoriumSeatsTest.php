@@ -2,9 +2,9 @@
 
 use App\Exceptions\AuditoriumSeatRegenerationBlockedException;
 use App\Filament\Resources\AuditoriumResource\Pages\ConfigureSeats;
-use App\Models\AdminUser;
 use App\Models\Auditorium;
 use App\Models\AuditoriumSection;
+use App\Models\User;
 use App\Services\AuditoriumService;
 use Filament\Notifications\Notification;
 use Livewire\Livewire;
@@ -27,7 +27,7 @@ test('submitting a valid config calls generateSeats with the expanded row array 
         ->andReturn(['future_showtimes' => 0, 'active_bookings' => 0, 'held_seats' => 0]);
     $service->shouldReceive('generateSeats')
         ->once()
-        ->andReturnUsing(function (Auditorium $a, array $config, ?AdminUser $actor) use (&$capturedConfig, &$capturedActor) {
+        ->andReturnUsing(function (Auditorium $a, array $config, ?User $actor) use (&$capturedConfig, &$capturedActor) {
             $capturedConfig = $config;
             $capturedActor = $actor;
         });

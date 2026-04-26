@@ -2,8 +2,8 @@
 
 use App\Exceptions\PromoCodeInUseException;
 use App\Exceptions\PromoCodeNotConsumableException;
-use App\Models\AdminUser;
 use App\Models\PromoCode;
+use App\Models\User;
 use App\Services\PromoCodeService;
 use Spatie\Activitylog\Models\Activity;
 
@@ -12,7 +12,7 @@ beforeEach(function (): void {
 });
 
 test('create persists a promo code and writes activity when actor is set', function (): void {
-    $admin = AdminUser::factory()->create();
+    $admin = User::factory()->admin()->create();
 
     $promo = $this->service->create([
         'code' => 'hello10',
@@ -41,7 +41,7 @@ test('create writes no activity when actor is null (customer-path safeguard)', f
 });
 
 test('update persists changes and logs with actor', function (): void {
-    $admin = AdminUser::factory()->create();
+    $admin = User::factory()->admin()->create();
     $promo = PromoCode::factory()->create(['amount' => 10]);
 
     $updated = $this->service->update($promo, ['amount' => 20], $admin);
@@ -51,7 +51,7 @@ test('update persists changes and logs with actor', function (): void {
 });
 
 test('deactivate sets is_active false and logs', function (): void {
-    $admin = AdminUser::factory()->create();
+    $admin = User::factory()->admin()->create();
     $promo = PromoCode::factory()->create(['is_active' => true]);
 
     $this->service->deactivate($promo, $admin);
@@ -61,7 +61,7 @@ test('deactivate sets is_active false and logs', function (): void {
 });
 
 test('delete removes row when uses_count is zero', function (): void {
-    $admin = AdminUser::factory()->create();
+    $admin = User::factory()->admin()->create();
     $promo = PromoCode::factory()->create(['uses_count' => 0]);
 
     $this->service->delete($promo, $admin);
@@ -71,7 +71,7 @@ test('delete removes row when uses_count is zero', function (): void {
 });
 
 test('delete throws PromoCodeInUseException when uses_count > 0', function (): void {
-    $admin = AdminUser::factory()->create();
+    $admin = User::factory()->admin()->create();
     $promo = PromoCode::factory()->withUsage(3)->create();
 
     $caught = null;

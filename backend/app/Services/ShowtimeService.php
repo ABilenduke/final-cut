@@ -8,11 +8,11 @@ use App\Exceptions\ShowtimeAlreadyCancelledException;
 use App\Exceptions\ShowtimeConflictException;
 use App\Exceptions\ShowtimeHasBookingsException;
 use App\Http\Requests\BulkShowtimeRequest;
-use App\Models\AdminUser;
 use App\Models\Auditorium;
 use App\Models\DispatchOutbox;
 use App\Models\Movie;
 use App\Models\Showtime;
+use App\Models\User;
 use App\Services\Concerns\LogsAdminActivity;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
@@ -50,7 +50,7 @@ class ShowtimeService
     /**
      * @param  array{movie_id: int, auditorium_id: string, start_time: CarbonInterface|string, price_standard: int, price_premium: int, price_accessible: int}  $attributes
      */
-    public function create(array $attributes, ?AdminUser $actor = null): Showtime
+    public function create(array $attributes, ?User $actor = null): Showtime
     {
         [$movie, $auditorium, $start] = $this->resolveInputs($attributes);
         $end = self::computeEndTime($movie, $auditorium, $start);
@@ -84,7 +84,7 @@ class ShowtimeService
     }
 
     /** @param array<string, mixed> $attributes */
-    public function update(Showtime $showtime, array $attributes, ?AdminUser $actor = null): Showtime
+    public function update(Showtime $showtime, array $attributes, ?User $actor = null): Showtime
     {
         // Resolve movie/auditorium/start from a blended view: requested attributes
         // override the existing record, so partial updates work correctly.
@@ -158,7 +158,7 @@ class ShowtimeService
      * the same transaction as the cancellation. Plan 09's worker drains the
      * outbox and actually dispatches `NotifyCustomerOfShowtimeCancellation`.
      */
-    public function cancel(Showtime $showtime, string $reason, ?AdminUser $actor = null): void
+    public function cancel(Showtime $showtime, string $reason, ?User $actor = null): void
     {
         DB::transaction(function () use ($showtime, $reason, $actor) {
             /** @var Showtime $fresh */
@@ -234,7 +234,7 @@ class ShowtimeService
      *
      * @return Collection<int, Showtime>
      */
-    public function bulkCreate(BulkShowtimeRequest $request, ?AdminUser $actor = null): Collection
+    public function bulkCreate(BulkShowtimeRequest $request, ?User $actor = null): Collection
     {
         $movie = Movie::findOrFail($request->movieId);
         $auditorium = Auditorium::findOrFail($request->auditoriumId);

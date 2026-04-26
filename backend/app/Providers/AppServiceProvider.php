@@ -2,11 +2,14 @@
 
 namespace App\Providers;
 
-use App\Models\AdminUser;
+use App\Auth\AdminUserProvider;
+use App\Models\User;
 use Illuminate\Auth\Events\Failed;
 use Illuminate\Auth\Events\Login;
 use Illuminate\Auth\Events\Logout;
 use Illuminate\Auth\Notifications\ResetPassword;
+use Illuminate\Contracts\Foundation\Application;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\ServiceProvider;
@@ -26,6 +29,15 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Custom user provider for the `admin` guard. Returns null for users
+        // without an active AdminProfile, so a customer presenting valid
+        // credentials at the admin login page fails the credential check
+        // before any Login event fires — the listener below cannot promote
+        // an unprivileged User into an admin row.
+        Auth::provider('admin_eloquent', function (Application $app, array $config): AdminUserProvider {
+            return new AdminUserProvider($app['hash'], $config['model']);
+        });
+
         ResetPassword::createUrlUsing(function (object $notifiable, string $token) {
             $frontendUrl = config('app.frontend_url');
 
@@ -34,26 +46,28 @@ class AppServiceProvider extends ServiceProvider
             return "{$frontendUrl}/auth/reset-password?token={$token}&email={$email}";
         });
 
-        // Admin auth event audit. The guard filter keeps customer (web/sanctum)
-        // login/logout/failed events out of the admin activity_log — admin's
-        // audit surface is intentionally guard-scoped. The AdminUser instanceof
-        // check narrows the event's ?Authenticatable to a concrete Eloquent
-        // model for both PHPStan and Spatie's ActivityLogger::causedBy().
+        // Customer (web/sanctum) login/logout/failed events are intentionally
+        // not audited here — admin's audit surface is guard-scoped.
         Event::listen(Login::class, function (Login $event): void {
-            if ($event->guard !== 'admin' || ! $event->user instanceof AdminUser) {
+            if ($event->guard !== 'admin' || ! $event->user instanceof User) {
                 return;
             }
 
             activity('auth')->causedBy($event->user)->log('login');
 
-            $event->user->forceFill([
-                'last_login_at' => now(),
-                'last_login_ip' => request()->ip(),
-            ])->save();
+            // Defense in depth: only touch an existing, active profile.
+            // The admin user provider already rejects users without one, but
+            // never let this listener be the thing that creates entitlement.
+            $event->user->adminProfile()
+                ->whereNull('disabled_at')
+                ->update([
+                    'last_login_at' => now(),
+                    'last_login_ip' => request()->ip(),
+                ]);
         });
 
         Event::listen(Logout::class, function (Logout $event): void {
-            if ($event->guard !== 'admin' || ! $event->user instanceof AdminUser) {
+            if ($event->guard !== 'admin' || ! $event->user instanceof User) {
                 return;
             }
 
