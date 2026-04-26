@@ -1,5 +1,6 @@
 <?php
 
+use Monolog\Formatter\JsonFormatter;
 use Monolog\Handler\NullHandler;
 use Monolog\Handler\StreamHandler;
 use Monolog\Handler\SyslogUdpHandler;
@@ -132,6 +133,32 @@ return [
 
         'emergency' => [
             'path' => storage_path('logs/laravel.log'),
+        ],
+
+        /*
+        |--------------------------------------------------------------------
+        | Admin Authentication Events
+        |--------------------------------------------------------------------
+        |
+        | Dedicated channel for failed admin login attempts. Pinned to
+        | Monolog's JsonFormatter so the Fail2ban filter (see
+        | fail2ban/filter.d/admin-login.conf) can match a stable shape
+        | regardless of stack/per-channel formatter changes elsewhere.
+        |
+        | The Fail2ban container reads this file via a read-only bind
+        | mount; CI regenerates the sample log line on every run and
+        | fails if the regex doesn't match (see Plan 09 Task 5).
+        */
+        'admin_auth_events' => [
+            'driver' => 'single',
+            'path' => storage_path('logs/admin-auth-events.log'),
+            'level' => 'info',
+            'formatter' => JsonFormatter::class,
+            'formatter_with' => [
+                'batchMode' => JsonFormatter::BATCH_MODE_JSON,
+                'appendNewline' => true,
+            ],
+            'permission' => 0640,
         ],
 
     ],

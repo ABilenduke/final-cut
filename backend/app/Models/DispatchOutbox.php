@@ -57,6 +57,13 @@ class DispatchOutbox extends Model
     {
         return $query
             ->whereNull('processed_at')
+            // Parked rows (`failed_at IS NOT NULL`) are excluded explicitly:
+            // the unknown-event_type path sets `failed_at` immediately
+            // (without raising attempts to MAX), and operators may set
+            // `failed_at` manually to quarantine a row that needs human
+            // investigation. Without this guard those rows keep cycling
+            // through the worker and spamming logs.
+            ->whereNull('failed_at')
             ->where('available_at', '<=', now())
             ->where('attempts', '<', self::MAX_ATTEMPTS);
     }

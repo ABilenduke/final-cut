@@ -40,6 +40,37 @@ services:
       redis:
         condition: service_healthy
 
+  # Worker + scheduler use the dev image target and bind-mount the source
+  # tree the same way the backend service does, so code changes are picked
+  # up on the next job/tick without a rebuild.
+  backend-worker:
+    build:
+      target: development
+      args:
+        DEV_UID: ${DEV_UID:-1000}
+        DEV_GID: ${DEV_GID:-1000}
+    user: "${DEV_UID:-1000}:${DEV_GID:-1000}"
+    volumes:
+      - ./backend:/var/www/html
+      - backend-vendor:/var/www/html/vendor
+    environment:
+      - APP_ENV=local
+      - APP_DEBUG=true
+
+  backend-scheduler:
+    build:
+      target: development
+      args:
+        DEV_UID: ${DEV_UID:-1000}
+        DEV_GID: ${DEV_GID:-1000}
+    user: "${DEV_UID:-1000}:${DEV_GID:-1000}"
+    volumes:
+      - ./backend:/var/www/html
+      - backend-vendor:/var/www/html/vendor
+    environment:
+      - APP_ENV=local
+      - APP_DEBUG=true
+
   playwright:
     image: mcr.microsoft.com/playwright:v1.58.0-noble
     profiles: ["e2e"]

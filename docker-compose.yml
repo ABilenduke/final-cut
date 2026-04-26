@@ -26,6 +26,71 @@ services:
           echo "Run 'make certs' to regenerate and stamp the current domain."
           echo ""
         fi
+        # Render the Layer-1 admin IP allowlist block from ADMIN_IP_ALLOWLIST.
+        # Contract:
+        #   - APP_ENV=local                       → empty (allow all in dev)
+        #   - APP_ENV=anything, list non-empty    → "allow CIDR; ... deny all;"
+        #   - APP_ENV=anything, list empty        → "deny all;" (fail closed)
+        #
+        # Each entry is validated against an IPv4(/CIDR) regex BEFORE being
+        # interpolated into nginx config. Globbing is disabled (`set -f`)
+        # while iterating to neutralise wildcard patterns that could match
+        # filesystem paths if the env var were maliciously crafted. Any
+        # invalid entry forces a fail-closed `deny all;` block — better to
+        # lock everyone out (Layer 2 will surface the misconfig in logs)
+        # than to inject unintended nginx directives.
+        #
+        # The Laravel AdminIpAllowlist middleware enforces the same posture
+        # at Layer 2 so a misrendered template here never silently exposes
+        # the admin panel.
+        if [ "$$APP_ENV" = "local" ]; then
+          ADMIN_ALLOWLIST_BLOCK=""
+        elif [ -z "$$ADMIN_IP_ALLOWLIST" ]; then
+          ADMIN_ALLOWLIST_BLOCK="deny all;"
+        else
+          ADMIN_ALLOWLIST_BLOCK=""
+          ADMIN_ALLOWLIST_VALID=true
+          set -f
+          IFS=','
+          for cidr in $$ADMIN_IP_ALLOWLIST; do
+            cidr=$$(printf '%s' "$$cidr" | tr -d '[:space:]')
+            [ -z "$$cidr" ] && continue
+            # IPv4 or IPv4/CIDR (mask 0-32). Anything else (semicolons,
+            # newlines, globs, IPv6) fails the match and falls through to
+            # the validation guard below.
+            if ! printf '%s\n' "$$cidr" | grep -Eq '^([0-9]{1,3}\.){3}[0-9]{1,3}(/([0-9]|[12][0-9]|3[0-2]))?$$'; then
+              ADMIN_ALLOWLIST_VALID=false
+              echo "ERROR: ADMIN_IP_ALLOWLIST entry rejected (not a valid IPv4 / IPv4/CIDR): $$cidr" >&2
+              break
+            fi
+            # Per-octet bounds check — the regex matches 0-999 per octet,
+            # so e.g. "999.0.0.0" passes the regex but is invalid.
+            ip_part=$${cidr%%/*}
+            OLD_IFS="$$IFS"
+            IFS='.'
+            # shellcheck disable=SC2086
+            set -- $$ip_part
+            IFS="$$OLD_IFS"
+            if [ "$$#" -ne 4 ] \
+              || [ "$$1" -gt 255 ] || [ "$$2" -gt 255 ] \
+              || [ "$$3" -gt 255 ] || [ "$$4" -gt 255 ]; then
+              ADMIN_ALLOWLIST_VALID=false
+              echo "ERROR: ADMIN_IP_ALLOWLIST octet out of range: $$cidr" >&2
+              break
+            fi
+            ADMIN_ALLOWLIST_BLOCK="$$ADMIN_ALLOWLIST_BLOCK allow $$cidr;"
+          done
+          unset IFS
+          set +f
+          if [ "$$ADMIN_ALLOWLIST_VALID" = "true" ] && [ -n "$$ADMIN_ALLOWLIST_BLOCK" ]; then
+            ADMIN_ALLOWLIST_BLOCK="$$ADMIN_ALLOWLIST_BLOCK deny all;"
+          else
+            # Validation failed (or nothing matched): refuse to inject any
+            # `allow` lines — fall back to fail-closed.
+            ADMIN_ALLOWLIST_BLOCK="deny all;"
+          fi
+        fi
+        export ADMIN_ALLOWLIST_BLOCK
         /docker-entrypoint.sh nginx -g 'daemon off;'
     ports:
       - "80:80"
@@ -42,6 +107,8 @@ services:
       - nginx-deny:/etc/nginx/banned
     environment:
       - APP_DOMAIN=${APP_DOMAIN:-finalcut.test}
+      - APP_ENV=${APP_ENV:-local}
+      - ADMIN_IP_ALLOWLIST=${ADMIN_IP_ALLOWLIST:-}
       - SSL_CERTIFICATE=${SSL_CERTIFICATE:-/etc/nginx/certs/server.pem}
       - SSL_CERTIFICATE_KEY=${SSL_CERTIFICATE_KEY:-/etc/nginx/certs/server.key}
       - NGINX_ENVSUBST_OUTPUT_DIR=/etc/nginx
@@ -87,6 +154,16 @@ services:
     container_name: fail2ban
     volumes:
       - nginx-logs:/var/log/nginx:ro
+      # Read-only mount of the shared backend-logs named volume so the
+      # admin-login jail can tail the dedicated `admin-auth-events.log`
+      # written by the `admin_auth_events` Monolog channel. The same
+      # volume is mounted at /var/www/html/storage/logs in the backend,
+      # backend-worker, and backend-scheduler services so any process
+      # that emits a failed-login event reaches Fail2ban regardless of
+      # which container wrote it. In production this works without a
+      # host bind mount; in dev the override re-binds the source tree
+      # so logs remain visible on the host filesystem.
+      - backend-logs:/var/log/admin:ro
       - nginx-deny:/etc/fail2ban/nginx-deny
       - ./fail2ban/jail.d:/etc/fail2ban/jail.d:ro
       - ./fail2ban/filter.d:/etc/fail2ban/filter.d:ro
@@ -127,6 +204,11 @@ services:
     volumes:
       - ./redis/certs/ca.pem:/tls/redis/ca.pem:ro
       - ./postgres/certs/ca.pem:/tls/postgres/ca.pem:ro
+      # Shared logs volume — fail2ban tails admin-auth-events.log from this
+      # same volume. In dev the override re-binds ./backend over the whole
+      # tree; this sub-path mount stays in effect and surfaces the logs to
+      # the host through the bind mount.
+      - backend-logs:/var/www/html/storage/logs
     environment:
       - APP_ENV=${APP_ENV:-production}
       - APP_DEBUG=${APP_DEBUG:-false}
@@ -153,7 +235,88 @@ services:
       start_period: 30s
     restart: unless-stopped
 
+  # ── Queue worker ──────────────────────────────
+  # Drains Redis queues for both customer-originated and admin-originated
+  # jobs (mail, TMDB enrichment, NotifyCustomerOfShowtimeCancellation, etc.).
+  # In v1 there is one default queue; v2 may split into named queues
+  # (admin/customer/enrichment) so each worker pool can be scaled
+  # independently. This service reuses the backend image — no separate
+  # build context, no admin-specific Dockerfile.
+  backend-worker:
+    build:
+      context: ./backend
+    container_name: backend-worker
+    command: ["php", "artisan", "queue:work", "--tries=3", "--timeout=60"]
+    volumes:
+      - ./redis/certs/ca.pem:/tls/redis/ca.pem:ro
+      - ./postgres/certs/ca.pem:/tls/postgres/ca.pem:ro
+      - backend-logs:/var/www/html/storage/logs
+    environment:
+      - APP_ENV=${APP_ENV:-production}
+      - APP_DEBUG=${APP_DEBUG:-false}
+      - DB_CONNECTION=${DB_CONNECTION:-pgsql}
+      - DB_HOST=${DB_HOST:-postgres}
+      - DB_PORT=${DB_PORT:-5432}
+      - DB_DATABASE=${DB_DATABASE:-final_cut}
+      - DB_USERNAME=${DB_USERNAME:-final_cut}
+      - DB_PASSWORD=${DB_PASSWORD:-secret}
+      - DB_SSLMODE=${DB_SSLMODE:-verify-full}
+      - DB_SSLROOTCERT=${DB_SSLROOTCERT:-/tls/postgres/ca.pem}
+      - REDIS_HOST=${REDIS_HOST:-redis}
+      - REDIS_PORT=${REDIS_PORT:-6379}
+      - REDIS_USERNAME=${REDIS_USERNAME:-app}
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-redissecret}
+      - REDIS_SCHEME=${REDIS_SCHEME:-tls}
+      - REDIS_TLS_CA_CERT=/tls/redis/ca.pem
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ── Scheduler ────────────────────────────────
+  # Runs `php artisan schedule:work` so cron-style entries from
+  # routes/console.php fire on time without an external cron container.
+  # Currently registered: movies:enrich (hourly), activitylog:clean
+  # (daily), outbox:dispatch (every minute, withoutOverlapping), and
+  # outbox:prune (daily). Reuses the backend image.
+  backend-scheduler:
+    build:
+      context: ./backend
+    container_name: backend-scheduler
+    command: ["php", "artisan", "schedule:work"]
+    volumes:
+      - ./redis/certs/ca.pem:/tls/redis/ca.pem:ro
+      - ./postgres/certs/ca.pem:/tls/postgres/ca.pem:ro
+      - backend-logs:/var/www/html/storage/logs
+    environment:
+      - APP_ENV=${APP_ENV:-production}
+      - APP_DEBUG=${APP_DEBUG:-false}
+      - DB_CONNECTION=${DB_CONNECTION:-pgsql}
+      - DB_HOST=${DB_HOST:-postgres}
+      - DB_PORT=${DB_PORT:-5432}
+      - DB_DATABASE=${DB_DATABASE:-final_cut}
+      - DB_USERNAME=${DB_USERNAME:-final_cut}
+      - DB_PASSWORD=${DB_PASSWORD:-secret}
+      - DB_SSLMODE=${DB_SSLMODE:-verify-full}
+      - DB_SSLROOTCERT=${DB_SSLROOTCERT:-/tls/postgres/ca.pem}
+      - REDIS_HOST=${REDIS_HOST:-redis}
+      - REDIS_PORT=${REDIS_PORT:-6379}
+      - REDIS_USERNAME=${REDIS_USERNAME:-app}
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-redissecret}
+      - REDIS_SCHEME=${REDIS_SCHEME:-tls}
+      - REDIS_TLS_CA_CERT=/tls/redis/ca.pem
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
 volumes:
   nginx-logs:
   nginx-deny:
   fail2ban-data:
+  # Shared between backend / backend-worker / backend-scheduler (writers)
+  # and fail2ban (read-only consumer of admin-auth-events.log). Lives
+  # outside the source tree in production so the deploy host doesn't
+  # need a writable bind mount; in dev the override re-binds the source
+  # tree but Compose preserves this sub-path mount.
+  backend-logs:
