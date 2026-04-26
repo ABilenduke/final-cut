@@ -610,4 +610,114 @@ Plan doc drifts from the real codebase on five points — implementation resolve
 ---
 
 ## Step 9: Calendar Events, Testing & Hardening
-**Status:** 🔲 Not Started
+**Status:** ✅ Complete (pending PR-A/B/C merges to feature branch and merge to main)
+**Started:** 2026-04-25
+**Completed:** 2026-04-26
+
+### Approach
+
+Sequenced as three sub-PRs onto `feat/admin-09-calendar-events-testing-deploy`:
+- **PR-A — Calendar resource (#41, merged):** `CalendarEventResource` + Pages + tests + image-column rename + customer API URL derivation.
+- **PR-B — Hardening + outbox:** `AdminIpAllowlist` middleware + nginx allowlist envsubst block + admin login rate-limit zone + Fail2ban jail/filter + dedicated `admin_auth_events` Monolog channel + `OutboxDispatcher` + commands + `backend-worker`/`backend-scheduler` compose services.
+- **PR-C — Prod + CI + docs + runbook:** `docker-compose.prod.yml` admin env vars, `backend/.env.production.example`, certbot SAN comment, CI Fail2ban-regex regeneration step, root `CLAUDE.md` extension, `docs/README.md`, `SITE_ARCHITECTURE.md`, `docs/runbooks/admin-operations.md`, journal finalisation.
+
+### Decisions
+- [2026-04-25] Renamed `calendar_events.image_url` → `image_path` in place (pre-launch convention) so the admin form can use Filament's `FileUpload` against `disk('public')` and the customer API derives the URL via `Storage::disk('public')->url($this->image_path)`. Customer wire contract preserved as `imageUrl`. Rationale: spec § Task 1 calls for `FileUpload`, which writes a path; preserving an `image_url` URL string would have meant the admin uploaded files but the customer never saw them.
+- [2026-04-25] Hid `CalendarEventType::Showtime` from the create/edit Select. Showtime-type calendar entries are produced by the showtimes domain (Plan 06) and would diverge from the showtimes table if hand-authored. The table column and filters still surface all four cases so legacy/imported showtime rows remain inspectable.
+- [2026-04-25] Navigation: `Content` group, sort 10, icon `heroicon-o-calendar-days`. Permission prefix `events`. Permissions already seeded by `AdminRolesAndPermissionsSeeder` (admin + manager have full CRUD, ops excluded).
+
+### Work Done
+
+**PR-A — Calendar resource**
+- [2026-04-25] Renamed `calendar_events.image_url` → `image_path` across migration, model `$fillable`, factory, and customer API resource. Customer API resource now imports `Illuminate\Support\Facades\Storage` and serialises `imageUrl` as `Storage::disk('public')->url($this->image_path)` (null-safe).
+- [2026-04-25] Built `App\Filament\Resources\CalendarEventResource` mirroring `MenuItemResource` patterns: `BaseResource` extension, `$permissionPrefix = 'events'`, navigation group `Content`. Form has four sections (Identity, Schedule, Content, Accessibility); schedule uses `DatePicker` + two `TimePicker`s; image upload via `FileUpload::make('image_path')->image()->disk('public')->visibility('public')->imageEditor()`; accessibility tags via `CheckboxList`; loyalty-only toggle is conditionally visible only when `type === loyalty_exclusive`. Title is live (onBlur) and writes a `Str::slug()` value into the slug field.
+- [2026-04-25] Table renders an `ImageColumn` against `image_path` on the public disk, badge-coloured `type` column, sortable date, time, and members-only icon column. Filters: type, accessibility tag (JSON contains), members-only ternary, upcoming toggle.
+- [2026-04-25] Three Pages: `ListCalendarEvents`, `CreateCalendarEvent`, `EditCalendarEvent`.
+- [2026-04-25] Added `CalendarEventResourceTest` (10 cases: list, create, slug auto-derive, conditional toggle visibility, showtime hidden from Select, edit, delete, accessibility array persistence, loyalty toggle persistence, slug uniqueness) and `CalendarEventResourcePermissionTest` (4 cases: ops/manager/admin/nobody).
+- [2026-04-25] `make admin-test` green (340 admin tests, includes 14 new cases). `make test-backend` green (818 tests / 2844 assertions). Pint clean on all changed files.
+- [2026-04-26] **Copilot review pass:** TimePicker on `dateTime` columns now combines `data.date` with the picked time via `dehydrateStateUsing` + `formatStateUsing` (was persisting today + HH:MM, breaking events more than a day out). `start_time` marked required (matches customer TS contract). Added `@mixin App\Models\CalendarEvent` + `@property` annotations on the model — removed 12 PHPStan baseline entries that existed only because PHPStan couldn't read Eloquent properties. Filter query null-coalesces `$data['value']`. Tests now set `start_time` in every create flow with explicit assertions on the datetime combination, plus two new customer-side tests asserting the `imageUrl` URL derivation (null path → null url; storage-disk public URL).
+
+### Files Changed (PR-A)
+- `backend/database/migrations/2026_04_04_200005_create_calendar_events_table.php` — column rename
+- `backend/app/Models/CalendarEvent.php` — `$fillable` rename + `@property` annotations
+- `backend/database/factories/CalendarEventFactory.php` — column rename
+- `backend/app/Http/Resources/CalendarEventResource.php` — derive `imageUrl` from `image_path` via `Storage::disk('public')->url()`; `@mixin` docblock
+- `backend/phpstan-baseline.neon` — drop 12 stale `CalendarEventResource::$<prop>` entries (mixin makes them unnecessary)
+- `backend/app/Filament/Resources/CalendarEventResource.php` — new (form combines date+time, filter null-coalesce)
+- `backend/app/Filament/Resources/CalendarEventResource/Pages/ListCalendarEvents.php` — new
+- `backend/app/Filament/Resources/CalendarEventResource/Pages/CreateCalendarEvent.php` — new
+- `backend/app/Filament/Resources/CalendarEventResource/Pages/EditCalendarEvent.php` — new
+- `backend/tests/Feature/Admin/Resources/CalendarEventResourceTest.php` — new (12 cases incl. datetime combine + start_time required)
+- `backend/tests/Feature/Admin/Resources/CalendarEventResourcePermissionTest.php` — new
+- `backend/tests/Feature/Api/CalendarEventControllerTest.php` — assert imageUrl derivation (null + public disk URL)
+
+**PR-B — Hardening + outbox**
+- [2026-04-26] **Layer-2 IP allowlist:** `backend/config/admin.php` introduced (`ip_allowlist`, `ip_allowlist_emergency_open`). `App\Http\Middleware\AdminIpAllowlist` (IPv4-only, fail-closed by default, emergency-open escape hatch with error-level logging) registered as the FIRST entry in `AdminPanelProvider::middleware([...])` so an IP-rejected request never touches `ScopeAdminSession`/Redis/auth. 10 Pest cases cover allowed IP, blocked IP, empty allowlist fail-closed, emergency-open bypass, IPv6 rejection, malformed CIDR skip, `/0` and `/32` matching, dev bypass, and whitespace trimming.
+- [2026-04-26] **Layer-1 IP allowlist + login rate limit:** `nginx/templates/conf.d/admin.conf.template` extended with a `${ADMIN_ALLOWLIST_BLOCK}` placeholder rendered by the nginx service entrypoint from `ADMIN_IP_ALLOWLIST` (empty in `local`, `deny all;` if non-local + empty list, `allow … ; deny all;` otherwise). New `admin_login` rate-limit zone added to `nginx/nginx.conf` (5 r/min), wired to a dedicated `location = /login` block (burst 3 → 429). Smoke-tested via curl: 8 rapid POSTs → first 3 pass (405 — no CSRF), remaining 5 return 429.
+- [2026-04-26] **JSON-formatted admin auth events channel:** `admin_auth_events` channel added to `backend/config/logging.php` with Monolog `JsonFormatter` (`BATCH_MODE_JSON`, `appendNewline`, perm 0640). Existing `Failed::class` listener in `AppServiceProvider` extended to ALSO write to this channel (the activity-log write stays — different consumers). Pest test confirms one JSON line per failed login with `message`, `context.ip`, `context.email`, `level_name=INFO`, `datetime`.
+- [2026-04-26] **Fail2ban admin-login jail:** `fail2ban/filter.d/admin-login.conf` (regex pinned to the JSON shape with `<HOST>` capture inside `context`), `fail2ban/jail.d/admin-login.conf` (5 fails / 10 min → 24-hour ban via the existing `nginx-deny` action — same pattern as `nginx-auth`), `fail2ban/filter.d/admin-login.sample.log` (NON-AUTHORITATIVE dev convenience header; CI regenerates the authoritative sample on every run). Backend's `storage/logs` shared between backend, worker, scheduler, and fail2ban via the new `backend-logs` named volume. `fail2ban-regex` against the live log + the sample log both match.
+- [2026-04-26] **Outbox dispatcher + commands:** `App\Outbox\OutboxDispatcher` maps `event_type` → job dispatch (`showtime.cancelled` → `NotifyCustomerOfShowtimeCancellation`, `gift_card.voided` → `NotifyFinanceOfGiftCardVoid`) with per-event payload-key validation that throws `InvalidArgumentException` on missing keys. `App\Console\Commands\ProcessDispatchOutbox` (signature `outbox:dispatch`) claims rows under `DB::transaction` + `lock('FOR UPDATE SKIP LOCKED')` and bumps `attempts` at claim time so concurrent ticks (or manual runs alongside the scheduler) cannot double-dispatch. Unknown event types AND malformed payloads are parked immediately (developer error); transient failures retry until MAX_ATTEMPTS, then park with error-level log. `App\Console\Commands\PruneDispatchOutbox` (signature `outbox:prune`, days=14 default) rejects `--days < 1` with non-zero exit code (a negative cutoff would otherwise delete every processed row). `DispatchOutbox::scopeDispatchable` excludes `failed_at IS NOT NULL`. `routes/console.php` schedules `outbox:dispatch` everyMinute + `withoutOverlapping(2)` (minutes — was a 90-MINUTE stale-lock window) + `runInBackground()`, and `outbox:prune` daily. 12 Pest cases cover happy path (both event types), future `available_at`, already-processed skip, parked-row skip, unknown event type park, malformed payload park, transient retry under MAX_ATTEMPTS, MAX_ATTEMPTS park, batch size, prune retention, prune negative-days guard.
+- [2026-04-26] **Worker + scheduler compose services:** `backend-worker` (`php artisan queue:work --tries=3 --timeout=60`) and `backend-scheduler` (`php artisan schedule:work`) added to `docker-compose.yml` reusing the existing backend image (no separate Dockerfile). Dev overrides in `docker-compose.override.yml` apply `target: development` + bind-mount source. `php artisan schedule:list` confirms all four scheduled commands (`movies:enrich` hourly, `activitylog:clean` daily, `outbox:dispatch` per-minute, `outbox:prune` daily).
+- [2026-04-26] **Dockerfile fixes (incidental):** chown `public` so a fresh dev rebuild's `composer install` post-script (`filament:upgrade`) can overwrite the COPY'd assets; pre-create `storage/logs/admin-auth-events.log` in both prod (Dockerfile RUN) and dev (`docker/dev-entrypoint.sh`) so fail2ban doesn't crash on a fresh `backend-logs` volume waiting for the first failed login.
+- [2026-04-26] **Copilot review pass:** Validate `ADMIN_IP_ALLOWLIST` entries against an IPv4(/CIDR) regex with per-octet bounds before injecting into nginx (with globbing disabled and any malformed entry forcing fail-closed `deny all;` — verified against an injected `203.0.113.0/24; deny;` payload). Replaced the host bind mount of `./backend/storage/logs` with the `backend-logs` shared named volume so prod (no source bind) flows logs to fail2ban correctly. Outbox dispatcher: scope excludes parked rows, processor adopts `FOR UPDATE SKIP LOCKED` + claim-time attempts bump, payload-key validation parks malformed payloads as developer errors, prune guards `--days < 1`, schedule unit corrected to minutes.
+- [2026-04-26] `make test-backend` green (828 / 2865). Pint + PHPStan (1G memory) clean.
+
+### Decisions (PR-B)
+- [2026-04-26] Fail2ban action is `nginx-deny` (project's existing pattern, writes a deny directive into the shared volume + signals nginx via docker.sock), not `iptables-multiport` from the spec — the fail2ban container has no host iptables access. The deny mechanism works identically: nginx refuses the IP at the edge for all configured vhosts.
+- [2026-04-26] Outbox prune retention is **14 days**, picked to align with the activity_log retention so an incident review can correlate "what happened" with "what was emitted" over the same window.
+- [2026-04-26] Worker/scheduler reuse the backend image rather than introducing a separate Dockerfile; v2 can split named queues + per-pool worker scaling without a Dockerfile change. Both services run as devuser in dev so logs/state remain bind-mount writable.
+- [2026-04-26] Outbox concurrency uses Postgres `FOR UPDATE SKIP LOCKED` (project pins postgres). If another driver is ever supported, the dispatcher must gate on `DB::connection()->getDriverName()`. Documented in the command's docblock.
+
+### Files Changed (PR-B)
+- `backend/config/admin.php` — new
+- `backend/app/Http/Middleware/AdminIpAllowlist.php` — new
+- `backend/app/Providers/Filament/AdminPanelProvider.php` — register middleware as first entry
+- `backend/config/logging.php` — `admin_auth_events` Monolog JsonFormatter channel
+- `backend/app/Providers/AppServiceProvider.php` — extend Failed listener to write JSON channel
+- `backend/app/Outbox/OutboxDispatcher.php` — new (event_type → job class map with payload validation)
+- `backend/app/Models/DispatchOutbox.php` — `dispatchable()` scope excludes parked rows
+- `backend/app/Console/Commands/ProcessDispatchOutbox.php` — new (`outbox:dispatch`, FOR UPDATE SKIP LOCKED claim, dev-error vs transient handling)
+- `backend/app/Console/Commands/PruneDispatchOutbox.php` — new (`outbox:prune` with --days guard)
+- `backend/routes/console.php` — schedule outbox commands (withoutOverlapping in minutes)
+- `backend/Dockerfile` — chown `public`; pre-create `admin-auth-events.log`
+- `backend/docker/dev-entrypoint.sh` — pre-create `admin-auth-events.log` for dev
+- `nginx/nginx.conf` — `admin_login` rate-limit zone
+- `nginx/templates/conf.d/admin.conf.template` — `${ADMIN_ALLOWLIST_BLOCK}` placeholder + `/login` rate-limited location
+- `fail2ban/filter.d/admin-login.conf` — new filter (Monolog JsonFormatter regex)
+- `fail2ban/filter.d/admin-login.sample.log` — new non-authoritative dev sample
+- `fail2ban/jail.d/admin-login.conf` — new jail
+- `docker-compose.yml` — nginx entrypoint renders `ADMIN_ALLOWLIST_BLOCK` with CIDR validation; nginx env extended; fail2ban + backend services share `backend-logs` named volume; `backend-worker` + `backend-scheduler` services
+- `docker-compose.override.yml` — dev `target: development` + source mount + dev env for the new services
+- `backend/tests/Feature/Admin/AdminIpAllowlistTest.php` — new (10 cases)
+- `backend/tests/Feature/Admin/AdminLoginAuthEventsLoggingTest.php` — new (2 cases)
+- `backend/tests/Feature/Outbox/ProcessDispatchOutboxTest.php` — new (12 cases)
+
+**PR-C — Production env + CI + docs + runbook**
+- [2026-04-26] **Production compose:** `docker-compose.prod.yml` extended. The `nginx` service command now duplicates the base entrypoint's `ADMIN_ALLOWLIST_BLOCK` rendering logic so the prod override doesn't lose it; `APP_ENV` and `ADMIN_IP_ALLOWLIST` added to nginx env. Certbot SAN comment updated to include `${APP_DOMAIN}`, `www.${APP_DOMAIN}`, and `admin.${APP_DOMAIN}` in a single cert. `backend` service in prod gets `APP_PRIMARY_DOMAIN`, `ADMIN_DOMAIN`, `ADMIN_SESSION_*`, `ADMIN_IP_ALLOWLIST*`, `FINANCE_NOTIFICATION_EMAIL`, `LOYALTY_LARGE_ADJUSTMENT_THRESHOLD`, and session hardening (`SESSION_ENCRYPT=true`, `SESSION_SECURE_COOKIE=true`). `backend-worker` and `backend-scheduler` use the production target and now duplicate the same admin/operational env vars (Compose does NOT inherit `environment` from another service — without this, outbox-driven jobs would resolve `FINANCE_NOTIFICATION_EMAIL` from config defaults and silently mail the wrong recipient in prod).
+- [2026-04-26] **`backend/.env.production.example`** (new) — production-specific deployment vars (admin hardening, prod-only integrations) layered on top of the stock keys already in `backend/.env.example`. Includes the deploy chicken-and-egg note for the IP allowlist (preferred + emergency-bootstrap sequences). `backend/.gitignore` updated to exempt this file from the broad `.env.*` rule.
+- [2026-04-26] **CI:** `.github/workflows/backend-tests.yml` extended with two steps: (1) install `fail2ban-regex` via apt, (2) regenerate the admin-login sample by triggering the `Failed::class` listener via tinker, tail the resulting log line, and run `fail2ban-regex` against the committed filter. Monolog version drift now fails CI rather than silently breaking IP banning.
+- [2026-04-26] **Docs:** root `CLAUDE.md` "Admin Panel" section extended with a Plan 09 sub-bullet covering `CalendarEventResource`, the two-layer IP allowlist, login rate limit, Fail2ban jail, dispatch outbox, and prod env. `docs/README.md` Plans + Progress + new Runbooks sections updated to link admin v1 + the new runbook. `docs/architecture/SITE_ARCHITECTURE.md` Backend section gained `app/Filament/Resources/`, `app/Filament/Pages/`, `app/Outbox/`, `app/Console/Commands/`, and `tests/Feature/Admin/` directories; new "Admin Subdomain" subsection documents the three-layer isolation; route map adds `admin.${APP_DOMAIN}/**`.
+- [2026-04-26] **Runbook:** `docs/runbooks/admin-operations.md` (new) — 10 procedures (create user, unban IP, view activity log, gift card void retry, cancellation follow-up, loyalty adjust, TMDB enrichment, password rotate, disable account, emergency shutdown) plus a deploy chicken-and-egg section with both bootstrap sequences and v1 scope reminders. Activity-log URL is `/activity` (the Filament page slug); the gift-card-void diagnostic tinker query filters on `created_at` so pending and parked rows are visible (filtering on `processed_at` would have hidden exactly the rows ops needs to see).
+
+### Files Changed (PR-C)
+- `docker-compose.prod.yml` — admin env vars on `backend`, `backend-worker`, `backend-scheduler`; nginx `ADMIN_ALLOWLIST_BLOCK` rendering; certbot SAN comment; corrected Layer-1 vs Layer-2 emergency-open comment
+- `backend/.env.production.example` — new
+- `backend/.gitignore` — exempt `.env.production.example`
+- `.github/workflows/backend-tests.yml` — install `fail2ban-regex` + regenerate-and-verify sample step
+- `CLAUDE.md` — extend "Admin Panel" section with Plan 09 surfaces + hardening + outbox + prod env
+- `docs/README.md` — link admin v1 spec, progress, runbook
+- `docs/architecture/SITE_ARCHITECTURE.md` — admin subdomain isolation + route map row + extended backend directory list
+- `docs/runbooks/admin-operations.md` — new
+- `docs/progress/admin-v1.md` — finalise Step 9
+
+### Verification (PR-C)
+
+End-to-end checks performed before opening PR-C:
+- `make admin-test` green (340 admin tests)
+- `make test-backend` green (847 / 2948 after PR-A + PR-B + PR-C land)
+- `./vendor/bin/pint` clean on changed files
+- `./vendor/bin/phpstan analyse --memory-limit=1G` no errors
+- `docker compose -f docker-compose.yml -f docker-compose.prod.yml config --quiet` validates prod compose YAML
+- Manual smoke against dev: admin panel reachable, `/login` rate-limited (5x 429 after burst), failed login emits JSON line, `fail2ban-regex` matches both live log + committed sample, `php artisan schedule:list` shows `outbox:dispatch` (every minute), `outbox:prune` (daily), `activitylog:clean` (daily), `movies:enrich` (hourly)
+
+This commit closes Step 9 — the parent feature branch merges to `main` after PR-C lands.

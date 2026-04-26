@@ -22,4 +22,15 @@ for dir in storage bootstrap/cache; do
     fi
 done
 
+# Pre-create the admin auth events log so the Fail2ban admin-login jail
+# (which mounts the same shared `backend-logs` volume read-only) can boot
+# without waiting for the first failed login. Without this, fail2ban
+# crashes with "No file(s) found for glob /var/log/admin/admin-auth-events.log"
+# on a freshly-created volume.
+if [ -d storage/logs ]; then
+    touch storage/logs/admin-auth-events.log
+    chown "$DEV_UID:$DEV_GID" storage/logs/admin-auth-events.log
+    chmod 0640 storage/logs/admin-auth-events.log
+fi
+
 exec "$@"

@@ -84,9 +84,22 @@ Laravel 13 API. See `backend/routes/api.php` for all route definitions. Key dire
 - `app/Http/Controllers/` — API controllers
 - `app/Models/` — Eloquent models
 - `app/Services/` — Business logic (TmdbService, StripeService, SeatAvailabilityService, etc.)
+- `app/Filament/Resources/` — Admin panel resources (movies, showtimes, locations, auditoriums, bookings, customers, menu, promo codes, gift cards, calendar events)
+- `app/Filament/Pages/` — Admin custom pages (BookingLookup, CancelledShowtimeFollowup)
+- `app/Outbox/` — Dispatch-outbox processor (`OutboxDispatcher` mapping `event_type` → queued job)
+- `app/Console/Commands/` — Artisan commands including `outbox:dispatch`, `outbox:prune`, `admin:create-user`
 - `database/migrations/` — PostgreSQL schema
 - `database/factories/` and `database/seeders/` — Test data
-- `tests/Feature/` — Pest feature tests (410 tests)
+- `tests/Feature/` — Pest feature tests
+- `tests/Feature/Admin/` — Admin-namespaced Pest tests (Resource CRUD + permission matrices, services, hardening)
+
+### Admin Subdomain (`admin.${APP_DOMAIN}`)
+
+The Filament 5 admin panel runs in the same Laravel app as the customer API but is reached at a dedicated subdomain. Same nginx service, same backend PHP-FPM container, same database — separated at three layers:
+
+1. **Nginx vhost** (`nginx/templates/conf.d/admin.conf.template`): no `proxy_pass` to the Nuxt frontend on this host, so customer routes can't answer here. The vhost also carries the Layer-1 IP allowlist (`${ADMIN_ALLOWLIST_BLOCK}` rendered from `ADMIN_IP_ALLOWLIST` by the entrypoint) and a stricter `admin_login` rate-limit zone (5 r/min, burst 3) on `location = /login`.
+2. **Laravel route-domain scoping** (`bootstrap/app.php` + `AdminPanelProvider->domain(config('filament.admin_domain'))`): customer api/web routes are wrapped in `Route::domain(config('app.primary_domain'))->...`; admin routes register only on the admin domain. The `RouteDomainScopingTest` Pest case asserts no route leaks across domains.
+3. **Session cookie + Redis DB scoping** (`ScopeAdminSession` middleware + `AdminIpAllowlist` middleware ahead of it): admin sessions use a dedicated cookie name, no leading dot on the domain, and Redis DB 3. An IP-rejected request short-circuits before any session machinery runs.
 
 ---
 
@@ -151,6 +164,7 @@ Each route group is assigned a rendering strategy based on how frequently its da
 | `/purchase/**` | Seat Selection, Checkout | Client-only | — | Real-time seat data, auth context |
 | `/account/**` | Profile, Orders, Loyalty | Client-only | — | User-specific data |
 | `/auth/**` | Login, Register, Reset | Client-only | — | Auth forms, no SEO value |
+| `admin.${APP_DOMAIN}/**` | Filament admin panel | Server-rendered (Laravel) | — | Auth-gated, IP-allowlisted, no Nuxt involvement |
 
 All rendering strategies are configured via `routeRules` in `nuxt.config.ts`:
 

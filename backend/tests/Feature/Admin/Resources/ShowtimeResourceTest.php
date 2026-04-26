@@ -24,10 +24,15 @@ beforeEach(function (): void {
 });
 
 test('admins can see the showtime list', function (): void {
-    $showtimes = Showtime::factory()->count(3)->create([
+    // Pin start_time to non-overlapping slots so the random factory date
+    // can't trip the showtimes_no_overlap exclusion constraint when three
+    // rows land on the same auditorium.
+    $base = now()->addDays(7)->setTime(12, 0);
+    $showtimes = collect(range(0, 2))->map(fn (int $i) => Showtime::factory()->create([
         'movie_id' => $this->movie->id,
         'auditorium_id' => $this->auditorium->id,
-    ]);
+        'start_time' => $base->copy()->addHours($i * 4),
+    ]));
 
     Livewire::test(ListShowtimes::class)
         ->assertCanSeeTableRecords($showtimes);

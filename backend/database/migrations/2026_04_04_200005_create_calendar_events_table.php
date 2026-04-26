@@ -17,7 +17,7 @@ return new class extends Migration
             $table->dateTime('end_time')->nullable();
             $table->text('description')->nullable();
             $table->string('movie_slug')->nullable();
-            $table->string('image_url')->nullable();
+            $table->string('image_path')->nullable();
             $table->string('slug')->unique()->nullable();
             $table->string('ticket_url')->nullable();
             $table->boolean('loyalty_only')->default(false);

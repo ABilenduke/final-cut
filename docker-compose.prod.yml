@@ -13,12 +13,21 @@ services:
     # watches for a reload signal from certbot after certificate renewal.
     # Certbot writes /var/run/certbot-reload/reload via --deploy-hook;
     # this loop picks it up, reloads nginx, and removes the signal file.
+    #
+    # The base nginx entrypoint renders ${ADMIN_ALLOWLIST_BLOCK} via the
+    # shared nginx/render-admin-allowlist.sh script (validated CIDR parsing,
+    # fail-closed posture). This prod overlay overrides the entire `command`
+    # to layer the certbot reload loop, so it MUST source the same script —
+    # do not reimplement the rendering inline. The `ADMIN_IP_ALLOWLIST_EMERGENCY_OPEN`
+    # flag is a Layer-2 (middleware) concept only and never affects this
+    # nginx rendering.
     command:
       - /bin/sh
       - -c
       - |
         mkdir -p /etc/nginx/snippets /var/run/certbot-reload
         touch /etc/nginx/banned/banned-ips.conf
+        . /render-admin-allowlist.sh
         # Background loop: watch for certbot reload signal
         while :; do
           if [ -f /var/run/certbot-reload/reload ]; then
@@ -28,6 +37,8 @@ services:
         done &
         /docker-entrypoint.sh nginx -g 'daemon off;'
     environment:
+      - APP_ENV=${APP_ENV:-production}
+      - ADMIN_IP_ALLOWLIST=${ADMIN_IP_ALLOWLIST:-}
       - SSL_CERTIFICATE=/etc/letsencrypt/live/${APP_DOMAIN}/fullchain.pem
       - SSL_CERTIFICATE_KEY=/etc/letsencrypt/live/${APP_DOMAIN}/privkey.pem
     volumes:
@@ -50,10 +61,16 @@ services:
   # After a successful renewal, --deploy-hook writes a signal file that
   # the nginx container picks up to reload with the new certificate.
   #
-  # Initial certificate issuance (run once):
+  # Initial certificate issuance (run once). Single cert with SAN covers the
+  # primary domain, www, and the admin subdomain — one renewal cron, one
+  # /etc/letsencrypt/live/${APP_DOMAIN}/ to monitor. If admin ever moves to
+  # different infra, switch to a separate certbot invocation for the admin
+  # subdomain and update both vhosts' ssl_certificate paths.
+  #
   #   docker compose -f docker-compose.yml -f docker-compose.prod.yml \
   #     run --rm certbot certonly --webroot -w /var/www/certbot \
-  #     -d ${APP_DOMAIN} -d api.${APP_DOMAIN} --agree-tos -m your@email.com
+  #     -d ${APP_DOMAIN} -d www.${APP_DOMAIN} -d admin.${APP_DOMAIN} \
+  #     --agree-tos -m ops@${APP_DOMAIN}
   #
   # The --nginx plugin can also be used but requires certbot to have
   # write access to nginx config. The webroot method is simpler in Docker.
@@ -72,9 +89,67 @@ services:
     build:
       target: production
 
+  # Admin runs in the same backend PHP-FPM container as the customer API —
+  # no separate admin service. This block layers the admin-specific env
+  # vars onto the existing backend service so the IP allowlist middleware,
+  # session scoping, and operational thresholds resolve in production.
   backend:
     build:
       target: production
+    environment:
+      - APP_ENV=production
+      - APP_DEBUG=false
+      - APP_PRIMARY_DOMAIN=${APP_PRIMARY_DOMAIN:-${APP_DOMAIN}}
+      - ADMIN_DOMAIN=${ADMIN_DOMAIN:-admin.${APP_DOMAIN}}
+      # No leading dot — admin sessions are scoped to the admin subdomain
+      # only so a customer cookie can never be promoted to admin auth.
+      - ADMIN_SESSION_COOKIE=${ADMIN_SESSION_COOKIE:-final_cut_admin_session}
+      - ADMIN_SESSION_DOMAIN=${ADMIN_SESSION_DOMAIN:-admin.${APP_DOMAIN}}
+      - ADMIN_SESSION_CONNECTION=${ADMIN_SESSION_CONNECTION:-session_admin}
+      # Layer-2 IP allowlist. Empty fails closed at the middleware layer
+      # (and at nginx). The emergency-open flag is the loud escape hatch
+      # — keep it false outside a deploy bootstrap window.
+      - ADMIN_IP_ALLOWLIST=${ADMIN_IP_ALLOWLIST:-}
+      - ADMIN_IP_ALLOWLIST_EMERGENCY_OPEN=${ADMIN_IP_ALLOWLIST_EMERGENCY_OPEN:-false}
+      # Operational tunables.
+      - FINANCE_NOTIFICATION_EMAIL=${FINANCE_NOTIFICATION_EMAIL:-finance@${APP_DOMAIN}}
+      - LOYALTY_LARGE_ADJUSTMENT_THRESHOLD=${LOYALTY_LARGE_ADJUSTMENT_THRESHOLD:-1000}
+      # Session hardening.
+      - SESSION_ENCRYPT=true
+      - SESSION_SECURE_COOKIE=true
+
+  # Worker + scheduler use the production image target. Compose does NOT
+  # automatically inherit `environment` from another service definition,
+  # so we duplicate the admin/operational vars here. Without this,
+  # outbox-driven jobs (e.g. NotifyFinanceOfGiftCardVoid mailing
+  # FINANCE_NOTIFICATION_EMAIL) would fall back to the dev defaults
+  # baked into config/finance.php and config/loyalty.php and silently
+  # email the wrong recipient in production.
+  backend-worker:
+    build:
+      target: production
+    environment:
+      - APP_ENV=production
+      - APP_DEBUG=false
+      - APP_PRIMARY_DOMAIN=${APP_PRIMARY_DOMAIN:-${APP_DOMAIN}}
+      - ADMIN_DOMAIN=${ADMIN_DOMAIN:-admin.${APP_DOMAIN}}
+      - ADMIN_IP_ALLOWLIST=${ADMIN_IP_ALLOWLIST:-}
+      - ADMIN_IP_ALLOWLIST_EMERGENCY_OPEN=${ADMIN_IP_ALLOWLIST_EMERGENCY_OPEN:-false}
+      - FINANCE_NOTIFICATION_EMAIL=${FINANCE_NOTIFICATION_EMAIL:-finance@${APP_DOMAIN}}
+      - LOYALTY_LARGE_ADJUSTMENT_THRESHOLD=${LOYALTY_LARGE_ADJUSTMENT_THRESHOLD:-1000}
+
+  backend-scheduler:
+    build:
+      target: production
+    environment:
+      - APP_ENV=production
+      - APP_DEBUG=false
+      - APP_PRIMARY_DOMAIN=${APP_PRIMARY_DOMAIN:-${APP_DOMAIN}}
+      - ADMIN_DOMAIN=${ADMIN_DOMAIN:-admin.${APP_DOMAIN}}
+      - ADMIN_IP_ALLOWLIST=${ADMIN_IP_ALLOWLIST:-}
+      - ADMIN_IP_ALLOWLIST_EMERGENCY_OPEN=${ADMIN_IP_ALLOWLIST_EMERGENCY_OPEN:-false}
+      - FINANCE_NOTIFICATION_EMAIL=${FINANCE_NOTIFICATION_EMAIL:-finance@${APP_DOMAIN}}
+      - LOYALTY_LARGE_ADJUSTMENT_THRESHOLD=${LOYALTY_LARGE_ADJUSTMENT_THRESHOLD:-1000}
 
 volumes:
   letsencrypt:

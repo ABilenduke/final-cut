@@ -1,0 +1,13 @@
+# NON-AUTHORITATIVE — dev convenience only.
+#
+# This file exists so an engineer can run `fail2ban-regex` locally without
+# first triggering a real failed login. CI regenerates the sample on every
+# run from a live failed login (see .github/workflows/backend-tests.yml,
+# Plan 09 Task 5/8) and that regenerated sample is the authoritative one.
+#
+# If the JSON shape below ever drifts from what Monolog's JsonFormatter
+# emits (Monolog upgrade, channel definition change, listener change), CI
+# fails before the change reaches main. Update this file when CI tells you
+# to, never the other way around.
+#
+{"message":"Failed admin login","context":{"ip":"203.0.113.42","email":"attacker@example.com"},"level":200,"level_name":"INFO","channel":"local","datetime":"2026-04-21T12:34:56.000000+00:00","extra":{}}

@@ -29,6 +29,17 @@ server {
     http2 on;
     server_name admin.${APP_DOMAIN};
 
+    # ── IP allowlist (Layer 1) ─────────────────
+    # Rendered from ADMIN_IP_ALLOWLIST by the nginx entrypoint:
+    #   - APP_ENV=local           → empty (no allowlist, allow all)
+    #   - APP_ENV=anything else
+    #     and ADMIN_IP_ALLOWLIST=… → "allow CIDR; allow CIDR; ... deny all;"
+    #     and empty                → "deny all;" (fail closed)
+    # The Laravel middleware (App\Http\Middleware\AdminIpAllowlist) is the
+    # backstop layer in case nginx is misconfigured or a request bypasses
+    # the edge proxy entirely.
+    ${ADMIN_ALLOWLIST_BLOCK}
+
     # Use Docker's embedded DNS so upstreams resolve at request time.
     resolver 127.0.0.11 valid=30s;
     set $upstream_backend backend:9000;
@@ -70,6 +81,19 @@ server {
     # customer vhost since admin traffic should be low-volume.
     root /var/www/html/public;
     index index.php;
+
+    # ── Filament login endpoint — strict rate limit ─
+    # Filament is mounted at the subdomain root (->path('/') in
+    # AdminPanelProvider) so the login URL is /login, not /admin/login.
+    # A burst of 3 covers benign retries (typo + correction). Beyond that
+    # the request returns 429, and Fail2ban watches the dedicated
+    # admin_auth_events log to ban repeat offenders at the IP layer.
+    location = /login {
+        limit_req zone=admin_login burst=3 nodelay;
+        limit_req_status 429;
+
+        try_files $uri /index.php?$query_string;
+    }
 
     location / {
         limit_req zone=general burst=30 nodelay;

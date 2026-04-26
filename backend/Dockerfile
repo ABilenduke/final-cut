@@ -116,7 +116,10 @@ WORKDIR /var/www/html
 # Copy application from vendor stage
 COPY --from=vendor /var/www/html /var/www/html
 
-# Ensure writable directories exist with correct permissions
+# Ensure writable directories exist with correct permissions. The
+# admin-auth-events.log file is pre-created so the Fail2ban admin-login
+# jail (mounting the shared backend-logs volume read-only) can boot
+# without waiting for the first failed login event.
 RUN mkdir -p \
     storage/app/public \
     storage/framework/cache/data \
@@ -124,8 +127,10 @@ RUN mkdir -p \
     storage/framework/views \
     storage/logs \
     bootstrap/cache \
+    && touch storage/logs/admin-auth-events.log \
     && chown -R www-data:www-data storage bootstrap/cache \
-    && chmod -R 775 storage bootstrap/cache
+    && chmod -R 775 storage bootstrap/cache \
+    && chmod 0640 storage/logs/admin-auth-events.log
 
 USER www-data
 
@@ -171,7 +176,7 @@ ARG DEV_UID=1000
 ARG DEV_GID=1000
 RUN addgroup -g ${DEV_GID} devuser \
     && adduser -u ${DEV_UID} -G devuser -D -h /home/devuser devuser \
-    && chown -R devuser:devuser storage bootstrap/cache vendor
+    && chown -R devuser:devuser storage bootstrap/cache vendor public
 
 # Configure PHP-FPM pool to run workers as devuser instead of www-data.
 # The FPM master process still starts as root (required for FPM), but

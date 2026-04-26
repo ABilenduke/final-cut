@@ -57,7 +57,25 @@ class DispatchOutbox extends Model
     {
         return $query
             ->whereNull('processed_at')
-            ->where('available_at', '<=', now())
+            // Parked rows (`failed_at IS NOT NULL`) are excluded explicitly:
+            // the unknown-event_type path sets `failed_at` immediately
+            // (without raising attempts to MAX), and operators may set
+            // `failed_at` manually to quarantine a row that needs human
+            // investigation. Without this guard those rows keep cycling
+            // through the worker and spamming logs.
+            ->whereNull('failed_at')
+            // Use Postgres `NOW()` directly instead of binding PHP's `now()`.
+            // Laravel's Postgres grammar formats Carbon bindings with the
+            // second-precision format `Y-m-d H:i:s`, truncating microseconds.
+            // The column itself is `timestamp(6)` and `available_at` defaults
+            // to `CURRENT_TIMESTAMP` (microsecond precision). A row inserted
+            // mid-second (e.g. 12.93s) gets `available_at = 12.930…`, but a
+            // PHP-bound `now()` becomes `12.000` and the comparison fails
+            // until the next whole second ticks over. Postgres-side `NOW()`
+            // shares the column's clock and precision, so the comparison is
+            // monotonic regardless of how quickly the dispatcher runs after
+            // the insert.
+            ->whereRaw('available_at <= NOW()')
             ->where('attempts', '<', self::MAX_ATTEMPTS);
     }
 }

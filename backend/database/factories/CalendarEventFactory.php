@@ -25,7 +25,7 @@ class CalendarEventFactory extends Factory
             'end_time' => (clone $date)->modify('+2 hours'),
             'description' => fake()->paragraph(),
             'movie_slug' => null,
-            'image_url' => null,
+            'image_path' => null,
             'slug' => Str::slug($title).'-'.fake()->unique()->randomNumber(4),
             'ticket_url' => null,
             'loyalty_only' => false,

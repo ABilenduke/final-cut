@@ -8,6 +8,7 @@ use Illuminate\Auth\Events\Login;
 use Illuminate\Auth\Events\Logout;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -64,9 +65,23 @@ class AppServiceProvider extends ServiceProvider
                 return;
             }
 
+            $email = $event->credentials['email'] ?? null;
+            $ip = request()->ip();
+
+            // Activity-log entry — consumed by the admin Activity Log page.
             activity('auth')
-                ->withProperties(['email' => $event->credentials['email'] ?? null])
+                ->withProperties(['email' => $email])
                 ->log('login_failed');
+
+            // Dedicated JSON channel — consumed by the Fail2ban admin-login
+            // jail. The shape (message string + context.ip) is part of a
+            // tightly-coupled contract with fail2ban/filter.d/admin-login.conf;
+            // CI regenerates a sample log on every run and asserts the regex
+            // still matches so Monolog version drift fails CI, not production.
+            Log::channel('admin_auth_events')->info('Failed admin login', [
+                'ip' => $ip,
+                'email' => $email,
+            ]);
         });
     }
 }
