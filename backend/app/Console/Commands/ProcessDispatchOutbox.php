@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Models\DispatchOutbox;
 use App\Outbox\OutboxDispatcher;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 use Throwable;
 
@@ -12,21 +13,29 @@ use Throwable;
  * Drains dispatch_outbox rows ready for delivery.
  *
  * Scheduled every minute by `routes/console.php` with
- * `withoutOverlapping(90)` and `runInBackground()` so a slow batch on
- * one tick can't stack up parallel workers.
+ * `withoutOverlapping(2)` (minutes) and `runInBackground()`. Even with
+ * the scheduler lock, ad-hoc manual runs and future multi-scheduler
+ * deployments could pick the same rows concurrently — so each batch is
+ * claimed inside a transaction with `lockForUpdate()` and Postgres'
+ * `SKIP LOCKED` semantics so two workers can scan the queue at the same
+ * time and never overlap. Claimed rows are reserved (a no-op `attempts`
+ * bump) before the transaction commits, so the dispatcher path runs
+ * outside the row lock without risking re-selection.
  *
  * Per-row contract:
  *   - Up to BATCH_SIZE rows per invocation (`processed_at IS NULL AND
- *     available_at <= now() AND attempts < MAX_ATTEMPTS`).
+ *     failed_at IS NULL AND available_at <= now() AND attempts <
+ *     MAX_ATTEMPTS`).
  *   - Each successful dispatch writes `processed_at = now()` and
- *     `attempts = attempts + 1`.
- *   - Each thrown exception increments `attempts`, captures the message
- *     in `last_error`, and leaves `processed_at = null` so the row is
- *     retried on the next tick (until `attempts >= MAX_ATTEMPTS`).
+ *     `last_error = null` (attempts already incremented at claim time).
+ *   - Each thrown exception leaves `processed_at = null`, captures
+ *     the message in `last_error`, and the row is retried on the next
+ *     tick (until `attempts >= MAX_ATTEMPTS`).
  *   - At MAX_ATTEMPTS the row is parked with `failed_at = now()` and
  *     an error-level log fires for on-call.
- *   - An unknown `event_type` is a developer error, not a transient
- *     failure: the row is parked immediately with `failed_at = now()`.
+ *   - An unknown `event_type` (or a malformed payload missing required
+ *     keys) is a developer error, not a transient failure: the row is
+ *     parked immediately with `failed_at = now()`.
  *
  * Idempotency: each job's `handle()` is the source of idempotency
  * (e.g. NotifyCustomerOfShowtimeCancellation re-checks the booking's
@@ -43,12 +52,37 @@ class ProcessDispatchOutbox extends Command
     {
         $batchSize = (int) $this->option('batch');
 
-        $rows = DispatchOutbox::query()
-            ->dispatchable()
-            ->orderBy('available_at')
-            ->orderBy('id')
-            ->limit($batchSize)
-            ->get();
+        // Claim a batch of rows atomically. `lock('FOR UPDATE SKIP LOCKED')`
+        // is Postgres-specific (the project pins postgres) and ensures a
+        // concurrent scheduler tick (or manual run) never picks rows we've
+        // already locked — they're skipped over instead of blocking. The
+        // claim bumps `attempts` so a crash between this transaction and
+        // the dispatch loop below leaves the rows visibly "in flight" for
+        // the next tick. Using `lock()` with a custom string instead of
+        // `lockForUpdate()` so we can append SKIP LOCKED in one statement.
+        $rows = DB::transaction(function () use ($batchSize) {
+            $claimedRows = DispatchOutbox::query()
+                ->dispatchable()
+                ->orderBy('available_at')
+                ->orderBy('id')
+                ->limit($batchSize)
+                ->lock('FOR UPDATE SKIP LOCKED')
+                ->get();
+
+            if ($claimedRows->isEmpty()) {
+                return collect();
+            }
+
+            DispatchOutbox::query()
+                ->whereIn('id', $claimedRows->pluck('id'))
+                ->update(['attempts' => DB::raw('attempts + 1')]);
+
+            // Reload so the in-memory rows reflect the bumped `attempts`
+            // and so the dispatch loop has a fresh model snapshot.
+            return DispatchOutbox::query()
+                ->whereIn('id', $claimedRows->pluck('id'))
+                ->get();
+        });
 
         if ($rows->isEmpty()) {
             return self::SUCCESS;
@@ -70,44 +104,41 @@ class ProcessDispatchOutbox extends Command
 
             $row->update([
                 'processed_at' => now(),
-                'attempts' => $row->attempts + 1,
                 'last_error' => null,
             ]);
         } catch (InvalidArgumentException $e) {
-            // Unknown event_type — park immediately. No amount of retrying
-            // will conjure a job mapping into existence; surface it loudly.
+            // Unknown event_type or malformed payload — park immediately.
+            // No amount of retrying will conjure a job mapping (or a
+            // missing payload key) into existence; surface it loudly.
             $row->update([
-                'attempts' => $row->attempts + 1,
                 'failed_at' => now(),
                 'last_error' => $e->getMessage(),
             ]);
 
-            logger()->error('outbox:dispatch unknown event_type, row parked', [
+            logger()->error('outbox:dispatch developer error, row parked', [
                 'outbox_id' => $row->id,
                 'event_type' => $row->event_type,
                 'error' => $e->getMessage(),
             ]);
         } catch (Throwable $e) {
-            $attempts = $row->attempts + 1;
             $update = [
-                'attempts' => $attempts,
                 'last_error' => $e->getMessage(),
             ];
 
-            if ($attempts >= DispatchOutbox::MAX_ATTEMPTS) {
+            if ($row->attempts >= DispatchOutbox::MAX_ATTEMPTS) {
                 $update['failed_at'] = now();
 
                 logger()->error('outbox:dispatch row reached MAX_ATTEMPTS, parked', [
                     'outbox_id' => $row->id,
                     'event_type' => $row->event_type,
-                    'attempts' => $attempts,
+                    'attempts' => $row->attempts,
                     'error' => $e->getMessage(),
                 ]);
             } else {
                 logger()->warning('outbox:dispatch retryable failure', [
                     'outbox_id' => $row->id,
                     'event_type' => $row->event_type,
-                    'attempts' => $attempts,
+                    'attempts' => $row->attempts,
                     'error' => $e->getMessage(),
                 ]);
             }

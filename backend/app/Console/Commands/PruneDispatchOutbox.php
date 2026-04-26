@@ -24,7 +24,20 @@ class PruneDispatchOutbox extends Command
 
     public function handle(): int
     {
-        $days = (int) $this->option('days');
+        $daysOption = $this->option('days');
+
+        // Reject zero / negative / non-numeric values: a negative cutoff
+        // lands in the future and would delete every processed row,
+        // including ones that were emitted minutes ago. The minimum-1
+        // floor keeps "delete only sufficiently old rows" the only
+        // possible behaviour of this command.
+        if (! is_numeric($daysOption) || (int) $daysOption < 1) {
+            $this->error("--days must be a positive integer; got: {$daysOption}");
+
+            return self::INVALID;
+        }
+
+        $days = (int) $daysOption;
         $cutoff = now()->subDays($days);
 
         $deleted = DispatchOutbox::query()

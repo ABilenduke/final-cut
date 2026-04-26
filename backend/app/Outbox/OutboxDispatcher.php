@@ -17,38 +17,74 @@ use InvalidArgumentException;
  *      `ShowtimeService::EVENT_CANCELLED`).
  *   2. Service writes a row to `dispatch_outbox` with that `event_type`
  *      inside its domain transaction.
- *   3. Add a `match` arm here mapping the event type to the queued job.
+ *   3. Add a `match` arm in `dispatch()` that delegates to a private
+ *      method validating the payload's required keys before dispatching
+ *      the queued job.
  *
- * The processor command (`outbox:dispatch`) calls `dispatch()` for each
- * unprocessed row. An `InvalidArgumentException` from `dispatch()` is the
- * processor's signal that the event_type is unknown — it parks the row
- * with `failed_at` set so a human can investigate without it cycling
- * through retries.
+ * The processor command (`outbox:dispatch`) treats an
+ * `InvalidArgumentException` from `dispatch()` as a developer error —
+ * unknown event_type OR a malformed payload — and parks the row
+ * immediately with `failed_at` set so it doesn't cycle through retries.
  */
 class OutboxDispatcher
 {
     /**
      * Dispatch the queued job for a single outbox row.
      *
-     * @throws InvalidArgumentException if the row's `event_type` has no mapping.
+     * @throws InvalidArgumentException if the row's `event_type` has no
+     *                                  mapping or a required payload key
+     *                                  is missing.
      */
     public function dispatch(DispatchOutbox $row): void
     {
         $payload = $row->payload ?? [];
 
         match ($row->event_type) {
-            ShowtimeService::EVENT_CANCELLED => NotifyCustomerOfShowtimeCancellation::dispatch(
-                (string) $payload['booking_id'],
-            ),
-            GiftCardService::EVENT_VOIDED => NotifyFinanceOfGiftCardVoid::dispatch(
-                (string) $payload['gift_card_id'],
-                (string) $payload['reason'],
-                (int) $payload['balance_voided'],
-                isset($payload['voided_by_admin_user_id']) ? (int) $payload['voided_by_admin_user_id'] : null,
-            ),
+            ShowtimeService::EVENT_CANCELLED => $this->dispatchShowtimeCancelled($row, $payload),
+            GiftCardService::EVENT_VOIDED => $this->dispatchGiftCardVoided($row, $payload),
             default => throw new InvalidArgumentException(
                 "Unknown outbox event_type: {$row->event_type}",
             ),
         };
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function dispatchShowtimeCancelled(DispatchOutbox $row, array $payload): void
+    {
+        NotifyCustomerOfShowtimeCancellation::dispatch(
+            (string) $this->requirePayloadValue($row, $payload, 'booking_id'),
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function dispatchGiftCardVoided(DispatchOutbox $row, array $payload): void
+    {
+        NotifyFinanceOfGiftCardVoid::dispatch(
+            (string) $this->requirePayloadValue($row, $payload, 'gift_card_id'),
+            (string) $this->requirePayloadValue($row, $payload, 'reason'),
+            (int) $this->requirePayloadValue($row, $payload, 'balance_voided'),
+            // Nullable: a customer-originated void wouldn't have an actor.
+            array_key_exists('voided_by_admin_user_id', $payload) && $payload['voided_by_admin_user_id'] !== null
+                ? (int) $payload['voided_by_admin_user_id']
+                : null,
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function requirePayloadValue(DispatchOutbox $row, array $payload, string $key): mixed
+    {
+        if (! array_key_exists($key, $payload)) {
+            throw new InvalidArgumentException(
+                "Malformed outbox payload for event_type {$row->event_type}: missing required key [{$key}]",
+            );
+        }
+
+        return $payload[$key];
     }
 }
