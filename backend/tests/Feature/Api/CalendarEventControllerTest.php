@@ -2,6 +2,7 @@
 
 use App\Models\CalendarEvent;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Storage;
 
 use function Pest\Laravel\getJson;
 
@@ -200,4 +201,32 @@ test('returns event detail by slug', function () {
 test('returns 404 for invalid slug', function () {
     getJson('/api/calendar/events/nonexistent-event')
         ->assertNotFound();
+});
+
+test('imageUrl is null when image_path is null', function () {
+    $event = CalendarEvent::factory()->specialEvent()->create([
+        'slug' => 'no-image-event',
+        'image_path' => null,
+    ]);
+
+    getJson('/api/calendar/events/no-image-event')
+        ->assertOk()
+        ->assertJsonPath('data.imageUrl', null);
+});
+
+test('imageUrl is derived from image_path via the public disk url', function () {
+    $event = CalendarEvent::factory()->specialEvent()->create([
+        'slug' => 'with-image-event',
+        'image_path' => 'calendar-events/sample.jpg',
+    ]);
+
+    $expectedUrl = Storage::disk('public')->url('calendar-events/sample.jpg');
+
+    getJson('/api/calendar/events/with-image-event')
+        ->assertOk()
+        ->assertJsonPath('data.imageUrl', $expectedUrl);
+
+    // The wire field name is `imageUrl`, not the underlying column
+    // (`image_path`) — the customer contract is what the Nuxt app reads.
+    expect($expectedUrl)->toContain('calendar-events/sample.jpg');
 });

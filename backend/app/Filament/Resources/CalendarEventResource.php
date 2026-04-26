@@ -27,6 +27,7 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 use UnitEnum;
 
@@ -85,11 +86,28 @@ class CalendarEventResource extends BaseResource
 
             Section::make('Schedule')
                 ->schema([
-                    DatePicker::make('date')->required(),
-                    TimePicker::make('start_time')->seconds(false),
+                    DatePicker::make('date')
+                        ->required()
+                        ->live(),
+                    // start_time / end_time are stored as full datetime columns
+                    // and serialised as `startTime` / `endTime` (ISO 8601) in
+                    // the customer API. The customer TS contract treats
+                    // `startTime` as non-null. We bind TimePickers (admin
+                    // ergonomics — the `date` field already captures the day)
+                    // and combine the picked time with `data.date` on save so
+                    // the column stores a real datetime, not just today plus
+                    // the picked HH:MM. The inverse (extracting HH:MM for the
+                    // form on edit) is handled by `formatStateUsing`.
+                    TimePicker::make('start_time')
+                        ->seconds(false)
+                        ->required()
+                        ->formatStateUsing(fn ($state) => $state ? Carbon::parse($state)->format('H:i') : null)
+                        ->dehydrateStateUsing(fn ($state, callable $get) => self::combineDateAndTime($get('date'), $state)),
                     TimePicker::make('end_time')
                         ->seconds(false)
-                        ->helperText('Leave blank for all-day events.'),
+                        ->helperText('Leave blank for all-day events.')
+                        ->formatStateUsing(fn ($state) => $state ? Carbon::parse($state)->format('H:i') : null)
+                        ->dehydrateStateUsing(fn ($state, callable $get) => self::combineDateAndTime($get('date'), $state)),
                 ])
                 ->columns(3),
 
@@ -167,7 +185,7 @@ class CalendarEventResource extends BaseResource
                         'open_caption' => 'Open Caption',
                         'audio_described' => 'Audio Described',
                     ])
-                    ->query(fn (Builder $q, array $data) => $data['value']
+                    ->query(fn (Builder $q, array $data) => ($data['value'] ?? null)
                         ? $q->whereJsonContains('accessibility_tags', $data['value'])
                         : $q),
                 TernaryFilter::make('loyalty_only')
@@ -191,6 +209,24 @@ class CalendarEventResource extends BaseResource
             'create' => Pages\CreateCalendarEvent::route('/create'),
             'edit' => Pages\EditCalendarEvent::route('/{record}/edit'),
         ];
+    }
+
+    /**
+     * Combine the picked `data.date` with a TimePicker's "HH:MM" output into
+     * a stored datetime string. Returns null when either component is blank
+     * (admin can leave end_time empty for all-day events; start_time is
+     * marked required so this only nulls when the form short-circuits before
+     * dehydration runs, e.g. on validation failure).
+     */
+    private static function combineDateAndTime(mixed $date, ?string $time): ?string
+    {
+        if (blank($time) || blank($date)) {
+            return null;
+        }
+
+        return Carbon::parse($date)
+            ->setTimeFromTimeString($time)
+            ->format('Y-m-d H:i:s');
     }
 
     /**
