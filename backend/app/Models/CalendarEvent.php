@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Model;
 
 #[Fillable([
     'type', 'title', 'date', 'start_time', 'end_time', 'description',
-    'movie_slug', 'image_url', 'slug', 'ticket_url', 'loyalty_only',
+    'movie_slug', 'image_path', 'slug', 'ticket_url', 'loyalty_only',
     'accessibility_tags',
 ])]
 class CalendarEvent extends Model

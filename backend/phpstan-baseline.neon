@@ -151,7 +151,7 @@ parameters:
 			path: app/Http/Resources/CalendarEventResource.php
 
 		-
-			message: '#^Access to an undefined property App\\Http\\Resources\\CalendarEventResource\:\:\$image_url\.$#'
+			message: '#^Access to an undefined property App\\Http\\Resources\\CalendarEventResource\:\:\$image_path\.$#'
 			identifier: property.notFound
 			count: 1
 			path: app/Http/Resources/CalendarEventResource.php
