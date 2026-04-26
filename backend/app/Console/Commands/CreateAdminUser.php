@@ -21,7 +21,7 @@ use Spatie\Permission\Models\Role;
 class CreateAdminUser extends Command
 {
     protected $signature = 'admin:create-user
-        {--name= : Full name. Used only when creating a new User; ignored when promoting an existing User or with --reset-password (unless --reassign-role also supplied with no existing AdminProfile).}
+        {--name= : Full name. Required when creating a new User; optional when promoting an existing User (overwrites the User name if supplied); ignored with --reset-password.}
         {--email= : Email address}
         {--password= : Password. Required when creating a new User; otherwise optional and applied to the existing User if supplied.}
         {--role= : Role (admin, manager, ops). Defaults to admin when omitted non-interactively; prompts otherwise. Ignored with --reset-password unless --reassign-role is also passed.}
