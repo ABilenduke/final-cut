@@ -2,12 +2,12 @@
 
 use App\Enums\BookingStatus;
 use App\Filament\Pages\CancellationFollowupQueue;
-use App\Models\User;
 use App\Models\Auditorium;
 use App\Models\Booking;
 use App\Models\Location;
 use App\Models\Movie;
 use App\Models\Showtime;
+use App\Models\User;
 use Livewire\Livewire;
 use Spatie\Activitylog\Models\Activity;
 

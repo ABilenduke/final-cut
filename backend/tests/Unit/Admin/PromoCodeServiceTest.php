@@ -2,8 +2,8 @@
 
 use App\Exceptions\PromoCodeInUseException;
 use App\Exceptions\PromoCodeNotConsumableException;
-use App\Models\User;
 use App\Models\PromoCode;
+use App\Models\User;
 use App\Services\PromoCodeService;
 use Spatie\Activitylog\Models\Activity;
 

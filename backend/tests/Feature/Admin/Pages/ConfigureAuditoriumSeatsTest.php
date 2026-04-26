@@ -2,9 +2,9 @@
 
 use App\Exceptions\AuditoriumSeatRegenerationBlockedException;
 use App\Filament\Resources\AuditoriumResource\Pages\ConfigureSeats;
-use App\Models\User;
 use App\Models\Auditorium;
 use App\Models\AuditoriumSection;
+use App\Models\User;
 use App\Services\AuditoriumService;
 use Filament\Notifications\Notification;
 use Livewire\Livewire;

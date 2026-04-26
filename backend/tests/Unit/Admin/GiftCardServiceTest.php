@@ -3,7 +3,6 @@
 use App\Enums\GiftCardLedgerType;
 use App\Enums\GiftCardStatus;
 use App\Exceptions\GiftCardNotVoidableException;
-use App\Models\User;
 use App\Models\Auditorium;
 use App\Models\AuditoriumSection;
 use App\Models\Booking;
@@ -13,6 +12,7 @@ use App\Models\GiftCardLedgerEntry;
 use App\Models\Location;
 use App\Models\Movie;
 use App\Models\Showtime;
+use App\Models\User;
 use App\Services\GiftCardService;
 use Spatie\Activitylog\Models\Activity;
 

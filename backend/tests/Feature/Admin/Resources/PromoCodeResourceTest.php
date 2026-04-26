@@ -3,8 +3,8 @@
 use App\Filament\Resources\PromoCodeResource\Pages\CreatePromoCode;
 use App\Filament\Resources\PromoCodeResource\Pages\EditPromoCode;
 use App\Filament\Resources\PromoCodeResource\Pages\ListPromoCodes;
-use App\Models\User;
 use App\Models\PromoCode;
+use App\Models\User;
 use App\Services\PromoCodeService;
 use Livewire\Livewire;
 

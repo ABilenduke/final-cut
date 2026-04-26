@@ -3,11 +3,11 @@
 use App\Filament\Resources\ShowtimeResource\Pages\BulkCreateShowtimes;
 use App\Filament\Resources\ShowtimeResource\Pages\ListShowtimes;
 use App\Http\Requests\BulkShowtimeRequest;
-use App\Models\User;
 use App\Models\Auditorium;
 use App\Models\Location;
 use App\Models\Movie;
 use App\Models\Showtime;
+use App\Models\User;
 use App\Services\ShowtimeService;
 use Illuminate\Support\Collection;
 use Livewire\Livewire;

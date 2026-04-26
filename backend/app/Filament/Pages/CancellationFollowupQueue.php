@@ -5,6 +5,7 @@ namespace App\Filament\Pages;
 use App\Enums\BookingStatus;
 use App\Filament\Concerns\FormatsCurrency;
 use App\Models\Booking;
+use App\Models\User;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Textarea;

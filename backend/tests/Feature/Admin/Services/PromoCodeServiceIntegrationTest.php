@@ -1,8 +1,8 @@
 <?php
 
 use App\Exceptions\PromoCodeInUseException;
-use App\Models\User;
 use App\Models\PromoCode;
+use App\Models\User;
 use App\Services\PromoCodeService;
 use Illuminate\Support\Facades\DB;
 use Spatie\Activitylog\Models\Activity;

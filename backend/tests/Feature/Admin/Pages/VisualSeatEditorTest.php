@@ -1,10 +1,10 @@
 <?php
 
 use App\Filament\Resources\AuditoriumResource\Pages\VisualEditor;
-use App\Models\User;
 use App\Models\Auditorium;
 use App\Models\AuditoriumSection;
 use App\Models\Seat;
+use App\Models\User;
 use App\Services\AuditoriumService;
 use Livewire\Livewire;
 

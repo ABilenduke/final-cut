@@ -1,11 +1,11 @@
 <?php
 
 use App\Http\Requests\BulkShowtimeRequest;
-use App\Models\User;
 use App\Models\Auditorium;
 use App\Models\Location;
 use App\Models\Movie;
 use App\Models\Showtime;
+use App\Models\User;
 use App\Services\ShowtimeService;
 use Carbon\Carbon;
 use Spatie\Activitylog\Models\Activity;

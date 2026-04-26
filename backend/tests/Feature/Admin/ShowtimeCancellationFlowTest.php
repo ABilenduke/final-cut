@@ -3,13 +3,13 @@
 use App\Exceptions\ShowtimeAlreadyCancelledException;
 use App\Jobs\NotifyCustomerOfShowtimeCancellation;
 use App\Mail\ShowtimeCancelledMail;
-use App\Models\User;
 use App\Models\Auditorium;
 use App\Models\Booking;
 use App\Models\DispatchOutbox;
 use App\Models\Location;
 use App\Models\Movie;
 use App\Models\Showtime;
+use App\Models\User;
 use App\Services\ShowtimeService;
 use Illuminate\Support\Facades\Mail;
 use Spatie\Activitylog\Models\Activity;

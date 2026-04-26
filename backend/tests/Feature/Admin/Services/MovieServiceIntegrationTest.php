@@ -2,10 +2,10 @@
 
 use App\Exceptions\MovieHasBookingsException;
 use App\Jobs\EnrichMovieJob;
-use App\Models\User;
 use App\Models\Booking;
 use App\Models\Movie;
 use App\Models\Showtime;
+use App\Models\User;
 use App\Services\MovieService;
 use Illuminate\Contracts\Bus\Dispatcher;
 use Illuminate\Support\Facades\Bus;

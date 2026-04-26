@@ -4,7 +4,6 @@ use App\Enums\BookingStatus;
 use App\Exceptions\AuditoriumHasBookingsException;
 use App\Exceptions\AuditoriumSectionInUseException;
 use App\Exceptions\LocationHasBookingsException;
-use App\Models\User;
 use App\Models\Auditorium;
 use App\Models\AuditoriumSection;
 use App\Models\Booking;
@@ -12,6 +11,7 @@ use App\Models\BookingSeat;
 use App\Models\Location;
 use App\Models\Seat;
 use App\Models\Showtime;
+use App\Models\User;
 use App\Services\AuditoriumService;
 use Spatie\Activitylog\Models\Activity;
 
