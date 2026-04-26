@@ -610,9 +610,9 @@ Plan doc drifts from the real codebase on five points — implementation resolve
 ---
 
 ## Step 9: Calendar Events, Testing & Hardening
-**Status:** 🟡 In Progress
+**Status:** ✅ Complete (pending PR-A/B/C merges to feature branch and merge to main)
 **Started:** 2026-04-25
-**Completed:** —
+**Completed:** 2026-04-26
 
 ### Approach
 
@@ -691,3 +691,33 @@ Sequenced as three sub-PRs onto `feat/admin-09-calendar-events-testing-deploy`:
 - `backend/tests/Feature/Admin/AdminIpAllowlistTest.php` — new (10 cases)
 - `backend/tests/Feature/Admin/AdminLoginAuthEventsLoggingTest.php` — new (2 cases)
 - `backend/tests/Feature/Outbox/ProcessDispatchOutboxTest.php` — new (12 cases)
+
+**PR-C — Production env + CI + docs + runbook**
+- [2026-04-26] **Production compose:** `docker-compose.prod.yml` extended. The `nginx` service command now duplicates the base entrypoint's `ADMIN_ALLOWLIST_BLOCK` rendering logic so the prod override doesn't lose it; `APP_ENV` and `ADMIN_IP_ALLOWLIST` added to nginx env. Certbot SAN comment updated to include `${APP_DOMAIN}`, `www.${APP_DOMAIN}`, and `admin.${APP_DOMAIN}` in a single cert. `backend` service in prod gets `APP_PRIMARY_DOMAIN`, `ADMIN_DOMAIN`, `ADMIN_SESSION_*`, `ADMIN_IP_ALLOWLIST*`, `FINANCE_NOTIFICATION_EMAIL`, `LOYALTY_LARGE_ADJUSTMENT_THRESHOLD`, and session hardening (`SESSION_ENCRYPT=true`, `SESSION_SECURE_COOKIE=true`). `backend-worker` and `backend-scheduler` use the production target and now duplicate the same admin/operational env vars (Compose does NOT inherit `environment` from another service — without this, outbox-driven jobs would resolve `FINANCE_NOTIFICATION_EMAIL` from config defaults and silently mail the wrong recipient in prod).
+- [2026-04-26] **`backend/.env.production.example`** (new) — production-specific deployment vars (admin hardening, prod-only integrations) layered on top of the stock keys already in `backend/.env.example`. Includes the deploy chicken-and-egg note for the IP allowlist (preferred + emergency-bootstrap sequences). `backend/.gitignore` updated to exempt this file from the broad `.env.*` rule.
+- [2026-04-26] **CI:** `.github/workflows/backend-tests.yml` extended with two steps: (1) install `fail2ban-regex` via apt, (2) regenerate the admin-login sample by triggering the `Failed::class` listener via tinker, tail the resulting log line, and run `fail2ban-regex` against the committed filter. Monolog version drift now fails CI rather than silently breaking IP banning.
+- [2026-04-26] **Docs:** root `CLAUDE.md` "Admin Panel" section extended with a Plan 09 sub-bullet covering `CalendarEventResource`, the two-layer IP allowlist, login rate limit, Fail2ban jail, dispatch outbox, and prod env. `docs/README.md` Plans + Progress + new Runbooks sections updated to link admin v1 + the new runbook. `docs/architecture/SITE_ARCHITECTURE.md` Backend section gained `app/Filament/Resources/`, `app/Filament/Pages/`, `app/Outbox/`, `app/Console/Commands/`, and `tests/Feature/Admin/` directories; new "Admin Subdomain" subsection documents the three-layer isolation; route map adds `admin.${APP_DOMAIN}/**`.
+- [2026-04-26] **Runbook:** `docs/runbooks/admin-operations.md` (new) — 10 procedures (create user, unban IP, view activity log, gift card void retry, cancellation follow-up, loyalty adjust, TMDB enrichment, password rotate, disable account, emergency shutdown) plus a deploy chicken-and-egg section with both bootstrap sequences and v1 scope reminders. Activity-log URL is `/activity` (the Filament page slug); the gift-card-void diagnostic tinker query filters on `created_at` so pending and parked rows are visible (filtering on `processed_at` would have hidden exactly the rows ops needs to see).
+
+### Files Changed (PR-C)
+- `docker-compose.prod.yml` — admin env vars on `backend`, `backend-worker`, `backend-scheduler`; nginx `ADMIN_ALLOWLIST_BLOCK` rendering; certbot SAN comment; corrected Layer-1 vs Layer-2 emergency-open comment
+- `backend/.env.production.example` — new
+- `backend/.gitignore` — exempt `.env.production.example`
+- `.github/workflows/backend-tests.yml` — install `fail2ban-regex` + regenerate-and-verify sample step
+- `CLAUDE.md` — extend "Admin Panel" section with Plan 09 surfaces + hardening + outbox + prod env
+- `docs/README.md` — link admin v1 spec, progress, runbook
+- `docs/architecture/SITE_ARCHITECTURE.md` — admin subdomain isolation + route map row + extended backend directory list
+- `docs/runbooks/admin-operations.md` — new
+- `docs/progress/admin-v1.md` — finalise Step 9
+
+### Verification (PR-C)
+
+End-to-end checks performed before opening PR-C:
+- `make admin-test` green (340 admin tests)
+- `make test-backend` green (847 / 2948 after PR-A + PR-B + PR-C land)
+- `./vendor/bin/pint` clean on changed files
+- `./vendor/bin/phpstan analyse --memory-limit=1G` no errors
+- `docker compose -f docker-compose.yml -f docker-compose.prod.yml config --quiet` validates prod compose YAML
+- Manual smoke against dev: admin panel reachable, `/login` rate-limited (5x 429 after burst), failed login emits JSON line, `fail2ban-regex` matches both live log + committed sample, `php artisan schedule:list` shows `outbox:dispatch` (every minute), `outbox:prune` (daily), `activitylog:clean` (daily), `movies:enrich` (hourly)
+
+This commit closes Step 9 — the parent feature branch merges to `main` after PR-C lands.
