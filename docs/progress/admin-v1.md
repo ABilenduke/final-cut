@@ -610,4 +610,41 @@ Plan doc drifts from the real codebase on five points — implementation resolve
 ---
 
 ## Step 9: Calendar Events, Testing & Hardening
-**Status:** 🔲 Not Started
+**Status:** 🟡 In Progress
+**Started:** 2026-04-25
+**Completed:** —
+
+### Approach
+
+Sequenced as three sub-PRs onto `feat/admin-09-calendar-events-testing-deploy`:
+- **PR-A — Calendar resource (Tasks 1–2 partial):** `CalendarEventResource` + Pages + tests + image-column rename + customer API URL derivation.
+- **PR-B — Hardening + outbox (Tasks 3–6):** `AdminIpAllowlist` middleware + nginx allowlist envsubst block + admin login rate-limit zone + Fail2ban jail/filter + dedicated `admin_auth_events` Monolog channel + `OutboxDispatcher` + commands + `backend-worker`/`backend-scheduler` compose services.
+- **PR-C — Prod + CI + docs + runbook (Tasks 7–10):** `docker-compose.prod.yml` admin env vars, `backend/.env.production.example`, certbot SAN comment, CI Fail2ban-regex regeneration step, root `CLAUDE.md` extension, `docs/README.md`, `SITE_ARCHITECTURE.md`, `docs/runbooks/admin-operations.md`, journal finalisation.
+
+### Decisions
+- [2026-04-25] Renamed `calendar_events.image_url` → `image_path` in place (pre-launch convention) so the admin form can use Filament's `FileUpload` against `disk('public')` and the customer API derives the URL via `Storage::disk('public')->url($this->image_path)`. Customer wire contract preserved as `imageUrl`. Rationale: spec § Task 1 calls for `FileUpload`, which writes a path; preserving an `image_url` URL string would have meant the admin uploaded files but the customer never saw them.
+- [2026-04-25] Hid `CalendarEventType::Showtime` from the create/edit Select. Showtime-type calendar entries are produced by the showtimes domain (Plan 06) and would diverge from the showtimes table if hand-authored. The table column and filters still surface all four cases so legacy/imported showtime rows remain inspectable.
+- [2026-04-25] Navigation: `Content` group, sort 10, icon `heroicon-o-calendar-days`. Permission prefix `events`. Permissions already seeded by `AdminRolesAndPermissionsSeeder` (admin + manager have full CRUD, ops excluded).
+
+### Work Done
+
+**PR-A — Calendar resource**
+- [2026-04-25] Renamed `calendar_events.image_url` → `image_path` across migration, model `$fillable`, factory, and customer API resource. Customer API resource now imports `Illuminate\Support\Facades\Storage` and serialises `imageUrl` as `Storage::disk('public')->url($this->image_path)` (null-safe).
+- [2026-04-25] Built `App\Filament\Resources\CalendarEventResource` mirroring `MenuItemResource` patterns: `BaseResource` extension, `$permissionPrefix = 'events'`, navigation group `Content`. Form has four sections (Identity, Schedule, Content, Accessibility); schedule uses `DatePicker` + two `TimePicker`s; image upload via `FileUpload::make('image_path')->image()->disk('public')->visibility('public')->imageEditor()`; accessibility tags via `CheckboxList`; loyalty-only toggle is conditionally visible only when `type === loyalty_exclusive`. Title is live (onBlur) and writes a `Str::slug()` value into the slug field.
+- [2026-04-25] Table renders an `ImageColumn` against `image_path` on the public disk, badge-coloured `type` column, sortable date, time, and members-only icon column. Filters: type, accessibility tag (JSON contains), members-only ternary, upcoming toggle.
+- [2026-04-25] Three Pages: `ListCalendarEvents`, `CreateCalendarEvent`, `EditCalendarEvent`.
+- [2026-04-25] Added `CalendarEventResourceTest` (10 cases: list, create, slug auto-derive, conditional toggle visibility, showtime hidden from Select, edit, delete, accessibility array persistence, loyalty toggle persistence, slug uniqueness) and `CalendarEventResourcePermissionTest` (4 cases: ops/manager/admin/nobody).
+- [2026-04-25] `make admin-test` green (340 admin tests, includes 14 new cases). `make test-backend` green (818 tests / 2844 assertions). Pint clean on all changed files.
+
+### Files Changed (PR-A)
+- `backend/database/migrations/2026_04_04_200005_create_calendar_events_table.php` — column rename
+- `backend/app/Models/CalendarEvent.php` — `$fillable` rename
+- `backend/database/factories/CalendarEventFactory.php` — column rename
+- `backend/app/Http/Resources/CalendarEventResource.php` — derive `imageUrl` from `image_path` via `Storage::disk('public')->url()`
+- `backend/app/Filament/Resources/CalendarEventResource.php` — new
+- `backend/app/Filament/Resources/CalendarEventResource/Pages/ListCalendarEvents.php` — new
+- `backend/app/Filament/Resources/CalendarEventResource/Pages/CreateCalendarEvent.php` — new
+- `backend/app/Filament/Resources/CalendarEventResource/Pages/EditCalendarEvent.php` — new
+- `backend/tests/Feature/Admin/Resources/CalendarEventResourceTest.php` — new
+- `backend/tests/Feature/Admin/Resources/CalendarEventResourcePermissionTest.php` — new
+
