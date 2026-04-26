@@ -2,11 +2,14 @@
 
 namespace App\Providers;
 
+use App\Auth\AdminUserProvider;
 use App\Models\User;
 use Illuminate\Auth\Events\Failed;
 use Illuminate\Auth\Events\Login;
 use Illuminate\Auth\Events\Logout;
 use Illuminate\Auth\Notifications\ResetPassword;
+use Illuminate\Contracts\Foundation\Application;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\ServiceProvider;
@@ -26,6 +29,15 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Custom user provider for the `admin` guard. Returns null for users
+        // without an active AdminProfile, so a customer presenting valid
+        // credentials at the admin login page fails the credential check
+        // before any Login event fires — the listener below cannot promote
+        // an unprivileged User into an admin row.
+        Auth::provider('admin_eloquent', function (Application $app, array $config): AdminUserProvider {
+            return new AdminUserProvider($app['hash'], $config['model']);
+        });
+
         ResetPassword::createUrlUsing(function (object $notifiable, string $token) {
             $frontendUrl = config('app.frontend_url');
 
@@ -43,12 +55,15 @@ class AppServiceProvider extends ServiceProvider
 
             activity('auth')->causedBy($event->user)->log('login');
 
-            // updateOrCreate is resilient to a panel-accessible User that is
-            // somehow missing its profile row mid-session.
-            $event->user->adminProfile()->updateOrCreate([], [
-                'last_login_at' => now(),
-                'last_login_ip' => request()->ip(),
-            ]);
+            // Defense in depth: only touch an existing, active profile.
+            // The admin user provider already rejects users without one, but
+            // never let this listener be the thing that creates entitlement.
+            $event->user->adminProfile()
+                ->whereNull('disabled_at')
+                ->update([
+                    'last_login_at' => now(),
+                    'last_login_ip' => request()->ip(),
+                ]);
         });
 
         Event::listen(Logout::class, function (Logout $event): void {

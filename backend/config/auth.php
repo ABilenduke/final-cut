@@ -74,9 +74,13 @@ return [
 
         // The `admin` guard authenticates the same User identity as `web`,
         // but its ScopeAdminSession middleware isolates session cookies and
-        // Redis DB. User::canAccessPanel() requires an AdminProfile row.
+        // Redis DB. The `admin_eloquent` driver (registered in
+        // AppServiceProvider) rejects credential lookups for users without an
+        // active AdminProfile, so a customer's valid credentials cannot pass
+        // Auth::guard('admin')->attempt(). User::canAccessPanel() is the
+        // matching per-request check on already-authenticated sessions.
         'admin_users' => [
-            'driver' => 'eloquent',
+            'driver' => 'admin_eloquent',
             'model' => User::class,
         ],
 
