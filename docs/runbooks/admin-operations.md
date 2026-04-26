@@ -56,7 +56,7 @@ Audit trail lives in the `activity_log` table and is rendered by the
 admin panel's Activity Log page (visible to roles that hold
 `activity.view`).
 
-- URL: `https://admin.finalcut.com/activities`
+- URL: `https://admin.finalcut.com/activity`
 - Retention: 14 days (configured in `config/activitylog.php`,
   enforced by the `activitylog:clean` daily schedule)
 
@@ -70,11 +70,14 @@ Gift card voids are irreversible operations. The void writes a
 `NotifyFinanceOfGiftCardVoid` which mails `FINANCE_NOTIFICATION_EMAIL`.
 
 There is no automated tooling in v1 to re-deliver to a different
-recipient. If finance reports a missed notification, check the row:
+recipient. If finance reports a missed notification, look at recent
+gift_card.voided rows — `processed_at` IS NULL on pending or parked
+(`failed_at`-set) rows, so filter on `created_at` rather than
+`processed_at` so neither category is missed:
 
 ```bash
 docker compose exec -u 1000 backend \
-  php artisan tinker --execute "App\Models\DispatchOutbox::where('event_type','gift_card.voided')->where('processed_at','>',now()->subDays(2))->get(['id','attempts','last_error','failed_at'])"
+  php artisan tinker --execute "App\Models\DispatchOutbox::where('event_type','gift_card.voided')->where('created_at','>',now()->subDays(2))->get(['id','attempts','processed_at','last_error','failed_at'])"
 ```
 
 A row with `failed_at IS NOT NULL` means the worker gave up after

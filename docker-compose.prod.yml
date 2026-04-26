@@ -16,8 +16,10 @@ services:
     #
     # The base nginx entrypoint already renders ${ADMIN_ALLOWLIST_BLOCK} from
     # ADMIN_IP_ALLOWLIST + APP_ENV before envsubst runs, so the production
-    # vhost gets a real `allow … ; deny all;` block (or `deny all;` if the
-    # list is empty and the emergency-open flag isn't set — fail closed).
+    # vhost gets a real `allow … ; deny all;` block (or `deny all;` when the
+    # list is empty outside `local` — Layer 1 always fails closed). The
+    # `ADMIN_IP_ALLOWLIST_EMERGENCY_OPEN` flag is a Layer-2 (middleware)
+    # concept only and never affects this nginx rendering.
     command:
       - /bin/sh
       - -c
@@ -131,15 +133,25 @@ services:
       - SESSION_ENCRYPT=true
       - SESSION_SECURE_COOKIE=true
 
-  # Worker + scheduler use the production image target; they inherit the
-  # base service environment plus the admin-specific vars from `backend`
-  # via the same `${...}` defaults.
+  # Worker + scheduler use the production image target. Compose does NOT
+  # automatically inherit `environment` from another service definition,
+  # so we duplicate the admin/operational vars here. Without this,
+  # outbox-driven jobs (e.g. NotifyFinanceOfGiftCardVoid mailing
+  # FINANCE_NOTIFICATION_EMAIL) would fall back to the dev defaults
+  # baked into config/finance.php and config/loyalty.php and silently
+  # email the wrong recipient in production.
   backend-worker:
     build:
       target: production
     environment:
       - APP_ENV=production
       - APP_DEBUG=false
+      - APP_PRIMARY_DOMAIN=${APP_PRIMARY_DOMAIN:-${APP_DOMAIN}}
+      - ADMIN_DOMAIN=${ADMIN_DOMAIN:-admin.${APP_DOMAIN}}
+      - ADMIN_IP_ALLOWLIST=${ADMIN_IP_ALLOWLIST:-}
+      - ADMIN_IP_ALLOWLIST_EMERGENCY_OPEN=${ADMIN_IP_ALLOWLIST_EMERGENCY_OPEN:-false}
+      - FINANCE_NOTIFICATION_EMAIL=${FINANCE_NOTIFICATION_EMAIL:-finance@${APP_DOMAIN}}
+      - LOYALTY_LARGE_ADJUSTMENT_THRESHOLD=${LOYALTY_LARGE_ADJUSTMENT_THRESHOLD:-1000}
 
   backend-scheduler:
     build:
@@ -147,6 +159,12 @@ services:
     environment:
       - APP_ENV=production
       - APP_DEBUG=false
+      - APP_PRIMARY_DOMAIN=${APP_PRIMARY_DOMAIN:-${APP_DOMAIN}}
+      - ADMIN_DOMAIN=${ADMIN_DOMAIN:-admin.${APP_DOMAIN}}
+      - ADMIN_IP_ALLOWLIST=${ADMIN_IP_ALLOWLIST:-}
+      - ADMIN_IP_ALLOWLIST_EMERGENCY_OPEN=${ADMIN_IP_ALLOWLIST_EMERGENCY_OPEN:-false}
+      - FINANCE_NOTIFICATION_EMAIL=${FINANCE_NOTIFICATION_EMAIL:-finance@${APP_DOMAIN}}
+      - LOYALTY_LARGE_ADJUSTMENT_THRESHOLD=${LOYALTY_LARGE_ADJUSTMENT_THRESHOLD:-1000}
 
 volumes:
   letsencrypt:
