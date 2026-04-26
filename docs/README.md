@@ -35,7 +35,8 @@ Implementation plans organized by stack and version.
 - [Backend v1 Index](plans/backend/v1/00-index.md) — Plans 01-08 (all complete, 410 tests)
 - [Backend Features](plans/backend/features/) — Standalone post-v1 feature plans
 - [Frontend v1 Index](plans/frontend/v1/00-index.md) — Plans 01-13 (not yet started)
-- [Admin v1 Index](plans/admin/v1/00-index.md) — Planning only (deferred to v2)
+- [Admin v1 Index](plans/admin/v1/00-index.md) — Plans 01-09 (Filament admin panel)
+- [Admin v1 Spec](superpowers/specs/2026-04-20-admin-section-design.md) — Source-of-truth design spec for the admin panel
 
 ## Progress
 
@@ -43,3 +44,10 @@ Execution journals tracking decisions, blockers, and file changes.
 
 - [Backend v1 Progress](progress/backend-v1.md) — Plans 01-08 execution log
 - [Frontend v1 Progress](progress/frontend-v1.md) — Plans 01-13 execution log (not yet started)
+- [Admin v1 Progress](progress/admin-v1.md) — Plans 01-09 execution log
+
+## Runbooks
+
+Production operational procedures.
+
+- [Admin Operations](runbooks/admin-operations.md) — Common admin-panel ops (create users, unban IPs, rotate passwords, emergency shutdown)
