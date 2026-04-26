@@ -171,7 +171,7 @@ ARG DEV_UID=1000
 ARG DEV_GID=1000
 RUN addgroup -g ${DEV_GID} devuser \
     && adduser -u ${DEV_UID} -G devuser -D -h /home/devuser devuser \
-    && chown -R devuser:devuser storage bootstrap/cache vendor
+    && chown -R devuser:devuser storage bootstrap/cache vendor public
 
 # Configure PHP-FPM pool to run workers as devuser instead of www-data.
 # The FPM master process still starts as root (required for FPM), but

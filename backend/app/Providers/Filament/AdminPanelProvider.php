@@ -2,6 +2,7 @@
 
 namespace App\Providers\Filament;
 
+use App\Http\Middleware\AdminIpAllowlist;
 use App\Http\Middleware\ScopeAdminSession;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
@@ -46,6 +47,11 @@ class AdminPanelProvider extends PanelProvider
                 FilamentInfoWidget::class,
             ])
             ->middleware([
+                // AdminIpAllowlist must run before ScopeAdminSession so an
+                // IP-rejected request never hits session machinery, Redis,
+                // or the auth password broker. See backend/config/admin.php
+                // for the fail-closed contract.
+                AdminIpAllowlist::class,
                 ScopeAdminSession::class,
                 EncryptCookies::class,
                 AddQueuedCookiesToResponse::class,

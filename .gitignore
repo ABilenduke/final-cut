@@ -17,6 +17,11 @@ Thumbs.db
 logs
 *.log
 
+# Committed Fail2ban sample logs are dev-convenience snapshots used to
+# locally run `fail2ban-regex`. CI regenerates the authoritative sample on
+# every run; the committed file is the offline fallback.
+!fail2ban/filter.d/*.sample.log
+
 # Node (safety net)
 node_modules
 

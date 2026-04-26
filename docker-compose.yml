@@ -26,6 +26,29 @@ services:
           echo "Run 'make certs' to regenerate and stamp the current domain."
           echo ""
         fi
+        # Render the Layer-1 admin IP allowlist block from ADMIN_IP_ALLOWLIST.
+        # Contract:
+        #   - APP_ENV=local                       → empty (allow all in dev)
+        #   - APP_ENV=anything, list non-empty    → "allow CIDR; ... deny all;"
+        #   - APP_ENV=anything, list empty        → "deny all;" (fail closed)
+        # The Laravel AdminIpAllowlist middleware enforces the same posture
+        # at Layer 2 so a misrendered template here never silently exposes
+        # the admin panel.
+        if [ "$$APP_ENV" = "local" ]; then
+          ADMIN_ALLOWLIST_BLOCK=""
+        elif [ -z "$$ADMIN_IP_ALLOWLIST" ]; then
+          ADMIN_ALLOWLIST_BLOCK="deny all;"
+        else
+          ADMIN_ALLOWLIST_BLOCK=""
+          IFS=','
+          for cidr in $$ADMIN_IP_ALLOWLIST; do
+            cidr=$$(echo "$$cidr" | tr -d '[:space:]')
+            [ -n "$$cidr" ] && ADMIN_ALLOWLIST_BLOCK="$$ADMIN_ALLOWLIST_BLOCK allow $$cidr;"
+          done
+          unset IFS
+          ADMIN_ALLOWLIST_BLOCK="$$ADMIN_ALLOWLIST_BLOCK deny all;"
+        fi
+        export ADMIN_ALLOWLIST_BLOCK
         /docker-entrypoint.sh nginx -g 'daemon off;'
     ports:
       - "80:80"
@@ -42,6 +65,8 @@ services:
       - nginx-deny:/etc/nginx/banned
     environment:
       - APP_DOMAIN=${APP_DOMAIN:-finalcut.test}
+      - APP_ENV=${APP_ENV:-local}
+      - ADMIN_IP_ALLOWLIST=${ADMIN_IP_ALLOWLIST:-}
       - SSL_CERTIFICATE=${SSL_CERTIFICATE:-/etc/nginx/certs/server.pem}
       - SSL_CERTIFICATE_KEY=${SSL_CERTIFICATE_KEY:-/etc/nginx/certs/server.key}
       - NGINX_ENVSUBST_OUTPUT_DIR=/etc/nginx
@@ -87,6 +112,12 @@ services:
     container_name: fail2ban
     volumes:
       - nginx-logs:/var/log/nginx:ro
+      # Read-only mount of the backend's storage/logs directory so the
+      # admin-login jail can tail the dedicated `admin-auth-events.log`
+      # written by the `admin_auth_events` Monolog channel. The jail file
+      # references the path /var/log/admin/admin-auth-events.log inside
+      # this container.
+      - ./backend/storage/logs:/var/log/admin:ro
       - nginx-deny:/etc/fail2ban/nginx-deny
       - ./fail2ban/jail.d:/etc/fail2ban/jail.d:ro
       - ./fail2ban/filter.d:/etc/fail2ban/filter.d:ro
@@ -151,6 +182,79 @@ services:
       timeout: 5s
       retries: 3
       start_period: 30s
+    restart: unless-stopped
+
+  # ── Queue worker ──────────────────────────────
+  # Drains Redis queues for both customer-originated and admin-originated
+  # jobs (mail, TMDB enrichment, NotifyCustomerOfShowtimeCancellation, etc.).
+  # In v1 there is one default queue; v2 may split into named queues
+  # (admin/customer/enrichment) so each worker pool can be scaled
+  # independently. This service reuses the backend image — no separate
+  # build context, no admin-specific Dockerfile.
+  backend-worker:
+    build:
+      context: ./backend
+    container_name: backend-worker
+    command: ["php", "artisan", "queue:work", "--tries=3", "--timeout=60"]
+    volumes:
+      - ./redis/certs/ca.pem:/tls/redis/ca.pem:ro
+      - ./postgres/certs/ca.pem:/tls/postgres/ca.pem:ro
+    environment:
+      - APP_ENV=${APP_ENV:-production}
+      - APP_DEBUG=${APP_DEBUG:-false}
+      - DB_CONNECTION=${DB_CONNECTION:-pgsql}
+      - DB_HOST=${DB_HOST:-postgres}
+      - DB_PORT=${DB_PORT:-5432}
+      - DB_DATABASE=${DB_DATABASE:-final_cut}
+      - DB_USERNAME=${DB_USERNAME:-final_cut}
+      - DB_PASSWORD=${DB_PASSWORD:-secret}
+      - DB_SSLMODE=${DB_SSLMODE:-verify-full}
+      - DB_SSLROOTCERT=${DB_SSLROOTCERT:-/tls/postgres/ca.pem}
+      - REDIS_HOST=${REDIS_HOST:-redis}
+      - REDIS_PORT=${REDIS_PORT:-6379}
+      - REDIS_USERNAME=${REDIS_USERNAME:-app}
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-redissecret}
+      - REDIS_SCHEME=${REDIS_SCHEME:-tls}
+      - REDIS_TLS_CA_CERT=/tls/redis/ca.pem
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ── Scheduler ────────────────────────────────
+  # Runs `php artisan schedule:work` so cron-style entries from
+  # routes/console.php fire on time without an external cron container.
+  # Currently registered: movies:enrich (hourly), activitylog:clean
+  # (daily), outbox:dispatch (every minute, withoutOverlapping), and
+  # outbox:prune (daily). Reuses the backend image.
+  backend-scheduler:
+    build:
+      context: ./backend
+    container_name: backend-scheduler
+    command: ["php", "artisan", "schedule:work"]
+    volumes:
+      - ./redis/certs/ca.pem:/tls/redis/ca.pem:ro
+      - ./postgres/certs/ca.pem:/tls/postgres/ca.pem:ro
+    environment:
+      - APP_ENV=${APP_ENV:-production}
+      - APP_DEBUG=${APP_DEBUG:-false}
+      - DB_CONNECTION=${DB_CONNECTION:-pgsql}
+      - DB_HOST=${DB_HOST:-postgres}
+      - DB_PORT=${DB_PORT:-5432}
+      - DB_DATABASE=${DB_DATABASE:-final_cut}
+      - DB_USERNAME=${DB_USERNAME:-final_cut}
+      - DB_PASSWORD=${DB_PASSWORD:-secret}
+      - DB_SSLMODE=${DB_SSLMODE:-verify-full}
+      - DB_SSLROOTCERT=${DB_SSLROOTCERT:-/tls/postgres/ca.pem}
+      - REDIS_HOST=${REDIS_HOST:-redis}
+      - REDIS_PORT=${REDIS_PORT:-6379}
+      - REDIS_USERNAME=${REDIS_USERNAME:-app}
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-redissecret}
+      - REDIS_SCHEME=${REDIS_SCHEME:-tls}
+      - REDIS_TLS_CA_CERT=/tls/redis/ca.pem
+    depends_on:
+      backend:
+        condition: service_healthy
     restart: unless-stopped
 
 volumes:
