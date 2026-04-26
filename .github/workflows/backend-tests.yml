@@ -85,3 +85,44 @@ jobs:
           DB_PASSWORD: secret
           DB_SSLMODE: disable
         run: php artisan test --compact
+
+      # Plan 09 contract: the Fail2ban admin-login filter regex and the
+      # Monolog JsonFormatter shape emitted by the `admin_auth_events`
+      # channel form a tightly-coupled pair. CI regenerates the sample on
+      # every run from a real failed-login event and runs `fail2ban-regex`
+      # against the freshly-written line — Monolog version drift fails CI
+      # rather than silently breaking IP banning in production.
+      #
+      # All inputs to the run blocks below are static repository contents
+      # (workflow file, fixture event_type) — no GitHub event payload.
+      - name: Install fail2ban-regex
+        run: sudo apt-get update && sudo apt-get install -y fail2ban
+      - name: Regenerate and verify Fail2ban admin-login sample
+        env:
+          DB_CONNECTION: pgsql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 5432
+          DB_DATABASE: final_cut_test
+          DB_USERNAME: final_cut
+          DB_PASSWORD: secret
+          DB_SSLMODE: disable
+        run: |
+          set -euo pipefail
+
+          rm -f storage/logs/admin-auth-events.log
+
+          # Trigger the Failed::class listener with the admin guard so it
+          # writes one JSON line to the dedicated channel. The credentials
+          # below are a fixed static fixture, never user input.
+          php artisan tinker --execute "event(new Illuminate\\Auth\\Events\\Failed('admin', null, ['email' => 'ci@example.com', 'password' => 'wrong']));"
+
+          if [ ! -s storage/logs/admin-auth-events.log ]; then
+            echo "::error::admin-auth-events.log was not written — has the listener in AppServiceProvider drifted?"
+            exit 1
+          fi
+
+          tail -n 1 storage/logs/admin-auth-events.log > /tmp/admin-login.sample.log
+          echo "--- regenerated sample ---"
+          cat /tmp/admin-login.sample.log
+
+          fail2ban-regex /tmp/admin-login.sample.log ../fail2ban/filter.d/admin-login.conf
