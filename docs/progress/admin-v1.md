@@ -532,7 +532,80 @@ Plan doc drifts from the real codebase on five points — implementation resolve
 ---
 
 ## Step 8: Menu, Promo Codes & Gift Cards
-**Status:** 🔲 Not Started
+**Status:** ✅ Complete
+**Started:** 2026-04-24
+**Completed:** 2026-04-25
+
+### Work Done
+- [2026-04-24] Added `Voided` case to `GiftCardStatus`; new `GiftCardLedgerType` enum.
+- [2026-04-24] New domain exceptions: `GiftCardNotVoidableException` (with structured `reason` property), `PromoCodeInUseException`.
+- [2026-04-24] Migrations: `add_voided_columns_to_gift_cards_table` (additive — see Decisions), `create_promo_codes_table`, `create_gift_card_ledger_entries_table`.
+- [2026-04-24] Models: `PromoCode` (new), `GiftCardLedgerEntry` (new); `GiftCard::ledgerEntries()` + `voided_at` cast added.
+- [2026-04-24] Factories: `PromoCodeFactory` (new) with `percentage`/`fixed`/`expired`/`inactive`/`withUsage` states; `GiftCardLedgerEntryFactory` (new); `GiftCardFactory` extended with `active`/`voided`/`expired` states.
+- [2026-04-24] `App\Services\PromoCodeService` (new) — create/update/deactivate/delete/validateCode/calculateDiscount/consume. Uses `LogsAdminActivity`. `delete()` and `consume()` both take `lockForUpdate` and re-validate inside the transaction. `consume()` is the locked validate-and-increment used during booking finalisation; it throws `PromoCodeNotConsumableException` (with structured reason) when the code is no longer redeemable.
+- [2026-04-24] `App\Services\GiftCardService` (new) — purchase/redeemAgainstBooking/findByCode/getBalance/void. Every write writes a ledger entry in the same transaction. `void()` uses `lockForUpdate`, writes a `dispatch_outbox` row of type `gift_card.voided` (drained by Plan 09's worker → `NotifyFinanceOfGiftCardVoid`), and throws `GiftCardNotVoidableException` for non-active cards.
+- [2026-04-24] Retrofit `BookingController` — injected `PromoCodeService` + `GiftCardService`; replaced `config('promo_codes.X')` lookup with DB-backed `validateCode`; promo discount math moved into `PromoCodeService::calculateDiscount` (controller calls it through the service, no longer keeps a local helper); `finalizeBooking` calls `redeemAgainstBooking` + `consume`. Both `store()` and `confirm()` wrap the booking transaction in an outer try/catch so a `PromoCodeNotConsumableException` propagates out, rolls back booking + ledger, and the outer handler issues the compensating refund + 409. 3DS pending cache stores `promo_code_id`.
+- [2026-04-24] Retrofit `GiftCardController` — `createGiftCard()` now calls `GiftCardService::purchase` for the row + ledger write. Stripe/idempotency-cache flow unchanged.
+- [2026-04-24] Removed `backend/config/promo_codes.php` (no remaining callers).
+- [2026-04-24] `GiftCardVoidedMail` (queued mailable) + `mail.gift-card-voided` template; `config/finance.php` with `notification_email`; `.env.example` updated. The mail is NOT dispatched directly from `GiftCardService::void` — the service writes a `dispatch_outbox` row inside the void transaction, and Plan 09's worker drains it via `NotifyFinanceOfGiftCardVoid`. Until the worker ships, rows accumulate safely and can be replayed.
+- [2026-04-24] `App\Jobs\NotifyFinanceOfGiftCardVoid` (new) — outbox-target job that loads the gift card + admin actor and dispatches `GiftCardVoidedMail`.
+- [2026-04-24] `App\Exceptions\PromoCodeNotConsumableException` (new) — structured `reason` (`not_found` / `inactive` / `expired` / `limit_reached`); thrown by `consume()` after the locked re-read fails revalidation.
+- [2026-04-24] `MenuItemResource` (new, Catalog nav, direct Eloquent persistence — no service); `PromoCodeResource` (new, Catalog nav, service-routed via Create/Edit page handlers + `->using()` on DeleteAction); `GiftCardResource` (new, Operations nav, read-focused; canCreate/canEdit/canDelete = false; void action + BalanceHistoryRelationManager).
+- [2026-04-24] `AdminRolesAndPermissionsSeeder`: added `gift_cards.void` to manager, `menu.view` + `promos.view` to ops.
+- [2026-04-25] Tests: customer-path retrofit (BookingControllerTest, GiftCardControllerTest — additive ledger/uses_count assertions, no response-shape changes); new `PromoCodeValidationTest`; `PromoCodeServiceTest` (14 unit); `GiftCardServiceTest` (10 unit); `MenuItemResourceTest` + `MenuItemResourcePermissionTest`; `PromoCodeResourceTest` + `PromoCodeResourcePermissionTest` (incl. stock-DeleteAction regression guard); `GiftCardResourceTest` + `GiftCardResourcePermissionTest`; `GiftCardVoidFlowTest` (Layer B); `GiftCardServiceIntegrationTest` (7 — null-actor / void rejection cases / rollback atomicity); `PromoCodeServiceIntegrationTest` (7).
+- [2026-04-25] Full backend suite: 798 tests pass (was 500 pre-Plan-08; +298 new).
+
+### Decisions
+- [2026-04-24] **`gift_cards` migration: additive, not in-place.** CLAUDE.md prefers in-place pre-launch edits, but `gift_cards` (2026_04_04) predates `admin_users` (2026_04_22), so an inline `voided_by_admin_user_id` FK fails. Justified exception — added `2026_04_24_100000_add_voided_columns_to_gift_cards_table.php`.
+- [2026-04-24] **Filament 4 schema-form action testing.** `callTableAction(..., data: [...])` does not reliably fill nested form data when the action uses `->schema([...])`. Tests use `mountTableAction()->set('mountedActions.0.data.<field>', ...)->callMountedTableAction()` instead.
+- [2026-04-24] **`MenuItemResource` location attach simplified to multi-select.** A repeater on the `location_menu_item` pivot tries to create new Location rows; per-location pricing via the admin form deferred. Form attaches via `Select::make('locations')->multiple()->relationship('locations', 'name')`. Per-location overrides remain settable via API/DB.
+- [2026-04-24] **`per_user_limit` on PromoCode is schema-only.** Column exists for future v2 enforcement; v1 `validateCode` ignores it. Documented in service.
+- [2026-04-24] **`GiftCardVoidedMail` uses `onQueue('notifications')` in constructor**, not the `$queue` property — avoids the trait-property conflict with `Queueable`.
+- [2026-04-25] **Promo discount math lives in `PromoCodeService::calculateDiscount`**, not on the controller. Initially I kept it on the controller (a `?array` → `?PromoCode` rewrite), but the Codex review pointed out a future caller (gift-card purchase that also accepts promos) would force a re-derivation; moving the percentage/fixed branching to the service keeps domain rules co-located with `validateCode` / `consume`.
+- [2026-04-25] **Gift-card void notification handed off via `dispatch_outbox`** rather than a direct `Mail::to(...)->send(...)` inside `DB::afterCommit`. The original implementation dispatched mail immediately because the plan doc said so, but Codex's adversarial review flagged that a Redis/queue outage at commit time would silently drop the email on an irreversible void. The outbox pattern (Plan 06 precedent for showtime cancellations) commits the row atomically with the void; Plan 09's worker drains it.
+- [2026-04-25] **Controllers wrap booking transaction in an outer try/catch**, not catching the consume failure inline. Returning a `JsonResponse` from inside `DB::transaction`'s catch block silently commits partial state — the booking row would persist even after the 409 was returned. The fix is to let `PromoCodeNotConsumableException` propagate out of the closure (auto-rollback) and shape the 409 outside.
+
+### Files Changed
+- `backend/app/Enums/GiftCardStatus.php` — added `Voided`.
+- `backend/app/Enums/GiftCardLedgerType.php` — new.
+- `backend/app/Exceptions/GiftCardNotVoidableException.php` — new.
+- `backend/app/Exceptions/PromoCodeInUseException.php` — new.
+- `backend/database/migrations/2026_04_24_100000_add_voided_columns_to_gift_cards_table.php` — new.
+- `backend/database/migrations/2026_04_24_100001_create_promo_codes_table.php` — new.
+- `backend/database/migrations/2026_04_24_100002_create_gift_card_ledger_entries_table.php` — new.
+- `backend/app/Models/GiftCard.php` — added `ledgerEntries()`, `voidedByAdminUser()`, `voided_at` cast, fillable additions.
+- `backend/app/Models/GiftCardLedgerEntry.php` — new.
+- `backend/app/Models/PromoCode.php` — new.
+- `backend/database/factories/GiftCardFactory.php` — added `active`/`voided`/`expired` states.
+- `backend/database/factories/GiftCardLedgerEntryFactory.php` — new.
+- `backend/database/factories/PromoCodeFactory.php` — new.
+- `backend/app/Services/PromoCodeService.php` — new.
+- `backend/app/Services/GiftCardService.php` — new.
+- `backend/app/Http/Controllers/Api/BookingController.php` — service injection + DB-backed promo + service-routed gift card redemption.
+- `backend/app/Http/Controllers/Api/GiftCardController.php` — service-routed row creation.
+- `backend/config/promo_codes.php` — deleted.
+- `backend/app/Mail/GiftCardVoidedMail.php` — new (ShouldQueue, `notifications` queue).
+- `backend/resources/views/mail/gift-card-voided.blade.php` — new.
+- `backend/config/finance.php` — new.
+- `backend/.env.example` — `FINANCE_NOTIFICATION_EMAIL` added.
+- `backend/app/Filament/Resources/MenuItemResource.php` + Pages — new.
+- `backend/app/Filament/Resources/PromoCodeResource.php` + Pages — new.
+- `backend/app/Filament/Resources/GiftCardResource.php` + Pages + RelationManagers/BalanceHistoryRelationManager — new.
+- `backend/database/seeders/AdminRolesAndPermissionsSeeder.php` — added `gift_cards.void` to manager, `menu.view`/`promos.view` to ops.
+- `backend/tests/Feature/Api/BookingControllerTest.php` — promo factory fixtures, ledger/uses_count assertions added.
+- `backend/tests/Feature/Api/GiftCardControllerTest.php` — ledger entry assertion added.
+- `backend/tests/Feature/PromoCodeValidationTest.php` — new.
+- `backend/tests/Unit/Admin/PromoCodeServiceTest.php` — new (14 tests).
+- `backend/tests/Unit/Admin/GiftCardServiceTest.php` — new (10 tests).
+- `backend/tests/Feature/Admin/Resources/MenuItemResourceTest.php` — new (6 tests).
+- `backend/tests/Feature/Admin/Resources/MenuItemResourcePermissionTest.php` — new.
+- `backend/tests/Feature/Admin/Resources/PromoCodeResourceTest.php` — new (7 tests, incl. delete-routing regression guard).
+- `backend/tests/Feature/Admin/Resources/PromoCodeResourcePermissionTest.php` — new.
+- `backend/tests/Feature/Admin/Resources/GiftCardResourceTest.php` — new (9 tests).
+- `backend/tests/Feature/Admin/Resources/GiftCardResourcePermissionTest.php` — new.
+- `backend/tests/Feature/Admin/GiftCardVoidFlowTest.php` — new (Layer B integration).
+- `backend/tests/Feature/Admin/Services/GiftCardServiceIntegrationTest.php` — new (7 tests).
+- `backend/tests/Feature/Admin/Services/PromoCodeServiceIntegrationTest.php` — new (7 tests).
 
 ---
 

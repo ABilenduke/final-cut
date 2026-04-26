@@ -1,6 +1,8 @@
 <?php
 
+use App\Enums\GiftCardLedgerType;
 use App\Models\GiftCard;
+use App\Models\GiftCardLedgerEntry;
 use App\Services\StripeService;
 use Illuminate\Support\Str;
 use Tests\Helpers\FakeStripeService;
@@ -68,6 +70,13 @@ test('purchase creates a gift card and returns 201 with correct structure', func
 
     expect(GiftCard::count())->toBe(1);
     expect(GiftCard::first()->code)->toStartWith('GC-');
+
+    $giftCard = GiftCard::first();
+    $ledger = GiftCardLedgerEntry::where('gift_card_id', $giftCard->id)->first();
+    expect($ledger)->not->toBeNull()
+        ->and($ledger->type)->toBe(GiftCardLedgerType::Purchase)
+        ->and($ledger->amount_cents)->toBe(5000)
+        ->and($ledger->balance_after_cents)->toBe(5000);
 });
 
 test('purchase charges Stripe the correct amount with gift_card metadata', function () {

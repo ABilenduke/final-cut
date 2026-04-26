@@ -1,15 +1,5 @@
 parameters:
 	ignoreErrors:
-		# TimestampColumns is called statically (TimestampColumns::standardTimestamps())
-		# not mixed in via `use`, so PHPStan's trait.unused detection still fires.
-		# FormatsCurrency dropped from the baseline in Plan 04 once it was `use`'d
-		# inside UpcomingShowtimesRelationManager.
-		-
-			message: '#^Trait App\\Filament\\Concerns\\TimestampColumns is used zero times and is not analysed\.$#'
-			identifier: trait.unused
-			count: 1
-			path: app/Filament/Concerns/TimestampColumns.php
-
 		-
 			message: '#^Cannot access property \$value on string\.$#'
 			identifier: property.nonObject

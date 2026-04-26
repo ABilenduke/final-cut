@@ -6,6 +6,7 @@ use App\Enums\GiftCardStatus;
 use App\Http\Requests\PurchaseGiftCardRequest;
 use App\Http\Resources\GiftCardResource;
 use App\Models\GiftCard;
+use App\Services\GiftCardService;
 use App\Services\StripeService;
 use App\Support\PayloadFingerprint;
 use Illuminate\Database\UniqueConstraintViolationException;
@@ -23,6 +24,7 @@ class GiftCardController extends Controller
 
     public function __construct(
         private readonly StripeService $stripeService,
+        private readonly GiftCardService $giftCardService,
     ) {}
 
     public function purchase(PurchaseGiftCardRequest $request): JsonResponse
@@ -253,7 +255,7 @@ class GiftCardController extends Controller
                 try {
                     $code = $this->generateUniqueCode();
 
-                    $giftCard = GiftCard::create([
+                    $giftCard = $this->giftCardService->purchase([
                         'code' => $code,
                         'initial_balance' => $data['amount'],
                         'current_balance' => $data['amount'],

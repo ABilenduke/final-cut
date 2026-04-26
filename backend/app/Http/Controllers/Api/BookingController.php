@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Enums\BookingStatus;
 use App\Enums\GiftCardStatus;
 use App\Enums\PaymentMethod;
+use App\Exceptions\PromoCodeNotConsumableException;
 use App\Exceptions\SeatConflictException;
 use App\Http\Requests\CreateBookingRequest;
 use App\Http\Resources\BookingResource;
@@ -12,9 +13,12 @@ use App\Models\Booking;
 use App\Models\BookingFoodItem;
 use App\Models\GiftCard;
 use App\Models\Location;
+use App\Models\PromoCode;
 use App\Models\Showtime;
 use App\Models\User;
+use App\Services\GiftCardService;
 use App\Services\LoyaltyService;
+use App\Services\PromoCodeService;
 use App\Services\SeatAvailabilityService;
 use App\Services\StripeService;
 use Illuminate\Http\JsonResponse;
@@ -33,6 +37,8 @@ class BookingController extends Controller
         private readonly SeatAvailabilityService $seatService,
         private readonly StripeService $stripeService,
         private readonly LoyaltyService $loyaltyService,
+        private readonly PromoCodeService $promoCodeService,
+        private readonly GiftCardService $giftCardService,
     ) {}
 
     public function store(Location $location, CreateBookingRequest $request): JsonResponse
@@ -82,12 +88,12 @@ class BookingController extends Controller
             ];
         }
 
-        // Validate promo code
-        $promoConfig = null;
+        // Validate promo code — DB-backed via PromoCodeService (replaced config/promo_codes.php).
+        $promo = null;
         if ($promoCode) {
-            $promoConfig = config("promo_codes.{$promoCode}");
+            $promo = $this->promoCodeService->validateCode($promoCode, 0);
 
-            if (! $promoConfig) {
+            if (! $promo) {
                 return $this->errorResponse([['field' => 'promoCode', 'message' => 'Invalid promo code.']], 400);
             }
         }
@@ -103,157 +109,173 @@ class BookingController extends Controller
             }
         }
 
-        return DB::transaction(function () use (
-            $location, $showtime, $seatIds, $resolvedFoodItems, $foodTotal,
-            $promoConfig, $giftCardCode, $paymentMethodId, $request,
-        ) {
-            $showtime = Showtime::with('auditorium', 'movie')
-                ->whereHas('auditorium', fn ($q) => $q->where('location_id', $location->id))
-                ->whereNull('cancelled_at')
-                ->lockForUpdate()
-                ->find($showtime->id);
+        try {
+            return DB::transaction(function () use (
+                $location, $showtime, $seatIds, $resolvedFoodItems, $foodTotal, $promo, $giftCardCode, $paymentMethodId, $request,
+            ) {
+                $showtime = Showtime::with('auditorium', 'movie')
+                    ->whereHas('auditorium', fn ($q) => $q->where('location_id', $location->id))
+                    ->whereNull('cancelled_at')
+                    ->lockForUpdate()
+                    ->find($showtime->id);
 
-            if (! $showtime || $showtime->start_time->isPast()) {
-                return $this->errorResponse([['message' => 'This showtime has expired or does not exist.']], 410);
-            }
-
-            // Create provisional booking (needed for seat reservation)
-            $booking = new Booking;
-            $booking->showtime_id = $showtime->id;
-            $booking->user_id = $request->user()?->id;
-            $booking->guest_email = $request->user() ? null : $request->input('email');
-            $booking->status = BookingStatus::Confirmed;
-            $booking->subtotal = 0;
-            $booking->discount = 0;
-            $booking->total = 0;
-            $booking->save();
-
-            $seatTotal = $this->seatService->reserveSeats($showtime, $seatIds, $booking);
-
-            $subtotal = $seatTotal + $foodTotal;
-            $promoDiscount = $this->calculatePromoDiscount($promoConfig, $subtotal);
-
-            // Apply gift card (lock for concurrent use protection)
-            $giftCard = null;
-            $giftCardAmount = 0;
-            if ($giftCardCode) {
-                $giftCard = GiftCard::lockForUpdate()
-                    ->where('code', $giftCardCode)
-                    ->where('status', GiftCardStatus::Active)
-                    ->first();
-
-                if (! $giftCard || $giftCard->current_balance <= 0) {
-                    $booking->delete();
-
-                    return $this->errorResponse([[
-                        'field' => 'giftCardCode',
-                        'message' => 'Gift card is no longer valid or has been depleted.',
-                    ]], 409);
+                if (! $showtime || $showtime->start_time->isPast()) {
+                    return $this->errorResponse([['message' => 'This showtime has expired or does not exist.']], 410);
                 }
 
-                $giftCardAmount = min($giftCard->current_balance, $subtotal - $promoDiscount);
-            }
+                // Create provisional booking (needed for seat reservation)
+                $booking = new Booking;
+                $booking->showtime_id = $showtime->id;
+                $booking->user_id = $request->user()?->id;
+                $booking->guest_email = $request->user() ? null : $request->input('email');
+                $booking->status = BookingStatus::Confirmed;
+                $booking->subtotal = 0;
+                $booking->discount = 0;
+                $booking->total = 0;
+                $booking->save();
 
-            $cardAmount = $subtotal - $promoDiscount - $giftCardAmount;
-            $discount = $promoDiscount + $giftCardAmount;
-            $total = $subtotal - $discount;
+                $seatTotal = $this->seatService->reserveSeats($showtime, $seatIds, $booking);
 
-            // Process payment
-            $stripePaymentIntentId = null;
+                $subtotal = $seatTotal + $foodTotal;
+                $promoDiscount = $promo
+                    ? $this->promoCodeService->calculateDiscount($promo, $subtotal)
+                    : 0;
 
-            if ($cardAmount > 0) {
-                if (! $paymentMethodId) {
-                    $booking->delete();
+                // Apply gift card (lock for concurrent use protection)
+                $giftCard = null;
+                $giftCardAmount = 0;
+                if ($giftCardCode) {
+                    $giftCard = GiftCard::lockForUpdate()
+                        ->where('code', $giftCardCode)
+                        ->where('status', GiftCardStatus::Active)
+                        ->first();
 
-                    return $this->errorResponse([[
-                        'field' => 'paymentMethodId',
-                        'message' => 'A payment method is required when the gift card does not cover the full amount.',
-                    ]], 422);
+                    if (! $giftCard || $giftCard->current_balance <= 0) {
+                        $booking->delete();
+
+                        return $this->errorResponse([[
+                            'field' => 'giftCardCode',
+                            'message' => 'Gift card is no longer valid or has been depleted.',
+                        ]], 409);
+                    }
+
+                    $giftCardAmount = min($giftCard->current_balance, $subtotal - $promoDiscount);
                 }
 
+                $cardAmount = $subtotal - $promoDiscount - $giftCardAmount;
+                $discount = $promoDiscount + $giftCardAmount;
+                $total = $subtotal - $discount;
+
+                // Process payment
+                $stripePaymentIntentId = null;
+
+                if ($cardAmount > 0) {
+                    if (! $paymentMethodId) {
+                        $booking->delete();
+
+                        return $this->errorResponse([[
+                            'field' => 'paymentMethodId',
+                            'message' => 'A payment method is required when the gift card does not cover the full amount.',
+                        ]], 422);
+                    }
+
+                    try {
+                        $paymentIntent = $this->stripeService->createPaymentIntent(
+                            $cardAmount,
+                            $paymentMethodId,
+                            ['showtime_id' => $showtime->id],
+                        );
+
+                        if ($paymentIntent->status === 'requires_action') {
+                            Cache::put("pending_booking:{$paymentIntent->id}", [
+                                'location_id' => $location->id,
+                                'showtime_id' => $showtime->id,
+                                'user_id' => $request->user()?->id,
+                                'guest_email' => $request->user() ? null : $request->input('email'),
+                                'seat_ids' => $seatIds,
+                                'food_items' => $resolvedFoodItems,
+                                'subtotal' => $subtotal,
+                                'discount' => $discount,
+                                'total' => $total,
+                                'card_amount' => $cardAmount,
+                                'gift_card_id' => $giftCard?->id,
+                                'gift_card_amount' => $giftCardAmount,
+                                'promo_code_id' => $promo?->id,
+                                'payment_method' => $this->determinePaymentMethod($cardAmount, $giftCardAmount),
+                            ], now()->addMinutes(15));
+
+                            $booking->delete();
+
+                            return response()->json([
+                                'data' => [
+                                    'requiresAction' => true,
+                                    'clientSecret' => $paymentIntent->client_secret,
+                                    'paymentIntentId' => $paymentIntent->id,
+                                ],
+                            ]);
+                        }
+
+                        if ($paymentIntent->status !== 'succeeded') {
+                            $booking->delete();
+
+                            return $this->errorResponse([['field' => 'payment', 'message' => 'Payment could not be completed. Please try again.']], 402);
+                        }
+
+                        $stripePaymentIntentId = $paymentIntent->id;
+                    } catch (CardException $e) {
+                        $booking->delete();
+
+                        return $this->errorResponse([['field' => 'payment', 'message' => $e->getMessage()]], 402);
+                    } catch (InvalidRequestException $e) {
+                        $booking->delete();
+
+                        return $this->errorResponse([['field' => 'payment', 'message' => $e->getMessage()]], 400);
+                    } catch (ApiErrorException $e) {
+                        $booking->delete();
+
+                        report($e);
+
+                        return $this->errorResponse([['field' => 'payment', 'message' => 'Payment service is temporarily unavailable. Please try again.']], 502);
+                    }
+                }
+
+                // Payment has been captured. If any subsequent DB write fails,
+                // issue a compensating refund so we don't orphan a charge.
                 try {
-                    $paymentIntent = $this->stripeService->createPaymentIntent(
-                        $cardAmount,
-                        $paymentMethodId,
-                        ['showtime_id' => $showtime->id],
-                    );
+                    $booking->update([
+                        'subtotal' => $subtotal,
+                        'discount' => $discount,
+                        'total' => $total,
+                        'payment_method' => $this->determinePaymentMethod($cardAmount, $giftCardAmount),
+                        'stripe_payment_intent_id' => $stripePaymentIntentId,
+                    ]);
 
-                    if ($paymentIntent->status === 'requires_action') {
-                        Cache::put("pending_booking:{$paymentIntent->id}", [
-                            'location_id' => $location->id,
-                            'showtime_id' => $showtime->id,
-                            'user_id' => $request->user()?->id,
-                            'guest_email' => $request->user() ? null : $request->input('email'),
-                            'seat_ids' => $seatIds,
-                            'food_items' => $resolvedFoodItems,
-                            'subtotal' => $subtotal,
-                            'discount' => $discount,
-                            'total' => $total,
-                            'card_amount' => $cardAmount,
-                            'gift_card_id' => $giftCard?->id,
-                            'gift_card_amount' => $giftCardAmount,
-                            'payment_method' => $this->determinePaymentMethod($cardAmount, $giftCardAmount),
-                        ], now()->addMinutes(15));
-
-                        $booking->delete();
-
-                        return response()->json([
-                            'data' => [
-                                'requiresAction' => true,
-                                'clientSecret' => $paymentIntent->client_secret,
-                                'paymentIntentId' => $paymentIntent->id,
-                            ],
-                        ]);
+                    $this->finalizeBooking($booking, $resolvedFoodItems, $giftCard, $giftCardAmount, $promo, $request->user()?->id, $total);
+                } catch (\Throwable $e) {
+                    // PromoCodeNotConsumableException (and any other throwable
+                    // post-charge) propagates out of the transaction so the
+                    // booking + ledger rows roll back cleanly. The outer catch
+                    // owns refund + response shaping using the captured PI id.
+                    if ($stripePaymentIntentId) {
+                        $this->refundOrReport($stripePaymentIntentId);
                     }
 
-                    if ($paymentIntent->status !== 'succeeded') {
-                        $booking->delete();
-
-                        return $this->errorResponse([['field' => 'payment', 'message' => 'Payment could not be completed. Please try again.']], 402);
-                    }
-
-                    $stripePaymentIntentId = $paymentIntent->id;
-                } catch (CardException $e) {
-                    $booking->delete();
-
-                    return $this->errorResponse([['field' => 'payment', 'message' => $e->getMessage()]], 402);
-                } catch (InvalidRequestException $e) {
-                    $booking->delete();
-
-                    return $this->errorResponse([['field' => 'payment', 'message' => $e->getMessage()]], 400);
-                } catch (ApiErrorException $e) {
-                    $booking->delete();
-
-                    report($e);
-
-                    return $this->errorResponse([['field' => 'payment', 'message' => 'Payment service is temporarily unavailable. Please try again.']], 502);
-                }
-            }
-
-            // Payment has been captured. If any subsequent DB write fails,
-            // issue a compensating refund so we don't orphan a charge.
-            try {
-                $booking->update([
-                    'subtotal' => $subtotal,
-                    'discount' => $discount,
-                    'total' => $total,
-                    'payment_method' => $this->determinePaymentMethod($cardAmount, $giftCardAmount),
-                    'stripe_payment_intent_id' => $stripePaymentIntentId,
-                ]);
-
-                $this->finalizeBooking($booking, $resolvedFoodItems, $giftCard, $giftCardAmount, $request->user()?->id, $total);
-            } catch (\Throwable $e) {
-                if ($stripePaymentIntentId) {
-                    $this->refundOrReport($stripePaymentIntentId);
+                    throw $e;
                 }
 
-                throw $e;
-            }
+                $booking->load(self::BOOKING_RELATIONS);
 
-            $booking->load(self::BOOKING_RELATIONS);
-
-            return $this->successResponse(new BookingResource($booking), status: 201);
-        });
+                return $this->successResponse(new BookingResource($booking), status: 201);
+            });
+        } catch (PromoCodeNotConsumableException $e) {
+            // The transaction rolled back (booking row + ledger gone) and
+            // the inner `\Throwable` catch already issued the compensating
+            // refund before re-throwing. Outer catch only shapes the 409.
+            return $this->errorResponse([[
+                'field' => 'promoCode',
+                'message' => 'This promo code is no longer redeemable. Please remove it and try again.',
+            ]], 409);
+        }
     }
 
     public function show(Request $request, string $id): JsonResponse
@@ -302,113 +324,145 @@ class BookingController extends Controller
 
         // Validate seats and confirm payment inside a single transaction so that
         // Stripe is never charged when seats are no longer available.
-        $result = DB::transaction(function () use ($location, $pendingData, $paymentIntentId) {
-            $showtime = Showtime::whereHas('auditorium', fn ($q) => $q->where('location_id', $location->id))
-                ->whereNull('cancelled_at')
-                ->lockForUpdate()
-                ->find($pendingData['showtime_id']);
+        try {
+            $result = DB::transaction(function () use ($location, $pendingData, $paymentIntentId) {
+                $showtime = Showtime::whereHas('auditorium', fn ($q) => $q->where('location_id', $location->id))
+                    ->whereNull('cancelled_at')
+                    ->lockForUpdate()
+                    ->find($pendingData['showtime_id']);
 
-            if (! $showtime || $showtime->start_time->isPast()) {
-                return $this->errorResponse([['message' => 'This showtime has expired or does not exist.']], 410);
-            }
-
-            // Validate seat availability BEFORE confirming payment.
-            // checkAvailability returns unavailable seat IDs; if any, bail out
-            // without touching Stripe — the uncaptured PI expires on its own.
-            $unavailable = $this->seatService->checkAvailability(
-                $showtime->id,
-                $pendingData['seat_ids'],
-            );
-
-            if (! empty($unavailable)) {
-                throw new SeatConflictException($unavailable);
-            }
-
-            // Revalidate gift card balance BEFORE confirming payment.
-            // If the balance dropped during the 3DS window, the original
-            // PaymentIntent amount no longer covers the correct card portion.
-            // Rather than silently under- or over-charging, fail early so the
-            // customer can restart checkout with current pricing.
-            $giftCard = null;
-            $giftCardAmount = $pendingData['gift_card_amount'] ?? 0;
-            $originalCardAmount = $pendingData['card_amount'] ?? $pendingData['total'];
-
-            if ($pendingData['gift_card_id'] ?? null) {
-                $giftCard = GiftCard::lockForUpdate()
-                    ->where('status', GiftCardStatus::Active)
-                    ->find($pendingData['gift_card_id']);
-
-                if (! $giftCard) {
-                    return $this->errorResponse([[
-                        'field' => 'giftCardCode',
-                        'message' => 'Gift card is no longer valid. Please start over.',
-                    ]], 409);
+                if (! $showtime || $showtime->start_time->isPast()) {
+                    return $this->errorResponse([['message' => 'This showtime has expired or does not exist.']], 410);
                 }
 
-                if ($giftCardAmount > 0 && $giftCard->current_balance < $giftCardAmount) {
-                    return $this->errorResponse([[
-                        'field' => 'giftCardCode',
-                        'message' => 'Gift card balance changed during payment. Please start over.',
-                    ]], 409);
-                }
-            }
-
-            // Gift card still valid — safe to confirm the PaymentIntent.
-            try {
-                $paymentIntent = $this->stripeService->confirmPaymentIntent($paymentIntentId);
-
-                if ($paymentIntent->status !== 'succeeded') {
-                    return $this->errorResponse([['field' => 'payment', 'message' => 'Payment confirmation failed.']], 402);
-                }
-            } catch (CardException $e) {
-                return $this->errorResponse([['field' => 'payment', 'message' => $e->getMessage()]], 402);
-            } catch (InvalidRequestException $e) {
-                return $this->errorResponse([['field' => 'payment', 'message' => $e->getMessage()]], 400);
-            } catch (ApiErrorException $e) {
-                report($e);
-
-                return $this->errorResponse([['field' => 'payment', 'message' => 'Payment service is temporarily unavailable. Please try again.']], 502);
-            }
-
-            // Payment has been captured. If any subsequent DB write fails,
-            // issue a compensating refund so we don't orphan a charge.
-            try {
-                $discount = $pendingData['discount'];
-                $total = $pendingData['total'];
-                $cardAmount = $originalCardAmount;
-
-                $booking = new Booking;
-                $booking->showtime_id = $pendingData['showtime_id'];
-                $booking->user_id = $pendingData['user_id'];
-                $booking->guest_email = $pendingData['guest_email'];
-                $booking->status = BookingStatus::Confirmed;
-                $booking->subtotal = $pendingData['subtotal'];
-                $booking->discount = $discount;
-                $booking->total = $total;
-                $booking->payment_method = $this->determinePaymentMethod($cardAmount, $giftCardAmount);
-                $booking->stripe_payment_intent_id = $paymentIntentId;
-                $booking->save();
-
-                $this->seatService->reserveSeats($showtime, $pendingData['seat_ids'], $booking);
-
-                $this->finalizeBooking(
-                    $booking,
-                    $pendingData['food_items'],
-                    $giftCard,
-                    $giftCardAmount,
-                    $pendingData['user_id'],
-                    $total,
+                // Validate seat availability BEFORE confirming payment.
+                // checkAvailability returns unavailable seat IDs; if any, bail out
+                // without touching Stripe — the uncaptured PI expires on its own.
+                $unavailable = $this->seatService->checkAvailability(
+                    $showtime->id,
+                    $pendingData['seat_ids'],
                 );
-            } catch (\Throwable $e) {
-                $this->refundOrReport($paymentIntentId);
 
-                throw $e;
-            }
+                if (! empty($unavailable)) {
+                    throw new SeatConflictException($unavailable);
+                }
 
-            $booking->load(self::BOOKING_RELATIONS);
+                // Revalidate gift card balance BEFORE confirming payment.
+                // If the balance dropped during the 3DS window, the original
+                // PaymentIntent amount no longer covers the correct card portion.
+                // Rather than silently under- or over-charging, fail early so the
+                // customer can restart checkout with current pricing.
+                $giftCard = null;
+                $giftCardAmount = $pendingData['gift_card_amount'] ?? 0;
+                $originalCardAmount = $pendingData['card_amount'] ?? $pendingData['total'];
 
-            return $this->successResponse(new BookingResource($booking), status: 201);
-        });
+                if ($pendingData['gift_card_id'] ?? null) {
+                    $giftCard = GiftCard::lockForUpdate()
+                        ->where('status', GiftCardStatus::Active)
+                        ->find($pendingData['gift_card_id']);
+
+                    if (! $giftCard) {
+                        return $this->errorResponse([[
+                            'field' => 'giftCardCode',
+                            'message' => 'Gift card is no longer valid. Please start over.',
+                        ]], 409);
+                    }
+
+                    if ($giftCardAmount > 0 && $giftCard->current_balance < $giftCardAmount) {
+                        return $this->errorResponse([[
+                            'field' => 'giftCardCode',
+                            'message' => 'Gift card balance changed during payment. Please start over.',
+                        ]], 409);
+                    }
+                }
+
+                // Gift card still valid — safe to confirm the PaymentIntent.
+                try {
+                    $paymentIntent = $this->stripeService->confirmPaymentIntent($paymentIntentId);
+
+                    if ($paymentIntent->status !== 'succeeded') {
+                        return $this->errorResponse([['field' => 'payment', 'message' => 'Payment confirmation failed.']], 402);
+                    }
+                } catch (CardException $e) {
+                    return $this->errorResponse([['field' => 'payment', 'message' => $e->getMessage()]], 402);
+                } catch (InvalidRequestException $e) {
+                    return $this->errorResponse([['field' => 'payment', 'message' => $e->getMessage()]], 400);
+                } catch (ApiErrorException $e) {
+                    report($e);
+
+                    return $this->errorResponse([['field' => 'payment', 'message' => 'Payment service is temporarily unavailable. Please try again.']], 502);
+                }
+
+                // Payment has been captured. If any subsequent DB write fails,
+                // issue a compensating refund so we don't orphan a charge.
+                try {
+                    $discount = $pendingData['discount'];
+                    $total = $pendingData['total'];
+                    $cardAmount = $originalCardAmount;
+
+                    // Rehydrate the promo BEFORE writing the booking so a hard-
+                    // delete during the 3DS window fails fast — otherwise a null
+                    // promo would silently skip `consume()` and the cached
+                    // discount would be honoured against a code that no longer
+                    // exists. `consume()` itself catches the deactivated /
+                    // expired / limit-reached cases via revalidation under lock.
+                    $promo = null;
+                    if (! empty($pendingData['promo_code_id'])) {
+                        $promo = PromoCode::query()->find($pendingData['promo_code_id']);
+                        if ($promo === null) {
+                            throw new PromoCodeNotConsumableException(
+                                PromoCodeNotConsumableException::REASON_NOT_FOUND,
+                            );
+                        }
+                    }
+
+                    $booking = new Booking;
+                    $booking->showtime_id = $pendingData['showtime_id'];
+                    $booking->user_id = $pendingData['user_id'];
+                    $booking->guest_email = $pendingData['guest_email'];
+                    $booking->status = BookingStatus::Confirmed;
+                    $booking->subtotal = $pendingData['subtotal'];
+                    $booking->discount = $discount;
+                    $booking->total = $total;
+                    $booking->payment_method = $this->determinePaymentMethod($cardAmount, $giftCardAmount);
+                    $booking->stripe_payment_intent_id = $paymentIntentId;
+                    $booking->save();
+
+                    $this->seatService->reserveSeats($showtime, $pendingData['seat_ids'], $booking);
+
+                    $this->finalizeBooking(
+                        $booking,
+                        $pendingData['food_items'],
+                        $giftCard,
+                        $giftCardAmount,
+                        $promo,
+                        $pendingData['user_id'],
+                        $total,
+                    );
+                } catch (\Throwable $e) {
+                    // Promo / seat / DB throws after the PI capture; refund and
+                    // re-throw so the transaction rolls back the booking +
+                    // ledger writes. The outer catch below converts a
+                    // `PromoCodeNotConsumableException` into a 409.
+                    $this->refundOrReport($paymentIntentId);
+
+                    throw $e;
+                }
+
+                $booking->load(self::BOOKING_RELATIONS);
+
+                return $this->successResponse(new BookingResource($booking), status: 201);
+            });
+        } catch (PromoCodeNotConsumableException $e) {
+            // Booking row + ledger were rolled back when the exception
+            // bubbled through DB::transaction; the inner catch already
+            // refunded the captured PI. Pending cache is preserved so the
+            // customer can restart with a different (or no) promo code.
+            return $this->errorResponse([[
+                'field' => 'promoCode',
+                'message' => 'This promo code is no longer redeemable. Please remove it and try again.',
+            ]], 409);
+        }
 
         // Only forget cache after a successful booking — error responses
         // (gift card conflict, payment failure) must preserve the pending state
@@ -425,6 +479,7 @@ class BookingController extends Controller
         array $foodItems,
         ?GiftCard $giftCard,
         int $giftCardAmount,
+        ?PromoCode $promo,
         ?string $userId,
         int $total,
     ): void {
@@ -435,12 +490,21 @@ class BookingController extends Controller
         }
 
         if ($giftCard && $giftCardAmount > 0) {
-            $deduction = min($giftCardAmount, $giftCard->current_balance);
-            $newBalance = $giftCard->current_balance - $deduction;
-            $giftCard->update([
-                'current_balance' => max(0, $newBalance),
-                'status' => $newBalance <= 0 ? GiftCardStatus::Depleted : GiftCardStatus::Active,
-            ]);
+            $this->giftCardService->redeemAgainstBooking(
+                $giftCard,
+                $giftCardAmount,
+                $booking,
+                null,
+            );
+        }
+
+        if ($promo) {
+            // Atomic re-validate + increment under lock. Throws
+            // `PromoCodeNotConsumableException` if the code was deactivated,
+            // expired, or hit its usage limit between pre-check and now —
+            // the booking transaction rolls back and the outer try/catch
+            // refunds the captured PaymentIntent.
+            $this->promoCodeService->consume($promo, null);
         }
 
         /** @var User|null $user */
@@ -448,24 +512,6 @@ class BookingController extends Controller
         if ($user) {
             $this->loyaltyService->awardPointsForPurchase($user, $total);
         }
-    }
-
-    private function calculatePromoDiscount(?array $promoConfig, int $subtotal): int
-    {
-        if (! $promoConfig) {
-            return 0;
-        }
-
-        if ($promoConfig['type'] === 'percentage') {
-            $discount = (int) floor($subtotal * $promoConfig['value'] / 100);
-            if (isset($promoConfig['max_discount'])) {
-                $discount = min($discount, $promoConfig['max_discount']);
-            }
-        } else {
-            $discount = $promoConfig['value'];
-        }
-
-        return min($discount, $subtotal);
     }
 
     /**
