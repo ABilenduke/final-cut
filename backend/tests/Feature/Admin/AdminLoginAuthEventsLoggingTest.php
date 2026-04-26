@@ -13,9 +13,9 @@ use Illuminate\Support\Facades\File;
  * the JsonFormatter (single line per event, no trailing log noise).
  *
  * The regex side is verified by the CI step `fail2ban-regex` regeneration
- * (.github/workflows/backend-tests.yml), which fires a real failed login
- * against `php artisan serve` and runs the freshly-written line through
- * the committed filter.
+ * (.github/workflows/backend-tests.yml), which dispatches the `Failed`
+ * auth event via `php artisan tinker --execute …` and runs the
+ * freshly-written line through the committed filter.
  */
 test('failed admin login writes the JsonFormatter contract to admin_auth_events', function (): void {
     // Point the channel at a tmpfile so the assertion is deterministic

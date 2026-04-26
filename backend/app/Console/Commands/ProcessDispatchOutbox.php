@@ -50,7 +50,19 @@ class ProcessDispatchOutbox extends Command
 
     public function handle(OutboxDispatcher $dispatcher): int
     {
-        $batchSize = (int) $this->option('batch');
+        $batchOption = $this->option('batch');
+
+        // Mirror PruneDispatchOutbox: a non-numeric or non-positive batch
+        // would either be a no-op (cast to 0) or — if `limit()` ever stops
+        // clamping — silently scan the whole queue. Refuse both and let the
+        // scheduler / operator see the misconfig.
+        if (! is_numeric($batchOption) || (int) $batchOption < 1) {
+            $this->error("--batch must be a positive integer; got: {$batchOption}");
+
+            return self::INVALID;
+        }
+
+        $batchSize = (int) $batchOption;
 
         // Claim a batch of rows atomically. `lock('FOR UPDATE SKIP LOCKED')`
         // is Postgres-specific (the project pins postgres) and ensures a

@@ -268,6 +268,24 @@ test('outbox:prune deletes processed rows older than the retention window', func
         ->and(DispatchOutbox::find($oldFailed->id))->not->toBeNull();
 });
 
+test('outbox:dispatch rejects non-positive or non-numeric --batch', function (): void {
+    DispatchOutbox::create([
+        'event_type' => ShowtimeService::EVENT_CANCELLED,
+        'payload' => ['booking_id' => 'b', 'showtime_id' => 's'],
+    ]);
+
+    // Exit code INVALID (= 2 from Symfony Console). Without the guard,
+    // `(int) 'abc'` is 0 → silent no-op; `--batch=-1` would be passed
+    // through to limit() and trigger driver-specific behavior.
+    $this->artisan('outbox:dispatch --batch=0')->assertExitCode(2);
+    $this->artisan('outbox:dispatch --batch=-1')->assertExitCode(2);
+    $this->artisan('outbox:dispatch --batch=abc')->assertExitCode(2);
+
+    // No row was claimed (attempts stays at 0) — the guard ran before
+    // the dispatch transaction.
+    expect(DispatchOutbox::sole()->attempts)->toBe(0);
+});
+
 test('outbox:prune rejects zero days', function (): void {
     DispatchOutbox::create([
         'event_type' => ShowtimeService::EVENT_CANCELLED,

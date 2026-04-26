@@ -14,35 +14,20 @@ services:
     # Certbot writes /var/run/certbot-reload/reload via --deploy-hook;
     # this loop picks it up, reloads nginx, and removes the signal file.
     #
-    # The base nginx entrypoint already renders ${ADMIN_ALLOWLIST_BLOCK} from
-    # ADMIN_IP_ALLOWLIST + APP_ENV before envsubst runs, so the production
-    # vhost gets a real `allow … ; deny all;` block (or `deny all;` when the
-    # list is empty outside `local` — Layer 1 always fails closed). The
-    # `ADMIN_IP_ALLOWLIST_EMERGENCY_OPEN` flag is a Layer-2 (middleware)
-    # concept only and never affects this nginx rendering.
+    # The base nginx entrypoint renders ${ADMIN_ALLOWLIST_BLOCK} via the
+    # shared nginx/render-admin-allowlist.sh script (validated CIDR parsing,
+    # fail-closed posture). This prod overlay overrides the entire `command`
+    # to layer the certbot reload loop, so it MUST source the same script —
+    # do not reimplement the rendering inline. The `ADMIN_IP_ALLOWLIST_EMERGENCY_OPEN`
+    # flag is a Layer-2 (middleware) concept only and never affects this
+    # nginx rendering.
     command:
       - /bin/sh
       - -c
       - |
         mkdir -p /etc/nginx/snippets /var/run/certbot-reload
         touch /etc/nginx/banned/banned-ips.conf
-        # Render the Layer-1 admin IP allowlist block (same logic as base
-        # entrypoint — duplicated here because this command overrides).
-        if [ "$$APP_ENV" = "local" ]; then
-          ADMIN_ALLOWLIST_BLOCK=""
-        elif [ -z "$$ADMIN_IP_ALLOWLIST" ]; then
-          ADMIN_ALLOWLIST_BLOCK="deny all;"
-        else
-          ADMIN_ALLOWLIST_BLOCK=""
-          IFS=','
-          for cidr in $$ADMIN_IP_ALLOWLIST; do
-            cidr=$$(echo "$$cidr" | tr -d '[:space:]')
-            [ -n "$$cidr" ] && ADMIN_ALLOWLIST_BLOCK="$$ADMIN_ALLOWLIST_BLOCK allow $$cidr;"
-          done
-          unset IFS
-          ADMIN_ALLOWLIST_BLOCK="$$ADMIN_ALLOWLIST_BLOCK deny all;"
-        fi
-        export ADMIN_ALLOWLIST_BLOCK
+        . /render-admin-allowlist.sh
         # Background loop: watch for certbot reload signal
         while :; do
           if [ -f /var/run/certbot-reload/reload ]; then
