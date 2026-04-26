@@ -27,6 +27,7 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 use UnitEnum;
@@ -197,8 +198,18 @@ class CalendarEventResource extends BaseResource
                     ->toggle(),
             ])
             ->recordActions([
-                EditAction::make(),
-                DeleteAction::make(),
+                // Showtime-type rows are produced by the showtimes domain. The
+                // create/edit form's Type Select hides `showtime` (so its
+                // value isn't in the allowed options), so opening such a row
+                // in the edit form would render with a value the Select
+                // can't represent. Hide Edit/Delete entirely for those rows
+                // — they remain visible in the table for inspection but are
+                // not authorable here. The corresponding Showtime resource
+                // owns their lifecycle.
+                EditAction::make()
+                    ->visible(fn (CalendarEvent $record): bool => $record->type !== CalendarEventType::Showtime),
+                DeleteAction::make()
+                    ->visible(fn (CalendarEvent $record): bool => $record->type !== CalendarEventType::Showtime),
             ]);
     }
 
@@ -209,6 +220,30 @@ class CalendarEventResource extends BaseResource
             'create' => Pages\CreateCalendarEvent::route('/create'),
             'edit' => Pages\EditCalendarEvent::route('/{record}/edit'),
         ];
+    }
+
+    /**
+     * Showtime-type rows are produced by the showtimes domain and are not
+     * authorable here. Hiding the table actions alone isn't enough — a
+     * caller could still hit `/calendar-events/<id>/edit` directly. Gate
+     * the Resource's authorization layer too so that path returns 403.
+     */
+    public static function canEdit(Model $record): bool
+    {
+        if ($record instanceof CalendarEvent && $record->type === CalendarEventType::Showtime) {
+            return false;
+        }
+
+        return parent::canEdit($record);
+    }
+
+    public static function canDelete(Model $record): bool
+    {
+        if ($record instanceof CalendarEvent && $record->type === CalendarEventType::Showtime) {
+            return false;
+        }
+
+        return parent::canDelete($record);
     }
 
     /**

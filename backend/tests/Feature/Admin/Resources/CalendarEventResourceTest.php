@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\CalendarEventType;
+use App\Filament\Resources\CalendarEventResource;
 use App\Filament\Resources\CalendarEventResource\Pages\CreateCalendarEvent;
 use App\Filament\Resources\CalendarEventResource\Pages\EditCalendarEvent;
 use App\Filament\Resources\CalendarEventResource\Pages\ListCalendarEvents;
@@ -197,4 +198,21 @@ test('slug uniqueness is enforced', function (): void {
         ->set('data.start_time', '12:00')
         ->call('create')
         ->assertHasFormErrors(['slug']);
+});
+
+test('showtime-type rows are not editable or deletable from this resource', function (): void {
+    // Showtime-type calendar entries are produced by the showtimes domain.
+    // The form's Type Select hides `showtime`, so opening such a row in
+    // the edit form would render a value that isn't in the allowed
+    // options. Both the Resource's authorization layer (canEdit / canDelete)
+    // and the table actions' visibility must refuse the operation.
+    $showtime = CalendarEvent::factory()->create(['type' => CalendarEventType::Showtime]);
+    $special = CalendarEvent::factory()->create(['type' => CalendarEventType::SpecialEvent]);
+
+    expect(CalendarEventResource::canEdit($showtime))->toBeFalse()
+        ->and(CalendarEventResource::canDelete($showtime))->toBeFalse()
+        // Sanity: a non-showtime row remains authorable when the admin has
+        // the permission (actingAsAdmin in beforeEach grants the full set).
+        ->and(CalendarEventResource::canEdit($special))->toBeTrue()
+        ->and(CalendarEventResource::canDelete($special))->toBeTrue();
 });

@@ -24,12 +24,21 @@ return new class extends Migration
             $table->id();
             $table->string('event_type', 100);
             $table->jsonb('payload');
-            $table->timestamp('available_at')->useCurrent();
-            $table->timestamp('processed_at')->nullable();
-            $table->timestamp('failed_at')->nullable();
+            // Microsecond precision is required: Laravel's default `timestamp(...)`
+            // creates `timestamp(0)` on Postgres, which ROUNDS the stored value
+            // to the nearest whole second. With second-precision and a default
+            // of CURRENT_TIMESTAMP, a row inserted at PHP wall-clock 12.6s gets
+            // `available_at = 13.0s`. The dispatchable scope then evaluates
+            // `available_at <= now()` against PHP's `now()` (still ~12.7s) and
+            // excludes the freshly-inserted row — the dispatcher silently skips
+            // the row until the next minute's tick. Sub-second precision keeps
+            // both sides of that comparison on the same time axis.
+            $table->timestamp('available_at', 6)->useCurrent();
+            $table->timestamp('processed_at', 6)->nullable();
+            $table->timestamp('failed_at', 6)->nullable();
             $table->unsignedSmallInteger('attempts')->default(0);
             $table->text('last_error')->nullable();
-            $table->timestamps();
+            $table->timestamps(6);
 
             // Worker index: find unprocessed rows ready to dispatch, ordered by creation.
             $table->index(['processed_at', 'available_at', 'event_type'], 'dispatch_outbox_pending_idx');
