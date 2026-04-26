@@ -22,6 +22,12 @@ for dir in storage bootstrap/cache; do
     fi
 done
 
+# Ensure the node_modules named volume root is owned by devuser so npm
+# can write into it without root-owned permission errors.
+if [ -d node_modules ]; then
+    chown "$DEV_UID:$DEV_GID" node_modules 2>/dev/null || true
+fi
+
 # Pre-create the admin auth events log so the Fail2ban admin-login jail
 # (which mounts the same shared `backend-logs` volume read-only) can boot
 # without waiting for the first failed login. Without this, fail2ban

@@ -1,0 +1,67 @@
+@import 'tailwindcss';
+@import '../../../../vendor/filament/filament/resources/css/theme.css';
+
+@source '../../../../vendor/filament/**/*.blade.php';
+@source '../../../views/filament/**/*.blade.php';
+@source '../../../../app/Filament/**/*.php';
+
+@layer base {
+    :root {
+        /* ——— Customer surface ramp ——— */
+        --surface:                  #131313;
+        --surface-container-lowest: #0e0e0e;
+        --surface-container-low:    #1c1b1b;
+        --surface-container:        #201f1f;
+        --surface-container-high:   #2a2a2a;
+        --surface-variant:          #3B3636;
+
+        /* ——— Brand fills ——— */
+        --primary-container:        #550000;
+        --secondary-container:      #675900;
+        --tertiary-container:       #29261b;
+
+        /* ——— Foreground ——— */
+        --primary:                  #FFB4A8;
+        --secondary:                #DAC769;
+        --tertiary:                 #CCC6B6;
+        --on-surface:               #E5E2E1;
+        --on-tertiary-fixed-variant: #A89F91;
+
+        /* ——— Edges ——— */
+        --outline-variant:          #57423E;
+        --outline:                  #A58B86;
+
+        /* ——— Admin semantic accents ——— */
+        --success:                  #5b8f6c;
+        --destructive:              #b5443d;
+        --warning:                  #c78438;
+        --info:                     #5a8aa0;
+
+        /* ——— Filament primary shade ramp (gold) ——— */
+        --fi-color-primary-50:  #1c1609;
+        --fi-color-primary-100: #2a2010;
+        --fi-color-primary-200: #4a371a;
+        --fi-color-primary-300: #7a5a2b;
+        --fi-color-primary-400: #a88040;
+        --fi-color-primary-500: #DAC769;
+        --fi-color-primary-600: #e6d489;
+        --fi-color-primary-700: #f0e1a9;
+        --fi-color-primary-800: #f8edc6;
+        --fi-color-primary-900: #fdf6e0;
+        --fi-color-primary-950: #fefae8;
+
+        /* ——— Filament semantic accents ——— */
+        --fi-color-danger-500:  #b5443d;
+        --fi-color-success-500: #5b8f6c;
+        --fi-color-warning-500: #c78438;
+        --fi-color-info-500:    #5a8aa0;
+    }
+}
+
+@layer components {
+    /* Apply to any column or value where numbers will be compared. */
+    .admin-tabular {
+        font-variant-numeric: tabular-nums;
+        font-feature-settings: 'tnum';
+    }
+}

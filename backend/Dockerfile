@@ -169,6 +169,11 @@ COPY --from=composer:2.9.5 /usr/bin/composer /usr/bin/composer
 RUN sed -i 's/opcache.validate_timestamps = 0/opcache.validate_timestamps = 1/' \
     $PHP_INI_DIR/conf.d/opcache.ini
 
+# Install Node.js 22 LTS for the admin theme Vite build toolchain.
+# Development stage only — production image has no node tooling.
+# Alpine 3.23 ships Node 22 in the community repo.
+RUN apk add --no-cache nodejs npm
+
 # Create a dev user matching the host UID/GID so bind-mounted files
 # and the vendor volume share the same ownership. This is scoped to
 # the development stage only — production still runs as www-data.

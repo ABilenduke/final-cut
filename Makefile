@@ -1,4 +1,4 @@
-.PHONY: up down build shell artisan migrate fresh test test-backend test-backend-unit test-backend-feature test-frontend certs trust-cert prod-up prod-down prod-build prod-logs local-prod-up local-prod-down local-prod-build local-prod-logs e2e ci-e2e admin-shell admin-migrate admin-test admin-create-user admin-filament-assets
+.PHONY: up down build shell artisan migrate fresh test test-backend test-backend-unit test-backend-feature test-frontend certs trust-cert prod-up prod-down prod-build prod-logs local-prod-up local-prod-down local-prod-build local-prod-logs e2e ci-e2e admin-shell admin-migrate admin-test admin-create-user admin-filament-assets admin-theme-build admin-theme-watch
 
 ifeq (artisan,$(firstword $(MAKECMDGOALS)))
 ARTISAN_ARGS := $(wordlist 2,$(words $(MAKECMDGOALS)),$(MAKECMDGOALS))
@@ -90,6 +90,12 @@ admin-create-user:
 
 admin-filament-assets:
 	docker compose exec -u 1000 backend php artisan filament:assets
+
+admin-theme-build:
+	docker compose exec -u 1000 backend npm run build
+
+admin-theme-watch:
+	docker compose exec -u 1000 backend npm run dev
 
 certs:
 	@./nginx/certs/generate-certs.sh

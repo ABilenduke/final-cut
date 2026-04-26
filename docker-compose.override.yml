@@ -29,6 +29,7 @@ services:
     volumes:
       - ./backend:/var/www/html
       - backend-vendor:/var/www/html/vendor
+      - backend-node-modules:/var/www/html/node_modules
     environment:
       - APP_ENV=local
       - APP_DEBUG=true
@@ -102,4 +103,5 @@ services:
 
 volumes:
   backend-vendor:
+  backend-node-modules:
   frontend-deno-cache:

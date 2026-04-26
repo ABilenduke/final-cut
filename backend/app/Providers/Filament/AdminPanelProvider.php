@@ -9,6 +9,7 @@ use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
 use Filament\Pages\Dashboard;
+use Filament\FontProviders\GoogleFontProvider;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
@@ -34,8 +35,27 @@ class AdminPanelProvider extends PanelProvider
             ->authPasswordBroker('admin_users')
             ->login()
             ->colors([
-                'primary' => Color::Amber,
+                'primary' => [
+                    50  => '#1c1609',
+                    100 => '#2a2010',
+                    200 => '#4a371a',
+                    300 => '#7a5a2b',
+                    400 => '#a88040',
+                    500 => '#DAC769',
+                    600 => '#e6d489',
+                    700 => '#f0e1a9',
+                    800 => '#f8edc6',
+                    900 => '#fdf6e0',
+                    950 => '#fefae8',
+                ],
+                'danger'  => Color::hex('#b5443d'),
+                'success' => Color::hex('#5b8f6c'),
+                'warning' => Color::hex('#c78438'),
+                'info'    => Color::hex('#5a8aa0'),
+                'gray'    => Color::Stone,
             ])
+            ->font('Newsreader', provider: GoogleFontProvider::class)
+            ->viteTheme('resources/css/filament/admin/theme.css')
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\Filament\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\Filament\Pages')
             ->pages([
