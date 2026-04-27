@@ -19,6 +19,7 @@ class ShowtimeSeeder extends Seeder
         // Screen times spread morning → late evening so at least one
         // slot is always in the future regardless of wall-clock time.
         $screenTimes = ['10:00', '13:00', '16:00', '19:00', '21:30'];
+        $targetPerDay = 3;
 
         foreach (range(-3, 13) as $dayOffset) {
             $date = Carbon::today()->addDays($dayOffset);
@@ -29,13 +30,26 @@ class ShowtimeSeeder extends Seeder
                     continue;
                 }
 
-                foreach ($movies as $movie) {
-                    // Every (movie × location × day) targets 3 showtimes
-                    // covering morning, afternoon, and evening.
-                    $timesForDay = fake()->randomElements($screenTimes, 3);
-                    sort($timesForDay);
+                // Shuffle movies per (location × day) so no single movie is
+                // consistently the last to compete for slots — earlier
+                // iteration order won the conflict race, leaving later
+                // movies (e.g. the home-page "featured" pick) with zero
+                // showtimes and a broken purchase funnel in dev/e2e.
+                foreach ($movies->shuffle() as $movie) {
+                    // For each (movie × location × day) walk every screen
+                    // time in shuffled order and place up to $targetPerDay
+                    // showtimes, breaking only after we hit the target.
+                    // The previous implementation picked 3 random times up
+                    // front; if all 3 collided with already-seeded showtimes
+                    // the movie got nothing that day. Trying every time
+                    // slot guarantees each movie gets a fair shot at the
+                    // remaining auditorium capacity.
+                    $placed = 0;
+                    foreach (collect($screenTimes)->shuffle() as $time) {
+                        if ($placed >= $targetPerDay) {
+                            break;
+                        }
 
-                    foreach ($timesForDay as $time) {
                         $startTime = $date->copy()->setTimeFromTimeString($time);
 
                         // Pick the first auditorium without an overlap — the
@@ -75,6 +89,7 @@ class ShowtimeSeeder extends Seeder
                             'price_premium' => 1800,
                             'price_accessible' => 1000,
                         ]);
+                        $placed++;
                     }
                 }
             }
