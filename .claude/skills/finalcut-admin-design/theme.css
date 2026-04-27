@@ -1,0 +1,356 @@
+/* ============================================================================
+   Final Cut admin — Filament v5 theme overrides
+
+   Drop this file at:   backend/public/css/admin/finalcut-overrides.css
+   Inject via:           AdminPanelProvider->registerRenderHook(PanelsRenderHook::HEAD_END, ...)
+                         (see references/panel-provider.md for the full snippet)
+
+   This is plain CSS — no Tailwind compile required. It re-skins Filament's
+   compiled stylesheet (`backend/public/css/filament/filament/app.css`) using
+   Final Cut tokens. If a future iteration adds Vite + Tailwind to backend/,
+   the same file works as a viteTheme entry; the optional `@theme` block at
+   the top is a no-op without Tailwind v4 and harmless to keep.
+
+   Token rules — read references/token-mapping.md before editing.
+   ============================================================================ */
+
+/* --- Final Cut tokens (admin subset) ---------------------------------------
+   These mirror the canonical tokens in docs/design-system/DESIGN_SYSTEM.md
+   and frontend/app/assets/css/tokens.css. Any drift between the three is a
+   bug — the canonical source wins.
+   -------------------------------------------------------------------------- */
+
+:root {
+  /* Surfaces — depth via tier shifts, never shadows */
+  --fc-surface:                  #131313;
+  --fc-surface-container-lowest: #0e0e0e;
+  --fc-surface-container-low:    #1c1b1b;
+  --fc-surface-container:        #201f1f;
+  --fc-surface-container-high:   #2a2a2a;
+  --fc-surface-variant:          #3b3636; /* glass substrate */
+
+  /* Foregrounds */
+  --fc-on-surface:                #e5e2e1; /* default body text */
+  --fc-tertiary:                  #ccc6b6; /* ivory — body/labels */
+  --fc-on-tertiary-fixed-variant: #a89f91; /* ambient telemetry */
+
+  /* Brand fills + on-fill text */
+  --fc-primary-container: #550000; /* reactor maroon — fill */
+  --fc-primary:           #ffb4a8; /* salmon — text on maroon ONLY */
+
+  /* Signal */
+  --fc-secondary:           #dac769; /* gold — accents, focus, active */
+  --fc-secondary-container: #675900;
+
+  /* Boundaries */
+  --fc-outline:         #a58b86; /* full-opacity functional border */
+  --fc-outline-variant: #57423e; /* decorative edge catch (use at 15% opacity) */
+
+  /* Filament semantic remap — drop the stock palette onto Final Cut tokens.
+     These hexes MUST match references/panel-provider.md `colors([])` and
+     references/notification-and-badge-mapping.md so the PHP-side palette
+     and CSS-side overrides resolve to the same values. */
+  --fc-success: #5b8f6c; /* sage — fill */
+  --fc-warning: #dac769; /* reuse signal gold */
+  --fc-danger:  #b5443d; /* claret — admin-only, distinct from primary-container */
+  --fc-info:    #5a8aa0; /* steel — reserved, not branded */
+
+  /* Border tints (bone-tinted rgba) */
+  --fc-border-subtle:  rgba(255, 241, 220, 0.06);
+  --fc-border-default: rgba(255, 241, 220, 0.10);
+  --fc-border-strong:  rgba(255, 241, 220, 0.16);
+
+  /* Motion */
+  --fc-duration-micro:    100ms;
+  --fc-duration-standard: 250ms;
+  --fc-duration-emphasis: 400ms;
+  --fc-ease-standard: cubic-bezier(0.2, 0, 0, 1);
+
+  /* Shadows — only on floating elements, never static */
+  --fc-shadow-float: 0 1.25rem 2.5rem rgba(0, 0, 0, 0.6);
+}
+
+/* --- Light mode (operator handover prints, occasional bright-office use) -- */
+
+:root.fi-light {
+  --fc-surface:                  #f6f1e8;
+  --fc-surface-container-lowest: #ffffff;
+  --fc-surface-container-low:    #f1ebe0;
+  --fc-surface-container:        #ebe4d6;
+  --fc-surface-container-high:   #e3dac9;
+  --fc-surface-variant:          #cfc6b4;
+
+  --fc-on-surface:                #1a1612;
+  --fc-tertiary:                  #3a342b;
+  --fc-on-tertiary-fixed-variant: #5a5246;
+
+  /* Maroon stays the brand fill in light mode; primary text remains the
+     contrasting salmon — so a maroon button still reads correctly on a
+     pale canvas. */
+  --fc-outline:         #5a4742;
+  --fc-outline-variant: #b3a59f;
+
+  --fc-shadow-float: 0 1.25rem 2.5rem rgba(60, 40, 18, 0.18);
+}
+
+/* ============================================================================
+   Optional Tailwind v4 @theme bridge — safe to keep even if backend/ isn't
+   running Tailwind. CSS engines that don't recognize @theme treat the block
+   as an unknown at-rule and skip it.
+   ============================================================================ */
+
+@theme inline {
+  --color-fc-surface:                  var(--fc-surface);
+  --color-fc-surface-container:        var(--fc-surface-container);
+  --color-fc-surface-container-high:   var(--fc-surface-container-high);
+  --color-fc-on-surface:               var(--fc-on-surface);
+  --color-fc-primary-container:        var(--fc-primary-container);
+  --color-fc-primary:                  var(--fc-primary);
+  --color-fc-secondary:                var(--fc-secondary);
+  --color-fc-outline:                  var(--fc-outline);
+}
+
+/* ============================================================================
+   Panel chrome
+   ============================================================================ */
+
+/* Canvas — flat, no gradient. */
+.fi-body,
+.fi-main {
+  background-color: var(--fc-surface);
+  color: var(--fc-on-surface);
+}
+
+/* Sidebar feels recessed against the canvas. */
+.fi-sidebar {
+  background-color: var(--fc-surface-container-low);
+  border-right: 0.0625rem solid color-mix(in srgb, var(--fc-outline) 30%, transparent);
+}
+
+.fi-sidebar-item-btn:hover {
+  background-color: var(--fc-surface-container);
+}
+
+.fi-sidebar-item.fi-active .fi-sidebar-item-btn {
+  background-color: var(--fc-surface-container-high);
+  /* Active item carries a leading-edge gold accent — the No-Line rule's
+     functional-boundary exception. */
+  box-shadow: inset 0.1875rem 0 0 0 var(--fc-secondary);
+  color: var(--fc-on-surface);
+}
+
+/* Topbar dissolves into the canvas on scroll via backdrop blur.
+   Fallback (no backdrop-filter): solid surface tier so the topbar stays
+   readable on older browsers. Pattern mirrors finalcut-design's .glass. */
+.fi-topbar {
+  background-color: var(--fc-surface-container);
+  border-bottom: 0.0625rem solid color-mix(in srgb, var(--fc-outline) 25%, transparent);
+}
+
+@supports (backdrop-filter: blur(1px)) {
+  .fi-topbar {
+    background-color: color-mix(in srgb, var(--fc-surface-container) 75%, transparent);
+    backdrop-filter: blur(0.75rem);
+    -webkit-backdrop-filter: blur(0.75rem);
+  }
+}
+
+/* ============================================================================
+   Buttons — token-aware override of Filament's primary/secondary/etc.
+   Filament's PHP `colors([])` already remaps `primary`. These rules fix
+   contrast and sharpen the visual treatment further.
+   ============================================================================ */
+
+.fi-btn {
+  border-radius: 0.125rem; /* engineered edges; no pill buttons */
+  transition: background-color var(--fc-duration-micro) var(--fc-ease-standard),
+              color var(--fc-duration-micro) var(--fc-ease-standard),
+              transform var(--fc-duration-micro) var(--fc-ease-standard);
+}
+
+.fi-btn:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+/* Primary button: maroon fill, salmon text. Note the inversion: Filament's
+   `primary` semantic = our `primary_container` brand token. */
+.fi-btn-color-primary,
+.fi-color-primary.fi-btn {
+  background-color: var(--fc-primary-container);
+  color: var(--fc-primary);
+}
+
+.fi-btn-color-primary:hover {
+  background-color: color-mix(in srgb, var(--fc-primary-container) 80%, var(--fc-secondary));
+}
+
+/* ============================================================================
+   Badges — semantic color remap. Filament's `'success' | 'warning' | ...`
+   strings render with these classes; we re-skin them.
+   ============================================================================ */
+
+.fi-badge.fi-color-success {
+  background-color: color-mix(in srgb, var(--fc-success) 18%, transparent);
+  color: var(--fc-success);
+}
+
+.fi-badge.fi-color-warning {
+  background-color: color-mix(in srgb, var(--fc-warning) 18%, transparent);
+  color: var(--fc-warning);
+}
+
+.fi-badge.fi-color-danger {
+  background-color: var(--fc-primary-container);
+  color: var(--fc-primary);
+}
+
+.fi-badge.fi-color-info {
+  background-color: color-mix(in srgb, var(--fc-info) 18%, transparent);
+  color: var(--fc-info);
+}
+
+.fi-badge.fi-color-gray {
+  background-color: var(--fc-surface-container-high);
+  color: var(--fc-on-tertiary-fixed-variant);
+}
+
+/* ============================================================================
+   Tables — strip stock row borders; rely on tier shifts for separation.
+   ============================================================================ */
+
+.fi-ta {
+  background-color: var(--fc-surface-container);
+  border-radius: 0.25rem;
+  outline: 0.0625rem solid color-mix(in srgb, var(--fc-outline-variant) 15%, transparent);
+}
+
+.fi-ta-header-cell {
+  font-family: 'Newsreader', Georgia, serif;
+  font-size: 0.6875rem;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  color: var(--fc-on-tertiary-fixed-variant);
+  border-bottom: 0.0625rem solid color-mix(in srgb, var(--fc-outline) 18%, transparent);
+}
+
+.fi-ta-row {
+  border-bottom: 0; /* No-Line Rule: rows separated by hover tier shift only */
+}
+
+.fi-ta-row:hover {
+  background-color: var(--fc-surface-container-high);
+}
+
+/* ============================================================================
+   Inputs — underline-only, matching the customer-frontend treatment.
+   ============================================================================ */
+
+.fi-input {
+  background-color: transparent;
+  border: 0;
+  border-bottom: 0.0625rem solid var(--fc-outline);
+  border-radius: 0;
+  color: var(--fc-on-surface);
+  transition: border-color var(--fc-duration-standard) var(--fc-ease-standard),
+              box-shadow var(--fc-duration-standard) var(--fc-ease-standard);
+}
+
+.fi-input:focus,
+.fi-input:focus-visible {
+  outline: none;
+  border-bottom-color: var(--fc-secondary);
+  box-shadow: 0 0.125rem 0.5rem color-mix(in srgb, var(--fc-secondary) 30%, transparent);
+}
+
+/* ============================================================================
+   Cards / sections / form-section surfaces
+   ============================================================================ */
+
+.fi-section,
+.fi-fo-section,
+.fi-in-section,
+.fi-wi {
+  background-color: var(--fc-surface-container);
+  border-radius: 0.25rem;
+  border: 0;
+  outline: 0.0625rem solid color-mix(in srgb, var(--fc-outline-variant) 15%, transparent);
+}
+
+/* ============================================================================
+   Floating surfaces — modal, dropdown, command palette, drawer
+   ============================================================================ */
+
+.fi-modal-window,
+.fi-dropdown-panel,
+.fi-dropdown-list,
+.fi-no-notification {
+  background-color: var(--fc-surface-container-high);
+  border-radius: 0.125rem;
+  border: 0;
+  box-shadow: var(--fc-shadow-float);
+}
+
+/* ============================================================================
+   Notifications (Filament\Notifications\Notification)
+   ============================================================================ */
+
+.fi-no-notification.fi-color-success {
+  border-left: 0.1875rem solid var(--fc-success);
+}
+
+.fi-no-notification.fi-color-warning {
+  border-left: 0.1875rem solid var(--fc-warning);
+}
+
+.fi-no-notification.fi-color-danger {
+  border-left: 0.1875rem solid var(--fc-primary-container);
+}
+
+.fi-no-notification.fi-color-info {
+  border-left: 0.1875rem solid var(--fc-info);
+}
+
+/* ============================================================================
+   Focus indicator — the global gold double-ring that honors the customer
+   frontend's accessibility spec. Clipped surfaces (sidebar items above)
+   already use a leading-edge accent instead.
+   ============================================================================ */
+
+:where(.fi-btn, .fi-link, .fi-input, .fi-ta-actions-cell button):focus-visible {
+  outline: 0.125rem solid var(--fc-secondary);
+  outline-offset: 0.125rem;
+}
+
+/* ============================================================================
+   Bulk-action ribbon — gold-tinted bar above the table when rows selected
+   ============================================================================ */
+
+.fi-ta-selection-indicator {
+  background-color: color-mix(in srgb, var(--fc-secondary) 12%, var(--fc-surface-container));
+  border-left: 0.1875rem solid var(--fc-secondary);
+  color: var(--fc-on-surface);
+}
+
+/* ============================================================================
+   HtmlString / Placeholder content — see references/token-mapping.md.
+   These rules are a *backstop*: they reskin the inline-Tailwind classes that
+   leak into PHP-rendered content. The real fix is to remove those classes
+   from the PHP and use Filament components instead.
+   ============================================================================ */
+
+.fi-fo-placeholder ul.list-disc {
+  padding-inline-start: 1.25rem;
+  color: var(--fc-tertiary);
+}
+
+.fi-fo-placeholder ul.list-disc > li {
+  padding-block: 0.125rem;
+}
+
+.fi-fo-placeholder a.fi-link,
+.fi-fo-placeholder a.underline {
+  color: var(--fc-secondary);
+  text-decoration: underline;
+  text-decoration-thickness: 0.0625rem;
+  text-underline-offset: 0.1875rem;
+}

@@ -12,3 +12,4 @@ tests
 phpunit.xml
 .env
 .env.*
+.claude

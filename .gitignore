@@ -32,4 +32,13 @@ nginx/certs/.domain
 
 # Git worktrees
 .worktrees
-.claude/
+
+# Claude Code: commit shared project config (skills/agents/commands/settings.json),
+# but keep personal/runtime files (settings.local.json, scheduled_tasks.lock, etc.)
+# out of the repo. .dockerignore still excludes the whole .claude/ tree from build
+# contexts so this doesn't bloat container images.
+.claude/*
+!.claude/skills/
+!.claude/agents/
+!.claude/commands/
+!.claude/settings.json

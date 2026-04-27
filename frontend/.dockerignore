@@ -9,3 +9,4 @@ dist
 .dockerignore
 *.md
 .deno
+.claude
