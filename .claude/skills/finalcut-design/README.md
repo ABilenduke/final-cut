@@ -114,7 +114,7 @@ The backend is a Laravel API (TMDB-enriched movie catalog, Stripe + gift cards, 
 
 ## Fonts
 
-Both **Noto Serif** and **Newsreader** are loaded from Google Fonts via the `@import` in `colors_and_type.css`. No local `.ttf`/`.woff2` files are required for HTML artifacts. If a fully offline bundle is needed, download the families from [fonts.google.com/noto/specimen/Noto+Serif](https://fonts.google.com/noto/specimen/Noto+Serif) and [fonts.google.com/specimen/Newsreader](https://fonts.google.com/specimen/Newsreader) into `fonts/` and swap the `@import` for `@font-face`.
+Both **Noto Serif** and **Newsreader** are loaded from Google Fonts via `<link rel="stylesheet" ...>` tags in the HTML document; `colors_and_type.css` assumes those families are already available and does not use `@import` (which is render-blocking and serializes behind the stylesheet). The exact `<link>` tags are documented at the top of `colors_and_type.css`. No local `.ttf`/`.woff2` files are required for HTML artifacts. If a fully offline bundle is needed, download the families from [fonts.google.com/noto/specimen/Noto+Serif](https://fonts.google.com/noto/specimen/Noto+Serif) and [fonts.google.com/specimen/Newsreader](https://fonts.google.com/specimen/Newsreader) into `fonts/`, replace the external Google Fonts `<link>` tags with local `@font-face` declarations, and point those declarations at the bundled font files.
 
 ---
 

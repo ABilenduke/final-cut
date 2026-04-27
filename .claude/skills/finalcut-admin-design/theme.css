@@ -200,8 +200,8 @@
 }
 
 .fi-badge.fi-color-danger {
-  background-color: var(--fc-primary-container);
-  color: var(--fc-primary);
+  background-color: color-mix(in srgb, var(--fc-danger) 18%, transparent);
+  color: var(--fc-danger);
 }
 
 .fi-badge.fi-color-info {
@@ -303,7 +303,7 @@
 }
 
 .fi-no-notification.fi-color-danger {
-  border-left: 0.1875rem solid var(--fc-primary-container);
+  border-left: 0.1875rem solid var(--fc-danger);
 }
 
 .fi-no-notification.fi-color-info {
