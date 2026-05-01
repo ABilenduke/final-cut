@@ -6,11 +6,29 @@
 
 **`icons.js` — JS path map.** Best when you're writing inline-rendered components (React, Vue, vanilla JS). Loads `window.FC_ICONS[name]` as a path-data string.
 
+Vanilla HTML — assign `d` via JS, since attribute interpolation isn't valid HTML:
+
 ```html
 <script src="assets/icons/icons.js"></script>
 <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
-  <path d={window.FC_ICONS['check']} />
+  <path id="icon-check"></path>
 </svg>
+<script>
+  document.getElementById('icon-check')
+    .setAttribute('d', window.FC_ICONS['check']);
+</script>
+```
+
+In a framework, bind directly:
+
+```jsx
+// React
+<path d={FC_ICONS['check']} />
+```
+
+```html
+<!-- Vue -->
+<path :d="FC_ICONS['check']" />
 ```
 
 **`sprite.svg` — single combined sprite.** Best for static HTML mocks where wiring up a script is overkill.

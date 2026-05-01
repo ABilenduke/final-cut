@@ -1,11 +1,18 @@
 // Final Cut icon path map — derived from frontend/app/components/ui/icons.ts.
 // Material Design Icons (Apache 2.0). All icons use viewBox="0 0 24 24" and fill="currentColor".
 //
-// Usage:
+// Usage (vanilla HTML — set `d` via setAttribute):
 //   <script src="assets/icons/icons.js"></script>
 //   <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
-//     <path d={window.FC_ICONS['check']} />
+//     <path id="check-icon"></path>
 //   </svg>
+//   <script>
+//     document.getElementById('check-icon')
+//       .setAttribute('d', window.FC_ICONS['check']);
+//   </script>
+//
+// In a framework, bind directly: React `<path d={FC_ICONS['check']} />`,
+// Vue `<path :d="FC_ICONS['check']" />`.
 
 window.FC_ICONS = {
   "close": "M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z",
