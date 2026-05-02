@@ -1,0 +1,158 @@
+/* Final Cut Admin — Cinematic Void brand overlay
+ *
+ * Loaded via FilamentAsset::register() in AppServiceProvider::boot().
+ * Published to backend/public/css/finalcut/finalcut-admin-theme.css by
+ * `php artisan filament:assets` (run via `make admin-filament-assets`).
+ *
+ * This is plain CSS layered on top of Filament's compiled stylesheet. When a
+ * backend Vite pipeline is introduced, migrate this file to a viteTheme()
+ * entry — the token names mirror frontend/app/assets/css/tokens.css so the
+ * eventual Tailwind config can consume the same source of truth.
+ */
+
+@import url('https://fonts.googleapis.com/css2?family=Newsreader:wght@400;500;600&family=Noto+Serif:wght@500;700;800&display=swap');
+
+:root {
+  /* Cinematic Void tokens — mirrors frontend/app/assets/css/tokens.css */
+  --fc-surface: #131313;
+  --fc-surface-container-lowest: #0e0e0e;
+  --fc-surface-container-low: #1c1b1b;
+  --fc-surface-container: #201f1f;
+  --fc-surface-container-high: #2a2a2a;
+  --fc-surface-variant: #3b3636;
+  --fc-on-surface: #e5e2e1;
+  --fc-tertiary: #ccc6b6;
+  --fc-secondary: #dac769;
+  --fc-secondary-hover: color-mix(in oklch, #dac769 92%, white 8%);
+  --fc-primary-container: #550000;
+  --fc-primary-container-hover: color-mix(in oklch, #550000 85%, white 15%);
+  --fc-primary-text: #ffb4a8;
+  --fc-outline: #a58b86;
+  --fc-outline-variant: #57423e;
+  --fc-on-tertiary-fixed-variant: #a89f91;
+
+  /* Cinematic Void state colors. Spec-silent on success/warning/danger/info;
+   * documenting them here is the project's first commit on those semantics. */
+  --fc-state-success: #5b8f6c;  /* sage */
+  --fc-state-warning: #dac769;  /* shares secondary */
+  --fc-state-danger:  #b5443d;  /* claret */
+  --fc-state-info:    #5a8aa0;  /* steel-blue */
+}
+
+/* ——— Typography: Director's voice ——— */
+.fi-body,
+.fi-body input,
+.fi-body select,
+.fi-body textarea,
+.fi-body button {
+  font-family: 'Newsreader', serif;
+}
+
+.fi-topbar-title,
+.fi-page-heading,
+.fi-section-header-heading,
+.fi-modal-heading,
+.fi-fo-section-heading,
+.fi-header-heading,
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Noto Serif', serif;
+  letter-spacing: -0.02em;
+}
+
+/* ——— Engineered edges: sharp corners only ——— */
+.fi-btn,
+.fi-input,
+.fi-select-input,
+.fi-textarea,
+.fi-section,
+.fi-card,
+.fi-modal-window,
+.fi-badge,
+.fi-tabs-item,
+.fi-dropdown-panel,
+.fi-tables-table,
+.fi-fo-component-ctn {
+  border-radius: 0.125rem !important;
+}
+
+/* Avatars and circular media remain round (DS § 4 — only avatars use radius-full) */
+.fi-avatar,
+.fi-user-avatar,
+[class*='-avatar'] {
+  border-radius: 50% !important;
+}
+
+/* ——— Surface stack: page → containers → topbar → sidebar ——— */
+.fi-body {
+  background-color: var(--fc-surface) !important;
+  color: var(--fc-on-surface);
+}
+
+.fi-topbar {
+  background-color: var(--fc-surface-container-low) !important;
+  border-bottom: 0;
+}
+
+.fi-sidebar {
+  background-color: var(--fc-surface-container-low) !important;
+  border-right: 0;
+}
+
+.fi-main,
+.fi-page {
+  background-color: var(--fc-surface) !important;
+}
+
+.fi-section,
+.fi-card,
+.fi-fo-section,
+.fi-tables-table-container {
+  background-color: var(--fc-surface-container) !important;
+  border: 0 !important;
+}
+
+.fi-modal-window {
+  background-color: var(--fc-surface-container-high) !important;
+}
+
+.fi-input,
+.fi-select-input,
+.fi-textarea {
+  background-color: var(--fc-surface-container-low) !important;
+  color: var(--fc-on-surface);
+}
+
+/* ——— Active state: brand maroon left edge on sidebar item ——— */
+.fi-sidebar-item-active > a,
+.fi-sidebar-item.fi-active > a {
+  background-color: var(--fc-surface-container-high) !important;
+  border-left: 0.125rem solid var(--fc-secondary);
+}
+
+/* ——— Buttons: maroon fill, gold text ——— */
+.fi-btn-color-primary {
+  background-color: var(--fc-primary-container) !important;
+  color: var(--fc-secondary) !important;
+}
+
+.fi-btn-color-primary:hover {
+  background-color: var(--fc-primary-container-hover) !important;
+}
+
+/* ——— Focus rings: gold double-ring (DS § 7) ——— */
+.fi-btn:focus-visible,
+.fi-input:focus-visible,
+.fi-select-input:focus-visible,
+.fi-textarea:focus-visible,
+.fi-tabs-item:focus-visible {
+  outline: 0.125rem solid var(--fc-secondary);
+  outline-offset: 0.125rem;
+}
+
+/* ——— Subdued text on dark surfaces ——— */
+.fi-section-header-description,
+.fi-fo-section-description,
+.fi-page-subheading,
+.fi-form-component-helper {
+  color: var(--fc-on-tertiary-fixed-variant);
+}

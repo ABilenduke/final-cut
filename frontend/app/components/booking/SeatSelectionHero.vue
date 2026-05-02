@@ -39,7 +39,7 @@ const formattedWhen = computed<string>(() => formatDateTime(props.showtime.start
   align-items: flex-end;
   gap: var(--space-lg);
   flex-wrap: wrap;
-  border-bottom: 0.0625rem solid rgba(87, 66, 62, 0.2);
+  border-bottom: var(--border-hairline) solid rgb(var(--outline-variant-rgb) / 0.2);
 }
 
 .seat-hero__lead {

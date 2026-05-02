@@ -142,7 +142,7 @@ onUnmounted(() => {
   max-height: calc(100vh - var(--space-2xl) * 2);
   overflow-y: auto;
   background-color: var(--surface-container-high);
-  border-radius: 0.125rem; /* token-exception: design system radius */
+  border-radius: var(--radius-sm);
   box-shadow: 0 1.25rem 2.5rem rgba(0, 0, 0, 0.6); /* token-exception: floating shadow tint */
 }
 
@@ -172,7 +172,7 @@ onUnmounted(() => {
   border: none;
   color: var(--tertiary);
   cursor: pointer;
-  border-radius: 0.125rem; /* token-exception: design system radius */
+  border-radius: var(--radius-sm);
 }
 
 .cv-modal__close svg {

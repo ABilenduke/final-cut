@@ -55,7 +55,7 @@ useHead({
 
 .food-drink-page__top {
   padding: var(--space-xl) 0 var(--space-lg);
-  border-bottom: 0.0625rem solid rgb(var(--outline-variant-rgb) / 0.2);
+  border-bottom: var(--border-hairline) solid rgb(var(--outline-variant-rgb) / 0.2);
 }
 
 .food-drink-page__eyebrow {

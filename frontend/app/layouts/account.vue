@@ -20,8 +20,10 @@ const accountNavItems: Array<{ label: string; href: string; icon: IconName }> = 
 <template>
   <div class="layout-account">
     <SkipNav />
-    <SiteHeader />
-    <NeuralTicker :items="tickerItems" />
+    <div class="layout-account__chrome">
+      <SiteHeader />
+      <NeuralTicker :items="tickerItems" />
+    </div>
 
     <div class="layout-account__body">
       <SidebarNav :items="accountNavItems" />
@@ -43,6 +45,14 @@ const accountNavItems: Array<{ label: string; href: string; icon: IconName }> = 
   min-height: 100dvh;
 }
 
+/* Header + ticker as one sticky chrome unit. Document flow handles the
+ * offset; no padding-top compensation needed. */
+.layout-account__chrome {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-sticky);
+}
+
 .layout-account__body {
   display: flex;
   flex: 1;
@@ -50,8 +60,6 @@ const accountNavItems: Array<{ label: string; href: string; icon: IconName }> = 
   width: 100%;
   margin-inline: auto;
   padding-inline: var(--space-md);
-  /* Offset for fixed header (4rem) + ticker (2rem) */
-  padding-top: 6rem;
   gap: var(--space-2xl);
 }
 

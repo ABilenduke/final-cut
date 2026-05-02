@@ -98,7 +98,7 @@ const buttonAriaLabel = computed<string>(() =>
   padding: var(--space-xl);
   background-color: var(--surface-container);
   border-radius: var(--radius-card);
-  border: 0.0625rem solid rgb(var(--secondary-rgb) / 0.25);
+  border: var(--border-hairline) solid rgb(var(--secondary-rgb) / 0.25);
   overflow: hidden;
 }
 
@@ -187,7 +187,7 @@ const buttonAriaLabel = computed<string>(() =>
 .pairing__tag::after {
   content: '';
   flex: 1;
-  height: 0.0625rem;
+  height: var(--border-hairline);
   background-color: rgb(var(--secondary-rgb) / 0.2);
 }
 
@@ -287,7 +287,7 @@ const buttonAriaLabel = computed<string>(() =>
   justify-content: space-between;
   gap: var(--space-md);
   padding-left: var(--space-md);
-  border-left: 0.0625rem solid rgb(var(--outline-variant-rgb) / 0.3);
+  border-left: var(--border-hairline) solid rgb(var(--outline-variant-rgb) / 0.3);
   min-width: 11.25rem;
 }
 
@@ -347,7 +347,7 @@ const buttonAriaLabel = computed<string>(() =>
 }
 
 .pairing__btn:hover {
-  background-color: #e6d585;
+  background-color: var(--secondary-hover);
 }
 
 .pairing__btn:active {
@@ -360,7 +360,7 @@ const buttonAriaLabel = computed<string>(() =>
 }
 
 .pairing__btn--added:hover {
-  background-color: #6a0a0a;
+  background-color: var(--primary-container-hover);
 }
 
 @media (max-width: 68.75rem) {
@@ -375,7 +375,7 @@ const buttonAriaLabel = computed<string>(() =>
     align-items: center;
     padding-left: 0;
     border-left: none;
-    border-top: 0.0625rem solid rgb(var(--outline-variant-rgb) / 0.3);
+    border-top: var(--border-hairline) solid rgb(var(--outline-variant-rgb) / 0.3);
     padding-top: var(--space-md);
   }
 }

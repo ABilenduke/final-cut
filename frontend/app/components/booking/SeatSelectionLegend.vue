@@ -73,8 +73,8 @@ function fmt(cents: number | undefined, fallback: string): string {
   gap: var(--space-md);
   padding: var(--space-lg);
   background-color: var(--surface-container-low);
-  border: 0.0625rem solid rgba(87, 66, 62, 0.15);
-  border-radius: 0.25rem;
+  border: var(--border-hairline) solid rgb(var(--outline-variant-rgb) / 0.15);
+  border-radius: var(--radius-card);
 }
 
 @media (max-width: 68.75rem) {
@@ -95,7 +95,7 @@ function fmt(cents: number | undefined, fallback: string): string {
   height: 2rem;
   border-radius: 0.3rem 0.3rem 0.2rem 0.2rem;
   flex-shrink: 0;
-  border: 0.0625rem solid rgba(87, 66, 62, 0.4);
+  border: var(--border-hairline) solid rgb(var(--outline-variant-rgb) / 0.4);
   display: grid;
   place-items: center;
   font-family: var(--font-display);
@@ -130,7 +130,7 @@ function fmt(cents: number | undefined, fallback: string): string {
 
 .seat-legend__sw--sold {
   background-color: var(--surface-container-lowest);
-  border-color: rgba(87, 66, 62, 0.3);
+  border-color: rgb(var(--outline-variant-rgb) / 0.3);
   position: relative;
   color: transparent;
 }
@@ -188,7 +188,7 @@ function fmt(cents: number | undefined, fallback: string): string {
 
 .seat-legend__states {
   grid-column: 1 / -1;
-  border-top: 0.0625rem dashed rgba(87, 66, 62, 0.3);
+  border-top: var(--border-hairline) dashed rgb(var(--outline-variant-rgb) / 0.3);
   padding-top: var(--space-md);
   display: flex;
   flex-wrap: wrap;

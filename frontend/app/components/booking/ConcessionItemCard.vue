@@ -149,7 +149,7 @@ const dietaryMarks = computed<Array<{ key: string; label: string }>>(() =>
   gap: 0.6rem;
   padding: var(--space-md);
   background-color: var(--surface-container-low);
-  border: 0.0625rem solid rgb(var(--outline-variant-rgb) / 0.2);
+  border: var(--border-hairline) solid rgb(var(--outline-variant-rgb) / 0.2);
   border-radius: var(--radius-card);
   transition: border-color var(--duration-standard) var(--ease-standard);
   text-align: left;
@@ -225,7 +225,7 @@ const dietaryMarks = computed<Array<{ key: string; label: string }>>(() =>
   -webkit-backdrop-filter: blur(4px);
   padding: 0.25rem 0.5rem;
   border-radius: var(--radius-sm);
-  border: 0.0625rem solid rgb(var(--secondary-rgb) / 0.3);
+  border: var(--border-hairline) solid rgb(var(--secondary-rgb) / 0.3);
 }
 
 .prod__body {
@@ -285,7 +285,7 @@ const dietaryMarks = computed<Array<{ key: string; label: string }>>(() =>
   text-transform: uppercase;
   color: var(--on-tertiary-fixed-variant);
   padding: 0.2rem 0.4rem;
-  border: 0.0625rem solid rgb(var(--outline-variant-rgb) / 0.4);
+  border: var(--border-hairline) solid rgb(var(--outline-variant-rgb) / 0.4);
   border-radius: var(--radius-sm);
 }
 
@@ -304,7 +304,7 @@ const dietaryMarks = computed<Array<{ key: string; label: string }>>(() =>
   justify-content: space-between;
   align-items: center;
   padding-top: 0.6rem;
-  border-top: 0.0625rem solid rgb(var(--outline-variant-rgb) / 0.25);
+  border-top: var(--border-hairline) solid rgb(var(--outline-variant-rgb) / 0.25);
   margin-top: auto;
 }
 
@@ -341,7 +341,7 @@ const dietaryMarks = computed<Array<{ key: string; label: string }>>(() =>
 .prod__qty-btn {
   width: 1.75rem;
   height: 1.75rem;
-  border: 0.0625rem solid rgb(var(--outline-variant-rgb) / 0.5);
+  border: var(--border-hairline) solid rgb(var(--outline-variant-rgb) / 0.5);
   border-radius: var(--radius-sm);
   display: grid;
   place-items: center;
@@ -372,7 +372,7 @@ const dietaryMarks = computed<Array<{ key: string; label: string }>>(() =>
   align-items: center;
   gap: 0.4rem;
   padding: 0.45rem 0.85rem;
-  border: 0.0625rem solid rgb(var(--outline-variant-rgb) / 0.5);
+  border: var(--border-hairline) solid rgb(var(--outline-variant-rgb) / 0.5);
   border-radius: var(--radius-sm);
   font-family: var(--font-body);
   font-size: 0.75rem;

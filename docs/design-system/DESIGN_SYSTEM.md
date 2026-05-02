@@ -149,6 +149,33 @@ Depth is communicated by surface tier, never by drop shadows on static elements.
 
 ---
 
+### State Semantics: Sage, Gold, Claret, Steel
+
+Success, warning, danger, and info are part of the brand language now — not Material defaults bolted on. They are tuned to read clearly against the dark surface stack while staying inside the Cinematic Void temperature: warm earth tones for affirmative states, cool steel for neutral ones. No phosphor green. No Twitter-blue.
+
+| Role | Token | Hex | Use |
+|---|---|---|---|
+| Success | `state_success` | `#5B8F6C` | Confirmations, positive transitions ("Booking confirmed", "Card saved") |
+| Warning | `state_warning` | `#DAC769` | Non-blocking attention. Shares `secondary` — gold reads as both signal and warning |
+| Danger | `state_danger` | `#B5443D` | Errors, destructive confirmations, validation failures |
+| Info | `state_info` | `#5A8AA0` | Neutral information, low-priority notices |
+
+**Where they live:**
+- Customer-side: `--state-success`, `--state-warning`, `--state-danger`, `--state-info` exported from `frontend/app/assets/css/tokens.css`. Use for toasts, inline form validation, badge variants.
+- Admin-side: `--fc-state-success`, `--fc-state-warning`, `--fc-state-danger`, `--fc-state-info` declared in `backend/resources/css/filament/admin/theme.css`. Filament's semantic palettes (success/warning/danger/info) override their default greens/yellows/reds with these values.
+
+**Contrast notes (against `surface` #131313):**
+- Sage (#5B8F6C): 4.92:1 — passes AA for normal text
+- Gold (#DAC769): 10.93:1 — AAA, also serves as the secondary signal color
+- Claret (#B5443D): 4.51:1 — passes AA, marginal for small text on the lightest container tier — bump to claret-light if it ever fails
+- Steel (#5A8AA0): 4.85:1 — passes AA
+
+**Don't:**
+- Don't use these for static decorative purposes — they carry meaning. A sage accent on a card that isn't a success state is a brand miscue.
+- Don't introduce additional state colors. Four roles cover everything in this product. If a fifth feels necessary, the design problem is upstream (overloading the alert vocabulary).
+
+---
+
 ## 3. Typography: The Director's Voice
 We use **Noto Serif** for its structural authority and **Newsreader** for its high-legibility editorial grace. The pairing is deliberate: the gravitas of opening credits meets the functional clarity of on-screen telemetry.
 

@@ -83,7 +83,7 @@ const p = retrospectiveProgramme
   position: relative;
   aspect-ratio: 4 / 5;
   overflow: hidden;
-  border-radius: 0.125rem; /* token-exception: card radius */
+  border-radius: var(--radius-sm);
   background: linear-gradient(180deg, #1a0a0a, var(--surface-container-lowest));
   isolation: isolate;
 }
@@ -213,7 +213,7 @@ const p = retrospectiveProgramme
   display: flex;
   gap: var(--space-md);
   padding-block: 0.75rem;
-  border-top: 0.0625rem solid rgb(var(--outline-variant-rgb) / 0.25); /* token-exception: sub-pixel edge */
+  border-top: var(--border-hairline) solid rgb(var(--outline-variant-rgb) / 0.25);
 }
 
 .retro__row-day {

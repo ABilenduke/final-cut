@@ -19,7 +19,7 @@
   font-family: var(--font-body);
   font-size: var(--type-body-md);
   text-decoration: none;
-  border-radius: 0.125rem; /* token-exception: design system radius */
+  border-radius: var(--radius-sm);
   transform: translateY(-100%);
   transition: transform var(--duration-standard) var(--ease-enter);
 }

@@ -4,6 +4,8 @@ namespace App\Providers;
 
 use App\Auth\AdminUserProvider;
 use App\Models\User;
+use Filament\Support\Assets\Css;
+use Filament\Support\Facades\FilamentAsset;
 use Illuminate\Auth\Events\Failed;
 use Illuminate\Auth\Events\Login;
 use Illuminate\Auth\Events\Logout;
@@ -29,6 +31,14 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Filament admin brand overlay — Cinematic Void.
+        // Plain CSS layered on top of Filament's compiled stylesheet. Run
+        // `make admin-filament-assets` after editing the theme.css source.
+        // When a backend Vite pipeline lands, migrate to viteTheme().
+        FilamentAsset::register([
+            Css::make('finalcut-admin-theme', resource_path('css/filament/admin/theme.css')),
+        ], 'finalcut');
+
         // Custom user provider for the `admin` guard. Returns null for users
         // without an active AdminProfile, so a customer presenting valid
         // credentials at the admin login page fails the credential check

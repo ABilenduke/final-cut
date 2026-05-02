@@ -125,9 +125,9 @@ const seatSummary = computed<string>(() => {
   grid-template-columns: 8.75rem 1fr auto;
   gap: var(--space-lg);
   background-color: var(--surface-container-low);
-  border-radius: 0.25rem;
+  border-radius: var(--radius-card);
   padding: var(--space-lg);
-  border: 0.0625rem solid rgba(87, 66, 62, 0.15);
+  border: var(--border-hairline) solid rgb(var(--outline-variant-rgb) / 0.15);
   position: relative;
   overflow: hidden;
 }
@@ -144,7 +144,7 @@ const seatSummary = computed<string>(() => {
 
 .order-card__poster {
   aspect-ratio: 2 / 3;
-  border-radius: 0.125rem;
+  border-radius: var(--radius-sm);
   overflow: hidden;
   position: relative;
   background: radial-gradient(ellipse at 30% 30%, #c47040, #6b2818 55%, #1f0d08 100%);
@@ -250,7 +250,7 @@ const seatSummary = computed<string>(() => {
   align-items: flex-end;
   z-index: 1;
   padding-left: var(--space-md);
-  border-left: 0.0625rem solid rgba(87, 66, 62, 0.3);
+  border-left: var(--border-hairline) solid rgb(var(--outline-variant-rgb) / 0.3);
 }
 
 .order-card__seats-label {
@@ -301,7 +301,7 @@ const seatSummary = computed<string>(() => {
     align-items: flex-start;
     padding-left: 0;
     border-left: none;
-    border-top: 0.0625rem solid rgba(87, 66, 62, 0.3);
+    border-top: var(--border-hairline) solid rgb(var(--outline-variant-rgb) / 0.3);
     padding-top: var(--space-md);
     flex-direction: row;
     gap: var(--space-lg);

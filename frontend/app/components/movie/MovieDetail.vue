@@ -131,7 +131,7 @@ const genreLabel = computed(() =>
 .movie-detail__rows {
   display: flex;
   flex-direction: column;
-  border-top: 0.0625rem solid rgba(var(--outline-variant-rgb), 0.3); /* token-exception: sub-pixel rule */
+  border-top: var(--border-hairline) solid rgba(var(--outline-variant-rgb), 0.3);
 }
 
 .movie-detail__row {
@@ -139,7 +139,7 @@ const genreLabel = computed(() =>
   grid-template-columns: 1fr 1.6fr;
   gap: var(--space-md);
   padding: var(--space-md) 0;
-  border-bottom: 0.0625rem solid rgba(var(--outline-variant-rgb), 0.2); /* token-exception: sub-pixel rule */
+  border-bottom: var(--border-hairline) solid rgba(var(--outline-variant-rgb), 0.2);
 }
 
 .movie-detail__k {

@@ -21,10 +21,14 @@ const related = computed<Movie[]>(() => {
   return list.filter(m => m.slug !== props.excludeSlug).slice(0, 4)
 })
 
-// Deterministic atmospheric gradient seeded by movie id.
+// Per-movie atmospheric gradient. Keeps the deterministic hue as a low
+// editorial tint, but resolves through brand vignette bloom — primary-container
+// to surface-container-lowest — so the section stays in the Final Cut frame.
+// See DS § Glass & Gradient.
 function posterGradient(id: number): string {
   const hue = (id * 41) % 360
-  return `radial-gradient(ellipse at 60% 35%, hsl(${hue}deg 35% 35%), hsl(${(hue + 10) % 360}deg 35% 14%) 55%, hsl(${hue}deg 40% 6%) 100%)`
+  const tint = `hsl(${hue}deg 35% 35%)`
+  return `radial-gradient(ellipse at 60% 35%, color-mix(in oklch, ${tint} 30%, var(--primary-container)), var(--primary-container) 35%, var(--surface-container-lowest) 100%)`
 }
 
 function glyphFor(title: string): string {
@@ -88,7 +92,7 @@ const genreLabelFor = (movie: Movie): string => {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
-  transition: transform 250ms var(--ease-standard);
+  transition: transform var(--duration-standard) var(--ease-standard);
   text-decoration: none;
   color: inherit;
 }
@@ -104,7 +108,7 @@ const genreLabelFor = (movie: Movie): string => {
 
 .movie-related__art {
   aspect-ratio: 2 / 3;
-  border-radius: 0.125rem;
+  border-radius: var(--radius-sm);
   position: relative;
   overflow: hidden;
 }

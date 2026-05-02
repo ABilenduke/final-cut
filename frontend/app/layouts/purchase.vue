@@ -114,12 +114,11 @@ function handleStepNavigate(step: PurchaseStep) {
   min-height: 100dvh;
 }
 
-/* Header */
+/* Header — sticky so document flow handles the offset; no padding-top
+ * compensation needed on the body. */
 .layout-purchase__header {
-  position: fixed;
+  position: sticky;
   top: 0;
-  left: 0;
-  right: 0;
   height: 4rem;
   background-color: var(--surface-container);
   z-index: var(--z-sticky);
@@ -181,7 +180,6 @@ function handleStepNavigate(step: PurchaseStep) {
   width: 100%;
   margin-inline: auto;
   padding-inline: var(--space-md);
-  padding-top: 4rem;
   gap: var(--space-2xl);
 }
 

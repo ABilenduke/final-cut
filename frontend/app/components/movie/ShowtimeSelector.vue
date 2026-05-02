@@ -340,8 +340,8 @@ function handleDayKey(event: KeyboardEvent, index: number) {
   gap: 0.6rem;
   padding: 0.6rem 0.85rem;
   background: var(--surface-container);
-  border: 0.0625rem solid rgba(var(--outline-variant-rgb), 0.3); /* token-exception: sub-pixel border */
-  border-radius: 0.125rem;
+  border: var(--border-hairline) solid rgba(var(--outline-variant-rgb), 0.3);
+  border-radius: var(--radius-sm);
   color: var(--on-surface);
   font-size: 0.875rem;
 }
@@ -363,7 +363,7 @@ function handleDayKey(event: KeyboardEvent, index: number) {
   flex-wrap: wrap;
   margin-bottom: var(--space-lg);
   padding-bottom: var(--space-lg);
-  border-bottom: 0.0625rem solid rgba(var(--outline-variant-rgb), 0.2); /* token-exception: sub-pixel divider */
+  border-bottom: var(--border-hairline) solid rgba(var(--outline-variant-rgb), 0.2);
 }
 
 .showtime-selector__fmt {
@@ -371,15 +371,15 @@ function handleDayKey(event: KeyboardEvent, index: number) {
   align-items: center;
   gap: 0.35rem;
   padding: 0.45rem 0.8rem;
-  border-radius: 62.5rem;
+  border-radius: 62.5rem; /* token-exception: editorial pill */
   background: transparent;
-  border: 0.0625rem solid rgba(var(--outline-variant-rgb), 0.4); /* token-exception: sub-pixel border */
+  border: var(--border-hairline) solid rgba(var(--outline-variant-rgb), 0.4);
   font-size: 0.75rem;
   letter-spacing: 0.06em;
   color: var(--tertiary);
   font-family: var(--font-body);
   cursor: pointer;
-  transition: background-color 200ms, color 200ms, border-color 200ms;
+  transition: background-color var(--duration-standard), color var(--duration-standard), border-color var(--duration-standard);
 }
 
 .showtime-selector__fmt:hover {
@@ -414,14 +414,14 @@ function handleDayKey(event: KeyboardEvent, index: number) {
   justify-content: center;
   gap: 0.35rem;
   padding: 0.9rem 0.5rem;
-  border-radius: 0.125rem;
+  border-radius: var(--radius-sm);
   background: var(--surface-container);
-  border: 0.0625rem solid transparent; /* token-exception: sub-pixel border for hover swap */
+  border: var(--border-hairline) solid transparent;
   color: inherit;
   font: inherit;
   cursor: pointer;
   position: relative;
-  transition: background-color 200ms;
+  transition: background-color var(--duration-standard);
 }
 
 .showtime-selector__day:hover:not(:disabled) {
@@ -450,7 +450,7 @@ function handleDayKey(event: KeyboardEvent, index: number) {
   right: 0.4rem;
   width: 0.25rem;
   height: 0.25rem;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   background: var(--secondary);
 }
 
@@ -503,11 +503,11 @@ function handleDayKey(event: KeyboardEvent, index: number) {
   grid-template-columns: 13.75rem 1fr;
   gap: var(--space-xl);
   padding: var(--space-lg) var(--space-lg) var(--space-lg) 0;
-  border-top: 0.0625rem solid rgba(var(--outline-variant-rgb), 0.2); /* token-exception: sub-pixel divider */
+  border-top: var(--border-hairline) solid rgba(var(--outline-variant-rgb), 0.2);
 }
 
 .showtime-selector__group:last-child {
-  border-bottom: 0.0625rem solid rgba(var(--outline-variant-rgb), 0.2); /* token-exception: sub-pixel divider */
+  border-bottom: var(--border-hairline) solid rgba(var(--outline-variant-rgb), 0.2);
 }
 
 .showtime-selector__fmt-col {
@@ -544,7 +544,7 @@ function handleDayKey(event: KeyboardEvent, index: number) {
   color: var(--on-tertiary-fixed-variant);
   padding: 0.2rem 0.45rem;
   background: rgba(42, 42, 42, 0.5);
-  border-radius: 0.125rem;
+  border-radius: var(--radius-sm);
 }
 
 .showtime-selector__fmt-desc {
@@ -583,13 +583,13 @@ function handleDayKey(event: KeyboardEvent, index: number) {
   align-items: flex-start;
   gap: 0.25rem;
   padding: 0.75rem 0.9rem;
-  border-radius: 0.125rem;
+  border-radius: var(--radius-sm);
   background: var(--surface-container);
-  border: 0.0625rem solid rgba(var(--outline-variant-rgb), 0.2); /* token-exception: sub-pixel border */
+  border: var(--border-hairline) solid rgba(var(--outline-variant-rgb), 0.2);
   text-decoration: none;
   color: inherit;
   position: relative;
-  transition: background-color 180ms, border-color 180ms, transform 180ms;
+  transition: background-color var(--duration-standard), border-color var(--duration-standard), transform var(--duration-standard);
 }
 
 .showtime-selector__slot:hover {
@@ -650,7 +650,7 @@ function handleDayKey(event: KeyboardEvent, index: number) {
   background: var(--secondary);
   color: var(--surface);
   padding: 0.15rem 0.4rem;
-  border-radius: 0.125rem;
+  border-radius: var(--radius-sm);
   font-weight: 500;
 }
 

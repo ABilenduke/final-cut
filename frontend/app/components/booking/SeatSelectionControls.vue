@@ -102,8 +102,8 @@ const PREF_CHIPS: Array<{ id: Preference; label: string }> = [
   flex-wrap: wrap;
   padding: var(--space-md) var(--space-lg);
   background-color: var(--surface-container-low);
-  border: 0.0625rem solid rgba(87, 66, 62, 0.15);
-  border-radius: 0.25rem;
+  border: var(--border-hairline) solid rgb(var(--outline-variant-rgb) / 0.15);
+  border-radius: var(--radius-card);
 }
 
 .seat-controls__group {
@@ -115,7 +115,7 @@ const PREF_CHIPS: Array<{ id: Preference; label: string }> = [
 
 .seat-controls__group--divider {
   padding-left: var(--space-lg);
-  border-left: 0.0625rem solid rgba(87, 66, 62, 0.25);
+  border-left: var(--border-hairline) solid rgb(var(--outline-variant-rgb) / 0.25);
 }
 
 .seat-controls__group--push-right {
@@ -149,8 +149,8 @@ const PREF_CHIPS: Array<{ id: Preference; label: string }> = [
 .seat-controls__step-btn {
   width: 1.8rem;
   height: 1.8rem;
-  border: 0.0625rem solid rgba(87, 66, 62, 0.4);
-  border-radius: 0.125rem;
+  border: var(--border-hairline) solid rgb(var(--outline-variant-rgb) / 0.4);
+  border-radius: var(--radius-sm);
   background: transparent;
   color: var(--on-surface);
   font: inherit;
@@ -212,8 +212,8 @@ const PREF_CHIPS: Array<{ id: Preference; label: string }> = [
   align-items: center;
   gap: 0.4rem;
   padding: 0.4rem 0.75rem;
-  border: 0.0625rem solid rgba(87, 66, 62, 0.35);
-  border-radius: 999px;
+  border: var(--border-hairline) solid rgb(var(--outline-variant-rgb) / 0.35);
+  border-radius: 999px; /* token-exception: editorial pill */
   background-color: var(--surface-container);
   font-family: var(--font-body);
   font-size: 0.6875rem;
@@ -228,21 +228,21 @@ const PREF_CHIPS: Array<{ id: Preference; label: string }> = [
 
 .seat-controls__chip:hover,
 .seat-controls__chip:focus-visible {
-  border-color: rgba(218, 199, 105, 0.4);
+  border-color: rgb(var(--secondary-rgb) / 0.4);
   color: var(--on-surface);
 }
 
 .seat-controls__chip--on {
   border-color: var(--secondary);
   color: var(--secondary);
-  background-color: rgba(218, 199, 105, 0.06);
+  background-color: rgb(var(--secondary-rgb) / 0.06);
 }
 
 .seat-controls__chip-mark {
   width: 0.55rem;
   height: 0.55rem;
-  border-radius: 50%;
-  border: 0.0625rem solid currentColor;
+  border-radius: var(--radius-full);
+  border: var(--border-hairline) solid currentColor;
 }
 
 .seat-controls__chip--on .seat-controls__chip-mark {
@@ -251,14 +251,14 @@ const PREF_CHIPS: Array<{ id: Preference; label: string }> = [
 
 .seat-controls__auto {
   padding: 0.55rem 0.9rem;
-  border: 0.0625rem solid rgba(218, 199, 105, 0.4);
+  border: var(--border-hairline) solid rgb(var(--secondary-rgb) / 0.4);
   background: transparent;
   color: var(--secondary);
   font-family: var(--font-body);
   font-size: 0.6875rem;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  border-radius: 0.125rem;
+  border-radius: var(--radius-sm);
   cursor: pointer;
   transition: background-color var(--duration-standard) var(--ease-standard),
     color var(--duration-standard) var(--ease-standard);

@@ -54,11 +54,11 @@
 .movie-page .chip {
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
-  padding: 0.35rem 0.7rem;
+  gap: var(--space-xs);
+  padding: var(--space-xs) var(--space-sm);
   background: rgba(42, 42, 42, 0.6);
-  border: 0.0625rem solid rgba(var(--outline-variant-rgb), 0.25); /* token-exception: sub-pixel border */
-  border-radius: 62.5rem;
+  border: var(--border-hairline) solid rgba(var(--outline-variant-rgb), 0.25);
+  border-radius: 62.5rem; /* token-exception: editorial pill */
   font-size: 0.75rem;
   color: var(--tertiary);
   line-height: 1.4;
@@ -85,9 +85,9 @@
   align-items: center;
   justify-content: center;
   gap: 0.625rem;
-  height: 3.25rem;
-  padding: 0 1.5rem;
-  border-radius: 0.125rem; /* token-exception: design system radius */
+  height: var(--control-height);
+  padding: 0 var(--space-lg);
+  border-radius: var(--radius-sm);
   font-family: var(--font-body);
   font-size: 1rem;
   font-weight: 500;
@@ -96,10 +96,10 @@
   cursor: pointer;
   text-decoration: none;
   transition:
-    transform 150ms var(--ease-standard),
-    background-color 200ms,
-    color 200ms,
-    border-color 200ms;
+    transform var(--duration-micro) var(--ease-standard),
+    background-color var(--duration-standard),
+    color var(--duration-standard),
+    border-color var(--duration-standard);
 }
 
 .movie-page .btn-primary {
@@ -108,7 +108,7 @@
 }
 
 .movie-page .btn-primary:hover {
-  background: #6a0a0a; /* token-exception: mid-step between primary-container and its hover */
+  background: var(--primary-container-hover);
 }
 
 .movie-page .btn-primary:active {
@@ -121,14 +121,14 @@
 }
 
 .movie-page .btn-gold:hover {
-  background: #e6d585; /* token-exception: lighter gold hover */
+  background: var(--secondary-hover);
 }
 
 .movie-page .btn-ghost {
   background: transparent;
   color: var(--on-surface);
   padding: 0 0.75rem;
-  border: 0.0625rem solid rgba(var(--outline-variant-rgb), 0.4); /* token-exception: sub-pixel border */
+  border: var(--border-hairline) solid rgba(var(--outline-variant-rgb), 0.4);
 }
 
 .movie-page .btn-ghost:hover {
@@ -137,16 +137,16 @@
 }
 
 .movie-page .icon-btn {
-  width: 3.25rem;
-  height: 3.25rem;
-  border-radius: 0.125rem; /* token-exception: design system radius */
-  border: 0.0625rem solid rgba(var(--outline-variant-rgb), 0.4); /* token-exception: sub-pixel border */
+  width: var(--control-height);
+  height: var(--control-height);
+  border-radius: var(--radius-sm);
+  border: var(--border-hairline) solid rgba(var(--outline-variant-rgb), 0.4);
   display: grid;
   place-items: center;
   color: var(--on-surface);
   background: transparent;
   cursor: pointer;
-  transition: color 200ms, border-color 200ms;
+  transition: color var(--duration-standard), border-color var(--duration-standard);
 }
 
 .movie-page .icon-btn:hover {

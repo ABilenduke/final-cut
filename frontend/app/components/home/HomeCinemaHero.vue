@@ -223,7 +223,7 @@ const trailerHref = computed(() =>
 .cinema-hero__bg {
   position: absolute;
   inset: 0;
-  z-index: -2;
+  z-index: var(--z-recessed-deep);
   background:
     radial-gradient(ellipse 80% 60% at 75% 30%, rgb(85 0 0 / 0.45), transparent 60%),
     radial-gradient(ellipse 60% 80% at 20% 80%, rgb(138 58 32 / 0.25), transparent 60%),
@@ -256,7 +256,7 @@ const trailerHref = computed(() =>
   object-position: center 25%;
   opacity: 0.35;
   mix-blend-mode: luminosity;
-  z-index: -1;
+  z-index: var(--z-recessed);
 }
 
 /* Reel-edge markers — vertical text along left gutter */
@@ -297,7 +297,7 @@ const trailerHref = computed(() =>
   width: 0.5rem;
   height: 0.5rem;
   border-radius: 50%; /* token-exception: reel sprocket */
-  border: 0.0625rem solid var(--outline-variant);
+  border: var(--border-hairline) solid var(--outline-variant);
   opacity: 0.5;
 }
 
@@ -339,7 +339,7 @@ const trailerHref = computed(() =>
 
 .cinema-hero__eyebrow-rule {
   width: 4rem;
-  height: 0.0625rem; /* token-exception: sub-pixel decorative rule */
+  height: var(--border-hairline);
   background-color: var(--outline-variant);
   opacity: 0.6;
 }
@@ -486,7 +486,7 @@ const trailerHref = computed(() =>
   left: var(--space-sm);
   right: var(--space-sm);
   bottom: 0.875rem;
-  height: 0.0625rem; /* token-exception: sub-pixel underline */
+  height: var(--border-hairline);
   background-color: var(--on-surface);
   transform-origin: left;
   transition:
@@ -508,8 +508,8 @@ const trailerHref = computed(() =>
   width: 100%;
   padding: var(--space-lg);
   background-color: rgb(20 20 20 / 0.85);
-  border: 0.0625rem solid rgb(var(--outline-variant-rgb) / 0.25); /* token-exception: glass edge */
-  border-radius: 0.125rem; /* token-exception: card radius per DS */
+  border: var(--border-hairline) solid rgb(var(--outline-variant-rgb) / 0.25);
+  border-radius: var(--radius-sm);
   display: flex;
   flex-direction: column;
   gap: var(--space-md);
@@ -564,7 +564,7 @@ const trailerHref = computed(() =>
   align-items: center;
   padding: 0.625rem 0.25rem;
   background-color: rgb(42 42 42 / 0.4);
-  border-radius: 0.125rem; /* token-exception: chip radius */
+  border-radius: var(--radius-sm);
   color: var(--on-surface);
   text-decoration: none;
   transition:
@@ -610,7 +610,7 @@ const trailerHref = computed(() =>
   font-size: 0.75rem;
   color: var(--on-tertiary-fixed-variant);
   padding-top: var(--space-sm);
-  border-top: 0.0625rem solid rgb(var(--outline-variant-rgb) / 0.2); /* token-exception: sub-pixel edge */
+  border-top: var(--border-hairline) solid rgb(var(--outline-variant-rgb) / 0.2);
 }
 
 .cinema-hero__panel-link {

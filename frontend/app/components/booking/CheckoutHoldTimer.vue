@@ -84,7 +84,7 @@ const holdStripLabel = computed<string>(() => 'Seat hold status')
   display: flex;
   align-items: center;
   padding: 0 var(--space-md);
-  border-bottom: 0.0625rem solid rgba(87, 66, 62, 0.15);
+  border-bottom: var(--border-hairline) solid rgb(var(--outline-variant-rgb) / 0.15);
   font-size: 0.6875rem;
   letter-spacing: 0.22em;
   text-transform: uppercase;
@@ -110,7 +110,7 @@ const holdStripLabel = computed<string>(() => 'Seat hold status')
 .hold-strip__dot {
   width: 0.375rem;
   height: 0.375rem;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   background-color: var(--secondary);
   animation: hold-blink 1.6s ease-in-out infinite;
   flex-shrink: 0;

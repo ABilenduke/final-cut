@@ -204,7 +204,7 @@ function handleRelease() {
   align-items: flex-end;
   gap: var(--space-lg);
   flex-wrap: wrap;
-  border-bottom: 0.0625rem solid rgb(var(--outline-variant-rgb) / 0.2);
+  border-bottom: var(--border-hairline) solid rgb(var(--outline-variant-rgb) / 0.2);
 }
 
 .snacks-page__eyebrow {

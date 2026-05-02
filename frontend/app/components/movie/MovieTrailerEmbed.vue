@@ -169,11 +169,11 @@ function play() {
 /* ——— Stage ——— */
 .movie-trailer__stage {
   aspect-ratio: 16 / 9;
-  border-radius: 0.25rem;
+  border-radius: var(--radius-card);
   overflow: hidden;
   position: relative;
   cursor: default;
-  transition: transform 250ms var(--ease-standard);
+  transition: transform var(--duration-standard) var(--ease-standard);
 }
 
 .movie-trailer__stage-gradient {
@@ -234,7 +234,7 @@ function play() {
   content: '';
   width: 0.375rem;
   height: 0.375rem;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   background: var(--secondary);
   animation: movie-trailer-blink 1.6s ease-in-out infinite;
 }
@@ -262,16 +262,20 @@ function play() {
 .movie-trailer__play {
   width: 5.5rem;
   height: 5.5rem;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   background: rgba(20, 20, 20, 0.55);
   backdrop-filter: blur(0.875rem);
   -webkit-backdrop-filter: blur(0.875rem);
-  border: 0.0625rem solid rgba(var(--secondary-rgb), 0.4); /* token-exception: sub-pixel border */
+  border: var(--border-hairline) solid rgba(var(--secondary-rgb), 0.4);
   color: var(--secondary);
   display: grid;
   place-items: center;
   cursor: pointer;
-  transition: background-color 250ms var(--ease-standard), transform 250ms var(--ease-standard), border-color 250ms, color 250ms;
+  transition:
+    background-color var(--duration-standard) var(--ease-standard),
+    transform var(--duration-standard) var(--ease-standard),
+    border-color var(--duration-standard) var(--ease-standard),
+    color var(--duration-standard) var(--ease-standard);
 }
 
 .movie-trailer__play:hover:not([disabled]) {
@@ -331,7 +335,7 @@ function play() {
   bottom: var(--space-lg);
   height: 0.125rem;
   background: rgba(229, 226, 225, 0.15);
-  border-radius: 0.125rem;
+  border-radius: var(--radius-sm);
 }
 
 .movie-trailer__scrub::before {
@@ -340,7 +344,7 @@ function play() {
   inset: 0;
   width: 18%;
   background: var(--secondary);
-  border-radius: 0.125rem;
+  border-radius: var(--radius-sm);
 }
 
 /* ——— Clips list ——— */
@@ -372,14 +376,14 @@ function play() {
   gap: 0.875rem;
   align-items: center;
   padding: 0.65rem;
-  border-radius: 0.125rem;
-  border: 0.0625rem solid rgba(var(--outline-variant-rgb), 0.2); /* token-exception: sub-pixel border */
+  border-radius: var(--radius-sm);
+  border: var(--border-hairline) solid rgba(var(--outline-variant-rgb), 0.2);
   background: transparent;
   text-align: left;
   cursor: pointer;
   font: inherit;
   color: inherit;
-  transition: border-color 200ms, background-color 200ms;
+  transition: border-color var(--duration-standard), background-color var(--duration-standard);
 }
 
 .movie-trailer__clip:hover {
@@ -399,7 +403,7 @@ function play() {
 
 .movie-trailer__clip-thumb {
   aspect-ratio: 16 / 9;
-  border-radius: 0.125rem;
+  border-radius: var(--radius-sm);
   position: relative;
   overflow: hidden;
 }

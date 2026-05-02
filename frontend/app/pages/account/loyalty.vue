@@ -107,7 +107,7 @@ const { data: loyaltyData } = await loyalty()
   justify-content: space-between;
   align-items: center;
   padding: var(--space-sm) 0;
-  border-bottom: 0.0625rem solid color-mix(in srgb, var(--outline-variant) 15%, transparent);
+  border-bottom: var(--border-hairline) solid color-mix(in srgb, var(--outline-variant) 15%, transparent);
   font-family: var(--font-body);
   font-size: var(--type-body-md);
   color: var(--on-surface);

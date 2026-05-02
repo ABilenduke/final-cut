@@ -308,7 +308,7 @@ function handleShare() {
 
 .movie-hero__rule {
   width: 3rem;
-  height: 0.0625rem; /* token-exception: sub-pixel rule */
+  height: var(--border-hairline);
   background: var(--outline-variant);
   opacity: 0.6;
   display: inline-block;
@@ -365,7 +365,7 @@ function handleShare() {
 
 .movie-hero__poster {
   aspect-ratio: 2 / 3;
-  border-radius: 0.25rem;
+  border-radius: var(--radius-card);
   overflow: hidden;
   position: relative;
   box-shadow: 0 1.25rem 2.5rem rgba(0, 0, 0, 0.6);
@@ -421,7 +421,7 @@ function handleShare() {
   letter-spacing: 0.18em;
   text-transform: uppercase;
   font-weight: 500;
-  border-radius: 0.125rem;
+  border-radius: var(--radius-sm);
   z-index: 3;
 }
 
@@ -459,8 +459,8 @@ function handleShare() {
   display: flex;
   justify-content: space-between;
   padding: var(--space-md) var(--space-sm);
-  border-top: 0.0625rem solid rgba(var(--outline-variant-rgb), 0.3); /* token-exception: sub-pixel rule */
-  border-bottom: 0.0625rem solid rgba(var(--outline-variant-rgb), 0.3);
+  border-top: var(--border-hairline) solid rgba(var(--outline-variant-rgb), 0.3);
+  border-bottom: var(--border-hairline) solid rgba(var(--outline-variant-rgb), 0.3);
   font-size: 0.6875rem;
   letter-spacing: 0.18em;
   text-transform: uppercase;
@@ -505,7 +505,7 @@ function handleShare() {
   width: 0.375rem;
   height: 0.375rem;
   background: var(--secondary);
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   display: inline-block;
 }
 
@@ -563,7 +563,7 @@ function handleShare() {
   gap: var(--space-xl);
   margin-top: var(--space-md);
   padding-top: var(--space-lg);
-  border-top: 0.0625rem solid rgba(var(--outline-variant-rgb), 0.2); /* token-exception: sub-pixel rule */
+  border-top: var(--border-hairline) solid rgba(var(--outline-variant-rgb), 0.2);
   font-size: 0.625rem;
   letter-spacing: 0.22em;
   text-transform: uppercase;

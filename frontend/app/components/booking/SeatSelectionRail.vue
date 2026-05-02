@@ -150,13 +150,13 @@ const posterStyle = computed(() => {
   align-items: flex-start;
   padding-bottom: var(--space-sm);
   margin-bottom: var(--space-sm);
-  border-bottom: 0.0625rem solid rgba(87, 66, 62, 0.2);
+  border-bottom: var(--border-hairline) solid rgb(var(--outline-variant-rgb) / 0.2);
 }
 
 .seat-rail__poster {
   width: 3.25rem;
   aspect-ratio: 2 / 3;
-  border-radius: 0.125rem;
+  border-radius: var(--radius-sm);
   flex-shrink: 0;
   position: relative;
   overflow: hidden;
@@ -223,7 +223,7 @@ const posterStyle = computed(() => {
   gap: var(--space-md);
   padding-bottom: var(--space-sm);
   margin-bottom: var(--space-sm);
-  border-bottom: 0.0625rem solid rgba(87, 66, 62, 0.2);
+  border-bottom: var(--border-hairline) solid rgb(var(--outline-variant-rgb) / 0.2);
 }
 
 .seat-rail__num {
@@ -272,8 +272,8 @@ const posterStyle = computed(() => {
   font-style: italic;
   font-size: 0.8125rem;
   color: var(--on-tertiary-fixed-variant);
-  border: 0.0625rem dashed rgba(87, 66, 62, 0.25);
-  border-radius: 0.125rem;
+  border: var(--border-hairline) dashed rgb(var(--outline-variant-rgb) / 0.25);
+  border-radius: var(--radius-sm);
 }
 
 .seat-rail__empty b {
@@ -292,7 +292,7 @@ const posterStyle = computed(() => {
   gap: 0.55rem;
   margin: var(--space-md) 0 0;
   padding-top: var(--space-md);
-  border-top: 0.0625rem solid rgba(87, 66, 62, 0.2);
+  border-top: var(--border-hairline) solid rgb(var(--outline-variant-rgb) / 0.2);
 }
 
 .seat-rail__line {
@@ -320,7 +320,7 @@ const posterStyle = computed(() => {
   align-items: baseline;
   padding-top: var(--space-sm);
   margin-top: 0.15rem;
-  border-top: 0.0625rem solid rgba(218, 199, 105, 0.3);
+  border-top: var(--border-hairline) solid rgb(var(--secondary-rgb) / 0.3);
   font-family: var(--font-body);
   font-size: 1rem;
   color: var(--on-surface);
@@ -351,7 +351,7 @@ const posterStyle = computed(() => {
   min-height: 3.25rem;
   padding: 0 1.25rem;
   margin-top: var(--space-md);
-  border-radius: 0.125rem;
+  border-radius: var(--radius-sm);
   background-color: var(--secondary);
   color: var(--surface);
   border: none;
@@ -367,7 +367,7 @@ const posterStyle = computed(() => {
 }
 
 .seat-rail__pay:hover:not(:disabled) {
-  background-color: #e6d585;
+  background-color: var(--secondary-hover);
 }
 
 .seat-rail__pay:active:not(:disabled) {
@@ -391,7 +391,7 @@ const posterStyle = computed(() => {
   color: var(--on-tertiary-fixed-variant);
   margin: var(--space-md) 0 0;
   padding-top: var(--space-md);
-  border-top: 0.0625rem solid rgba(87, 66, 62, 0.15);
+  border-top: var(--border-hairline) solid rgb(var(--outline-variant-rgb) / 0.15);
   letter-spacing: 0.02em;
 }
 

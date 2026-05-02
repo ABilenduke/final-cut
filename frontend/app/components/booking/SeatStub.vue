@@ -47,8 +47,8 @@ const tierLabel = computed(() => {
   align-items: center;
   padding: 0.55rem 0.75rem;
   background-color: var(--surface-container-low);
-  border: 0.0625rem dashed rgba(87, 66, 62, 0.35);
-  border-radius: 0.125rem;
+  border: var(--border-hairline) dashed rgb(var(--outline-variant-rgb) / 0.35);
+  border-radius: var(--radius-sm);
   position: relative;
 }
 
@@ -59,7 +59,7 @@ const tierLabel = computed(() => {
   top: 50%;
   width: 0.6rem;
   height: 0.6rem;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   background-color: var(--surface-container);
   transform: translateY(-50%);
 }
@@ -71,9 +71,9 @@ const tierLabel = computed(() => {
   font-family: var(--font-display);
   font-size: 0.6875rem;
   color: var(--secondary);
-  background-color: rgba(218, 199, 105, 0.08);
+  background-color: rgb(var(--secondary-rgb) / 0.08);
   padding: 0.2rem 0.4rem;
-  border-radius: 0.125rem;
+  border-radius: var(--radius-sm);
   letter-spacing: 0.04em;
   font-variant-numeric: tabular-nums;
 }

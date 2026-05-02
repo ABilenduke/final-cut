@@ -79,7 +79,7 @@ function segmentsFor(rule: Rule): Array<{ text: string; emphasis: boolean }> {
   gap: var(--space-lg);
   padding: var(--space-xl) 0 0;
   margin-top: var(--space-xl);
-  border-top: 0.0625rem solid rgba(87, 66, 62, 0.2);
+  border-top: var(--border-hairline) solid rgb(var(--outline-variant-rgb) / 0.2);
 }
 
 @media (max-width: 68.75rem) {

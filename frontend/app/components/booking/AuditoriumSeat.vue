@@ -88,7 +88,7 @@ function handleKeydown(event: KeyboardEvent) {
   width: var(--seat-size, 1.75rem);
   height: var(--seat-size, 1.75rem);
   padding: 0;
-  border: 0.0625rem solid rgba(87, 66, 62, 0.4);
+  border: var(--border-hairline) solid rgb(var(--outline-variant-rgb) / 0.4);
   border-radius: 0.3rem 0.3rem 0.2rem 0.2rem;
   background-color: var(--surface-container);
   color: var(--on-tertiary-fixed-variant);
@@ -148,7 +148,7 @@ function handleKeydown(event: KeyboardEvent) {
   color: var(--surface) !important;
   border-color: var(--secondary) !important;
   transform: translateY(-0.125rem);
-  box-shadow: 0 0.25rem 0.75rem rgba(218, 199, 105, 0.35);
+  box-shadow: 0 0.25rem 0.75rem rgb(var(--secondary-rgb) / 0.35);
   animation: seat-select var(--duration-standard) var(--ease-emphasis);
 }
 
@@ -161,7 +161,7 @@ function handleKeydown(event: KeyboardEvent) {
 /* Taken / sold — with decorative X overlay */
 .auditorium-seat--taken {
   background-color: var(--surface-container-lowest);
-  border-color: rgba(87, 66, 62, 0.2);
+  border-color: rgb(var(--outline-variant-rgb) / 0.2);
   color: rgba(138, 128, 116, 0.3);
   cursor: not-allowed;
 }
@@ -198,9 +198,9 @@ function handleKeydown(event: KeyboardEvent) {
   flex-direction: column;
   gap: 0.1rem;
   background-color: var(--surface-container-lowest);
-  border: 0.0625rem solid rgba(218, 199, 105, 0.3);
+  border: var(--border-hairline) solid rgb(var(--secondary-rgb) / 0.3);
   padding: 0.35rem 0.6rem;
-  border-radius: 0.125rem;
+  border-radius: var(--radius-sm);
   font-family: var(--font-body);
   font-size: 0.6875rem;
   line-height: 1.3;

@@ -202,7 +202,7 @@ useHead({
   align-items: flex-end;
   gap: var(--space-lg);
   flex-wrap: wrap;
-  border-bottom: 0.0625rem solid rgb(var(--outline-variant-rgb) / 0.2);
+  border-bottom: var(--border-hairline) solid rgb(var(--outline-variant-rgb) / 0.2);
 }
 
 .movies-page__eyebrow {
@@ -276,7 +276,7 @@ useHead({
   gap: var(--space-md);
   flex-wrap: wrap;
   padding: var(--space-md) 0;
-  border-bottom: 0.0625rem solid rgb(var(--outline-variant-rgb) / 0.2);
+  border-bottom: var(--border-hairline) solid rgb(var(--outline-variant-rgb) / 0.2);
 }
 
 .movies-page__filter-label {
@@ -286,7 +286,7 @@ useHead({
   text-transform: uppercase;
   color: var(--on-tertiary-fixed-variant);
   padding-right: var(--space-sm);
-  border-right: 0.0625rem solid rgb(var(--outline-variant-rgb) / 0.4);
+  border-right: var(--border-hairline) solid rgb(var(--outline-variant-rgb) / 0.4);
 }
 
 .movies-page__chips {
@@ -297,7 +297,7 @@ useHead({
 
 .movies-page__chip {
   padding: 0.5rem 0.9rem;
-  border: 0.0625rem solid rgb(var(--outline-variant-rgb) / 0.45);
+  border: var(--border-hairline) solid rgb(var(--outline-variant-rgb) / 0.45);
   border-radius: 999px; /* token-exception: editorial pill — same as catalog chips */
   font-family: var(--font-body);
   font-size: 0.75rem;
@@ -332,7 +332,7 @@ useHead({
   font-size: 0.6875rem;
   color: var(--on-tertiary-fixed-variant);
   padding-left: 0.35rem;
-  border-left: 0.0625rem solid rgb(var(--outline-variant-rgb) / 0.4);
+  border-left: var(--border-hairline) solid rgb(var(--outline-variant-rgb) / 0.4);
 }
 
 .movies-page__chip--on .movies-page__chip-count {
@@ -354,7 +354,7 @@ useHead({
   gap: var(--space-md);
   padding-top: var(--space-md);
   padding-bottom: var(--space-md);
-  border-bottom: 0.0625rem solid rgb(var(--outline-variant-rgb) / 0.2);
+  border-bottom: var(--border-hairline) solid rgb(var(--outline-variant-rgb) / 0.2);
 }
 
 .movies-page__sec-n {

@@ -109,8 +109,8 @@
   gap: var(--space-xl);
   padding: var(--space-lg) var(--space-xl);
   background-color: var(--surface-container);
-  border: 0.0625rem solid rgba(87, 66, 62, 0.2);
-  border-radius: 0.25rem;
+  border: var(--border-hairline) solid rgb(var(--outline-variant-rgb) / 0.2);
+  border-radius: var(--radius-card);
   align-items: center;
 }
 
@@ -192,7 +192,7 @@
     rgba(14, 14, 14, 0.8),
     rgba(14, 14, 14, 0.3)
   );
-  border-radius: 0.125rem;
+  border-radius: var(--radius-sm);
   overflow: hidden;
 }
 

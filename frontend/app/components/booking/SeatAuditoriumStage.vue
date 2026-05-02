@@ -54,8 +54,8 @@ const rowCount = computed(() => new Set(props.seats.map(s => s.row)).size)
 .stage {
   position: relative;
   background-color: var(--surface-container-low);
-  border: 0.0625rem solid rgba(87, 66, 62, 0.15);
-  border-radius: 0.25rem;
+  border: var(--border-hairline) solid rgb(var(--outline-variant-rgb) / 0.15);
+  border-radius: var(--radius-card);
   padding: var(--space-xl) var(--space-lg) var(--space-lg);
   overflow: hidden;
 }
@@ -66,7 +66,7 @@ const rowCount = computed(() => new Set(props.seats.map(s => s.row)).size)
   inset: 0;
   pointer-events: none;
   background:
-    radial-gradient(ellipse 80% 50% at 50% 0%, rgba(218, 199, 105, 0.08), transparent 70%),
+    radial-gradient(ellipse 80% 50% at 50% 0%, rgb(var(--secondary-rgb) / 0.08), transparent 70%),
     radial-gradient(ellipse 70% 60% at 50% 100%, rgba(85, 0, 0, 0.12), transparent 70%);
 }
 
@@ -78,7 +78,7 @@ const rowCount = computed(() => new Set(props.seats.map(s => s.row)).size)
   gap: var(--space-md);
   padding-bottom: var(--space-md);
   margin-bottom: var(--space-sm);
-  border-bottom: 0.0625rem solid rgba(87, 66, 62, 0.2);
+  border-bottom: var(--border-hairline) solid rgb(var(--outline-variant-rgb) / 0.2);
   flex-wrap: wrap;
 }
 
@@ -153,12 +153,12 @@ const rowCount = computed(() => new Set(props.seats.map(s => s.row)).size)
   position: relative;
   background: linear-gradient(
     180deg,
-    rgba(218, 199, 105, 0.9) 0%,
-    rgba(218, 199, 105, 0.5) 60%,
+    rgb(var(--secondary-rgb) / 0.9) 0%,
+    rgb(var(--secondary-rgb) / 0.5) 60%,
     transparent 100%
   );
   clip-path: polygon(6% 0%, 94% 0%, 100% 100%, 0% 100%);
-  box-shadow: 0 0 3rem rgba(218, 199, 105, 0.18);
+  box-shadow: 0 0 3rem rgb(var(--secondary-rgb) / 0.18);
 }
 
 .stage__screen::before {
@@ -178,7 +178,7 @@ const rowCount = computed(() => new Set(props.seats.map(s => s.row)).size)
   margin-top: -0.0625rem;
   background: radial-gradient(
     ellipse 60% 100% at 50% 0%,
-    rgba(218, 199, 105, 0.22),
+    rgb(var(--secondary-rgb) / 0.22),
     transparent 70%
   );
   pointer-events: none;
@@ -216,7 +216,7 @@ const rowCount = computed(() => new Set(props.seats.map(s => s.row)).size)
   position: relative;
   margin-top: var(--space-md);
   padding-top: var(--space-md);
-  border-top: 0.0625rem dashed rgba(87, 66, 62, 0.3);
+  border-top: var(--border-hairline) dashed rgb(var(--outline-variant-rgb) / 0.3);
   display: flex;
   justify-content: space-between;
   align-items: center;

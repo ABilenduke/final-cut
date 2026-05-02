@@ -34,8 +34,14 @@ class AdminPanelProvider extends PanelProvider
             ->authPasswordBroker('admin_users')
             ->login()
             ->colors([
-                'primary' => Color::Amber,
+                // Cinematic Void brand: deep maroon (#550000) is the
+                // reactor-core fill. Filament generates the 50–950 palette
+                // from the seed. See docs/design-system/DESIGN_SYSTEM.md
+                // § Token Mapping.
+                'primary' => Color::hex('#550000'),
             ])
+            ->brandName('Final Cut')
+            ->font('Newsreader')
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\Filament\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\Filament\Pages')
             ->pages([

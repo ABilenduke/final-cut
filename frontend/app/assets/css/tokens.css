@@ -25,6 +25,12 @@
   --outline-variant: #57423E;      /* Decorative edge catches only (15% opacity) */
   --outline: #A58B86;              /* Input underlines, functional interactive boundaries */
 
+  /* ——— Colors: Interactive States (derived) ——— */
+  --primary-container-hover:  color-mix(in oklch, var(--primary-container) 85%, white 15%);
+  --primary-container-active: color-mix(in oklch, var(--primary-container) 92%, black 8%);
+  --secondary-hover:          color-mix(in oklch, var(--secondary) 92%, white 8%);
+  --secondary-active:         color-mix(in oklch, var(--secondary) 85%, black 15%);
+
   /* ——— RGB Channel Tokens (for opacity variants) ——— */
   --surface-variant-rgb: 59, 54, 54;
   --outline-variant-rgb: 87, 66, 62;
@@ -45,7 +51,13 @@
   --space-4xl: 6rem;      /* 96px */
   --space-5xl: 8rem;      /* 128px */
 
-  /* ——— Z-Index Scale ——— */
+  /* ——— Z-Index Scale ———
+   * Tokens cover GLOBAL layering tiers (recessed, sticky, modal, etc.).
+   * Small raw integers (1, 2, 3) are reserved for LOCAL stacking-context
+   * internals — e.g., lifting a text overlay above a card's own image. They
+   * never affect cross-component layering and are intentionally untokenised.
+   */
+  --z-recessed-deep:   -2;
   --z-recessed:        -1;
   --z-base:             0;
   --z-card:           100;
@@ -82,4 +94,36 @@
   --icon-md: 1.5rem;    /* 24px — UI controls */
   --icon-lg: 3rem;      /* 48px — feature callouts */
   --icon-xl: 4rem;      /* 64px — hero decorative */
+
+  /* ——— Border Radius ——— */
+  --radius-none: 0;
+  --radius-sm:   0.125rem;   /* 2px  — default chrome (buttons, badges, modals) */
+  --radius-card: 0.25rem;    /* 4px  — card edges only */
+  --radius-full: 50%;        /* avatars only — see DS § 4 */
+
+  /* ——— Border Widths ——— */
+  --border-hairline: 0.0625rem;  /* 1px — functional outlines, dividers */
+  --border-thick:    0.125rem;   /* 2px — focus rings, screen indicator */
+
+  /* ——— Opacity Scale ——— */
+  --opacity-edge-catch:  0.15;  /* outline-variant decorative borders (DS § No-Line) */
+  --opacity-glass:       0.60;  /* surface-variant translucency (DS § Glass & Gradient) */
+  --opacity-glass-solid: 0.85;  /* fallback when backdrop-filter unsupported */
+  --opacity-disabled:    0.40;  /* taken seats, disabled controls */
+
+  /* ——— Control Heights ——— */
+  --control-height-sm: 2.25rem;  /* 36px — pointer-fine only */
+  --control-height:    3rem;     /* 48px — default; meets touch target minimum */
+  --control-height-lg: 3.5rem;   /* 56px — emphasis CTAs */
+
+  /* ——— State Semantics ———
+   * Brand-spec colors for success/warning/danger/info. Mirrored in
+   * backend/resources/css/filament/admin/theme.css (--fc-state-*) so the admin
+   * panel and customer toasts/alerts share one palette. See
+   * docs/design-system/DESIGN_SYSTEM.md § State Semantics for contrast notes.
+   */
+  --state-success: #5b8f6c;  /* sage — confirmations, positive transitions */
+  --state-warning: #dac769;  /* shares --secondary — non-blocking attention */
+  --state-danger:  #b5443d;  /* claret — errors, destructive actions */
+  --state-info:    #5a8aa0;  /* steel-blue — neutral information */
 }

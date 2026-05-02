@@ -127,7 +127,7 @@ const isExpanded = ref(false)
   align-items: baseline;
   margin-top: var(--space-md);
   padding-top: var(--space-md);
-  border-top: 0.0625rem solid var(--outline-variant);
+  border-top: var(--border-hairline) solid var(--outline-variant);
 }
 
 .cart-summary__total-label {

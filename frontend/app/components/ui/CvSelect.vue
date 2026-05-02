@@ -79,7 +79,7 @@ function onChange(event: Event) {
   background-position: right 0 center;
   background-size: var(--icon-md);
   border: none;
-  border-bottom: 0.0625rem solid var(--outline); /* token-exception: sub-pixel underline */
+  border-bottom: var(--border-hairline) solid var(--outline);
   font-family: var(--font-body);
   font-size: var(--type-body-md);
   color: var(--on-surface);
@@ -94,7 +94,7 @@ function onChange(event: Event) {
 .cv-select:focus-visible {
   outline: none;
   border-bottom-color: var(--secondary);
-  box-shadow: 0 0.125rem 0.5rem rgba(218, 199, 105, 0.3); /* token-exception: gold glow shadow */
+  box-shadow: 0 0.125rem 0.5rem rgb(var(--secondary-rgb) / 0.3); /* token-exception: gold glow shadow */
 }
 
 .cv-select--error {

@@ -8,11 +8,13 @@ const props = defineProps<{
 // Limit to 6 principal cast (matching design's 6-col grid)
 const principal = computed(() => props.cast.slice(0, 6))
 
-// Deterministic atmospheric gradient for cast cards without a profile image,
-// seeded off the member id so it stays stable across renders.
+// Atmospheric gradient for cast cards without a profile image, seeded off the
+// member id. Hue is a 30% tint over the brand vignette bloom so it stays in
+// the Final Cut frame even per-actor. See DS § Glass & Gradient.
 function gradientFor(id: number): string {
   const hue = (id * 53) % 360
-  return `linear-gradient(160deg, hsl(${hue}deg 20% 35%), hsl(${(hue + 20) % 360}deg 25% 12%))`
+  const tint = `hsl(${hue}deg 20% 35%)`
+  return `linear-gradient(160deg, color-mix(in oklch, ${tint} 30%, var(--primary-container)), var(--surface-container-lowest))`
 }
 
 function glyphFor(name: string): string {
@@ -70,7 +72,7 @@ function glyphFor(name: string): string {
   display: flex;
   flex-direction: column;
   gap: 0.625rem;
-  transition: transform 200ms var(--ease-standard);
+  transition: transform var(--duration-standard) var(--ease-standard);
 }
 
 .movie-cast__card:hover {
@@ -79,7 +81,7 @@ function glyphFor(name: string): string {
 
 .movie-cast__portrait {
   aspect-ratio: 3 / 4;
-  border-radius: 0.125rem;
+  border-radius: var(--radius-sm);
   position: relative;
   overflow: hidden;
   background-color: var(--surface-container-high);
