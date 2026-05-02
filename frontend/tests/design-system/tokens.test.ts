@@ -16,6 +16,9 @@ import { describe, it, expect } from 'vitest'
  * AND this test in the same commit.
  */
 
+// `__dirname` is intentional: Vitest provides it under the Nuxt environment,
+// and the jsdom `URL` polyfill ignores `file://` bases for relative resolution
+// — `new URL(rel, import.meta.url)` returns `http://localhost:3000/...` here.
 const TOKENS_PATH = resolve(__dirname, '../../app/assets/css/tokens.css')
 
 function parseTokens(css: string): Record<string, string> {

@@ -1,19 +1,22 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { mountSuspended, mockNuxtImport } from '@nuxt/test-utils/runtime'
+
+// Mocks must be declared before the SFC import so `useRuntimeConfig` is
+// already stubbed when the component module loads its top-level call.
+mockNuxtImport('useRuntimeConfig', () => {
+  return () => ({ public: { stripePublishableKey: 'pk_test_design_token_check' } })
+})
+
+vi.mock('@stripe/stripe-js', () => ({
+  loadStripe: vi.fn(() => Promise.resolve(null)),
+}))
+
 import CheckoutPaymentBay from '~/components/booking/CheckoutPaymentBay.vue'
 
 const elementsMock = vi.fn()
 const createMock = vi.fn()
 const mountMock = vi.fn()
 const onMock = vi.fn()
-
-vi.mock('@stripe/stripe-js', () => ({
-  loadStripe: vi.fn(() => Promise.resolve(null)),
-}))
-
-mockNuxtImport('useRuntimeConfig', () => {
-  return () => ({ public: { stripePublishableKey: 'pk_test_design_token_check' } })
-})
 
 describe('CheckoutPaymentBay', () => {
   it('renders the §02 numbered header with PCI-DSS badge', async () => {
@@ -76,7 +79,28 @@ describe('CheckoutPaymentBay', () => {
 })
 
 describe('CheckoutPaymentBay — Stripe appearance reads design tokens', () => {
+  // jsdom's documentElement is shared across `it` blocks; without restoring
+  // prior values, tokens set here leak into later tests.
+  const tokens: Record<string, string> = {
+    '--secondary': '#DAC769',
+    '--surface-container-low': '#1c1b1b',
+    '--on-surface': '#E5E2E1',
+    '--primary': '#FFB4A8',
+    '--on-tertiary-fixed-variant': '#A89F91',
+    '--radius-sm': '0.125rem',
+  }
+  let priorTokens: Record<string, string> = {}
+
   afterEach(() => {
+    for (const [name, prior] of Object.entries(priorTokens)) {
+      if (prior === '') {
+        document.documentElement.style.removeProperty(name)
+      } else {
+        document.documentElement.style.setProperty(name, prior)
+      }
+    }
+    priorTokens = {}
+
     vi.restoreAllMocks()
     elementsMock.mockReset()
     createMock.mockReset()
@@ -85,16 +109,8 @@ describe('CheckoutPaymentBay — Stripe appearance reads design tokens', () => {
   })
 
   it('passes CSS-variable values into stripe.elements() appearance and card style', async () => {
-    // Stub the design tokens on documentElement so getComputedStyle returns predictable values.
-    const tokens: Record<string, string> = {
-      '--secondary': '#DAC769',
-      '--surface-container-low': '#1c1b1b',
-      '--on-surface': '#E5E2E1',
-      '--primary': '#FFB4A8',
-      '--on-tertiary-fixed-variant': '#A89F91',
-      '--radius-sm': '0.125rem',
-    }
     for (const [name, value] of Object.entries(tokens)) {
+      priorTokens[name] = document.documentElement.style.getPropertyValue(name)
       document.documentElement.style.setProperty(name, value)
     }
 
@@ -111,8 +127,7 @@ describe('CheckoutPaymentBay — Stripe appearance reads design tokens', () => {
     await mountSuspended(CheckoutPaymentBay, {
       props: { email: '', isAuthenticated: false },
     })
-    // Allow onMounted's async loadStripe chain to settle.
-    await new Promise((resolve) => setTimeout(resolve, 0))
+    await vi.waitFor(() => expect(elementsMock).toHaveBeenCalled(), { timeout: 1000 })
 
     expect(elementsMock).toHaveBeenCalledTimes(1)
     const appearanceConfig = elementsMock.mock.calls[0]![0]!

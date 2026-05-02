@@ -9,10 +9,16 @@ use App\Models\Movie;
 use App\Models\Showtime;
 use App\Models\User;
 use App\Services\ShowtimeService;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Livewire\Livewire;
 
 beforeEach(function (): void {
+    // The form gates `start_date` with `minDate(today())`. The cases below pin
+    // dates to 2026-05-01 (a Friday) so day-of-week assertions stay meaningful;
+    // freeze "now" before that anchor so the validation rule keeps passing.
+    Carbon::setTestNow('2026-04-30 12:00:00');
+
     $this->admin = $this->actingAsAdmin();
     $this->location = Location::factory()->create();
     $this->auditorium = Auditorium::factory()->create([

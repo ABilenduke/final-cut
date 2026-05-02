@@ -35,8 +35,17 @@ class AppServiceProvider extends ServiceProvider
         // Plain CSS layered on top of Filament's compiled stylesheet. Run
         // `make admin-filament-assets` after editing the theme.css source.
         // When a backend Vite pipeline lands, migrate to viteTheme().
+        //
+        // Noto Serif is registered as a Css asset (not @import'd from
+        // theme.css) so Filament emits a non-blocking `<link rel="stylesheet">`
+        // instead of a render-blocking @import. Newsreader is already loaded
+        // by `->font('Newsreader')` in AdminPanelProvider.
         FilamentAsset::register([
             Css::make('finalcut-admin-theme', resource_path('css/filament/admin/theme.css')),
+            Css::make(
+                'finalcut-admin-fonts',
+                'https://fonts.googleapis.com/css2?family=Noto+Serif:wght@500;700;800&display=swap',
+            ),
         ], 'finalcut');
 
         // Custom user provider for the `admin` guard. Returns null for users

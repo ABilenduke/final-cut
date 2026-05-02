@@ -20,6 +20,9 @@ import { describe, it, expect } from 'vitest'
  * that — only a computed-contrast assertion can.
  */
 
+// `__dirname` is intentional: Vitest provides it under the Nuxt environment,
+// and the jsdom `URL` polyfill ignores `file://` bases for relative resolution
+// — `new URL(rel, import.meta.url)` returns `http://localhost:3000/...` here.
 const TOKENS_PATH = resolve(__dirname, '../../app/assets/css/tokens.css')
 const css = readFileSync(TOKENS_PATH, 'utf8')
 

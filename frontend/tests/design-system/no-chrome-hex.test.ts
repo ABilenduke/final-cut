@@ -43,6 +43,9 @@ import { describe, it, expect } from 'vitest'
  * comment naming why.
  */
 
+// `__dirname` is intentional: Vitest provides it under the Nuxt environment,
+// and the jsdom `URL` polyfill ignores `file://` bases for relative resolution
+// — `new URL(rel, import.meta.url)` returns `http://localhost:3000/...` here.
 const COMPONENTS_ROOT = resolve(__dirname, '../../app/components')
 
 function walkVueFiles(dir: string): string[] {
@@ -122,8 +125,21 @@ const CHROME_PROPS = [
   'column-rule-color',
   'text-decoration-color',
 ]
+// Kebab-only: `<style>` blocks are real CSS, where `backgroundColor` would be
+// invalid. Including camelCase here would false-positive on JS strings that
+// happen to land inside a style block via dynamic SSR.
 const CHROME_PROP_GROUP = CHROME_PROPS.join('|')
+// Kebab + camel: Vue's `:style="{ ... }"` accepts either form as object keys.
+const CHROME_PROPS_CAMEL = CHROME_PROPS.map(p =>
+  p.replace(/-([a-z])/g, (_m, c: string) => c.toUpperCase()),
+)
+const CHROME_PROP_GROUP_ALL = [...CHROME_PROPS, ...CHROME_PROPS_CAMEL].join('|')
 const HEX_LITERAL = /#[0-9a-f]{3,8}\b/i
+const STYLE_BLOCK_PROP_RE = new RegExp(`(?:^|[\\s;{])(${CHROME_PROP_GROUP})\\s*:`, 'i')
+const TEMPLATE_BINDING_PROP_RE = new RegExp(
+  `(?:'|"|\\b)(${CHROME_PROP_GROUP_ALL})(?:'|")?\\s*[:,]`,
+  'i',
+)
 
 interface Violation {
   file: string
@@ -133,7 +149,10 @@ interface Violation {
 
 function scanStyleBlocks(absPath: string, src: string): Violation[] {
   const violations: Violation[] = []
-  const blocks = extractBlocks(src, /<style[^>]*>([\s\S]*?)<\/style>/gi)
+  // `\s*` before `>` so `</style >` (HTML allows trailing whitespace) still
+  // closes the block — same precaution `scanTemplateStyleBindings` takes for
+  // `</script>`.
+  const blocks = extractBlocks(src, /<style[^>]*>([\s\S]*?)<\/style\s*>/gi)
 
   for (const block of blocks) {
     // Walk declarations (split on `;`) so multi-line declarations get
@@ -167,8 +186,7 @@ function scanStyleBlocks(absPath: string, src: string): Violation[] {
       }
 
       const cleaned = stripCssNoise(declaration)
-      const propRe = new RegExp(`(?:^|[\\s;{])(${CHROME_PROP_GROUP})\\s*:`, 'i')
-      const propMatch = propRe.exec(cleaned)
+      const propMatch = STYLE_BLOCK_PROP_RE.exec(cleaned)
       if (propMatch && HEX_LITERAL.test(cleaned.slice(propMatch.index))) {
         violations.push({
           file: relative(COMPONENTS_ROOT, absPath),
@@ -186,8 +204,10 @@ function scanStyleBlocks(absPath: string, src: string): Violation[] {
 
 function scanTemplateStyleBindings(absPath: string, src: string): Violation[] {
   // Strip <script> blocks first so JS color literals don't false-positive,
-  // but preserve newline counts for accurate line numbers.
-  const noScript = src.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, m =>
+  // but preserve newline counts for accurate line numbers. `\s*` before `>`
+  // because the HTML parser accepts `</script >` with trailing whitespace —
+  // CodeQL flags the original tighter regex as a parser-bypass risk.
+  const noScript = src.replace(/<script[^>]*>[\s\S]*?<\/script\s*>/gi, m =>
     '\n'.repeat(Math.max(0, m.split('\n').length - 1)),
   )
 
@@ -198,8 +218,10 @@ function scanTemplateStyleBindings(absPath: string, src: string): Violation[] {
     const body = match[2] ?? match[3] ?? ''
     if (/token-exception/i.test(body)) continue
     const cleaned = stripCssNoise(body)
-    const propRe = new RegExp(`(?:'|"|\\b)(${CHROME_PROP_GROUP})(?:'|")?\\s*[:,]`, 'i')
-    if (propRe.test(cleaned) && HEX_LITERAL.test(cleaned)) {
+    // Computed bindings (`:style="getStyle()"`) can't be statically analyzed
+    // and intentionally fall through — the `<style>` scanner catches anything
+    // those functions read out of class-based CSS.
+    if (TEMPLATE_BINDING_PROP_RE.test(cleaned) && HEX_LITERAL.test(cleaned)) {
       const startLine = noScript.slice(0, match.index).split('\n').length
       violations.push({
         file: relative(COMPONENTS_ROOT, absPath),

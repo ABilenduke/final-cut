@@ -9,9 +9,10 @@
  * entry — the token names mirror frontend/app/assets/css/tokens.css so the
  * eventual Tailwind config can consume the same source of truth.
  *
- * Fonts: Newsreader via `->font()` in AdminPanelProvider, Noto Serif via
- * FilamentAsset::register() in AppServiceProvider — both arrive as `<link>`
- * tags rather than render-blocking `@import`.
+ * Fonts: Newsreader is loaded by `->font('Newsreader')` in AdminPanelProvider.
+ * Noto Serif (used for headings below) is registered as a Css asset in
+ * AppServiceProvider so it ships as a `<link rel="stylesheet">` tag rather
+ * than a render-blocking `@import` here.
  */
 
 :root {
