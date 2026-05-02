@@ -1,0 +1,377 @@
+/* Final Cut Design System — The Cinematic Void Framework
+   Single-file foundation: colors + type + spacing + motion.
+   Import this in any HTML artifact to get the full token set. */
+
+/* Fonts: load via <link> in the document <head>, not @import here.
+   @import is render-blocking and serializes the request behind this stylesheet.
+   For standalone HTML artifacts, paste this into the document head:
+
+   <link rel="preconnect" href="https://fonts.googleapis.com">
+   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&display=swap">
+
+   Production work (the Nuxt app) uses the project's font-loading strategy in
+   frontend/app/assets/css/typography.css — do not introduce @import there. */
+
+:root {
+  /* ——— Fills / Backgrounds / Surfaces ——— */
+  --primary-container: #550000;          /* Reactor-core maroon — button fills, active accents */
+  --secondary-container: #675900;        /* Gold container */
+  --tertiary-container: #29261b;         /* Warm highlight */
+  --surface: #131313;                    /* Page background — the void */
+  --surface-variant: #3B3636;            /* Glass substrate */
+  --surface-container-lowest: #0e0e0e;   /* Deepest recess */
+  --surface-container-low:    #1c1b1b;   /* Base card layer */
+  --surface-container:        #201f1f;   /* Content sections */
+  --surface-container-high:   #2a2a2a;   /* Elevated cards, modals */
+
+  /* ——— Text / Icons / Foreground ——— */
+  --primary: #FFB4A8;                    /* Text ON primary-container ONLY */
+  --secondary: #DAC769;                  /* Gold — CTAs, hover underlines, active nav */
+  --tertiary: #CCC6B6;                   /* Ivory — body text, subdued labels */
+  --on-surface: #E5E2E1;                 /* Default readable text */
+  --on-tertiary-fixed-variant: #A89F91;  /* Neural Ticker, ambient telemetry */
+
+  /* ——— Borders / Edges ——— */
+  --outline-variant: #57423E;            /* Decorative edge catch (use at 15% opacity) */
+  --outline: #A58B86;                    /* Functional interactive boundary */
+
+  /* ——— RGB channels (for rgba() / opacity variants) ——— */
+  --surface-variant-rgb: 59, 54, 54;
+  --outline-variant-rgb: 87, 66, 62;
+  --primary-container-rgb: 85, 0, 0;
+  --secondary-rgb: 218, 199, 105;
+  --tertiary-rgb: 204, 198, 182;
+  --outline-rgb: 165, 139, 134;
+
+  /* ——— Semantic aliases ——— */
+  --bg: var(--surface);
+  --bg-card: var(--surface-container);
+  --bg-elevated: var(--surface-container-high);
+  --bg-recessed: var(--surface-container-lowest);
+  --fg: var(--on-surface);
+  --fg-muted: var(--tertiary);
+  --fg-ambient: var(--on-tertiary-fixed-variant);
+  --accent: var(--secondary);
+  --accent-fill: var(--primary-container);
+  --accent-on-fill: var(--primary);
+
+  /* ——— Spacing ——— */
+  --space-2xs: 0.125rem;
+  --space-xs:  0.25rem;
+  --space-sm:  0.5rem;
+  --space-md:  1rem;
+  --space-lg:  1.5rem;
+  --space-xl:  2rem;
+  --space-2xl: 3rem;
+  --space-3xl: 4rem;
+  --space-4xl: 6rem;
+  --space-5xl: 8rem;
+
+  /* ——— Radii (restrained by spec) ——— */
+  --radius-none: 0;
+  --radius-sm:   0.125rem;
+  --radius-card: 0.25rem;   /* Component-spec override for cards */
+
+  /* ——— Motion ——— */
+  --ease-standard: cubic-bezier(0.2, 0.0, 0.0, 1.0);
+  --ease-enter:    cubic-bezier(0.0, 0.0, 0.0, 1.0);
+  --ease-exit:     cubic-bezier(0.2, 0.0, 1.0, 1.0);
+  --ease-emphasis: cubic-bezier(0.05, 0.7, 0.1, 1.0);
+  --ease-linear:   linear;
+  --duration-micro:     100ms;
+  --duration-standard:  250ms;
+  --duration-emphasis:  400ms;
+  --duration-cinematic: 700ms;
+
+  /* ——— Z-Index ——— */
+  --z-recessed:        -1;
+  --z-base:             0;
+  --z-card:           100;
+  --z-sticky:         200;
+  --z-ticker:         201;
+  --z-dropdown:       300;
+  --z-modal-backdrop: 400;
+  --z-modal:          500;
+  --z-toast:          600;
+  --z-tooltip:        700;
+  --z-skip-nav:       900;
+
+  /* ——— Icon sizes ——— */
+  --icon-sm: 1rem;
+  --icon-md: 1.5rem;
+  --icon-lg: 3rem;
+  --icon-xl: 4rem;
+
+  /* ——— Breakpoints (reference only — cannot use in @media) ——— */
+  --screen-sm: 40rem;
+  --screen-md: 60rem;
+  --screen-lg: 80rem;
+  --screen-xl: 100rem;
+
+  /* ——— Fonts ——— */
+  --font-display: 'Noto Serif', Georgia, 'Times New Roman', serif;
+  --font-body:    'Newsreader', Georgia, 'Times New Roman', serif;
+
+  /* ——— Type scale ——— */
+  --type-display-lg:  clamp(2.25rem, 1.25rem + 2.5vw, 3.5rem);
+  --type-display-md:  clamp(1.875rem, 1.125rem + 1.875vw, 2.8125rem);
+  --type-display-sm:  clamp(1.5rem, 0.9rem + 1.5vw, 2.25rem);
+  --type-headline-lg: clamp(1.375rem, 0.875rem + 1.25vw, 2rem);
+  --type-headline-md: clamp(1.25rem, 0.85rem + 1vw, 1.75rem);
+  --type-headline-sm: clamp(1.125rem, 0.825rem + 0.75vw, 1.5rem);
+  --type-title-lg:    clamp(1rem, 0.7rem + 0.75vw, 1.375rem);
+  --type-title-md:    1rem;
+  --type-body-lg:     1.125rem;
+  --type-body-md:     1rem;
+  --type-body-sm:     0.875rem;
+  --type-label-lg:    0.875rem;
+  --type-label-md:    0.75rem;
+  --type-label-sm:    0.6875rem;
+
+  /* ——— Shadow (floating only; never on static) ——— */
+  --shadow-float: 0 1.25rem 2.5rem rgba(0, 0, 0, 0.6);
+}
+
+/* ——— Semantic element styles ——— */
+body {
+  background-color: var(--surface);
+  color: var(--on-surface);
+  font-family: var(--font-body);
+  font-size: var(--type-body-md);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, .h1, .display-lg {
+  font-family: var(--font-display);
+  font-size: var(--type-display-lg);
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  font-weight: 500;
+  margin: 0;
+}
+
+h2, .h2, .display-md {
+  font-family: var(--font-display);
+  font-size: var(--type-display-md);
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  font-weight: 500;
+  margin: 0;
+}
+
+h3, .h3, .display-sm {
+  font-family: var(--font-display);
+  font-size: var(--type-display-sm);
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  font-weight: 500;
+  margin: 0;
+}
+
+.headline-lg { font-family: var(--font-display); font-size: var(--type-headline-lg); letter-spacing: -0.02em; line-height: 1.2; margin: 0; }
+.headline-md { font-family: var(--font-display); font-size: var(--type-headline-md); letter-spacing: -0.02em; line-height: 1.2; margin: 0; }
+.headline-sm { font-family: var(--font-display); font-size: var(--type-headline-sm); letter-spacing: -0.02em; line-height: 1.2; margin: 0; }
+
+.title-lg { font-family: var(--font-display); font-size: var(--type-title-lg); line-height: 1.3; margin: 0; }
+.title-md { font-family: var(--font-display); font-size: var(--type-title-md); line-height: 1.3; margin: 0; }
+
+p, .body-md { font-family: var(--font-body); font-size: var(--type-body-md); line-height: 1.6; }
+.body-lg { font-family: var(--font-body); font-size: var(--type-body-lg); line-height: 1.6; }
+.body-sm { font-family: var(--font-body); font-size: var(--type-body-sm); line-height: 1.6; }
+
+.label-lg { font-family: var(--font-body); font-size: var(--type-label-lg); line-height: 1.4; }
+.label-md { font-family: var(--font-body); font-size: var(--type-label-md); line-height: 1.4; }
+.label-sm { font-family: var(--font-body); font-size: var(--type-label-sm); line-height: 1.4; }
+
+/* Vignette bloom — hero reactor glow */
+.vignette-bloom {
+  background: radial-gradient(ellipse at center,
+    var(--primary-container) 0%,
+    var(--surface-container-lowest) 70%);
+}
+
+/* Glassmorphism (fallback-first) */
+.glass { background-color: rgba(var(--surface-variant-rgb), 0.85); }
+@supports (backdrop-filter: blur(1px)) {
+  .glass {
+    background-color: rgba(var(--surface-variant-rgb), 0.6);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+  }
+}
+
+/* Edge catch — decorative only */
+.edge-catch { outline: 0.0625rem solid rgba(var(--outline-variant-rgb), 0.15); }
+
+/* Focus */
+:focus-visible {
+  outline: 0.125rem solid var(--secondary);
+  outline-offset: 0.125rem;
+}
+
+/* ——— Component utility classes ———
+   These mirror the visual API of frontend/app/components/ui/*.vue and exist
+   only so standalone HTML artifacts (slide decks, one-off mocks outside the
+   Nuxt app) can compose without inline styles. Production work uses the Vue
+   primitives directly; do not pull these classes into the live Nuxt app. */
+
+/* Button — mirrors CvButton.vue */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  height: 3rem;
+  padding-inline: var(--space-md);
+  border: none;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-body);
+  font-size: var(--type-body-md);
+  line-height: 1;
+  cursor: pointer;
+  text-decoration: none;
+  position: relative;
+  transition:
+    background-color var(--duration-micro) var(--ease-standard),
+    transform var(--duration-micro) var(--ease-standard);
+}
+
+.btn:active:not(:disabled) { transform: scale(0.98); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.btn--primary {
+  background-color: var(--primary-container);
+  color: var(--secondary);
+}
+
+.btn--secondary {
+  background-color: var(--surface-container-high);
+  color: var(--on-surface);
+}
+
+.btn--tertiary {
+  background-color: transparent;
+  color: var(--secondary);
+  padding-inline: var(--space-xs);
+}
+
+.btn--tertiary::after {
+  content: '';
+  position: absolute;
+  bottom: var(--space-sm);
+  left: var(--space-xs);
+  right: var(--space-xs);
+  height: 0.0625rem;
+  background-color: var(--secondary);
+  transform: scaleX(0);
+  transform-origin: center;
+  transition: transform var(--duration-standard) var(--ease-standard);
+}
+
+.btn--tertiary:hover::after { transform: scaleX(1); }
+
+.btn--lg {
+  height: 3.5rem;
+  padding-inline: var(--space-lg);
+  font-size: var(--type-body-lg);
+}
+
+@media (pointer: fine) {
+  .btn--sm {
+    height: 2.25rem;
+    padding-inline: var(--space-sm);
+    font-size: var(--type-body-sm);
+  }
+}
+
+/* Card — mirrors CvCard.vue */
+.card {
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-md);
+  border-radius: var(--radius-card);
+  outline: 0.0625rem solid rgba(var(--outline-variant-rgb), 0.15);
+  text-decoration: none;
+  color: inherit;
+  background-color: var(--surface-container);
+  transition: transform var(--duration-standard) var(--ease-standard);
+}
+
+.card--low { background-color: var(--surface-container-low); }
+.card--high { background-color: var(--surface-container-high); }
+
+.card--interactive { cursor: pointer; }
+.card--interactive:hover { transform: translateY(-0.125rem); }
+
+/* Badge — mirrors CvBadge.vue */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--space-2xs) var(--space-xs);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-body);
+  font-size: var(--type-label-md);
+  line-height: 1.4;
+  white-space: nowrap;
+  background-color: var(--surface-container-high);
+  color: var(--tertiary);
+}
+
+.badge--accent {
+  background-color: var(--primary-container);
+  color: var(--primary);
+}
+
+.badge--warning {
+  background-color: var(--secondary-container);
+  color: var(--on-surface);
+}
+
+.badge--sm { font-size: var(--type-label-sm); }
+
+/* Input — mirrors CvInput.vue (underline-only) */
+.input {
+  width: 100%;
+  height: 3rem;
+  padding: var(--space-sm) 0;
+  background: transparent;
+  border: none;
+  border-bottom: 0.0625rem solid var(--outline);
+  font-family: var(--font-body);
+  font-size: var(--type-body-md);
+  color: var(--on-surface);
+  line-height: 1.6;
+  transition:
+    border-color var(--duration-standard) var(--ease-standard),
+    box-shadow var(--duration-standard) var(--ease-standard);
+}
+
+.input::placeholder { color: var(--on-tertiary-fixed-variant); }
+
+.input:focus-visible {
+  outline: none;
+  border-bottom-color: var(--secondary);
+  box-shadow: 0 0.125rem 0.5rem rgba(var(--secondary-rgb), 0.3);
+}
+
+.input--error { border-bottom-color: var(--primary-container); }
+.input:disabled { cursor: not-allowed; }
+
+/* SVG sprite host — keeps the symbol-only <svg> off the page without inline styles. */
+.icon-sprite { display: none; }
+
+/* Accessible "screen reader only" — for icon-only buttons, etc. */
+.sr-only {
+  position: absolute;
+  width: 0.0625rem;
+  height: 0.0625rem;
+  padding: 0;
+  margin: -0.0625rem;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
