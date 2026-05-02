@@ -78,7 +78,7 @@ const plainItems = computed(() => props.items.filter((item) => !item.href))
 .neural-ticker {
   display: flex;
   align-items: center;
-  height: 2rem;
+  height: var(--layout-ticker-height);
   background-color: var(--surface-container-lowest);
   border-bottom: var(--border-hairline) solid rgb(var(--outline-variant-rgb) / 0.2);
   overflow: hidden;

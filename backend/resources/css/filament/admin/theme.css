@@ -23,20 +23,27 @@
   --fc-on-surface: #e5e2e1;
   --fc-tertiary: #ccc6b6;
   --fc-secondary: #dac769;
+  /* Two-declaration fallback for browsers without `color-mix` (iOS Safari
+   * < 16.4). Mirrors frontend/app/assets/css/tokens.css. */
+  --fc-secondary-hover: #dccb75;
   --fc-secondary-hover: color-mix(in oklch, #dac769 92%, white 8%);
   --fc-primary-container: #550000;
+  --fc-primary-container-hover: #6e2626;
   --fc-primary-container-hover: color-mix(in oklch, #550000 85%, white 15%);
   --fc-primary-text: #ffb4a8;
   --fc-outline: #a58b86;
   --fc-outline-variant: #57423e;
   --fc-on-tertiary-fixed-variant: #a89f91;
 
-  /* Cinematic Void state colors. Spec-silent on success/warning/danger/info;
-   * documenting them here is the project's first commit on those semantics. */
-  --fc-state-success: #5b8f6c;  /* sage */
-  --fc-state-warning: #dac769;  /* shares secondary */
-  --fc-state-danger:  #b5443d;  /* claret */
-  --fc-state-info:    #5a8aa0;  /* steel-blue */
+  /* Cinematic Void state colors. Mirrors --state-* in
+   * frontend/app/assets/css/tokens.css. Two-shade pattern for danger so
+   * destructive-action copy meets WCAG AA on every dark surface tier in
+   * Filament; saturated claret stays for fills/icons. */
+  --fc-state-success:     #5b8f6c;  /* sage */
+  --fc-state-warning:     #dac769;  /* shares secondary */
+  --fc-state-danger:      #b5443d;  /* claret — non-text fills only */
+  --fc-state-danger-text: #e07a72;  /* lighter claret — readable on all tiers */
+  --fc-state-info:        #5a8aa0;  /* steel-blue */
 }
 
 /* ——— Typography: Director's voice ——— */

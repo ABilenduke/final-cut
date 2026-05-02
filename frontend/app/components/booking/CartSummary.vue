@@ -72,7 +72,7 @@ const isExpanded = ref(false)
   .cart-summary__desktop {
     display: block;
     position: sticky;
-    top: 5rem;
+    top: calc(var(--layout-header-height) + var(--space-md));
   }
 
   .cart-summary__mobile {

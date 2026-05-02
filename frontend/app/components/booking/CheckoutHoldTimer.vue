@@ -75,10 +75,10 @@ const holdStripLabel = computed<string>(() => 'Seat hold status')
 <style scoped>
 .hold-strip {
   position: fixed;
-  top: 4rem;
+  top: var(--layout-header-height);
   left: 0;
   right: 0;
-  height: 2.5rem;
+  height: var(--layout-hold-timer-height);
   z-index: var(--z-ticker);
   background-color: var(--surface-container-lowest);
   display: flex;

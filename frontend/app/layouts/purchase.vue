@@ -119,7 +119,7 @@ function handleStepNavigate(step: PurchaseStep) {
 .layout-purchase__header {
   position: sticky;
   top: 0;
-  height: 4rem;
+  height: var(--layout-header-height);
   background-color: var(--surface-container);
   z-index: var(--z-sticky);
 }

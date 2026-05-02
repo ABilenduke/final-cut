@@ -25,10 +25,20 @@
   --outline-variant: #57423E;      /* Decorative edge catches only (15% opacity) */
   --outline: #A58B86;              /* Input underlines, functional interactive boundaries */
 
-  /* ——— Colors: Interactive States (derived) ——— */
+  /* ——— Colors: Interactive States (derived) ———
+   * Two-declaration fallback pattern: the static hex applies in browsers
+   * without `color-mix` support (notably iOS Safari < 16.4); the
+   * `color-mix` line overrides it everywhere else. The hex values are
+   * sRGB approximations of the OKLCH mix and are within ~2% perceptual
+   * distance — close enough that hover/active stay legible on the floor
+   * targets without us shipping a separate browserslist build. */
+  --primary-container-hover:  #6e2626;
   --primary-container-hover:  color-mix(in oklch, var(--primary-container) 85%, white 15%);
+  --primary-container-active: #4e0000;
   --primary-container-active: color-mix(in oklch, var(--primary-container) 92%, black 8%);
+  --secondary-hover:          #dccb75;
   --secondary-hover:          color-mix(in oklch, var(--secondary) 92%, white 8%);
+  --secondary-active:         #b9a959;
   --secondary-active:         color-mix(in oklch, var(--secondary) 85%, black 15%);
 
   /* ——— RGB Channel Tokens (for opacity variants) ——— */
@@ -116,14 +126,42 @@
   --control-height:    3rem;     /* 48px — default; meets touch target minimum */
   --control-height-lg: 3.5rem;   /* 56px — emphasis CTAs */
 
+  /* ——— Layout Chrome Heights ———
+   * Sticky/fixed descendants inside the layouts (mobile menu, hold timer,
+   * checkout rail, cart summary) must clear the chrome above them. These
+   * tokens are the single source of truth so a future header or ticker
+   * height change propagates without a hunt-and-replace. Layouts using a
+   * sticky chrome wrapper (default, account) get correct flow offsets for
+   * free; only fixed/nested-sticky descendants need to consume these. */
+  --layout-header-height:     4rem;    /* SiteHeader bar */
+  --layout-ticker-height:     2rem;    /* Neural Ticker (default/account) */
+  --layout-hold-timer-height: 2.5rem;  /* CheckoutHoldTimer (purchase) */
+
   /* ——— State Semantics ———
    * Brand-spec colors for success/warning/danger/info. Mirrored in
-   * backend/resources/css/filament/admin/theme.css (--fc-state-*) so the admin
-   * panel and customer toasts/alerts share one palette. See
-   * docs/design-system/DESIGN_SYSTEM.md § State Semantics for contrast notes.
+   * backend/resources/css/filament/admin/theme.css (--fc-state-*) so the
+   * admin panel and customer toasts/alerts share one palette. See
+   * docs/design-system/DESIGN_SYSTEM.md § State Semantics.
+   *
+   * Two-shade pattern for danger:
+   *   --state-danger      — non-text use (badge fills, icon backgrounds,
+   *                         alert dividers). Saturated claret; ~3:1 against
+   *                         dark surfaces, which is fine for non-text
+   *                         components per WCAG 1.4.11.
+   *   --state-danger-text — text/inline-icon use on every dark surface tier.
+   *                         Lighter claret; ≥ 4.5:1 on all four container
+   *                         tiers so error copy stays readable in toasts,
+   *                         inline form errors, and Filament's destructive
+   *                         action confirmations.
+   *
+   * Sage/steel/gold are fine as text on `--surface` and
+   * `--surface-container-low`. On lighter tiers, prefer larger type or use
+   * one of the foreground tokens (--secondary/--on-surface) and let the
+   * state color carry the icon or border instead.
    */
   --state-success: #5b8f6c;  /* sage — confirmations, positive transitions */
   --state-warning: #dac769;  /* shares --secondary — non-blocking attention */
-  --state-danger:  #b5443d;  /* claret — errors, destructive actions */
+  --state-danger:  #b5443d;  /* claret — non-text fills only */
+  --state-danger-text: #e07a72; /* lighter claret — text on every surface tier */
   --state-info:    #5a8aa0;  /* steel-blue — neutral information */
 }

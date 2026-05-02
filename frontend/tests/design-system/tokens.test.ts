@@ -62,10 +62,13 @@ describe('design system tokens — canonical brand values', () => {
 
 describe('design system tokens — state semantics', () => {
   // Spec: § State Semantics (sage / gold / claret / steel).
+  // Two claret shades — the saturated one is for non-text fills, the
+  // lighter one is for body copy on every dark surface tier.
   const stateColors: Record<string, string> = {
     '--state-success': '#5b8f6c',
     '--state-warning': '#dac769', // shares --secondary
     '--state-danger': '#b5443d',
+    '--state-danger-text': '#e07a72',
     '--state-info': '#5a8aa0',
   }
   for (const [name, expected] of Object.entries(stateColors)) {

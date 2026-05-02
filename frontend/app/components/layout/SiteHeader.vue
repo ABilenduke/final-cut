@@ -184,7 +184,7 @@ function onKeydown(event: KeyboardEvent) {
 
 <style scoped>
 .site-header {
-  height: 4rem;
+  height: var(--layout-header-height);
   background-color: rgb(14 14 14 / 0.72);
   -webkit-backdrop-filter: blur(1.25rem);
   backdrop-filter: blur(1.25rem);
@@ -402,8 +402,8 @@ function onKeydown(event: KeyboardEvent) {
 <style>
 .site-header__mobile-menu {
   position: fixed;
-  /* Clear the full chrome bar (4rem header + 2rem neural ticker). */
-  top: 6rem;
+  /* Clear the full chrome bar (header + neural ticker). */
+  top: calc(var(--layout-header-height) + var(--layout-ticker-height));
   left: 0;
   right: 0;
   bottom: 0;

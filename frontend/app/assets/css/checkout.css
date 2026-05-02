@@ -90,8 +90,11 @@
 }
 
 .checkout-page__rail {
+  /* Clear the sticky header (4rem) AND the fixed hold-strip (2.5rem) plus
+   * a 2rem breathing margin so the rail doesn't sit flush against the
+   * strip's bottom edge. */
   position: sticky;
-  top: 8.5rem;
+  top: calc(var(--layout-header-height) + var(--layout-hold-timer-height) + var(--space-xl));
   display: flex;
   flex-direction: column;
   gap: var(--space-md);
