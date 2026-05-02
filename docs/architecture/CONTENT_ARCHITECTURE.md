@@ -26,7 +26,7 @@ Physical location is a property of the **purchase intent**, not of the **browse 
 
 **Old model (deprecated):**
 
-```
+```text
 App boot → fetch /api/locations → set activeLocation
         → all browse pages fetch via /api/locations/{slug}/...
         → checkout uses activeLocation implicitly
@@ -34,7 +34,7 @@ App boot → fetch /api/locations → set activeLocation
 
 **New model:**
 
-```
+```text
 App boot → (no location work; useLocations not invoked)
 Browse pages → render the full slate via cross-location endpoints
             → optional ?location=slug filter on /movies
@@ -91,17 +91,20 @@ What each ISR/prerendered page fetches at SSR time. All endpoints are public; no
 After the refactor, `useLocations` exposes the same surface but is invoked from far fewer places.
 
 **State retained:**
+
 - `locations: Ref<Location[]>` — the catalog of venues, fetched once and cached.
 - `activeLocation: Ref<Location | null>` — the user's *preferred default* (localStorage-backed). Used only as the booking-time picker default when geolocation is not granted.
 - `setLocation(slug)` — writes the preference.
 
 **Behavior changes:**
+
 - The `plugins/locations.ts` boot-time fetch is moved into `usePublicLocations` (a thin SSR-friendly wrapper), so the locations *catalog* is available everywhere without invoking the preference machinery.
 - `useFoodMenu` no longer reads `activeLocation`.
 - `pages/movies/[slug].vue` no longer reads `activeLocation` (it renders all venues' showtimes).
 - `SiteHeader`'s location switcher is either (a) replaced by a `LocationPreferenceSwitcher` that only writes the localStorage default, or (b) removed entirely in favor of the `/locations` page as the canonical location surface. This decision lives in the frontend plan, not here.
 
 **Allowed readers of `activeLocation` after the refactor:**
+
 - The booking-time location picker (precedence rule below).
 - The `LocationPreferenceSwitcher` UI itself (read-modify-write).
 
@@ -114,17 +117,20 @@ That's the whole list. Any other component reading `activeLocation` is a regress
 Browser geolocation is an **opt-in default-picker**, never a content gate.
 
 **What it affects:**
+
 - `/movies/:slug` — the closest location's showtime group is expanded by default; others render collapsed-but-visible.
 - `/locations` — cards re-order by distance after hydration; each card gains a "X mi away" caption.
 - `/movies` — surfaces a non-binding "Filter to nearest: Downtown" suggestion chip.
 - The booking-time location picker — picks the closest as the default highlight.
 
 **What it does not affect:**
+
 - SSR output. Server always renders alphabetical, all-locations content. Geolocation is a hydration-time enhancement.
 - Filters. Geolocation never auto-applies a filter; it suggests one.
 - Visibility. Locations are never hidden because of distance.
 
 **UX rules:**
+
 - **Permission prompt timing.** Never at app boot. Only on user gesture (clicking a "Use my location" affordance) or on first land-on-`/movies/:slug` (silent permission check; if status is `prompt`, no prompt is shown — only a small "Show closest first" link that triggers the request).
 - **Caching.** Granted coordinates cached in `sessionStorage` keyed by `geolocation:coords`. Survives in-tab nav; cleared on tab close. No persistent storage of coordinates.
 - **Distances.** Computed client-side via Haversine against `locations[*].latitude/longitude` (already in the schema — no backend dependency). Displayed in miles (US default, `country: 'US'` on every seeded location).
@@ -145,7 +151,7 @@ SSR returns `status: 'idle'` and `coords: null` always. Mocked `navigator.geoloc
 
 **Precedence for the booking-time default location:**
 
-```
+```text
 1. Explicit query string  ?location=slug   (deep link)
 2. Geolocation result     (closest venue)
 3. activeLocation         (saved preference)
@@ -176,6 +182,7 @@ The home page hero is an admin-curated carousel, not auto-composed from movie st
 **Public endpoint:** `GET /api/featured-slides` returns active slides — `published_at IS NOT NULL AND (starts_at IS NULL OR starts_at <= NOW()) AND (ends_at IS NULL OR ends_at >= NOW())` — ordered by `display_order ASC, id ASC`. Cache 5 min.
 
 **Frontend behavior:**
+
 - `useFeaturedSlides()` composable wraps the fetch.
 - `HomeFeaturedCarousel` consumes the array. Auto-advances every 7s, pauses on hover/focus, supports prev/next buttons and slide indicator dots, swipe on touch, and full WAI-ARIA Carousel pattern (`aria-roledescription="carousel"`, `aria-roledescription="slide"` on each panel, `aria-live="polite"` when auto-advancing, `aria-live="off"` when paused).
 - **Empty-state fallback:** when the API returns zero slides, render a single hardcoded brand slide (image + tagline + CTA → `/movies`). The home page must never render an empty hero.
@@ -208,11 +215,13 @@ The food page is a single shared surface. Per-location availability is data, not
 ```
 
 **Page rendering (`/food-drink`):**
+
 - Every item in the response renders, regardless of `available_at`.
 - Items whose `available_at` is a strict subset of all locations carry an inline caption: "Available at Downtown only" (one location) or "Available at Downtown · Uptown" (subset). Items available everywhere carry no caption — that's the default.
 - Category tabs and dietary filters operate on the full set.
 
 **Checkout consumption (`/purchase/checkout` → `FoodPreOrderPanel`):**
+
 - The panel receives the booking's location slug (from the showtime).
 - Items whose `available_at` excludes that slug render with `disabled` interaction and a `CvBadge variant="warning"` overlay: "Not available at {Location Name}".
 - Quantity controls are hidden for unavailable items.
@@ -229,6 +238,7 @@ The existing `GET /api/locations/{location}/food-menu` endpoint stays in place f
 **`/locations`** — Wide Frame hero + Ensemble grid. Each card: name, full address, phone, hours, "Get Directions" link (`https://maps.google.com/?q=<lat>,<lng>` URL constructed from the lat/lng columns), thumbnail photo, "See Showtimes" CTA → `/movies?location={slug}`. ISR 1800s. After hydration, `useGeolocation` reorders cards by distance and adds "X mi away" captions.
 
 **`/locations/:slug`** — Establishing Shot 65/35 layout:
+
 - Left (65%): full address, hours, phone/email, accessibility info, transit/parking notes, embedded map (or a static map image with the directions link as the primary CTA — design call in the frontend plan).
 - Right (35%): "Now Showing Here" strip (cross-references `/api/movies?location=slug`) and "Upcoming Events Here" strip (cross-references `/api/calendar/events?location=slug` if the backend supports the filter; otherwise a client-side filter on the cross-location response).
 
