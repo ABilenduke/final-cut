@@ -204,10 +204,12 @@ function scanStyleBlocks(absPath: string, src: string): Violation[] {
 
 function scanTemplateStyleBindings(absPath: string, src: string): Violation[] {
   // Strip <script> blocks first so JS color literals don't false-positive,
-  // but preserve newline counts for accurate line numbers. `\s*` before `>`
-  // because the HTML parser accepts `</script >` with trailing whitespace —
-  // CodeQL flags the original tighter regex as a parser-bypass risk.
-  const noScript = src.replace(/<script[^>]*>[\s\S]*?<\/script\s*>/gi, m =>
+  // but preserve newline counts for accurate line numbers. The closing tag
+  // pattern accepts `</script>`, `</script >`, and `</script foo="bar">` —
+  // the HTML parser ends the script-data state on whitespace after `script`
+  // even with bogus trailing attributes, so a tighter regex (e.g. `</script\s*>`)
+  // can be bypassed by a parser that accepts those tags.
+  const noScript = src.replace(/<script[^>]*>[\s\S]*?<\/script(?:\s[^>]*)?>/gi, m =>
     '\n'.repeat(Math.max(0, m.split('\n').length - 1)),
   )
 
