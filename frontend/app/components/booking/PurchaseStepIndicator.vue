@@ -115,7 +115,7 @@ function handleClick(step: PurchaseStep) {
 .purchase-steps__connector {
   display: block;
   width: 1.5rem;
-  height: 0.0625rem; /* token-exception: sub-pixel connector line */
+  height: var(--border-hairline);
   background-color: rgb(var(--outline-variant-rgb) / 0.4);
   flex-shrink: 0;
 }
@@ -187,8 +187,8 @@ function handleClick(step: PurchaseStep) {
   justify-content: center;
   width: 1.25rem;
   height: 1.25rem;
-  border-radius: 50%;
-  border: 0.0625rem solid rgb(var(--outline-variant-rgb) / 0.4);
+  border-radius: var(--radius-full);
+  border: var(--border-hairline) solid rgb(var(--outline-variant-rgb) / 0.4);
   font-family: var(--font-display);
   font-size: 0.75rem;
   letter-spacing: 0;

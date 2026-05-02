@@ -83,7 +83,7 @@
   );
   background-size: 200% 100%;
   animation: shimmer 1500ms linear infinite;
-  border-radius: 0.125rem;
+  border-radius: var(--radius-sm);
 }
 
 /* Reduced motion: solid fill, no shimmer */
@@ -99,7 +99,7 @@
 .sr-only {
   position: absolute;
   width: 0.0625rem;
-  height: 0.0625rem;
+  height: var(--border-hairline);
   padding: 0;
   margin: -0.0625rem;
   overflow: hidden;
@@ -111,7 +111,7 @@
 /* ——— Edge Catch (Decorative) ——— */
 
 .edge-catch {
-  outline: 0.0625rem solid color-mix(in srgb, var(--outline-variant) 15%, transparent);
+  outline: var(--border-hairline) solid color-mix(in srgb, var(--outline-variant) 15%, transparent);
 }
 
 /* ——— Vignette Bloom ——— */

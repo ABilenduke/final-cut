@@ -102,7 +102,7 @@ const SCORES = [
   gap: var(--space-md);
   padding: var(--space-lg);
   background: var(--surface-container);
-  border-radius: 0.25rem;
+  border-radius: var(--radius-card);
   min-height: 15rem;
   margin: 0;
 }
@@ -137,7 +137,7 @@ const SCORES = [
   justify-content: space-between;
   align-items: baseline;
   padding-top: var(--space-sm);
-  border-top: 0.0625rem solid rgba(var(--outline-variant-rgb), 0.2); /* token-exception: sub-pixel divider */
+  border-top: var(--border-hairline) solid rgba(var(--outline-variant-rgb), 0.2);
   font-size: 0.6875rem;
   letter-spacing: 0.2em;
   text-transform: uppercase;
@@ -156,13 +156,13 @@ const SCORES = [
   grid-template-columns: repeat(4, 1fr);
   gap: 0;
   margin-top: var(--space-xl);
-  border-top: 0.0625rem solid rgba(var(--outline-variant-rgb), 0.2); /* token-exception: sub-pixel divider */
-  border-bottom: 0.0625rem solid rgba(var(--outline-variant-rgb), 0.2);
+  border-top: var(--border-hairline) solid rgba(var(--outline-variant-rgb), 0.2);
+  border-bottom: var(--border-hairline) solid rgba(var(--outline-variant-rgb), 0.2);
 }
 
 .movie-press__score-cell {
   padding: var(--space-lg) var(--space-md);
-  border-right: 0.0625rem solid rgba(var(--outline-variant-rgb), 0.15); /* token-exception: sub-pixel divider */
+  border-right: var(--border-hairline) solid rgba(var(--outline-variant-rgb), 0.15);
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
@@ -230,7 +230,7 @@ const SCORES = [
 
   .movie-press__score-cell:nth-child(1),
   .movie-press__score-cell:nth-child(2) {
-    border-bottom: 0.0625rem solid rgba(var(--outline-variant-rgb), 0.15);
+    border-bottom: var(--border-hairline) solid rgba(var(--outline-variant-rgb), 0.15);
   }
 }
 

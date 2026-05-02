@@ -66,7 +66,7 @@ function onInput(event: Event) {
   padding: var(--space-sm) 0;
   background: transparent;
   border: none;
-  border-bottom: 0.0625rem solid var(--outline); /* token-exception: sub-pixel underline */
+  border-bottom: var(--border-hairline) solid var(--outline);
   font-family: var(--font-body);
   font-size: var(--type-body-md);
   color: var(--on-surface);
@@ -84,7 +84,7 @@ function onInput(event: Event) {
 .cv-textarea:focus-visible {
   outline: none;
   border-bottom-color: var(--secondary);
-  box-shadow: 0 0.125rem 0.5rem rgba(218, 199, 105, 0.3); /* token-exception: gold glow shadow */
+  box-shadow: 0 0.125rem 0.5rem rgb(var(--secondary-rgb) / 0.3); /* token-exception: gold glow shadow */
 }
 
 .cv-textarea--error {

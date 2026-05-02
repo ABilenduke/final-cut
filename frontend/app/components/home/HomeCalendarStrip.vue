@@ -196,7 +196,7 @@ const rangeLabel = computed(() => {
   font-size: 0.875rem;
   text-decoration: none;
   padding-block: var(--space-xs);
-  border-bottom: 0.0625rem solid transparent;
+  border-bottom: var(--border-hairline) solid transparent;
   transition: border-color var(--duration-standard) var(--ease-standard);
 }
 
@@ -205,8 +205,8 @@ const rangeLabel = computed(() => {
 .cal-strip__grid {
   display: grid;
   grid-template-columns: repeat(1, 1fr);
-  border-top: 0.0625rem solid rgb(var(--outline-variant-rgb) / 0.25); /* token-exception: sub-pixel edge */
-  border-bottom: 0.0625rem solid rgb(var(--outline-variant-rgb) / 0.25); /* token-exception: sub-pixel edge */
+  border-top: var(--border-hairline) solid rgb(var(--outline-variant-rgb) / 0.25);
+  border-bottom: var(--border-hairline) solid rgb(var(--outline-variant-rgb) / 0.25);
 }
 
 @media (min-width: 40rem) {
@@ -226,8 +226,8 @@ const rangeLabel = computed(() => {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
-  border-right: 0.0625rem solid rgb(var(--outline-variant-rgb) / 0.2); /* token-exception: sub-pixel edge */
-  border-bottom: 0.0625rem solid rgb(var(--outline-variant-rgb) / 0.2); /* token-exception: sub-pixel edge */
+  border-right: var(--border-hairline) solid rgb(var(--outline-variant-rgb) / 0.2);
+  border-bottom: var(--border-hairline) solid rgb(var(--outline-variant-rgb) / 0.2);
   transition: background-color var(--duration-standard) var(--ease-standard);
 }
 

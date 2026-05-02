@@ -19,7 +19,7 @@
   align-items: flex-end;
   gap: var(--space-lg);
   flex-wrap: wrap;
-  border-bottom: 0.0625rem solid rgba(87, 66, 62, 0.2);
+  border-bottom: var(--border-hairline) solid rgb(var(--outline-variant-rgb) / 0.2);
   margin-bottom: var(--space-md);
 }
 
@@ -90,8 +90,11 @@
 }
 
 .checkout-page__rail {
+  /* Clear the sticky header (4rem) AND the fixed hold-strip (2.5rem) plus
+   * a 2rem breathing margin so the rail doesn't sit flush against the
+   * strip's bottom edge. */
   position: sticky;
-  top: 8.5rem;
+  top: calc(var(--layout-header-height) + var(--layout-hold-timer-height) + var(--space-xl));
   display: flex;
   flex-direction: column;
   gap: var(--space-md);
@@ -107,12 +110,14 @@
   }
 }
 
-/* ——— Section "bay" ——— */
+/* ——— Section "bay" ———
+ * Per DS § No-Line Rule, sectioning is communicated through surface tier
+ * shifts, not borders. The bay sits at surface-container against the page's
+ * surface — that one-tier lift is the only edge needed. */
 .bay {
   background-color: var(--surface-container);
-  border-radius: 0.25rem;
+  border-radius: var(--radius-card);
   padding: var(--space-xl);
-  border: 0.0625rem solid rgba(87, 66, 62, 0.15);
   position: relative;
 }
 
@@ -127,7 +132,7 @@
   gap: var(--space-md);
   margin-bottom: var(--space-lg);
   padding-bottom: var(--space-md);
-  border-bottom: 0.0625rem solid rgba(87, 66, 62, 0.2);
+  border-bottom: var(--border-hairline) solid rgb(var(--outline-variant-rgb) / 0.2);
 }
 
 .bay__number {
@@ -165,8 +170,8 @@
   text-transform: uppercase;
   color: var(--on-tertiary-fixed-variant);
   padding: 0.3rem 0.55rem;
-  border: 0.0625rem solid rgba(87, 66, 62, 0.3);
-  border-radius: 0.125rem;
+  border: var(--border-hairline) solid rgb(var(--outline-variant-rgb) / 0.3);
+  border-radius: var(--radius-sm);
   white-space: nowrap;
   align-self: flex-start;
 }
@@ -187,8 +192,8 @@
 .bay__divider::after {
   content: '';
   flex: 1;
-  height: 0.0625rem;
-  background-color: rgba(87, 66, 62, 0.3);
+  height: var(--border-hairline);
+  background-color: rgb(var(--outline-variant-rgb) / 0.3);
 }
 
 /* ——— Shared field grid helpers ——— */

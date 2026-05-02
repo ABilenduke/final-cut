@@ -183,7 +183,7 @@ const isEmpty = computed<boolean>(() => props.foodItems.length === 0 && !props.p
   background-color: var(--surface-container);
   border-radius: var(--radius-card);
   padding: var(--space-lg);
-  border: 0.0625rem solid rgb(var(--outline-variant-rgb) / 0.2);
+  border: var(--border-hairline) solid rgb(var(--outline-variant-rgb) / 0.2);
 }
 
 /* Mini show summary */
@@ -193,7 +193,7 @@ const isEmpty = computed<boolean>(() => props.foodItems.length === 0 && !props.p
   align-items: flex-start;
   padding-bottom: var(--space-sm);
   margin-bottom: var(--space-sm);
-  border-bottom: 0.0625rem solid rgb(var(--outline-variant-rgb) / 0.2);
+  border-bottom: var(--border-hairline) solid rgb(var(--outline-variant-rgb) / 0.2);
 }
 
 .tray__poster {
@@ -258,7 +258,7 @@ const isEmpty = computed<boolean>(() => props.foodItems.length === 0 && !props.p
   gap: var(--space-md);
   margin-bottom: var(--space-md);
   padding-bottom: var(--space-sm);
-  border-bottom: 0.0625rem solid rgb(var(--outline-variant-rgb) / 0.2);
+  border-bottom: var(--border-hairline) solid rgb(var(--outline-variant-rgb) / 0.2);
 }
 
 .tray__n {
@@ -320,7 +320,7 @@ const isEmpty = computed<boolean>(() => props.foodItems.length === 0 && !props.p
   gap: var(--space-sm);
   align-items: center;
   padding: 0.6rem 0;
-  border-bottom: 0.0625rem dashed rgb(var(--outline-variant-rgb) / 0.25);
+  border-bottom: var(--border-hairline) dashed rgb(var(--outline-variant-rgb) / 0.25);
 }
 
 .tray__item:last-child {
@@ -410,7 +410,7 @@ const isEmpty = computed<boolean>(() => props.foodItems.length === 0 && !props.p
   gap: 0.55rem;
   margin: var(--space-md) 0 0;
   padding-top: var(--space-md);
-  border-top: 0.0625rem solid rgb(var(--outline-variant-rgb) / 0.3);
+  border-top: var(--border-hairline) solid rgb(var(--outline-variant-rgb) / 0.3);
 }
 
 .tray__line {
@@ -442,7 +442,7 @@ const isEmpty = computed<boolean>(() => props.foodItems.length === 0 && !props.p
   align-items: baseline;
   padding-top: var(--space-sm);
   margin-top: 0.15rem;
-  border-top: 0.0625rem solid rgb(var(--secondary-rgb) / 0.3);
+  border-top: var(--border-hairline) solid rgb(var(--secondary-rgb) / 0.3);
   font-family: var(--font-body);
   font-size: 1rem;
   color: var(--on-surface);
@@ -491,7 +491,7 @@ const isEmpty = computed<boolean>(() => props.foodItems.length === 0 && !props.p
 }
 
 .tray__pay:hover:not(:disabled) {
-  background-color: #e6d585;
+  background-color: var(--secondary-hover);
 }
 
 .tray__pay:active:not(:disabled) {
@@ -516,7 +516,7 @@ const isEmpty = computed<boolean>(() => props.foodItems.length === 0 && !props.p
   padding: 0.8rem;
   margin-top: var(--space-sm);
   width: 100%;
-  border: 0.0625rem solid rgb(var(--outline-variant-rgb) / 0.5);
+  border: var(--border-hairline) solid rgb(var(--outline-variant-rgb) / 0.5);
   border-radius: var(--radius-sm);
   background: none;
   color: var(--tertiary);
@@ -543,7 +543,7 @@ const isEmpty = computed<boolean>(() => props.foodItems.length === 0 && !props.p
   color: var(--on-tertiary-fixed-variant);
   margin: var(--space-md) 0 0;
   padding-top: var(--space-md);
-  border-top: 0.0625rem solid rgb(var(--outline-variant-rgb) / 0.2);
+  border-top: var(--border-hairline) solid rgb(var(--outline-variant-rgb) / 0.2);
   letter-spacing: 0.02em;
 }
 

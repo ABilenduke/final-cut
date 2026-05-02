@@ -78,13 +78,12 @@ const plainItems = computed(() => props.items.filter((item) => !item.href))
 .neural-ticker {
   display: flex;
   align-items: center;
-  height: 2rem;
+  height: var(--layout-ticker-height);
   background-color: var(--surface-container-lowest);
-  border-bottom: 0.0625rem solid rgb(var(--outline-variant-rgb) / 0.2); /* token-exception: sub-pixel edge */
-  z-index: var(--z-ticker);
-  position: sticky;
-  top: 4rem; /* sits directly below the 4rem fixed header */
+  border-bottom: var(--border-hairline) solid rgb(var(--outline-variant-rgb) / 0.2);
   overflow: hidden;
+  /* Positioning handled by the .layout-default__chrome wrapper which
+   * sticks the header + ticker together. */
 }
 
 /* On Air signal — reactor-light badge */
@@ -107,7 +106,7 @@ const plainItems = computed(() => props.items.filter((item) => !item.href))
 .neural-ticker__signal-dot {
   width: 0.375rem;
   height: 0.375rem;
-  border-radius: 50%; /* token-exception: signal dot */
+  border-radius: var(--radius-full);
   background-color: var(--primary);
   animation: neural-ticker-pulse 1.8s ease-in-out infinite;
 }

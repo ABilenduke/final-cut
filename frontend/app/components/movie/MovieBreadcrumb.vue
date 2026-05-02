@@ -44,7 +44,7 @@ function handlePrint() {
   height: 2rem;
   padding-inline: var(--space-2xl);
   background: var(--surface-container-lowest);
-  border-bottom: 0.0625rem solid rgba(var(--outline-variant-rgb), 0.15); /* token-exception: sub-pixel divider */
+  border-bottom: var(--border-hairline) solid rgba(var(--outline-variant-rgb), 0.15);
   font-size: 0.6875rem;
   letter-spacing: 0.22em;
   text-transform: uppercase;
@@ -54,7 +54,7 @@ function handlePrint() {
 .movie-breadcrumb__link {
   color: var(--on-tertiary-fixed-variant);
   text-decoration: none;
-  transition: color 200ms var(--ease-standard);
+  transition: color var(--duration-standard) var(--ease-standard);
 }
 
 .movie-breadcrumb__link:hover {
@@ -95,7 +95,7 @@ function handlePrint() {
   text-transform: inherit;
   cursor: pointer;
   padding: 0;
-  transition: color 200ms var(--ease-standard);
+  transition: color var(--duration-standard) var(--ease-standard);
 }
 
 .movie-breadcrumb__action:hover {

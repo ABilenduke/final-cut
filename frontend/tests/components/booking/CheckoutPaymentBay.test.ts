@@ -1,13 +1,22 @@
-import { describe, it, expect, vi } from 'vitest'
-import { mountSuspended } from '@nuxt/test-utils/runtime'
-import CheckoutPaymentBay from '~/components/booking/CheckoutPaymentBay.vue'
+import { describe, it, expect, vi, afterEach } from 'vitest'
+import { mountSuspended, mockNuxtImport } from '@nuxt/test-utils/runtime'
 
-// Stripe.js loads from a CDN inside `loadStripe`. In a JSDOM test environment it
-// returns a rejected promise, which is fine — the component's happy path for
-// non-Stripe UI (method tabs, country select, labels) is what we're exercising.
+// Mocks must be declared before the SFC import so `useRuntimeConfig` is
+// already stubbed when the component module loads its top-level call.
+mockNuxtImport('useRuntimeConfig', () => {
+  return () => ({ public: { stripePublishableKey: 'pk_test_design_token_check' } })
+})
+
 vi.mock('@stripe/stripe-js', () => ({
   loadStripe: vi.fn(() => Promise.resolve(null)),
 }))
+
+import CheckoutPaymentBay from '~/components/booking/CheckoutPaymentBay.vue'
+
+const elementsMock = vi.fn()
+const createMock = vi.fn()
+const mountMock = vi.fn()
+const onMock = vi.fn()
 
 describe('CheckoutPaymentBay', () => {
   it('renders the §02 numbered header with PCI-DSS badge', async () => {
@@ -66,5 +75,77 @@ describe('CheckoutPaymentBay', () => {
     })
     // defineExpose makes `submit` available on the component instance.
     expect(typeof (wrapper.vm as unknown as { submit: unknown }).submit).toBe('function')
+  })
+})
+
+describe('CheckoutPaymentBay — Stripe appearance reads design tokens', () => {
+  // jsdom's documentElement is shared across `it` blocks; without restoring
+  // prior values, tokens set here leak into later tests.
+  const tokens: Record<string, string> = {
+    '--secondary': '#DAC769',
+    '--surface-container-low': '#1c1b1b',
+    '--on-surface': '#E5E2E1',
+    '--primary': '#FFB4A8',
+    '--on-tertiary-fixed-variant': '#A89F91',
+    '--radius-sm': '0.125rem',
+  }
+  let priorTokens: Record<string, string> = {}
+
+  afterEach(() => {
+    for (const [name, prior] of Object.entries(priorTokens)) {
+      if (prior === '') {
+        document.documentElement.style.removeProperty(name)
+      } else {
+        document.documentElement.style.setProperty(name, prior)
+      }
+    }
+    priorTokens = {}
+
+    vi.restoreAllMocks()
+    elementsMock.mockReset()
+    createMock.mockReset()
+    mountMock.mockReset()
+    onMock.mockReset()
+  })
+
+  it('passes CSS-variable values into stripe.elements() appearance and card style', async () => {
+    for (const [name, value] of Object.entries(tokens)) {
+      priorTokens[name] = document.documentElement.style.getPropertyValue(name)
+      document.documentElement.style.setProperty(name, value)
+    }
+
+    // Wire mock Stripe.elements API so we can intercept the appearance config.
+    createMock.mockReturnValue({ mount: mountMock, on: onMock, destroy: vi.fn() })
+    elementsMock.mockReturnValue({ create: createMock })
+    const fakeStripe = { elements: elementsMock }
+
+    const stripeJs = await import('@stripe/stripe-js')
+    vi.mocked(stripeJs.loadStripe).mockResolvedValueOnce(
+      fakeStripe as unknown as Awaited<ReturnType<typeof stripeJs.loadStripe>>,
+    )
+
+    await mountSuspended(CheckoutPaymentBay, {
+      props: { email: '', isAuthenticated: false },
+    })
+    await vi.waitFor(() => expect(elementsMock).toHaveBeenCalled(), { timeout: 1000 })
+
+    expect(elementsMock).toHaveBeenCalledTimes(1)
+    const appearanceConfig = elementsMock.mock.calls[0]![0]!
+    expect(appearanceConfig.appearance.theme).toBe('night')
+    expect(appearanceConfig.appearance.variables).toMatchObject({
+      colorPrimary: tokens['--secondary'],
+      colorBackground: tokens['--surface-container-low'],
+      colorText: tokens['--on-surface'],
+      colorDanger: tokens['--primary'],
+      colorTextPlaceholder: tokens['--on-tertiary-fixed-variant'],
+      borderRadius: tokens['--radius-sm'],
+    })
+
+    expect(createMock).toHaveBeenCalledTimes(1)
+    const [cardType, cardConfig] = createMock.mock.calls[0]!
+    expect(cardType).toBe('card')
+    expect(cardConfig.style.base.color).toBe(tokens['--on-surface'])
+    expect(cardConfig.style.base['::placeholder'].color).toBe(tokens['--on-tertiary-fixed-variant'])
+    expect(cardConfig.style.invalid.color).toBe(tokens['--primary'])
   })
 })

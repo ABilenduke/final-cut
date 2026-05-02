@@ -177,7 +177,7 @@ function poster(movie: Movie) {
   font-size: 0.875rem;
   text-decoration: none;
   padding-block: var(--space-xs);
-  border-bottom: 0.0625rem solid transparent;
+  border-bottom: var(--border-hairline) solid transparent;
   transition: border-color var(--duration-standard) var(--ease-standard);
 }
 
@@ -235,7 +235,7 @@ function poster(movie: Movie) {
   aspect-ratio: 2 / 3;
   position: relative;
   overflow: hidden;
-  border-radius: 0.125rem; /* token-exception: card-specific radius */
+  border-radius: var(--radius-sm);
   background:
     radial-gradient(ellipse at 40% 35%, rgb(60 20 20 / 0.9), var(--surface-container-lowest) 70%);
 }
@@ -271,7 +271,7 @@ function poster(movie: Movie) {
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--on-surface);
-  border-radius: 0.125rem; /* token-exception: pill */
+  border-radius: var(--radius-sm);
 }
 
 .now-showing__tag--new {

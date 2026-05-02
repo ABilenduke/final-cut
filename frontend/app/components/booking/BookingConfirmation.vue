@@ -233,7 +233,7 @@ function handlePrint() {
   gap: var(--space-xs);
   padding: var(--space-md);
   background-color: var(--surface-container-low);
-  border-radius: 0.125rem;
+  border-radius: var(--radius-sm);
 }
 
 .confirmation__code-label {
@@ -265,7 +265,7 @@ function handlePrint() {
   aspect-ratio: 2/3;
   object-fit: cover;
   object-position: top center;
-  border-radius: 0.125rem;
+  border-radius: var(--radius-sm);
 }
 
 .confirmation__info {
@@ -341,7 +341,7 @@ function handlePrint() {
   flex-direction: column;
   gap: var(--space-xs);
   padding-top: var(--space-md);
-  border-top: 0.0625rem solid var(--outline-variant);
+  border-top: var(--border-hairline) solid var(--outline-variant);
 }
 
 .confirmation__payment-row {

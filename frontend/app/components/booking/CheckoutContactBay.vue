@@ -126,8 +126,8 @@ const reelModel = computed<string>({
   gap: 0.6rem;
   min-height: 3rem;
   padding: 0.85rem 1rem;
-  border: 0.0625rem solid rgba(87, 66, 62, 0.4);
-  border-radius: 0.125rem;
+  border: var(--border-hairline) solid rgb(var(--outline-variant-rgb) / 0.4);
+  border-radius: var(--radius-sm);
   font-family: var(--font-body);
   font-size: 0.875rem;
   color: var(--on-surface);
@@ -151,7 +151,7 @@ const reelModel = computed<string>({
 }
 
 .contact-bay__auth-btn--active {
-  border-color: rgba(218, 199, 105, 0.4);
+  border-color: rgb(var(--secondary-rgb) / 0.4);
   color: var(--secondary);
 }
 

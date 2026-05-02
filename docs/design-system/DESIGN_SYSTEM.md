@@ -149,6 +149,41 @@ Depth is communicated by surface tier, never by drop shadows on static elements.
 
 ---
 
+### State Semantics: Sage, Gold, Claret, Steel
+
+Success, warning, danger, and info are part of the brand language now — not Material defaults bolted on. They are tuned to read clearly against the dark surface stack while staying inside the Cinematic Void temperature: warm earth tones for affirmative states, cool steel for neutral ones. No phosphor green. No Twitter-blue.
+
+| Role | Token | Hex | Use |
+|---|---|---|---|
+| Success | `state_success` | `#5B8F6C` | Confirmations, positive transitions ("Booking confirmed", "Card saved") |
+| Warning | `state_warning` | `#DAC769` | Non-blocking attention. Shares `secondary` — gold reads as both signal and warning |
+| Danger | `state_danger` | `#B5443D` | Errors as **non-text fills** — badge backgrounds, icon strokes, alert dividers |
+| Danger (text) | `state_danger_text` | `#E07A72` | Error **copy and inline icons** — readable on every dark surface tier |
+| Info | `state_info` | `#5A8AA0` | Neutral information, low-priority notices |
+
+**Where they live:**
+- Customer-side: `--state-success`, `--state-warning`, `--state-danger`, `--state-danger-text`, `--state-info` exported from `frontend/app/assets/css/tokens.css`. Use for toasts, inline form validation, badge variants.
+- Admin-side: `--fc-state-*` declared in `backend/resources/css/filament/admin/theme.css`. Filament's semantic palettes override their default greens/yellows/reds with these values; the danger-text variant overrides Filament's destructive-confirmation copy color.
+
+Verified by `frontend/tests/design-system/tokens.test.ts § state-color contrast`, which fails CI if any pairing below stops meeting its threshold.
+
+**Contrast (computed, WCAG 2.1):**
+| Color | on `--surface` (#131313) | on `--surface-container-low` | on `--surface-container` | on `--surface-container-high` |
+|---|---|---|---|---|
+| Sage `#5B8F6C` | 4.95:1 ✓ AA | 4.57:1 ✓ AA | 4.38:1 large only | 3.82:1 large only |
+| Gold `#DAC769` | 10.93:1 ✓ AAA | 10.11:1 ✓ AAA | 9.67:1 ✓ AAA | 8.44:1 ✓ AAA |
+| Claret `#B5443D` | 3.41:1 large only | 3.16:1 large only | 3.02:1 large only | 2.64:1 fails | 
+| Claret-light `#E07A72` | 6.37:1 ✓ AA | 5.89:1 ✓ AA | 5.63:1 ✓ AA | 4.92:1 ✓ AA |
+| Steel `#5A8AA0` | 4.93:1 ✓ AA | 4.56:1 ✓ AA | 4.37:1 large only | 3.81:1 large only |
+
+This corrects an earlier docstring that claimed claret was 4.51:1 — the correct ratio is 3.41:1 on `surface`, hence the two-shade split: keep the saturated claret for non-text uses (where 3:1 is fine per WCAG 1.4.11) and reach for `--state-danger-text` whenever the color carries copy.
+
+**Don't:**
+- Don't use these for static decorative purposes — they carry meaning. A sage accent on a card that isn't a success state is a brand miscue.
+- Don't introduce additional state colors. Four roles cover everything in this product. If a fifth feels necessary, the design problem is upstream (overloading the alert vocabulary).
+
+---
+
 ## 3. Typography: The Director's Voice
 We use **Noto Serif** for its structural authority and **Newsreader** for its high-legibility editorial grace. The pairing is deliberate: the gravitas of opening credits meets the functional clarity of on-screen telemetry.
 

@@ -21,7 +21,7 @@
   gap: var(--space-md);
   padding: var(--space-md) var(--space-lg);
   background-color: var(--surface-container-low);
-  border: 0.0625rem solid rgb(var(--outline-variant-rgb) / 0.2);
+  border: var(--border-hairline) solid rgb(var(--outline-variant-rgb) / 0.2);
   border-left: 0.125rem solid var(--secondary);
   border-radius: var(--radius-sm);
   font-family: var(--font-body);
@@ -33,7 +33,7 @@
 .allergen-notice__icon {
   width: 1.75rem;
   height: 1.75rem;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   background-color: rgb(var(--secondary-rgb) / 0.1);
   display: grid;
   place-items: center;

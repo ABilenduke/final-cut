@@ -125,7 +125,7 @@ const summaryTitle = computed(() => props.movie.title)
   margin-top: var(--space-2xl);
   padding: var(--space-xl);
   background: var(--surface-container);
-  border-radius: 0.25rem;
+  border-radius: var(--radius-card);
   display: grid;
   grid-template-columns: 1fr 20rem;
   gap: var(--space-xl);
@@ -157,8 +157,8 @@ const summaryTitle = computed(() => props.movie.title)
 .movie-seat-preview__screen-vis {
   background: var(--surface-container-lowest);
   padding: var(--space-md);
-  border-radius: 0.25rem;
-  border: 0.0625rem solid rgba(var(--outline-variant-rgb), 0.2); /* token-exception: sub-pixel border */
+  border-radius: var(--radius-card);
+  border: var(--border-hairline) solid rgba(var(--outline-variant-rgb), 0.2);
 }
 
 .movie-seat-preview__screen-bar {
@@ -202,7 +202,7 @@ const summaryTitle = computed(() => props.movie.title)
 .movie-seat-preview__seat {
   width: 0.75rem;
   height: 0.75rem;
-  border-radius: 0.125rem;
+  border-radius: var(--radius-sm);
   background: var(--surface-container-high);
   display: inline-block;
 }
@@ -218,7 +218,7 @@ const summaryTitle = computed(() => props.movie.title)
 
 .movie-seat-preview__seat--member {
   background: rgba(var(--secondary-rgb), 0.25);
-  border: 0.0625rem solid rgba(var(--secondary-rgb), 0.5); /* token-exception: sub-pixel border */
+  border: var(--border-hairline) solid rgba(var(--secondary-rgb), 0.5);
 }
 
 .movie-seat-preview__seat--gap {
@@ -244,7 +244,7 @@ const summaryTitle = computed(() => props.movie.title)
   display: inline-block;
   width: 0.7rem;
   height: 0.7rem;
-  border-radius: 0.125rem;
+  border-radius: var(--radius-sm);
 }
 
 .movie-seat-preview__i--free { background: var(--surface-container-high); }
@@ -252,18 +252,18 @@ const summaryTitle = computed(() => props.movie.title)
 .movie-seat-preview__i--sel { background: var(--secondary); }
 .movie-seat-preview__i--member {
   background: rgba(var(--secondary-rgb), 0.25);
-  border: 0.0625rem solid rgba(var(--secondary-rgb), 0.5); /* token-exception: sub-pixel border */
+  border: var(--border-hairline) solid rgba(var(--secondary-rgb), 0.5);
 }
 
 /* ——— Summary card ——— */
 .movie-seat-preview__summary {
   padding: var(--space-lg);
   background: var(--surface-container-high);
-  border-radius: 0.25rem;
+  border-radius: var(--radius-card);
   display: flex;
   flex-direction: column;
   gap: var(--space-md);
-  border: 0.0625rem solid rgba(var(--secondary-rgb), 0.15); /* token-exception: sub-pixel border */
+  border: var(--border-hairline) solid rgba(var(--secondary-rgb), 0.15);
 }
 
 .movie-seat-preview__sum-h {
@@ -303,7 +303,7 @@ const summaryTitle = computed(() => props.movie.title)
   align-items: baseline;
   font-size: 0.875rem;
   color: var(--tertiary);
-  border-top: 0.0625rem solid rgba(var(--outline-variant-rgb), 0.25); /* token-exception: sub-pixel divider */
+  border-top: var(--border-hairline) solid rgba(var(--outline-variant-rgb), 0.25);
   padding-top: 0.6rem;
 }
 
@@ -312,7 +312,7 @@ const summaryTitle = computed(() => props.movie.title)
 }
 
 .movie-seat-preview__sum-row--total {
-  border-top: 0.0625rem solid rgba(var(--secondary-rgb), 0.3); /* token-exception: sub-pixel accent divider */
+  border-top: var(--border-hairline) solid rgba(var(--secondary-rgb), 0.3);
   padding-top: 0.75rem;
   font-size: 1rem;
   color: var(--on-surface);

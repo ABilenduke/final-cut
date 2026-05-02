@@ -191,7 +191,7 @@ function quantityFor(itemId: string): number {
   gap: var(--space-md);
   flex-wrap: wrap;
   padding: var(--space-md) 0;
-  border-bottom: 0.0625rem solid rgb(var(--outline-variant-rgb) / 0.2);
+  border-bottom: var(--border-hairline) solid rgb(var(--outline-variant-rgb) / 0.2);
 }
 
 .catalog__filter-label {
@@ -201,7 +201,7 @@ function quantityFor(itemId: string): number {
   text-transform: uppercase;
   color: var(--on-tertiary-fixed-variant);
   padding-right: var(--space-sm);
-  border-right: 0.0625rem solid rgb(var(--outline-variant-rgb) / 0.4);
+  border-right: var(--border-hairline) solid rgb(var(--outline-variant-rgb) / 0.4);
 }
 
 .catalog__chips {
@@ -212,7 +212,7 @@ function quantityFor(itemId: string): number {
 
 .catalog__chip {
   padding: 0.5rem 0.9rem;
-  border: 0.0625rem solid rgb(var(--outline-variant-rgb) / 0.45);
+  border: var(--border-hairline) solid rgb(var(--outline-variant-rgb) / 0.45);
   border-radius: 999px; /* token-exception: editorial pill — see plan */
   font-family: var(--font-body);
   font-size: 0.75rem;
@@ -247,7 +247,7 @@ function quantityFor(itemId: string): number {
   font-size: 0.6875rem;
   color: var(--on-tertiary-fixed-variant);
   padding-left: 0.35rem;
-  border-left: 0.0625rem solid rgb(var(--outline-variant-rgb) / 0.4);
+  border-left: var(--border-hairline) solid rgb(var(--outline-variant-rgb) / 0.4);
 }
 
 .catalog__chip--on .catalog__chip-count {
@@ -258,7 +258,7 @@ function quantityFor(itemId: string): number {
 .catalog__view {
   margin-left: auto;
   display: flex;
-  border: 0.0625rem solid rgb(var(--outline-variant-rgb) / 0.45);
+  border: var(--border-hairline) solid rgb(var(--outline-variant-rgb) / 0.45);
   border-radius: var(--radius-sm);
   overflow: hidden;
 }
@@ -279,7 +279,7 @@ function quantityFor(itemId: string): number {
 }
 
 .catalog__view-btn + .catalog__view-btn {
-  border-left: 0.0625rem solid rgb(var(--outline-variant-rgb) / 0.45);
+  border-left: var(--border-hairline) solid rgb(var(--outline-variant-rgb) / 0.45);
 }
 
 .catalog__view-btn--on {
@@ -295,7 +295,7 @@ function quantityFor(itemId: string): number {
   gap: var(--space-md);
   padding-top: var(--space-md);
   padding-bottom: var(--space-md);
-  border-bottom: 0.0625rem solid rgb(var(--outline-variant-rgb) / 0.2);
+  border-bottom: var(--border-hairline) solid rgb(var(--outline-variant-rgb) / 0.2);
 }
 
 .catalog__sec-n {

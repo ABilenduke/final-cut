@@ -15,8 +15,10 @@ const tickerItems = [
 <template>
   <div class="layout-default">
     <SkipNav />
-    <SiteHeader />
-    <NeuralTicker :items="tickerItems" />
+    <div class="layout-default__chrome">
+      <SiteHeader />
+      <NeuralTicker :items="tickerItems" />
+    </div>
 
     <main id="main-content" tabindex="-1" class="layout-default__main">
       <slot />
@@ -35,10 +37,19 @@ const tickerItems = [
   min-height: 100dvh;
 }
 
+/* Header + ticker stick together as one chrome unit. Sticky positioning
+ * means the wrapper takes its natural height in document flow, so the
+ * main slot doesn't need a hardcoded padding-top to compensate — content
+ * lands at the right place automatically regardless of header/ticker
+ * height changes. */
+.layout-default__chrome {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-sticky);
+}
+
 .layout-default__main {
   flex: 1;
-  /* Offset for fixed header (4rem) + ticker (2rem) */
-  padding-top: 6rem;
   /* Offset for mobile bottom nav on small screens */
   padding-bottom: calc(3.5rem + env(safe-area-inset-bottom, 0rem));
 }

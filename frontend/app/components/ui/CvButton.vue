@@ -79,7 +79,7 @@ function handleClick(event: MouseEvent) {
   height: 3rem;
   padding-inline: var(--space-md);
   border: none;
-  border-radius: 0.125rem; /* token-exception: design system radius */
+  border-radius: var(--radius-sm);
   font-family: var(--font-body);
   font-size: var(--type-body-md);
   line-height: 1;
@@ -120,7 +120,7 @@ function handleClick(event: MouseEvent) {
   bottom: var(--space-sm);
   left: var(--space-xs);
   right: var(--space-xs);
-  height: 0.0625rem; /* token-exception: sub-pixel decorative line */
+  height: var(--border-hairline);
   background-color: var(--secondary);
   transform: scaleX(0);
   transform-origin: center;

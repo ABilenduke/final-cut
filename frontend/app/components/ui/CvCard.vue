@@ -68,8 +68,8 @@ function handleKeydown(event: KeyboardEvent) {
   display: flex;
   flex-direction: column;
   padding: var(--space-md);
-  border-radius: 0.25rem; /* token-exception: component spec overrides 0.125rem */
-  outline: 0.0625rem solid color-mix(in srgb, var(--outline-variant) 15%, transparent); /* token-exception: sub-pixel edge catch */
+  border-radius: var(--radius-card);
+  outline: var(--border-hairline) solid color-mix(in srgb, var(--outline-variant) 15%, transparent);
   text-decoration: none;
   color: inherit;
   transition: transform var(--duration-standard) var(--ease-standard);

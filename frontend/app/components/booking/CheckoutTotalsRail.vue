@@ -205,8 +205,8 @@ const formattedHold = computed<string>(() => {
 }
 
 .totals-rail__rule {
-  height: 0.0625rem;
-  background-color: rgba(87, 66, 62, 0.3);
+  height: var(--border-hairline);
+  background-color: rgb(var(--outline-variant-rgb) / 0.3);
   margin: 0.3rem 0;
 }
 
@@ -215,7 +215,7 @@ const formattedHold = computed<string>(() => {
   justify-content: space-between;
   align-items: baseline;
   padding-top: var(--space-sm);
-  border-top: 0.0625rem solid rgba(218, 199, 105, 0.3);
+  border-top: var(--border-hairline) solid rgb(var(--secondary-rgb) / 0.3);
   font-family: var(--font-body);
   font-size: 1rem;
   color: var(--on-surface);
@@ -247,7 +247,7 @@ const formattedHold = computed<string>(() => {
   min-height: 3.5rem;
   padding: 0 1.25rem;
   margin-top: var(--space-md);
-  border-radius: 0.125rem;
+  border-radius: var(--radius-sm);
   background-color: var(--secondary);
   color: var(--surface);
   border: none;
@@ -263,7 +263,7 @@ const formattedHold = computed<string>(() => {
 }
 
 .totals-rail__pay:hover:not(:disabled) {
-  background-color: #e6d585;
+  background-color: var(--secondary-hover);
 }
 
 .totals-rail__pay:active:not(:disabled) {
@@ -299,7 +299,7 @@ const formattedHold = computed<string>(() => {
   gap: var(--space-md);
   padding-top: var(--space-sm);
   margin-top: var(--space-md);
-  border-top: 0.0625rem solid rgba(87, 66, 62, 0.2);
+  border-top: var(--border-hairline) solid rgb(var(--outline-variant-rgb) / 0.2);
   font-family: var(--font-body);
   font-size: 0.625rem;
   letter-spacing: 0.22em;
@@ -334,8 +334,8 @@ const formattedHold = computed<string>(() => {
 .totals-rail__upsell-badge {
   width: 2.25rem;
   height: 2.25rem;
-  border-radius: 50%;
-  background-color: rgba(218, 199, 105, 0.1);
+  border-radius: var(--radius-full);
+  background-color: rgb(var(--secondary-rgb) / 0.1);
   display: grid;
   place-items: center;
   color: var(--secondary);

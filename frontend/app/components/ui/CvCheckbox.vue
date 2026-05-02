@@ -96,8 +96,8 @@ function onToggle() {
   width: 100%;
   height: 100%;
   background-color: var(--surface-container-high);
-  border: 0.0625rem solid var(--outline); /* token-exception: sub-pixel checkbox border */
-  border-radius: 0.125rem; /* token-exception: design system radius */
+  border: var(--border-hairline) solid var(--outline);
+  border-radius: var(--radius-sm);
   color: var(--primary);
   pointer-events: none;
   transition:

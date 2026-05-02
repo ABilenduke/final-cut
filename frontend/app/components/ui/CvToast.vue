@@ -113,7 +113,7 @@ const ariaLive = computed(() => props.toast.type === 'error' ? 'assertive' : 'po
   gap: var(--space-sm);
   padding: var(--space-sm) var(--space-md);
   background-color: var(--surface-container-high);
-  border-radius: 0.125rem; /* token-exception: design system radius */
+  border-radius: var(--radius-sm);
   box-shadow: 0 1.25rem 2.5rem rgba(0, 0, 0, 0.6); /* token-exception: floating shadow */
   min-width: 15rem;
   max-width: 25rem;
@@ -147,7 +147,7 @@ const ariaLive = computed(() => props.toast.type === 'error' ? 'assertive' : 'po
   border: none;
   color: var(--tertiary);
   cursor: pointer;
-  border-radius: 0.125rem; /* token-exception: design system radius */
+  border-radius: var(--radius-sm);
 }
 
 .cv-toast__dismiss svg {

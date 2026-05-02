@@ -76,7 +76,7 @@ const sections: readonly Section[] = [
   gap: var(--space-lg);
   padding: var(--space-xl) 0 0;
   margin-top: var(--space-xl);
-  border-top: 0.0625rem solid rgb(var(--outline-variant-rgb) / 0.2);
+  border-top: var(--border-hairline) solid rgb(var(--outline-variant-rgb) / 0.2);
 }
 
 .collect-info__item {

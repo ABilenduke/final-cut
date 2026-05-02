@@ -129,8 +129,8 @@ const showTerms = computed<boolean>(() => props.acceptTerms !== undefined)
 .promo-bay__input {
   background-color: var(--surface-container-low);
   color: var(--on-surface);
-  border: 0.0625rem solid rgba(87, 66, 62, 0.4);
-  border-radius: 0.125rem;
+  border: var(--border-hairline) solid rgb(var(--outline-variant-rgb) / 0.4);
+  border-radius: var(--radius-sm);
   padding: 0.85rem 0.95rem;
   font-family: var(--font-body);
   font-size: 1rem;
@@ -153,8 +153,8 @@ const showTerms = computed<boolean>(() => props.acceptTerms !== undefined)
   padding: 0 1.25rem;
   background-color: var(--surface-container-high);
   color: var(--on-surface);
-  border: 0.0625rem solid rgba(87, 66, 62, 0.4);
-  border-radius: 0.125rem;
+  border: var(--border-hairline) solid rgb(var(--outline-variant-rgb) / 0.4);
+  border-radius: var(--radius-sm);
   font-family: var(--font-body);
   font-size: 0.8125rem;
   letter-spacing: 0.12em;
@@ -181,9 +181,9 @@ const showTerms = computed<boolean>(() => props.acceptTerms !== undefined)
 .promo-bay__applied {
   margin-top: var(--space-sm);
   padding: 0.65rem 0.85rem;
-  background-color: rgba(218, 199, 105, 0.06);
-  border: 0.0625rem solid rgba(218, 199, 105, 0.25);
-  border-radius: 0.125rem;
+  background-color: rgb(var(--secondary-rgb) / 0.06);
+  border: var(--border-hairline) solid rgb(var(--secondary-rgb) / 0.25);
+  border-radius: var(--radius-sm);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -239,8 +239,8 @@ const showTerms = computed<boolean>(() => props.acceptTerms !== undefined)
   appearance: none;
   width: 1.1rem;
   height: 1.1rem;
-  border: 0.0625rem solid var(--outline);
-  border-radius: 0.125rem;
+  border: var(--border-hairline) solid var(--outline);
+  border-radius: var(--radius-sm);
   background-color: var(--surface-container-low);
   flex-shrink: 0;
   margin-top: 0.1rem;

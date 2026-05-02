@@ -9,10 +9,16 @@ use App\Models\Movie;
 use App\Models\Showtime;
 use App\Models\User;
 use App\Services\ShowtimeService;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Livewire\Livewire;
 
 beforeEach(function (): void {
+    // The form gates `start_date` with `minDate(today())`. The cases below pin
+    // dates to 2026-05-01 (a Friday) so day-of-week assertions stay meaningful;
+    // freeze "now" before that anchor so the validation rule keeps passing.
+    Carbon::setTestNow('2026-04-30 12:00:00');
+
     $this->admin = $this->actingAsAdmin();
     $this->location = Location::factory()->create();
     $this->auditorium = Auditorium::factory()->create([
@@ -20,6 +26,12 @@ beforeEach(function (): void {
         'cleanup_minutes' => 15,
     ]);
     $this->movie = Movie::factory()->create(['runtime' => 120]);
+});
+
+afterEach(function (): void {
+    // Clear the frozen time so it doesn't leak into other Pest files that
+    // share this PHP process — matches the pattern in MovieControllerTest.
+    Carbon::setTestNow();
 });
 
 test('bulk create preview counts upcoming showtimes across date range × days × times', function (): void {

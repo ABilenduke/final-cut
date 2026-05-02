@@ -22,7 +22,7 @@ withDefaults(defineProps<{
   display: inline-flex;
   align-items: center;
   padding: var(--space-2xs) var(--space-xs);
-  border-radius: 0.125rem; /* token-exception: design system radius value */
+  border-radius: var(--radius-sm);
   font-family: var(--font-body);
   line-height: 1.4;
   white-space: nowrap;

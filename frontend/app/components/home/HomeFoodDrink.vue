@@ -101,7 +101,7 @@ import { foodItems } from '~/data/homepage'
   font-size: 0.875rem;
   text-decoration: none;
   padding-block: var(--space-xs);
-  border-bottom: 0.0625rem solid transparent;
+  border-bottom: var(--border-hairline) solid transparent;
   transition: border-color var(--duration-standard) var(--ease-standard);
 }
 
@@ -131,7 +131,7 @@ import { foodItems } from '~/data/homepage'
   position: relative;
   padding: var(--space-xl);
   background-color: var(--surface-container);
-  border-radius: 0.125rem; /* token-exception: card radius */
+  border-radius: var(--radius-sm);
   display: flex;
   flex-direction: column;
   gap: var(--space-md);
@@ -152,7 +152,7 @@ import { foodItems } from '~/data/homepage'
   height: 60%;
   background: radial-gradient(ellipse at top right, rgb(218 199 105 / 0.08), transparent 60%);
   pointer-events: none;
-  z-index: -1;
+  z-index: var(--z-recessed);
 }
 
 .food__card:hover {
@@ -193,7 +193,7 @@ import { foodItems } from '~/data/homepage'
   align-items: baseline;
   gap: var(--space-md);
   padding-top: var(--space-md);
-  border-top: 0.0625rem solid rgb(var(--outline-variant-rgb) / 0.2); /* token-exception: sub-pixel edge */
+  border-top: var(--border-hairline) solid rgb(var(--outline-variant-rgb) / 0.2);
   font-family: var(--font-body);
   font-size: 0.75rem;
   letter-spacing: 0.18em;

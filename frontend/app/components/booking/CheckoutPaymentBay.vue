@@ -45,17 +45,20 @@ onMounted(async () => {
       return
     }
 
+    const cs = getComputedStyle(document.documentElement)
+    const token = (name: string): string => cs.getPropertyValue(name).trim()
+
     const elements = stripe.elements({
       appearance: {
         theme: 'night',
         variables: {
-          colorPrimary: '#DAC769',
-          colorBackground: '#1c1b1b',
-          colorText: '#E5E2E1',
-          colorDanger: '#FFB4A8',
+          colorPrimary: token('--secondary'),
+          colorBackground: token('--surface-container-low'),
+          colorText: token('--on-surface'),
+          colorDanger: token('--primary'),
+          colorTextPlaceholder: token('--on-tertiary-fixed-variant'),
           fontFamily: 'Newsreader, serif',
-          borderRadius: '0.125rem',
-          colorTextPlaceholder: '#A89F91',
+          borderRadius: token('--radius-sm'),
         },
       },
     })
@@ -64,11 +67,11 @@ onMounted(async () => {
       style: {
         base: {
           fontSize: '1rem',
-          color: '#E5E2E1',
+          color: token('--on-surface'),
           fontFamily: 'Newsreader, serif',
-          '::placeholder': { color: '#A89F91' },
+          '::placeholder': { color: token('--on-tertiary-fixed-variant') },
         },
-        invalid: { color: '#FFB4A8' },
+        invalid: { color: token('--primary') },
       },
       hidePostalCode: true,
     })
@@ -308,8 +311,8 @@ defineExpose({ submit, isSubmitting, stripeReady })
   align-items: flex-start;
   gap: 0.5rem;
   padding: 0.9rem 0.95rem;
-  border: 0.0625rem solid rgba(87, 66, 62, 0.4);
-  border-radius: 0.125rem;
+  border: var(--border-hairline) solid rgb(var(--outline-variant-rgb) / 0.4);
+  border-radius: var(--radius-sm);
   background-color: var(--surface-container-low);
   cursor: pointer;
   text-align: left;
@@ -322,12 +325,12 @@ defineExpose({ submit, isSubmitting, stripeReady })
 }
 
 .method:hover:not(.method--disabled) {
-  border-color: rgba(218, 199, 105, 0.4);
+  border-color: rgb(var(--secondary-rgb) / 0.4);
 }
 
 .method--active {
   border-color: var(--secondary);
-  background-color: rgba(218, 199, 105, 0.06);
+  background-color: rgb(var(--secondary-rgb) / 0.06);
 }
 
 .method--active::after {
@@ -337,7 +340,7 @@ defineExpose({ submit, isSubmitting, stripeReady })
   right: 0.55rem;
   width: 0.4rem;
   height: 0.4rem;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   background-color: var(--secondary);
 }
 
@@ -379,7 +382,7 @@ defineExpose({ submit, isSubmitting, stripeReady })
   letter-spacing: 0.1em;
   padding: 0.15rem 0.35rem;
   background-color: var(--surface-container-high);
-  border-radius: 0.125rem;
+  border-radius: var(--radius-sm);
   color: var(--tertiary);
   font-variant-numeric: tabular-nums;
 }
@@ -410,13 +413,13 @@ defineExpose({ submit, isSubmitting, stripeReady })
 .payment-bay__card-mount {
   min-height: 3rem;
   padding: var(--space-sm) 0;
-  border-bottom: 0.0625rem solid var(--outline);
+  border-bottom: var(--border-hairline) solid var(--outline);
   transition: border-color var(--duration-standard) var(--ease-standard);
 }
 
 .payment-bay__card-mount:focus-within {
   border-bottom-color: var(--secondary);
-  box-shadow: 0 0.125rem 0.5rem rgba(218, 199, 105, 0.3);
+  box-shadow: 0 0.125rem 0.5rem rgb(var(--secondary-rgb) / 0.3);
 }
 
 .payment-bay__card-error {
@@ -438,7 +441,7 @@ defineExpose({ submit, isSubmitting, stripeReady })
   padding: var(--space-sm) 0;
   background: transparent;
   border: none;
-  border-bottom: 0.0625rem solid var(--outline);
+  border-bottom: var(--border-hairline) solid var(--outline);
   font-family: var(--font-body);
   font-size: var(--type-body-md);
   color: var(--on-surface);
@@ -451,7 +454,7 @@ defineExpose({ submit, isSubmitting, stripeReady })
 .payment-bay__country:focus-visible {
   outline: none;
   border-bottom-color: var(--secondary);
-  box-shadow: 0 0.125rem 0.5rem rgba(218, 199, 105, 0.3);
+  box-shadow: 0 0.125rem 0.5rem rgb(var(--secondary-rgb) / 0.3);
 }
 
 .payment-bay__error {
@@ -460,7 +463,7 @@ defineExpose({ submit, isSubmitting, stripeReady })
   color: var(--primary);
   padding: var(--space-sm);
   background-color: var(--surface-container-low);
-  border-radius: 0.125rem;
+  border-radius: var(--radius-sm);
   margin-top: var(--space-md);
 }
 

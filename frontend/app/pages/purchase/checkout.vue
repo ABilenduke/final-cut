@@ -364,7 +364,7 @@ async function handleCheckoutSubmit(payload: { paymentMethodId: string; email?: 
   align-items: flex-end;
   gap: var(--space-lg);
   flex-wrap: wrap;
-  border-bottom: 0.0625rem solid rgba(87, 66, 62, 0.2);
+  border-bottom: var(--border-hairline) solid rgb(var(--outline-variant-rgb) / 0.2);
 }
 
 .checkout-page__eyebrow {
@@ -452,7 +452,7 @@ async function handleCheckoutSubmit(payload: { paymentMethodId: string; email?: 
   font-size: 0.8125rem;
   padding: 0.375rem 0.625rem;
   background-color: rgba(42, 42, 42, 0.5);
-  border-radius: 0.125rem;
+  border-radius: var(--radius-sm);
 }
 
 .checkout-loc svg {
@@ -477,7 +477,7 @@ async function handleCheckoutSubmit(payload: { paymentMethodId: string; email?: 
   background-color: var(--surface-container);
   border-radius: var(--radius-card);
   padding: var(--space-lg);
-  border: 0.0625rem solid rgb(var(--outline-variant-rgb) / 0.2);
+  border: var(--border-hairline) solid rgb(var(--outline-variant-rgb) / 0.2);
   display: flex;
   flex-direction: column;
   gap: var(--space-md);
@@ -489,7 +489,7 @@ async function handleCheckoutSubmit(payload: { paymentMethodId: string; email?: 
   align-items: flex-start;
   gap: var(--space-md);
   padding-bottom: var(--space-sm);
-  border-bottom: 0.0625rem solid rgb(var(--outline-variant-rgb) / 0.2);
+  border-bottom: var(--border-hairline) solid rgb(var(--outline-variant-rgb) / 0.2);
 }
 
 .snacks-summary__n {
@@ -555,7 +555,7 @@ async function handleCheckoutSubmit(payload: { paymentMethodId: string; email?: 
   gap: var(--space-sm);
   align-items: center;
   padding: 0.4rem 0;
-  border-bottom: 0.0625rem dashed rgb(var(--outline-variant-rgb) / 0.25);
+  border-bottom: var(--border-hairline) dashed rgb(var(--outline-variant-rgb) / 0.25);
 }
 
 .snacks-summary__item:last-child {

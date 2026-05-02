@@ -101,7 +101,7 @@ async function handleLogout(): Promise<void> {
   text-decoration: none;
   font-family: var(--font-body);
   font-size: var(--type-body-md);
-  border-radius: 0.125rem; /* token-exception: design system radius */
+  border-radius: var(--radius-sm);
   position: relative;
   transition: color var(--duration-micro) var(--ease-standard);
 }
@@ -138,7 +138,7 @@ async function handleLogout(): Promise<void> {
     var(--secondary) 0%,
     var(--primary-container) 100%
   );
-  border-radius: 0.125rem; /* token-exception: design system radius */
+  border-radius: var(--radius-sm);
 }
 
 /* Tablet: 4rem icon-only rail */

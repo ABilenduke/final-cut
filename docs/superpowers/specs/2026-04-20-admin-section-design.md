@@ -22,7 +22,7 @@ The admin surface is isolated from the customer surface at three layers: a separ
 Admin lives inside the existing backend Laravel app. No new top-level directory.
 
 ```
-movie-theatre/
+final-cut/
 ├── backend/            (existing Laravel API + NEW admin panel)
 │   ├── app/
 │   │   ├── Filament/           (NEW — Resources, Pages, Widgets)

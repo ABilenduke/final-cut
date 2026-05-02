@@ -147,7 +147,7 @@ const detailHref = computed<string>(() => `/movies/${props.movie.slug}`)
   gap: 0.6rem;
   padding: var(--space-md);
   background-color: var(--surface-container-low);
-  border: 0.0625rem solid rgb(var(--outline-variant-rgb) / 0.2);
+  border: var(--border-hairline) solid rgb(var(--outline-variant-rgb) / 0.2);
   border-radius: var(--radius-card);
   transition: border-color var(--duration-standard) var(--ease-standard);
 }
@@ -249,7 +249,7 @@ const detailHref = computed<string>(() => `/movies/${props.movie.slug}`)
 .movie-card__tag--soon {
   color: var(--secondary);
   background-color: rgba(14, 14, 14, 0.75);
-  border: 0.0625rem solid rgb(var(--secondary-rgb) / 0.3);
+  border: var(--border-hairline) solid rgb(var(--secondary-rgb) / 0.3);
 }
 
 .movie-card__rating {
@@ -270,7 +270,7 @@ const detailHref = computed<string>(() => `/movies/${props.movie.slug}`)
   -webkit-backdrop-filter: blur(4px);
   padding: 0.2rem 0.45rem;
   border-radius: var(--radius-sm);
-  border: 0.0625rem solid rgb(var(--secondary-rgb) / 0.25);
+  border: var(--border-hairline) solid rgb(var(--secondary-rgb) / 0.25);
   font-variant-numeric: tabular-nums;
 }
 
@@ -330,7 +330,7 @@ const detailHref = computed<string>(() => `/movies/${props.movie.slug}`)
   text-transform: uppercase;
   color: var(--on-tertiary-fixed-variant);
   padding: 0.2rem 0.4rem;
-  border: 0.0625rem solid rgb(var(--outline-variant-rgb) / 0.4);
+  border: var(--border-hairline) solid rgb(var(--outline-variant-rgb) / 0.4);
   border-radius: var(--radius-sm);
 }
 
@@ -347,7 +347,7 @@ const detailHref = computed<string>(() => `/movies/${props.movie.slug}`)
   align-items: center;
   gap: var(--space-sm);
   padding-top: 0.6rem;
-  border-top: 0.0625rem solid rgb(var(--outline-variant-rgb) / 0.25);
+  border-top: var(--border-hairline) solid rgb(var(--outline-variant-rgb) / 0.25);
   margin-top: auto;
 }
 
@@ -376,7 +376,7 @@ const detailHref = computed<string>(() => `/movies/${props.movie.slug}`)
   align-items: center;
   gap: 0.4rem;
   padding: 0.45rem 0.85rem;
-  border: 0.0625rem solid rgb(var(--outline-variant-rgb) / 0.5);
+  border: var(--border-hairline) solid rgb(var(--outline-variant-rgb) / 0.5);
   border-radius: var(--radius-sm);
   font-family: var(--font-body);
   font-size: 0.75rem;

@@ -184,16 +184,12 @@ function onKeydown(event: KeyboardEvent) {
 
 <style scoped>
 .site-header {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 4rem;
+  height: var(--layout-header-height);
   background-color: rgb(14 14 14 / 0.72);
   -webkit-backdrop-filter: blur(1.25rem);
   backdrop-filter: blur(1.25rem);
-  border-bottom: 0.0625rem solid rgb(var(--outline-variant-rgb) / 0.2); /* token-exception: sub-pixel edge */
-  z-index: var(--z-sticky);
+  border-bottom: var(--border-hairline) solid rgb(var(--outline-variant-rgb) / 0.2);
+  /* Positioning + z-index handled by .layout-default__chrome wrapper. */
 }
 
 .site-header__inner {
@@ -282,8 +278,8 @@ function onKeydown(event: KeyboardEvent) {
   position: absolute;
   left: 0;
   right: 0;
-  bottom: -0.125rem; /* token-exception: sub-pixel decorative underline */
-  height: 0.0625rem;
+  bottom: -0.125rem;
+  height: var(--border-hairline);
   background-color: var(--secondary);
   transform: scaleX(0);
   transform-origin: left;
@@ -324,7 +320,7 @@ function onKeydown(event: KeyboardEvent) {
   gap: var(--space-sm);
   padding: var(--space-xs) var(--space-sm);
   background-color: rgb(42 42 42 / 0.5);
-  border-radius: 0.125rem; /* token-exception: component-specific radius */
+  border-radius: var(--radius-sm);
   color: var(--tertiary);
   font-size: 0.8125rem;
 }
@@ -344,7 +340,7 @@ function onKeydown(event: KeyboardEvent) {
 .site-header__loc-select:focus-visible {
   outline: 0.125rem solid var(--secondary);
   outline-offset: 0.125rem;
-  border-radius: 0.125rem;
+  border-radius: var(--radius-sm);
 }
 
 /* Auth */
@@ -406,7 +402,8 @@ function onKeydown(event: KeyboardEvent) {
 <style>
 .site-header__mobile-menu {
   position: fixed;
-  top: 4rem;
+  /* Clear the full chrome bar (header + neural ticker). */
+  top: calc(var(--layout-header-height) + var(--layout-ticker-height));
   left: 0;
   right: 0;
   bottom: 0;
@@ -441,7 +438,7 @@ function onKeydown(event: KeyboardEvent) {
 }
 
 .site-header__mobile-divider {
-  height: 0.0625rem; /* token-exception: sub-pixel decorative divider */
+  height: var(--border-hairline);
   background-color: rgb(var(--outline-variant-rgb) / 0.15);
   margin: var(--space-sm) var(--space-md);
 }

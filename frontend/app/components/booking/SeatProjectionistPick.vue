@@ -39,8 +39,8 @@ const label = computed(() => {
 .pick {
   padding: var(--space-lg);
   background-color: var(--surface-container-low);
-  border: 0.0625rem solid rgba(218, 199, 105, 0.2);
-  border-radius: 0.25rem;
+  border: var(--border-hairline) solid rgb(var(--secondary-rgb) / 0.2);
+  border-radius: var(--radius-card);
   position: relative;
   overflow: hidden;
 }
@@ -73,8 +73,8 @@ const label = computed(() => {
 .pick__tag::after {
   content: '';
   flex: 1;
-  height: 0.0625rem;
-  background-color: rgba(218, 199, 105, 0.2);
+  height: var(--border-hairline);
+  background-color: rgb(var(--secondary-rgb) / 0.2);
 }
 
 .pick__title {
@@ -111,14 +111,14 @@ const label = computed(() => {
 .pick__btn {
   margin-top: var(--space-md);
   padding: 0.55rem 0.9rem;
-  border: 0.0625rem solid rgba(218, 199, 105, 0.4);
+  border: var(--border-hairline) solid rgb(var(--secondary-rgb) / 0.4);
   background: transparent;
   color: var(--secondary);
   font-family: var(--font-body);
   font-size: 0.6875rem;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  border-radius: 0.125rem;
+  border-radius: var(--radius-sm);
   cursor: pointer;
   transition: background-color var(--duration-standard) var(--ease-standard),
     color var(--duration-standard) var(--ease-standard);
