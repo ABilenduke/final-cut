@@ -9,6 +9,7 @@ Navigation index for all project documentation.
 System design and technical decisions.
 
 - [Site Architecture](architecture/SITE_ARCHITECTURE.md) — Overall app structure, routing, layouts, dependencies
+- [Content Architecture](architecture/CONTENT_ARCHITECTURE.md) — Static-first cross-location content tier; location-at-intent pattern; geolocation-aware defaults; sitemap and SEO contract
 - [Data Models](architecture/DATA_MODELS.md) — Database schema, TypeScript interfaces, API route inventory
 - [State Management](architecture/STATE_MANAGEMENT.md) — Frontend state architecture (useState composables, no Pinia)
 
@@ -34,8 +35,12 @@ Implementation plans organized by stack and version.
 
 - [Backend v1 Index](plans/backend/v1/00-index.md) — Plans 01-08 (all complete, 410 tests)
 - [Backend Features](plans/backend/features/) — Standalone post-v1 feature plans
-- [Frontend v1 Index](plans/frontend/v1/00-index.md) — Plans 01-13 (not yet started)
+  - [Cross-Location Content API (2026-05-02)](plans/backend/features/2026-05-02-cross-location-content-api.md) — `/api/food-menu`, `/api/movies/{slug}/showtimes`, `/api/featured-slides`, locations field audit
+- [Frontend v1 Index](plans/frontend/v1/00-index.md) — Plans 01-13 (Plan 13 adds the content-page refactor)
+  - [Plan 13: Content Refactor](plans/frontend/v1/13-content-refactor.md) — Static-first cross-location content pages, hero carousel, `/locations`, geolocation defaults
 - [Admin v1 Index](plans/admin/v1/00-index.md) — Plans 01-09 (Filament admin panel)
+- [Admin Features](plans/admin/features/) — Standalone post-v1 admin feature plans
+  - [Content Curation Admin (2026-05-02)](plans/admin/features/2026-05-02-content-curation-admin.md) — `FeaturedSlideResource`, MenuItem location-availability matrix, LocationResource hours field
 - [Admin v1 Spec](superpowers/specs/2026-04-20-admin-section-design.md) — Source-of-truth design spec for the admin panel
 
 ## Progress
