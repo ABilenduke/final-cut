@@ -55,7 +55,7 @@ Booking intent → user picks a showtime → showtime carries its location
 Every public content route, classified by rendering strategy and location coupling:
 
 | Tier | Routes | Rendering | Location coupling |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | **Static-prerendered** | `/contact`, `/faq`, `/accessibility`, `/careers`, `/private-screenings` | Build-time | None |
 | **ISR cross-location** | `/`, `/movies/:slug`, `/whats-on`, `/events`, `/events/:slug`, `/food-drink`, `/locations`, `/locations/:slug`, `/blog`, `/blog/:slug`, `/gift-cards` | ISR (10–30 min) | None at the document level — per-location data is *inlined* (e.g. showtimes grouped by location, menu items carry availability arrays) |
 | **ISR with optional location filter** | `/movies` | ISR + per-`?location=` cache key | Optional via query string; default is "all locations" |
@@ -70,7 +70,7 @@ The full `routeRules` block in `nuxt.config.ts` is the source of truth for reval
 What each ISR/prerendered page fetches at SSR time. All endpoints are public; none require auth.
 
 | Page | Endpoint(s) | Notes |
-|---|---|---|
+| --- | --- | --- |
 | `/` | `GET /api/featured-slides`, `GET /api/movies?status=now_showing&per_page=12`, `GET /api/movies?status=coming_soon&per_page=8`, `GET /api/calendar/events?range=week`, `GET /api/locations` | Hero carousel + 4 strips |
 | `/movies` | `GET /api/movies?status=now_showing` and `?status=coming_soon`. With `?location=slug`: append `&location=slug` (filters to movies with a showtime at that venue) | Filter is server-side; each filter URL is a distinct ISR cache entry |
 | `/movies/:slug` | `GET /api/movies/:slug`, `GET /api/movies/:slug/showtimes` (cross-location, returns showtimes grouped by `location: { slug, name }`) | Replaces the old `/api/locations/{slug}/movies/{slug}/showtimes` for the public path |
@@ -167,7 +167,7 @@ The home page hero is an admin-curated carousel, not auto-composed from movie st
 **Data shape (`FeaturedSlide`):**
 
 | Field | Type | Notes |
-|---|---|---|
+| --- | --- | --- |
 | `id` | uuid | |
 | `headline` | string | Required, 1–80 chars |
 | `sub_headline` | string \| null | Optional, ≤ 160 chars |
