@@ -96,12 +96,18 @@ function stripCalls(input: string, fnNamesPattern: string): string {
 function stripCssNoise(declaration: string): string {
   // Block comments first (their contents could falsely match).
   const noComments = declaration.replace(/\/\*[\s\S]*?\*\//g, ' ')
-  // Then gradient(...) and rgba/rgb/hsl(...) — documented decorative
-  // escape hatches, not chrome drift.
-  return stripCalls(noComments, '[a-z-]*gradient|rgba?|hsla?')
+  // Then gradient(...), rgba/rgb/hsl(...), var(...), calc(...), color-mix(...) —
+  // documented decorative escape hatches, not chrome drift. `var`/`calc`/
+  // `color-mix` are stripped on the same pass so nested calls (e.g.
+  // `linear-gradient(180deg, #1a0a05, var(--surface-container-lowest))`)
+  // can be peeled off in two passes — inner var() first, outer gradient()
+  // after — instead of leaving the gradient un-strippable due to nested
+  // parens and producing a false positive on its decorative hex stops.
+  return stripCalls(noComments, '[a-z-]*gradient|rgba?|hsla?|var|calc|color-mix')
 }
 
 const CHROME_PROPS = [
+  'background',
   'background-color',
   'color',
   'border',
@@ -243,6 +249,16 @@ function scanComponent(absPath: string): Violation[] {
   ]
 }
 
+// Exposed for the contract tests below. Synthetic sources let us prove the
+// scanner catches hex literals inside object-form `:style` bindings without
+// planting fake violations in real component files.
+function scanSource(src: string): Violation[] {
+  return [
+    ...scanStyleBlocks('<inline>', src),
+    ...scanTemplateStyleBindings('<inline>', src),
+  ]
+}
+
 describe('component CSS — no chrome-hex drift', () => {
   const files = walkVueFiles(COMPONENTS_ROOT)
 
@@ -268,5 +284,43 @@ describe('component CSS — no chrome-hex drift', () => {
       )
     }
     expect(allViolations).toHaveLength(0)
+  })
+})
+
+describe('component CSS — scanner contract (object-form :style bindings)', () => {
+  // These cases lock in coverage for `:style="{ … }"` object bindings — the
+  // common Vue form. A regression here would let a hex literal slip into a
+  // template binding without tripping CI.
+
+  it('flags hex literals on camelCase keys (backgroundColor, borderColor)', () => {
+    const src = `<template><div :style="{ backgroundColor: '#ff0000' }" /></template>`
+    expect(scanSource(src)).toHaveLength(1)
+    const src2 = `<template><div :style="{ borderColor: '#abcdef' }" /></template>`
+    expect(scanSource(src2)).toHaveLength(1)
+  })
+
+  it('flags hex literals on quoted kebab keys ("background-color")', () => {
+    const src = `<template><div :style="{ 'background-color': '#abc' }" /></template>`
+    expect(scanSource(src)).toHaveLength(1)
+  })
+
+  it('flags hex on the background shorthand inside an object binding', () => {
+    const src = `<template><div :style="{ background: '#123456' }" /></template>`
+    expect(scanSource(src)).toHaveLength(1)
+  })
+
+  it('does NOT flag JS variable references (no static hex present)', () => {
+    const src = `<template><div :style="{ background: fallbackGradient }" /></template>`
+    expect(scanSource(src)).toHaveLength(0)
+  })
+
+  it('does NOT flag gradient(...) usage with hex stops (decorative escape hatch)', () => {
+    const src = `<template><div :style="{ background: 'linear-gradient(180deg, #550000, #0e0e0e)' }" /></template>`
+    expect(scanSource(src)).toHaveLength(0)
+  })
+
+  it('honors token-exception annotations inside object bindings', () => {
+    const src = `<template><div :style="{ /* token-exception: brand asset */ background: '#123456' }" /></template>`
+    expect(scanSource(src)).toHaveLength(0)
   })
 })

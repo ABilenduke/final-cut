@@ -28,6 +28,12 @@ beforeEach(function (): void {
     $this->movie = Movie::factory()->create(['runtime' => 120]);
 });
 
+afterEach(function (): void {
+    // Clear the frozen time so it doesn't leak into other Pest files that
+    // share this PHP process — matches the pattern in MovieControllerTest.
+    Carbon::setTestNow();
+});
+
 test('bulk create preview counts upcoming showtimes across date range × days × times', function (): void {
     // detectConflictsForBatch mocked to return an empty Collection per interval
     // so submit() auto-commits without hitting the DB.
