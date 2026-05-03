@@ -23,6 +23,7 @@
 | 11 | [Blog & Static Pages](11-blog-and-static-pages.md) | Could Have | S | 03, 04 | Pending |
 | 12 | [E2E & Polish](12-e2e-and-polish.md) | Should Have | M | 06–10 | Pending |
 | 13 | [Content Refactor](13-content-refactor.md) | Must Have | L | 06–08 | ✅ Complete (2026-05-02) |
+| 14 | [ShowtimeSelector — Movie-First](14-showtime-selector-movie-first.md) | Should Have | M | 13 | Pending |
 
 ---
 
