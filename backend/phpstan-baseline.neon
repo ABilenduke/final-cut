@@ -127,6 +127,144 @@ parameters:
 			path: app/Http/Resources/BookingResource.php
 
 		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\CrossLocationMenuItemResource\:\:\$category\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/CrossLocationMenuItemResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\CrossLocationMenuItemResource\:\:\$description\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/CrossLocationMenuItemResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\CrossLocationMenuItemResource\:\:\$id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/CrossLocationMenuItemResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\CrossLocationMenuItemResource\:\:\$image_url\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/CrossLocationMenuItemResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\CrossLocationMenuItemResource\:\:\$locations\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/CrossLocationMenuItemResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\CrossLocationMenuItemResource\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/CrossLocationMenuItemResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\CrossLocationMenuItemResource\:\:\$price\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/CrossLocationMenuItemResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\CrossLocationShowtimeResource\:\:\$auditorium\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Http/Resources/CrossLocationShowtimeResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\CrossLocationShowtimeResource\:\:\$auditorium_id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/CrossLocationShowtimeResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\CrossLocationShowtimeResource\:\:\$end_time\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/CrossLocationShowtimeResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\CrossLocationShowtimeResource\:\:\$id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/CrossLocationShowtimeResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\CrossLocationShowtimeResource\:\:\$movie\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/CrossLocationShowtimeResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\CrossLocationShowtimeResource\:\:\$movie_id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/CrossLocationShowtimeResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\CrossLocationShowtimeResource\:\:\$price_accessible\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/CrossLocationShowtimeResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\CrossLocationShowtimeResource\:\:\$price_premium\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/CrossLocationShowtimeResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\CrossLocationShowtimeResource\:\:\$price_standard\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/CrossLocationShowtimeResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\CrossLocationShowtimeResource\:\:\$start_time\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/CrossLocationShowtimeResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\FeaturedSlideResource\:\:\$cta_href\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/FeaturedSlideResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\FeaturedSlideResource\:\:\$cta_label\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/FeaturedSlideResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\FeaturedSlideResource\:\:\$headline\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/FeaturedSlideResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\FeaturedSlideResource\:\:\$id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/FeaturedSlideResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\FeaturedSlideResource\:\:\$image_url\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/FeaturedSlideResource.php
+
+		-
+			message: '#^Access to an undefined property App\\Http\\Resources\\FeaturedSlideResource\:\:\$sub_headline\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/FeaturedSlideResource.php
+
+		-
 			message: '#^Access to an undefined property App\\Http\\Resources\\MenuItemResource\:\:\$available\.$#'
 			identifier: property.notFound
 			count: 1
@@ -383,6 +521,12 @@ parameters:
 			identifier: property.notFound
 			count: 1
 			path: app/Http/Resources/ShowtimeResource.php
+
+		-
+			message: '#^Method App\\Models\\Location\:\:menuItems\(\) should return Illuminate\\Database\\Eloquent\\Relations\\BelongsToMany\<App\\Models\\MenuItem, \$this\(App\\Models\\Location\), Illuminate\\Database\\Eloquent\\Relations\\Pivot, ''pivot''\> but returns Illuminate\\Database\\Eloquent\\Relations\\BelongsToMany\<App\\Models\\MenuItem, \$this\(App\\Models\\Location\), App\\Models\\LocationMenuItemPivot, ''pivot''\>\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Models/Location.php
 
 		-
 			message: '#^Using nullsafe property access "\?\-\>price_override" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
