@@ -15,11 +15,14 @@ use Illuminate\Http\Resources\Json\JsonResource;
  * frontend can group showtimes by venue and compute distance captions
  * client-side without a second request.
  *
- * Uses snake_case keys to match the contract in
- * docs/plans/backend/features/2026-05-02-cross-location-content-api.md § Task 2.
+ * camelCase keys match the frontend Showtime type (frontend/app/types/showtime.ts)
+ * and the existing per-location ShowtimeResource. The earlier snake_case
+ * draft drifted from those consumers and broke the movie-detail page —
+ * see PR #50 review feedback.
  *
- * The existing ShowtimeResource (camelCase, no location embed) is left untouched
- * and continues to serve the per-location booking-flow endpoint.
+ * latitude/longitude preserve null for un-geocoded venues so the frontend's
+ * "not geocoded yet" branch keeps working — casting null to float would
+ * coerce to 0.0 and place the venue at the prime meridian.
  */
 class CrossLocationShowtimeResource extends JsonResource
 {
@@ -30,20 +33,20 @@ class CrossLocationShowtimeResource extends JsonResource
 
         return [
             'id' => $this->id,
-            'movie_id' => $this->movie_id,
-            'movie_slug' => $this->movie->slug,
-            'screen_id' => $this->auditorium_id,
-            'screen_name' => $this->auditorium->name,
-            'start_time' => $this->start_time->toIso8601String(),
-            'end_time' => $this->end_time->toIso8601String(),
-            'price_standard' => (int) $this->price_standard,
-            'price_premium' => (int) $this->price_premium,
-            'price_accessible' => (int) $this->price_accessible,
+            'movieId' => $this->movie_id,
+            'movieSlug' => $this->movie->slug,
+            'screenId' => $this->auditorium_id,
+            'screenName' => $this->auditorium->name,
+            'startTime' => $this->start_time->toIso8601String(),
+            'endTime' => $this->end_time->toIso8601String(),
+            'priceStandard' => (int) $this->price_standard,
+            'pricePremium' => (int) $this->price_premium,
+            'priceAccessible' => (int) $this->price_accessible,
             'location' => [
                 'slug' => $location->slug,
                 'name' => $location->name,
-                'latitude' => (float) $location->latitude,
-                'longitude' => (float) $location->longitude,
+                'latitude' => $location->latitude !== null ? (float) $location->latitude : null,
+                'longitude' => $location->longitude !== null ? (float) $location->longitude : null,
             ],
         ];
     }

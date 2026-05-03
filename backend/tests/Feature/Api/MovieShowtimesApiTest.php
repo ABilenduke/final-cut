@@ -77,15 +77,15 @@ test('each showtime entry includes location slug, name, latitude, longitude', fu
             'data' => [
                 '*' => [
                     'id',
-                    'movie_id',
-                    'movie_slug',
-                    'screen_id',
-                    'screen_name',
-                    'start_time',
-                    'end_time',
-                    'price_standard',
-                    'price_premium',
-                    'price_accessible',
+                    'movieId',
+                    'movieSlug',
+                    'screenId',
+                    'screenName',
+                    'startTime',
+                    'endTime',
+                    'priceStandard',
+                    'pricePremium',
+                    'priceAccessible',
                     'location' => ['slug', 'name', 'latitude', 'longitude'],
                 ],
             ],
@@ -130,7 +130,7 @@ test('showtimes are ordered by start_time ASC regardless of location', function 
     $response = getJson('/api/movies/order-movie/showtimes');
     $response->assertOk()->assertJsonCount(2, 'data');
 
-    $times = collect($response->json('data'))->pluck('start_time')->all();
+    $times = collect($response->json('data'))->pluck('startTime')->all();
     expect($times[0])->toBeLessThan($times[1]);
 });
 
@@ -303,7 +303,7 @@ test('prices are returned as integer cents', function () {
     $response->assertOk();
 
     $item = $response->json('data.0');
-    expect($item['price_standard'])->toBe(1899)->toBeInt()
-        ->and($item['price_premium'])->toBe(2499)->toBeInt()
-        ->and($item['price_accessible'])->toBe(1699)->toBeInt();
+    expect($item['priceStandard'])->toBe(1899)->toBeInt()
+        ->and($item['pricePremium'])->toBe(2499)->toBeInt()
+        ->and($item['priceAccessible'])->toBe(1699)->toBeInt();
 });

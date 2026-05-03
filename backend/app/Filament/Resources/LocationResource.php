@@ -222,9 +222,11 @@ class LocationResource extends BaseResource
                 $open = $data["hours_{$day}_open"] ?? null;
                 $close = $data["hours_{$day}_close"] ?? null;
 
-                // If both times are blank treat as closed rather than storing
-                // an incomplete record.
-                if ($open === null && $close === null) {
+                // If either time is blank, treat the day as closed. Persisting
+                // a partial record (e.g. open=null, close=23:00) leaks invalid
+                // shapes into the public API and the LocalBusiness JSON-LD,
+                // both of which assume both strings exist for open days.
+                if ($open === null || $close === null) {
                     $hours[$day] = null;
                 } else {
                     $hours[$day] = ['open' => $open, 'close' => $close];

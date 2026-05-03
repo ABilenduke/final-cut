@@ -19,10 +19,12 @@ const locationFilter = computed<string | undefined>(() => {
 
 const { nowShowing, comingSoon } = useMovies()
 
-// Pass location filter through — each unique ?location= value produces a
-// distinct fetch key for independent ISR caching per filtered URL.
-const { data: nowShowingData } = nowShowing({ location: locationFilter.value })
-const { data: comingSoonData } = comingSoon({ location: locationFilter.value })
+// Pass the locationFilter ref directly — useMovies forwards it to useFetch
+// as a reactive query value + watch source so chip clicks re-fetch with the
+// new slug. Each unique ?location= value still produces a distinct fetch
+// key for independent ISR caching per filtered URL.
+const { data: nowShowingData } = nowShowing({ location: locationFilter })
+const { data: comingSoonData } = comingSoon({ location: locationFilter })
 
 const nowShowingMovies = computed(() => nowShowingData.value?.data ?? [])
 const comingSoonMovies = computed(() => comingSoonData.value?.data ?? [])
@@ -102,10 +104,15 @@ const pageDescription = computed(() => {
 })
 
 // Canonical URL: the filtered URL is canonical for that filtered view.
-// The unfiltered listing is canonical for the default cross-location view.
+// Both the location filter AND the status tab change the rendered slate,
+// so each combination needs its own canonical so search engines don't
+// dedupe distinct views (e.g. ?status=coming_soon vs ?status=now_showing).
+// status defaults to 'now_showing' — that default URL is `/movies` (with
+// any active location) to keep backlinks pointing at the same canonical.
 const canonicalPath = computed(() => {
   const params = new URLSearchParams()
   if (locationFilter.value) params.set('location', locationFilter.value)
+  if (status.value !== 'now_showing') params.set('status', status.value)
   const qs = params.toString()
   return qs ? `/movies?${qs}` : '/movies'
 })
