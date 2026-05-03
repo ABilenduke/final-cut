@@ -22,6 +22,7 @@
 | 10 | [Content Domain](10-content-domain.md) | Should Have | M | 03, 04, 05 | Pending |
 | 11 | [Blog & Static Pages](11-blog-and-static-pages.md) | Could Have | S | 03, 04 | Pending |
 | 12 | [E2E & Polish](12-e2e-and-polish.md) | Should Have | M | 06–10 | Pending |
+| 13 | [Content Refactor](13-content-refactor.md) | Must Have | L | 06–08 | ✅ Complete (2026-05-02) |
 
 ---
 

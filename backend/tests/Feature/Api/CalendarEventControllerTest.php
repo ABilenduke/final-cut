@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\CalendarEvent;
+use App\Models\Location;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
 
@@ -229,4 +230,115 @@ test('imageUrl is derived from image_path via the public disk url', function () 
     // The wire field name is `imageUrl`, not the underlying column
     // (`image_path`) — the customer contract is what the Nuxt app reads.
     expect($expectedUrl)->toContain('calendar-events/sample.jpg');
+});
+
+/*
+|--------------------------------------------------------------------------
+| GET /api/calendar/events?location={slug} — location filter
+|--------------------------------------------------------------------------
+*/
+
+test('GET /api/calendar/events?location= returns events scoped to that location', function () {
+    $downtown = Location::factory()->create(['slug' => 'downtown-cal-test']);
+    $uptown = Location::factory()->create(['slug' => 'uptown-cal-test']);
+
+    // Event scoped to downtown
+    CalendarEvent::factory()->specialEvent()->create([
+        'date' => '2026-06-15',
+        'start_time' => '2026-06-15 19:00:00',
+        'location_id' => $downtown->id,
+    ]);
+
+    // Event scoped to uptown (should be excluded when filtering for downtown)
+    CalendarEvent::factory()->specialEvent()->create([
+        'date' => '2026-06-16',
+        'start_time' => '2026-06-16 19:00:00',
+        'location_id' => $uptown->id,
+    ]);
+
+    getJson("/api/calendar/events?month=6&year=2026&location={$downtown->slug}")
+        ->assertOk()
+        ->assertJsonCount(1, 'data');
+});
+
+test('GET /api/calendar/events?location= includes venue-agnostic events (location_id IS NULL)', function () {
+    $downtown = Location::factory()->create(['slug' => 'downtown-cal-agnostic']);
+    $uptown = Location::factory()->create(['slug' => 'uptown-cal-agnostic']);
+
+    // Venue-agnostic event — should appear in ALL location filters
+    CalendarEvent::factory()->specialEvent()->create([
+        'date' => '2026-06-10',
+        'start_time' => '2026-06-10 19:00:00',
+        'location_id' => null,
+    ]);
+
+    // Downtown-scoped event
+    CalendarEvent::factory()->specialEvent()->create([
+        'date' => '2026-06-15',
+        'start_time' => '2026-06-15 19:00:00',
+        'location_id' => $downtown->id,
+    ]);
+
+    // Uptown-scoped event — excluded when filtering for downtown
+    CalendarEvent::factory()->specialEvent()->create([
+        'date' => '2026-06-20',
+        'start_time' => '2026-06-20 19:00:00',
+        'location_id' => $uptown->id,
+    ]);
+
+    // Downtown filter: should return venue-agnostic + downtown = 2 events
+    getJson("/api/calendar/events?month=6&year=2026&location={$downtown->slug}")
+        ->assertOk()
+        ->assertJsonCount(2, 'data');
+
+    // Uptown filter: should return venue-agnostic + uptown = 2 events
+    getJson("/api/calendar/events?month=6&year=2026&location={$uptown->slug}")
+        ->assertOk()
+        ->assertJsonCount(2, 'data');
+});
+
+test('GET /api/calendar/events?location= excludes events scoped to other locations', function () {
+    $downtown = Location::factory()->create(['slug' => 'downtown-cal-excl']);
+    $uptown = Location::factory()->create(['slug' => 'uptown-cal-excl']);
+
+    // Uptown-only event
+    CalendarEvent::factory()->specialEvent()->create([
+        'date' => '2026-06-15',
+        'start_time' => '2026-06-15 19:00:00',
+        'location_id' => $uptown->id,
+    ]);
+
+    // Downtown sees zero events
+    getJson("/api/calendar/events?month=6&year=2026&location={$downtown->slug}")
+        ->assertOk()
+        ->assertJsonCount(0, 'data');
+});
+
+test('GET /api/calendar/events?location= with invalid slug returns 422', function () {
+    getJson('/api/calendar/events?month=6&year=2026&location=nonexistent-location')
+        ->assertUnprocessable()
+        ->assertJsonPath('errors.0.field', 'location');
+});
+
+test('GET /api/calendar/events without location returns all events (no regression)', function () {
+    $downtown = Location::factory()->create(['slug' => 'downtown-no-filter']);
+
+    // Scoped event
+    CalendarEvent::factory()->specialEvent()->create([
+        'date' => '2026-06-15',
+        'start_time' => '2026-06-15 19:00:00',
+        'location_id' => $downtown->id,
+    ]);
+
+    // Venue-agnostic event
+    CalendarEvent::factory()->loyaltyExclusive()->create([
+        'date' => '2026-06-20',
+        'start_time' => '2026-06-20 19:00:00',
+        'location_id' => null,
+    ]);
+
+    // Without ?location=, all events returned
+    getJson('/api/calendar/events?month=6&year=2026')
+        ->assertOk()
+        ->assertJsonCount(2, 'data');
 });

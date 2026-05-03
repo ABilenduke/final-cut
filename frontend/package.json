@@ -8,10 +8,12 @@
     "generate": "nuxt generate",
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:architecture": "vitest run --config vitest.arch.config.ts tests/architecture"
   },
   "dependencies": {
     "@nuxt/fonts": "^0.14.0",
+    "@nuxtjs/sitemap": "^6.0.0",
     "@stripe/stripe-js": "^9.0.1",
     "nuxt": "^4.4.2",
     "qrcode": "^1.5.4",

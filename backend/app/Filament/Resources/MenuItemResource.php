@@ -6,7 +6,6 @@ use App\Enums\MenuCategory;
 use App\Filament\Concerns\FormatsCurrency;
 use App\Filament\Concerns\TimestampColumns;
 use App\Filament\Resources\MenuItemResource\Pages;
-use App\Models\Location;
 use App\Models\MenuItem;
 use BackedEnum;
 use Filament\Actions\DeleteAction;
@@ -117,11 +116,12 @@ class MenuItemResource extends BaseResource
             Section::make('Locations')
                 ->description('Attach this item to the locations that should offer it. Per-location price overrides and pivot-level availability are managed via a dedicated flow — item here is either offered or not at each location.')
                 ->schema([
-                    Select::make('locations')
-                        ->multiple()
+                    CheckboxList::make('locations')
                         ->relationship('locations', 'name')
-                        ->preload()
-                        ->helperText('Select one or more locations to attach this item to.'),
+                        ->columns(2)
+                        ->required()
+                        ->minItems(1)
+                        ->helperText('Customers will see this item on the public menu, but it will be dimmed at checkout if their booking is at a location where it isn\'t stocked. At least one location must be selected.'),
                 ]),
         ]);
     }

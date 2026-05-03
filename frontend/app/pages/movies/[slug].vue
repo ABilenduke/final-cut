@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import type { Showtime } from '~/types/showtime'
-
 // Get slug reactively so param-only navigation updates the page
 const route = useRoute()
 const slug = computed(() => route.params.slug as string)
@@ -32,42 +30,16 @@ watch(
   { immediate: true },
 )
 
-// Client-only showtime fetch (location + slug dependent)
-const { activeLocation } = useLocations()
-const showtimes = ref<Showtime[]>([])
-const showtimesLoading = ref(false)
-let fetchGeneration = 0
-
-async function fetchShowtimes() {
-  const locSlug = activeLocation.value?.slug
-  const movieSlug = slug.value
-  if (!locSlug || !movieSlug) {
-    showtimes.value = []
-    return
-  }
-  const generation = ++fetchGeneration
-  showtimesLoading.value = true
-  try {
-    const res = await apiFetch<{ data: Showtime[] }>(
-      `/api/locations/${locSlug}/movies/${movieSlug}/showtimes`,
-    )
-    if (generation === fetchGeneration) {
-      showtimes.value = res.data
-    }
-  } catch {
-    if (generation === fetchGeneration) {
-      showtimes.value = []
-    }
-  } finally {
-    if (generation === fetchGeneration) {
-      showtimesLoading.value = false
-    }
-  }
-}
-
-if (import.meta.client) {
-  watch([activeLocation, slug], () => fetchShowtimes(), { immediate: true })
-}
+// Task 6: Cross-location showtimes — fetch all venues' showtimes via the
+// new /api/movies/:slug/showtimes endpoint. Each entry carries a `location`
+// payload so ShowtimeSelector can group by venue. No activeLocation dependency.
+//
+// We pass the URL as a computed string so that useFetch re-runs automatically
+// on client-side slug changes (param-only navigation between movie pages).
+const { data: showtimesData } = useApiFetch<{ data: import('~/types/showtime').Showtime[] }>(
+  computed(() => `/api/movies/${slug.value}/showtimes`),
+)
+const showtimes = computed(() => showtimesData.value?.data ?? [])
 
 // SEO — siteUrl must be set via NUXT_PUBLIC_SITE_URL; never derive from request on ISR pages
 const siteUrl = useRuntimeConfig().public.siteUrl as string
@@ -159,20 +131,12 @@ useHead({
     <!-- Showtimes + seat preview -->
     <section id="showtimes" class="bay movie-page__showtimes-bay">
       <div class="bay-inner">
-        <ClientOnly>
-          <div v-if="showtimesLoading" class="movie-page__showtimes-loading">
-            <CvSkeletonLoader variant="text" :lines="5" />
-          </div>
-          <template v-else>
-            <ShowtimeSelector :showtimes="showtimes" />
-            <MovieSeatPreview :movie="movie" />
-          </template>
-          <template #fallback>
-            <div class="movie-page__showtimes-loading">
-              <CvSkeletonLoader variant="text" :lines="5" />
-            </div>
-          </template>
-        </ClientOnly>
+        <!-- SSR-rendered cross-location showtime selector (Task 6).
+             No ClientOnly wrapper needed — the selector renders SSR-safe with
+             geolocation starting as `idle` on the server (post-hydration it
+             re-evaluates if the user has previously granted geolocation). -->
+        <ShowtimeSelector :showtimes="showtimes" :movie-slug="movie.slug" />
+        <MovieSeatPreview :movie="movie" />
       </div>
     </section>
 
@@ -204,7 +168,4 @@ useHead({
   padding-top: var(--space-xl);
 }
 
-.movie-page__showtimes-loading {
-  padding-block: var(--space-xl);
-}
 </style>

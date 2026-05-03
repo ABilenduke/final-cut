@@ -190,6 +190,10 @@ export function useApiFetch<T>(
     query?: Record<string, unknown>
     watch?: any[]
     immediate?: boolean
+    /** Optional explicit cache key. When set, Nuxt uses this instead of the
+     *  auto-derived key. Required when the same URL is fetched with different
+     *  query params that must produce independently-cached ISR entries. */
+    key?: string
   } = {},
 ) {
   const resolvedPath = typeof path === 'string' ? path : path.value

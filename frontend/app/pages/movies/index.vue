@@ -3,6 +3,7 @@ type StatusFilter = 'all' | 'now_showing' | 'coming_soon'
 
 const route = useRoute()
 const router = useRouter()
+const siteUrl = String(useRuntimeConfig().public.siteUrl ?? '')
 
 const status = computed<StatusFilter>(() => {
   const s = route.query.status as string
@@ -10,9 +11,18 @@ const status = computed<StatusFilter>(() => {
   return 'now_showing'
 })
 
+/** Location slug from URL query — undefined means "all locations" (default). */
+const locationFilter = computed<string | undefined>(() => {
+  const val = route.query.location
+  return typeof val === 'string' && val.length > 0 ? val : undefined
+})
+
 const { nowShowing, comingSoon } = useMovies()
-const { data: nowShowingData } = nowShowing()
-const { data: comingSoonData } = comingSoon()
+
+// Pass location filter through — each unique ?location= value produces a
+// distinct fetch key for independent ISR caching per filtered URL.
+const { data: nowShowingData } = nowShowing({ location: locationFilter.value })
+const { data: comingSoonData } = comingSoon({ location: locationFilter.value })
 
 const nowShowingMovies = computed(() => nowShowingData.value?.data ?? [])
 const comingSoonMovies = computed(() => comingSoonData.value?.data ?? [])
@@ -28,6 +38,17 @@ const FILTERS: Array<{ id: StatusFilter; label: string; count: () => number }> =
 function setStatus(next: StatusFilter) {
   router.replace({ query: { ...route.query, status: next } })
 }
+
+// Fetch all venues for the location chip row (SSR — memoized globally).
+const { fetchLocations } = usePublicLocations()
+const { data: locationsData } = fetchLocations()
+const locations = computed(() => locationsData.value?.data ?? [])
+
+// Resolve the active location name for SEO meta when a filter is applied.
+const activeLocationName = computed<string | null>(() => {
+  if (!locationFilter.value) return null
+  return locations.value.find(l => l.slug === locationFilter.value)?.name ?? null
+})
 
 const { show: showToast } = useToast()
 function handleNotify() {
@@ -63,19 +84,37 @@ const headlineCopy = computed<{ eyebrow: string; accent: string; tail: string; l
 })
 
 const pageTitle = computed(() => {
+  if (activeLocationName.value) {
+    if (status.value === 'coming_soon') return `Coming Soon at ${activeLocationName.value} — Final Cut`
+    if (status.value === 'all') return `On the Marquee at ${activeLocationName.value} — Final Cut`
+    return `Now Playing at ${activeLocationName.value} — Final Cut`
+  }
   if (status.value === 'coming_soon') return 'Coming Soon — Final Cut'
   if (status.value === 'all') return 'On the Marquee — Final Cut'
   return 'Now Playing — Final Cut'
 })
 
 const pageDescription = computed(() => {
-  if (status.value === 'coming_soon') return 'Films coming soon to Final Cut. Get notified when tickets open.'
-  if (status.value === 'all') return 'Browse every film at Final Cut — now playing and coming soon.'
-  return 'Films now playing at Final Cut. Browse showtimes and book your seat.'
+  const atLocation = activeLocationName.value ? ` at ${activeLocationName.value}` : ''
+  if (status.value === 'coming_soon') return `Films coming soon to Final Cut${atLocation}. Get notified when tickets open.`
+  if (status.value === 'all') return `Browse every film at Final Cut${atLocation} — now playing and coming soon.`
+  return `Films now playing${atLocation ? ` at Final Cut${atLocation}` : ' at Final Cut'}. Browse showtimes and book your seat.`
+})
+
+// Canonical URL: the filtered URL is canonical for that filtered view.
+// The unfiltered listing is canonical for the default cross-location view.
+const canonicalPath = computed(() => {
+  const params = new URLSearchParams()
+  if (locationFilter.value) params.set('location', locationFilter.value)
+  const qs = params.toString()
+  return qs ? `/movies?${qs}` : '/movies'
 })
 
 useHead({
   title: pageTitle,
+  link: [
+    { rel: 'canonical', href: computed(() => `${siteUrl}${canonicalPath.value}`) },
+  ],
   meta: [
     { name: 'description', content: pageDescription },
     { property: 'og:title', content: pageTitle },
@@ -102,7 +141,7 @@ useHead({
         </div>
       </header>
 
-      <!-- Filter chips -->
+      <!-- Status filter chips -->
       <div class="movies-page__filter">
         <span class="movies-page__filter-label">Browse</span>
         <div class="movies-page__chips" role="tablist" aria-label="Filter movies by status">
@@ -120,6 +159,12 @@ useHead({
             <span class="movies-page__chip-count">{{ String(f.count()).padStart(2, '0') }}</span>
           </button>
         </div>
+      </div>
+
+      <!-- Location filter chips (opt-in cross-location narrowing) -->
+      <div v-if="locations.length > 0" class="movies-page__location-filter">
+        <span class="movies-page__filter-label">Cinema</span>
+        <LocationFilterChips :locations="locations" />
       </div>
 
       <!-- Now Playing section -->
@@ -338,6 +383,20 @@ useHead({
 .movies-page__chip--on .movies-page__chip-count {
   color: var(--secondary);
   border-left-color: rgb(var(--secondary-rgb) / 0.35);
+}
+
+/* Location filter row */
+.movies-page__location-filter {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+  padding: var(--space-sm) 0;
+  border-bottom: var(--border-hairline) solid rgb(var(--outline-variant-rgb) / 0.2);
+}
+
+.movies-page__location-filter .movies-page__filter-label {
+  padding-top: 0.55rem; /* optical alignment with the chip row */
 }
 
 /* Section */

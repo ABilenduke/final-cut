@@ -1,15 +1,26 @@
 import type { MenuItem } from '~/types/menu-item'
 import { menuData, editorialOverlayFor } from '~/data/menu'
-import { apiFetch } from '~/utils/api'
+import { apiFetch, useApiFetch } from '~/utils/api'
 
 /**
- * Fetches the food menu for the active location and enriches each item with the
- * editorial overlay (curator/size/flag/gradient/glyph). Falls back to static
- * `menuData` when the API is unavailable so the catalog still renders in dev
- * environments without a backend.
+ * Fetches the food menu, either cross-location (Task 7 / public browse) or
+ * per-location (booking checkout flow).
+ *
+ * Three fetch strategies:
+ * - `fetchAll()` — calls `/api/food-menu` (no location segment). Returns every
+ *   item across all venues; each item carries `available_at: string[]` so the
+ *   browse page can render availability captions. Use for SSR content pages.
+ * - `fetchMenu(slug)` — calls `/api/locations/{slug}/food-menu` per-location.
+ *   Used by the purchase checkout flow. Enriches with editorial overlay. Falls
+ *   back to static menuData on error.
+ * - `fetchMenu()` (no slug) — falls back immediately to static editorial menu.
+ *   Used in dev environments without a backend.
+ *
+ * Task 2 note: the activeLocation watcher has been removed. This composable
+ * no longer reads useLocations().activeLocation at all. The location slug is
+ * passed explicitly by the consuming page or booking flow.
  */
 export function useFoodMenu() {
-  const { activeLocation } = useLocations()
   const items = useState<MenuItem[]>('food-menu-items', () => [])
   const loading = useState<boolean>('food-menu-loading', () => false)
   const error = useState<string | null>('food-menu-error', () => null)
@@ -26,12 +37,35 @@ export function useFoodMenu() {
     }
   }
 
-  async function fetchMenu(): Promise<void> {
+  /**
+   * SSR-friendly fetch of the cross-location menu endpoint.
+   *
+   * Returns useFetch's reactive refs directly so the calling page can await
+   * the data via useAsyncData/useFetch SSR semantics. Each item in the response
+   * includes `available_at: string[]` (location slugs). Items with an empty
+   * `available_at` array are excluded from the returned data.
+   *
+   * Cache key is stable so Nuxt deduplicates concurrent SSR renders.
+   */
+  function fetchAll() {
+    return useApiFetch<{ data: MenuItem[] }>('/api/food-menu', {
+      key: 'food-menu-all',
+    })
+  }
+
+  /**
+   * Fetch the food menu. Pass a locationSlug to hit the per-location API;
+   * omit it to fall back immediately to the static editorial menu (used by
+   * the /food-drink browse page until Task 7 lands the shared endpoint).
+   *
+   * NOTE: This path is preserved for the booking checkout flow. Do not remove.
+   */
+  async function fetchMenu(locationSlug?: string): Promise<void> {
     loading.value = true
     error.value = null
 
-    if (!activeLocation.value) {
-      // No location yet — fall back to the static editorial menu so the page renders.
+    if (!locationSlug) {
+      // No location provided — fall back to the static editorial menu.
       items.value = menuData.map(enrich)
       loading.value = false
       return
@@ -39,7 +73,7 @@ export function useFoodMenu() {
 
     try {
       const response = await apiFetch<{ data: Record<string, MenuItem[]> }>(
-        `/api/locations/${activeLocation.value.slug}/food-menu`,
+        `/api/locations/${locationSlug}/food-menu`,
       )
       const flat = Object.values(response.data).flat()
       items.value = flat.map(enrich)
@@ -63,24 +97,12 @@ export function useFoodMenu() {
     return grouped
   })
 
-  // Refetch when the user switches locations mid-session so the catalog
-  // always reflects the active location's inventory. Client-only — the
-  // watcher would otherwise fire during SSR hydration, which we don't
-  // want (fetchMenu() is called directly by the consuming page).
-  if (import.meta.client) {
-    watch(
-      () => activeLocation.value?.slug,
-      (slug, prev) => {
-        if (slug && slug !== prev) fetchMenu()
-      },
-    )
-  }
-
   return {
     items: readonly(items),
     loading: readonly(loading),
     error: readonly(error),
     byCategory,
+    fetchAll,
     fetchMenu,
   }
 }

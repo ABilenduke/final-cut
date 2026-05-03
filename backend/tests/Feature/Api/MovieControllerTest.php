@@ -296,6 +296,124 @@ test('GET showtimes returns 404 for unknown movie slug', function () {
         ->assertNotFound();
 });
 
+/*
+|--------------------------------------------------------------------------
+| GET /api/movies?location={slug} — location filter
+|--------------------------------------------------------------------------
+*/
+
+test('GET /api/movies?location= returns only movies with upcoming showtimes at that location', function () {
+    Carbon::setTestNow('2026-06-15 10:00:00');
+
+    $downtown = Location::factory()->create(['slug' => 'downtown-filter-test']);
+    $uptown = Location::factory()->create(['slug' => 'uptown-filter-test']);
+
+    $audDown = Auditorium::factory()->create(['location_id' => $downtown->id]);
+    $audUp = Auditorium::factory()->create(['location_id' => $uptown->id]);
+
+    $movieDowntown = Movie::factory()->nowShowing()->create(['title' => 'Downtown Movie']);
+    $movieUptown = Movie::factory()->nowShowing()->create(['title' => 'Uptown Movie']);
+    $movieBoth = Movie::factory()->nowShowing()->create(['title' => 'Both Locations Movie']);
+
+    // Downtown-only showtime (uses its own separate auditorium slot)
+    $audDown2 = Auditorium::factory()->create(['location_id' => $downtown->id]);
+    Showtime::factory()->create([
+        'movie_id' => $movieDowntown->id,
+        'auditorium_id' => $audDown2->id,
+        'start_time' => now()->addHours(2),
+        'end_time' => now()->addHours(4),
+    ]);
+
+    // Uptown-only showtime
+    $audUp2 = Auditorium::factory()->create(['location_id' => $uptown->id]);
+    Showtime::factory()->create([
+        'movie_id' => $movieUptown->id,
+        'auditorium_id' => $audUp2->id,
+        'start_time' => now()->addHours(2),
+        'end_time' => now()->addHours(4),
+    ]);
+
+    // Both-locations showtimes — each in its own auditorium, no overlap
+    Showtime::factory()->create([
+        'movie_id' => $movieBoth->id,
+        'auditorium_id' => $audDown->id,
+        'start_time' => now()->addHours(2),
+        'end_time' => now()->addHours(4),
+    ]);
+    Showtime::factory()->create([
+        'movie_id' => $movieBoth->id,
+        'auditorium_id' => $audUp->id,
+        'start_time' => now()->addHours(2),
+        'end_time' => now()->addHours(4),
+    ]);
+
+    $response = getJson("/api/movies?status=now_showing&location={$downtown->slug}")
+        ->assertOk()
+        ->assertJsonCount(2, 'data');
+
+    $titles = collect($response->json('data'))->pluck('title')->sort()->values()->all();
+    expect($titles)->toBe(['Both Locations Movie', 'Downtown Movie']);
+});
+
+test('GET /api/movies?location= excludes movies only showing at other locations', function () {
+    Carbon::setTestNow('2026-06-15 10:00:00');
+
+    $downtown = Location::factory()->create(['slug' => 'downtown-excl-test']);
+    $uptown = Location::factory()->create(['slug' => 'uptown-excl-test']);
+
+    $audUp = Auditorium::factory()->create(['location_id' => $uptown->id]);
+
+    $movieUptown = Movie::factory()->nowShowing()->create(['title' => 'Uptown Only']);
+
+    Showtime::factory()->create([
+        'movie_id' => $movieUptown->id,
+        'auditorium_id' => $audUp->id,
+        'start_time' => now()->addHours(2),
+        'end_time' => now()->addHours(4),
+    ]);
+
+    // downtown has no showtimes, so the result should be empty
+    getJson("/api/movies?status=now_showing&location={$downtown->slug}")
+        ->assertOk()
+        ->assertJsonCount(0, 'data');
+});
+
+test('GET /api/movies?location= excludes movies with only past showtimes at the location', function () {
+    Carbon::setTestNow('2026-06-15 10:00:00');
+
+    $downtown = Location::factory()->create(['slug' => 'downtown-past-test']);
+    $audDown = Auditorium::factory()->create(['location_id' => $downtown->id]);
+
+    $movie = Movie::factory()->nowShowing()->create(['title' => 'Past Showtime Movie']);
+
+    // Showtime already ended — should NOT appear in the location filter
+    Showtime::factory()->create([
+        'movie_id' => $movie->id,
+        'auditorium_id' => $audDown->id,
+        'start_time' => now()->subHours(3),
+        'end_time' => now()->subHours(1),
+    ]);
+
+    getJson("/api/movies?status=now_showing&location={$downtown->slug}")
+        ->assertOk()
+        ->assertJsonCount(0, 'data');
+});
+
+test('GET /api/movies?location= with invalid slug returns 422', function () {
+    getJson('/api/movies?location=nonexistent-location-slug')
+        ->assertUnprocessable()
+        ->assertJsonPath('errors.0.field', 'location');
+});
+
+test('GET /api/movies without location returns all movies (no regression)', function () {
+    Movie::factory()->nowShowing()->count(3)->create();
+    Movie::factory()->comingSoon()->count(2)->create();
+
+    getJson('/api/movies?status=now_showing')
+        ->assertOk()
+        ->assertJsonCount(3, 'data');
+});
+
 test('GET showtimes excludes showtimes from other locations', function () {
     Carbon::setTestNow('2026-06-15 10:00:00');
 

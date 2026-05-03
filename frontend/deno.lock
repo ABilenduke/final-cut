@@ -3,13 +3,15 @@
   "specifiers": {
     "npm:@nuxt/fonts@0.14": "0.14.0_vite@7.3.2__jiti@2.6.1__lightningcss@1.32.0",
     "npm:@nuxt/test-utils@^3.17.0": "3.23.0_@vue+test-utils@2.4.6_happy-dom@20.8.9_vitest@3.2.4__happy-dom@20.8.9_typescript@6.0.2",
+    "npm:@nuxtjs/sitemap@6": "6.1.5_h3@1.15.11_vite@7.3.2__jiti@2.6.1__lightningcss@1.32.0_vue@3.5.32__typescript@6.0.2",
     "npm:@stripe/stripe-js@^9.0.1": "9.1.0",
     "npm:@types/qrcode@^1.5.6": "1.5.6",
     "npm:@vue/test-utils@^2.4.6": "2.4.6",
     "npm:happy-dom@^20.8.9": "20.8.9",
-    "npm:nuxt@*": "4.4.2_@babel+core@7.29.0_@emnapi+core@1.9.2_@emnapi+runtime@1.9.2_typescript@6.0.2_vite@7.3.2__jiti@2.6.1__lightningcss@1.32.0",
-    "npm:nuxt@^4.4.2": "4.4.2_@babel+core@7.29.0_@emnapi+core@1.9.2_@emnapi+runtime@1.9.2_typescript@6.0.2_vite@7.3.2__jiti@2.6.1__lightningcss@1.32.0",
+    "npm:nuxt@*": "4.4.2_@emnapi+core@1.10.0_@emnapi+runtime@1.10.0",
+    "npm:nuxt@^4.4.2": "4.4.2_@emnapi+core@1.10.0_@emnapi+runtime@1.10.0",
     "npm:qrcode@^1.5.4": "1.5.4",
+    "npm:typescript@*": "6.0.2",
     "npm:vitest@*": "3.2.4_happy-dom@20.8.9",
     "npm:vitest@^3.2.0": "3.2.4_happy-dom@20.8.9",
     "npm:vue-router@^5.0.4": "5.0.4_vue@3.5.32__typescript@6.0.2_typescript@6.0.2",
@@ -279,15 +281,15 @@
     "@dxup/unimport@0.1.2": {
       "integrity": "sha512-/B8YJGPzaYq1NbsQmwgP8EZqg40NpTw4ZB3suuI0TplbxKHeK94jeaawLmVhCv+YwUnOpiWEz9U6SeThku/8JQ=="
     },
-    "@emnapi/core@1.9.2": {
-      "integrity": "sha512-UC+ZhH3XtczQYfOlu3lNEkdW/p4dsJ1r/bP7H8+rhao3TTTMO1ATq/4DdIi23XuGoFY+Cz0JmCbdVl0hz9jZcA==",
+    "@emnapi/core@1.10.0": {
+      "integrity": "sha512-yq6OkJ4p82CAfPl0u9mQebQHKPJkY7WrIuk205cTYnYe+k2Z8YBh11FrbRG/H6ihirqcacOgl2BIO8oyMQLeXw==",
       "dependencies": [
         "@emnapi/wasi-threads",
         "tslib"
       ]
     },
-    "@emnapi/runtime@1.9.2": {
-      "integrity": "sha512-3U4+MIWHImeyu1wnmVygh5WlgfYDtyf0k8AbLhMFxOipihf6nrWC4syIm/SwEeec0mNSafiiNnMJwbza/Is6Lw==",
+    "@emnapi/runtime@1.10.0": {
+      "integrity": "sha512-ewvYlk86xUoGI0zQRNq/mC+16R1QeDlKQy21Ki3oSYXNgLb45GV1P6A0M+/s6nyCuNDqe5VpaY84BzXGwVbwFA==",
       "dependencies": [
         "tslib"
       ]
@@ -504,11 +506,17 @@
       ],
       "bin": true
     },
-    "@napi-rs/wasm-runtime@1.1.2_@emnapi+core@1.9.2_@emnapi+runtime@1.9.2": {
+    "@napi-rs/wasm-runtime@1.1.2_@emnapi+core@1.10.0_@emnapi+runtime@1.10.0": {
       "integrity": "sha512-sNXv5oLJ7ob93xkZ1XnxisYhGYXfaG9f65/ZgYuAu3qt7b3NadcOEhLvx28hv31PgX8SZJRYrAIPQilQmFpLVw==",
       "dependencies": [
         "@emnapi/core",
         "@emnapi/runtime",
+        "@tybys/wasm-util"
+      ]
+    },
+    "@napi-rs/wasm-runtime@1.1.2_@emnapi+core@1.9.2_@emnapi+runtime@1.9.2": {
+      "integrity": "sha512-sNXv5oLJ7ob93xkZ1XnxisYhGYXfaG9f65/ZgYuAu3qt7b3NadcOEhLvx28hv31PgX8SZJRYrAIPQilQmFpLVw==",
+      "dependencies": [
         "@tybys/wasm-util"
       ]
     },
@@ -534,7 +542,7 @@
       "dependencies": [
         "@bomb.sh/tab",
         "@clack/prompts@1.2.0",
-        "@nuxt/schema",
+        "@nuxt/schema@4.4.2",
         "c12",
         "citty@0.2.2",
         "confbox@0.2.4",
@@ -552,7 +560,7 @@
         "ohash",
         "pathe@2.0.3",
         "perfect-debounce",
-        "pkg-types@2.3.0",
+        "pkg-types@2.3.1",
         "scule",
         "semver@7.7.4",
         "srvx",
@@ -563,18 +571,27 @@
         "youch"
       ],
       "optionalPeers": [
-        "@nuxt/schema"
+        "@nuxt/schema@4.4.2"
       ],
       "bin": true
     },
     "@nuxt/devalue@2.0.2": {
       "integrity": "sha512-GBzP8zOc7CGWyFQS6dv1lQz8VVpz5C2yRszbXufwG/9zhStTIH50EtD87NmWbTMwXDvZLNg8GIpb1UFdH93JCA=="
     },
+    "@nuxt/devtools-kit@1.7.0_vite@7.3.2__jiti@2.6.1__lightningcss@1.32.0": {
+      "integrity": "sha512-+NgZ2uP5BuneqvQbe7EdOEaFEDy8762c99pLABtn7/Ur0ExEsQJMP7pYjjoTfKubhBqecr5Vo9yHkPBj1eHulQ==",
+      "dependencies": [
+        "@nuxt/kit@3.21.2",
+        "@nuxt/schema@3.21.4",
+        "execa@7.2.0",
+        "vite"
+      ]
+    },
     "@nuxt/devtools-kit@3.2.4_vite@7.3.2__jiti@2.6.1__lightningcss@1.32.0_jiti@2.6.1_magicast@0.5.2": {
       "integrity": "sha512-Yxy2Xgmq5hf3dQy983V0xh0OJV2mYwRZz9eVIGc3EaribdFGPDNGMMbYqX9qCty3Pbxn/bCF3J0UyPaNlHVayQ==",
       "dependencies": [
         "@nuxt/kit@4.4.2_magicast@0.5.2",
-        "execa",
+        "execa@8.0.1",
         "vite"
       ]
     },
@@ -584,10 +601,10 @@
         "@clack/prompts@1.2.0",
         "consola",
         "diff",
-        "execa",
+        "execa@8.0.1",
         "magicast",
         "pathe@2.0.3",
-        "pkg-types@2.3.0",
+        "pkg-types@2.3.1",
         "semver@7.7.4"
       ],
       "bin": true
@@ -595,7 +612,7 @@
     "@nuxt/devtools@3.2.4_vite@7.3.2__jiti@2.6.1__lightningcss@1.32.0_jiti@2.6.1_typescript@6.0.2_vue@3.5.32__typescript@6.0.2": {
       "integrity": "sha512-VPbFy7hlPzWpEZk4BsuVpNuHq1ZYGV9xezjb7/NGuePuNLqeNn74YZugU+PCtva7OwKhEeTXmMK0Mqo/6+nwNA==",
       "dependencies": [
-        "@nuxt/devtools-kit",
+        "@nuxt/devtools-kit@3.2.4_vite@7.3.2__jiti@2.6.1__lightningcss@1.32.0_jiti@2.6.1_magicast@0.5.2",
         "@nuxt/devtools-wizard",
         "@nuxt/kit@4.4.2_magicast@0.5.2",
         "@vue/devtools-core",
@@ -604,7 +621,7 @@
         "consola",
         "destr",
         "error-stack-parser-es",
-        "execa",
+        "execa@8.0.1",
         "fast-npm-meta",
         "get-port-please",
         "hookable@6.1.0",
@@ -617,7 +634,7 @@
         "ohash",
         "pathe@2.0.3",
         "perfect-debounce",
-        "pkg-types@2.3.0",
+        "pkg-types@2.3.1",
         "semver@7.7.4",
         "simple-git",
         "sirv",
@@ -634,7 +651,7 @@
     "@nuxt/fonts@0.14.0_vite@7.3.2__jiti@2.6.1__lightningcss@1.32.0": {
       "integrity": "sha512-4uXQl9fa5F4ibdgU8zomoOcyMdnwgdem+Pi8JEqeDYI5yPR32Kam6HnuRr47dTb97CstaepAvXPWQUUHMtjsFQ==",
       "dependencies": [
-        "@nuxt/devtools-kit",
+        "@nuxt/devtools-kit@3.2.4_vite@7.3.2__jiti@2.6.1__lightningcss@1.32.0_jiti@2.6.1_magicast@0.5.2",
         "@nuxt/kit@4.4.2_magicast@0.5.2",
         "consola",
         "defu",
@@ -667,7 +684,7 @@
         "mlly",
         "ohash",
         "pathe@2.0.3",
-        "pkg-types@2.3.0",
+        "pkg-types@2.3.1",
         "rc9",
         "scule",
         "semver@7.7.4",
@@ -692,7 +709,7 @@
         "mlly",
         "ohash",
         "pathe@2.0.3",
-        "pkg-types@2.3.0",
+        "pkg-types@2.3.1",
         "rc9",
         "scule",
         "semver@7.7.4",
@@ -709,7 +726,7 @@
         "@nuxt/devalue",
         "@nuxt/kit@4.4.2_magicast@0.5.2",
         "@unhead/vue",
-        "@vue/shared",
+        "@vue/shared@3.5.33",
         "consola",
         "defu",
         "destr",
@@ -722,13 +739,13 @@
         "klona",
         "mocked-exports",
         "nitropack",
-        "nuxt",
+        "nuxt@4.4.2_@babel+core@7.29.0_@emnapi+core@1.9.2_@emnapi+runtime@1.9.2_typescript@6.0.2_vite@7.3.2__jiti@2.6.1__lightningcss@1.32.0",
         "nypm",
         "ohash",
         "pathe@2.0.3",
-        "pkg-types@2.3.0",
+        "pkg-types@2.3.1",
         "rou3",
-        "std-env@4.0.0",
+        "std-env@4.1.0",
         "ufo",
         "unctx",
         "unstorage",
@@ -737,14 +754,24 @@
         "vue-devtools-stub"
       ]
     },
+    "@nuxt/schema@3.21.4": {
+      "integrity": "sha512-dKvJu+m6tYZHtcSv4/xxnuflTWWPR9ETB0VFUt2q/ihSpNlMs5Y62OEyLBkX0Xu7VSpnp8vz6bmUSFz9PYbibA==",
+      "dependencies": [
+        "@vue/shared@3.5.33",
+        "defu",
+        "pathe@2.0.3",
+        "pkg-types@2.3.1",
+        "std-env@4.1.0"
+      ]
+    },
     "@nuxt/schema@4.4.2": {
       "integrity": "sha512-/q6C7Qhiricgi+PKR7ovBnJlKTL0memCbA1CzRT+itCW/oeYzUfeMdQ35mGntlBoyRPNrMXbzuSUhfDbSCU57w==",
       "dependencies": [
-        "@vue/shared",
+        "@vue/shared@3.5.33",
         "defu",
         "pathe@2.0.3",
-        "pkg-types@2.3.0",
-        "std-env@4.0.0"
+        "pkg-types@2.3.1",
+        "std-env@4.1.0"
       ]
     },
     "@nuxt/telemetry@2.8.0_@nuxt+kit@4.4.2__magicast@0.5.2": {
@@ -755,7 +782,7 @@
         "consola",
         "ofetch@2.0.0-alpha.3",
         "rc9",
-        "std-env@4.0.0"
+        "std-env@4.1.0"
       ],
       "bin": true
     },
@@ -819,13 +846,13 @@
         "magic-string",
         "mlly",
         "mocked-exports",
-        "nuxt",
+        "nuxt@4.4.2_@babel+core@7.29.0_@emnapi+core@1.9.2_@emnapi+runtime@1.9.2_typescript@6.0.2_vite@7.3.2__jiti@2.6.1__lightningcss@1.32.0",
         "nypm",
         "pathe@2.0.3",
-        "pkg-types@2.3.0",
+        "pkg-types@2.3.1",
         "postcss",
         "seroval",
-        "std-env@4.0.0",
+        "std-env@4.1.0",
         "ufo",
         "unenv",
         "vite",
@@ -833,6 +860,26 @@
         "vite-plugin-checker",
         "vue",
         "vue-bundle-renderer"
+      ]
+    },
+    "@nuxtjs/sitemap@6.1.5_h3@1.15.11_vite@7.3.2__jiti@2.6.1__lightningcss@1.32.0_vue@3.5.32__typescript@6.0.2": {
+      "integrity": "sha512-3ae7SBwMYQh8AKbznRbc1UORYNgi7ukAELJzCskAoKJgIr2ox8nIxMT/pvkpFWoKoTxC8bLINEbkfMvKVs2myg==",
+      "dependencies": [
+        "@nuxt/devtools-kit@1.7.0_vite@7.3.2__jiti@2.6.1__lightningcss@1.32.0",
+        "@nuxt/kit@3.21.2",
+        "chalk",
+        "defu",
+        "h3-compression",
+        "nuxt-site-config",
+        "nuxt-site-config-kit",
+        "ofetch@1.5.1",
+        "pathe@1.1.2",
+        "pkg-types@1.3.1",
+        "radix3",
+        "semver@7.7.4",
+        "sirv",
+        "site-config-stack",
+        "ufo"
       ]
     },
     "@one-ini/wasm@0.1.1": {
@@ -918,10 +965,17 @@
       "os": ["openharmony"],
       "cpu": ["arm64"]
     },
+    "@oxc-minify/binding-wasm32-wasi@0.117.0_@emnapi+core@1.10.0_@emnapi+runtime@1.10.0": {
+      "integrity": "sha512-pSvjJ6cCCfEXSteWSiVfZhdRzvpmS3tLhlXrXTYiuTDFrkRCobRP39SRwAzK23rE9i/m2JAaES2xPEW6+xu85g==",
+      "dependencies": [
+        "@napi-rs/wasm-runtime@1.1.2_@emnapi+core@1.10.0_@emnapi+runtime@1.10.0"
+      ],
+      "cpu": ["wasm32"]
+    },
     "@oxc-minify/binding-wasm32-wasi@0.117.0_@emnapi+core@1.9.2_@emnapi+runtime@1.9.2": {
       "integrity": "sha512-pSvjJ6cCCfEXSteWSiVfZhdRzvpmS3tLhlXrXTYiuTDFrkRCobRP39SRwAzK23rE9i/m2JAaES2xPEW6+xu85g==",
       "dependencies": [
-        "@napi-rs/wasm-runtime"
+        "@napi-rs/wasm-runtime@1.1.2_@emnapi+core@1.9.2_@emnapi+runtime@1.9.2"
       ],
       "cpu": ["wasm32"]
     },
@@ -1020,10 +1074,17 @@
       "os": ["openharmony"],
       "cpu": ["arm64"]
     },
+    "@oxc-parser/binding-wasm32-wasi@0.117.0_@emnapi+core@1.10.0_@emnapi+runtime@1.10.0": {
+      "integrity": "sha512-+XRSNA0xt3pk/6CUHM7pykVe7M8SdifJk8LX1+fIp/zefvR3HBieZCbwG5un8gogNgh7srLycoh/cQA9uozv5g==",
+      "dependencies": [
+        "@napi-rs/wasm-runtime@1.1.2_@emnapi+core@1.10.0_@emnapi+runtime@1.10.0"
+      ],
+      "cpu": ["wasm32"]
+    },
     "@oxc-parser/binding-wasm32-wasi@0.117.0_@emnapi+core@1.9.2_@emnapi+runtime@1.9.2": {
       "integrity": "sha512-+XRSNA0xt3pk/6CUHM7pykVe7M8SdifJk8LX1+fIp/zefvR3HBieZCbwG5un8gogNgh7srLycoh/cQA9uozv5g==",
       "dependencies": [
-        "@napi-rs/wasm-runtime"
+        "@napi-rs/wasm-runtime@1.1.2_@emnapi+core@1.9.2_@emnapi+runtime@1.9.2"
       ],
       "cpu": ["wasm32"]
     },
@@ -1125,10 +1186,17 @@
       "os": ["openharmony"],
       "cpu": ["arm64"]
     },
+    "@oxc-transform/binding-wasm32-wasi@0.117.0_@emnapi+core@1.10.0_@emnapi+runtime@1.10.0": {
+      "integrity": "sha512-Nn8mmcBiQ0XKHLTb05QBlH+CDkn7jf5YDVv9FtKhy4zJT0NEU9y3dXVbfcurOpsVrG9me4ktzDQNCaAoJjUQyw==",
+      "dependencies": [
+        "@napi-rs/wasm-runtime@1.1.2_@emnapi+core@1.10.0_@emnapi+runtime@1.10.0"
+      ],
+      "cpu": ["wasm32"]
+    },
     "@oxc-transform/binding-wasm32-wasi@0.117.0_@emnapi+core@1.9.2_@emnapi+runtime@1.9.2": {
       "integrity": "sha512-Nn8mmcBiQ0XKHLTb05QBlH+CDkn7jf5YDVv9FtKhy4zJT0NEU9y3dXVbfcurOpsVrG9me4ktzDQNCaAoJjUQyw==",
       "dependencies": [
-        "@napi-rs/wasm-runtime"
+        "@napi-rs/wasm-runtime@1.1.2_@emnapi+core@1.9.2_@emnapi+runtime@1.9.2"
       ],
       "cpu": ["wasm32"]
     },
@@ -1688,7 +1756,7 @@
         "@babel/types",
         "@vue/babel-helper-vue-transform-on",
         "@vue/babel-plugin-resolve-type",
-        "@vue/shared"
+        "@vue/shared@3.5.33"
       ],
       "optionalPeers": [
         "@babel/core"
@@ -1709,7 +1777,7 @@
       "integrity": "sha512-4x74Tbtqnda8s/NSD6e1Dr5p1c8HdMU5RWSjMSUzb8RTcUQqevDCxVAitcLBKT+ie3o0Dl9crc/S/opJM7qBGQ==",
       "dependencies": [
         "@babel/parser",
-        "@vue/shared",
+        "@vue/shared@3.5.32",
         "entities@7.0.1",
         "estree-walker@2.0.2",
         "source-map-js"
@@ -1719,7 +1787,7 @@
       "integrity": "sha512-ybHAu70NtiEI1fvAUz3oXZqkUYEe5J98GjMDpTGl5iHb0T15wQYLR4wE3h9xfuTNA+Cm2f4czfe8B4s+CCH57Q==",
       "dependencies": [
         "@vue/compiler-core",
-        "@vue/shared"
+        "@vue/shared@3.5.32"
       ]
     },
     "@vue/compiler-sfc@3.5.32": {
@@ -1729,7 +1797,7 @@
         "@vue/compiler-core",
         "@vue/compiler-dom",
         "@vue/compiler-ssr",
-        "@vue/shared",
+        "@vue/shared@3.5.32",
         "estree-walker@2.0.2",
         "magic-string",
         "postcss",
@@ -1740,7 +1808,7 @@
       "integrity": "sha512-Gp4gTs22T3DgRotZ8aA/6m2jMR+GMztvBXUBEUOYOcST+giyGWJ4WvFd7QLHBkzTxkfOt8IELKNdpzITLbA2rw==",
       "dependencies": [
         "@vue/compiler-dom",
-        "@vue/shared"
+        "@vue/shared@3.5.32"
       ]
     },
     "@vue/devtools-api@8.1.1": {
@@ -1772,14 +1840,14 @@
     "@vue/reactivity@3.5.32": {
       "integrity": "sha512-/ORasxSGvZ6MN5gc+uE364SxFdJ0+WqVG0CENXaGW58TOCdrAW76WWaplDtECeS1qphvtBZtR+3/o1g1zL4xPQ==",
       "dependencies": [
-        "@vue/shared"
+        "@vue/shared@3.5.32"
       ]
     },
     "@vue/runtime-core@3.5.32": {
       "integrity": "sha512-pDrXCejn4UpFDFmMd27AcJEbHaLemaE5o4pbb7sLk79SRIhc6/t34BQA7SGNgYtbMnvbF/HHOftYBgFJtUoJUQ==",
       "dependencies": [
         "@vue/reactivity",
-        "@vue/shared"
+        "@vue/shared@3.5.32"
       ]
     },
     "@vue/runtime-dom@3.5.32": {
@@ -1787,7 +1855,7 @@
       "dependencies": [
         "@vue/reactivity",
         "@vue/runtime-core",
-        "@vue/shared",
+        "@vue/shared@3.5.32",
         "csstype"
       ]
     },
@@ -1795,12 +1863,15 @@
       "integrity": "sha512-IOjm2+JQwRFS7W28HNuJeXQle9KdZbODFY7hFGVtnnghF51ta20EWAZJHX+zLGtsHhaU6uC9BGPV52KVpYryMQ==",
       "dependencies": [
         "@vue/compiler-ssr",
-        "@vue/shared",
+        "@vue/shared@3.5.32",
         "vue"
       ]
     },
     "@vue/shared@3.5.32": {
       "integrity": "sha512-ksNyrmRQzWJJ8n3cRDuSF7zNNontuJg1YHnmWRJd2AMu8Ij2bqwiiri2lH5rHtYPZjj4STkNcgcmiQqlOjiYGg=="
+    },
+    "@vue/shared@3.5.33": {
+      "integrity": "sha512-5vR2QIlmaLG77Ygd4pMP6+SGQ5yox9VhtnbDWTy9DzMzdmeLxZ1QqxrywEZ9sa1AVubfIJyaCG3ytyWU81ufcQ=="
     },
     "@vue/test-utils@2.4.6": {
       "integrity": "sha512-FMxEjOpYNYiFe0GkaHsnJPXFHxQ6m4t8vI/ElPGpMWxZKpmRvQ33OIrvRXemy6yha03RxhOlQuy+gZMC3CQSow==",
@@ -2050,7 +2121,7 @@
         "ohash",
         "pathe@2.0.3",
         "perfect-debounce",
-        "pkg-types@2.3.0",
+        "pkg-types@2.3.1",
         "rc9"
       ],
       "optionalPeers": [
@@ -2084,6 +2155,9 @@
         "loupe",
         "pathval"
       ]
+    },
+    "chalk@5.6.2": {
+      "integrity": "sha512-7NzBL0rN6fMUW+f7A6Io4h40qQlG+xGmtMxfbnH/K7TAtt8JQWVQK+6g0UXKMeVJoyV5EkkNsErQ8pVD3bLHbA=="
     },
     "check-error@2.1.3": {
       "integrity": "sha512-PAJdDJusoxnwm1VwW07VWwUN1sl7smmC3OKggvndJFadxxDRyFJBX/ggnu/KE4kQAB7a3Dp8f/YXC1FlUprWmA=="
@@ -2527,17 +2601,31 @@
     "events@3.3.0": {
       "integrity": "sha512-mQw+2fkQbALzQ7V0MY0IqdnXNOeTtP4r0lN9z7AAawCXgqea7bDii20AYrIBrFd/Hx0M2Ocz6S111CaFkUcb0Q=="
     },
-    "execa@8.0.1": {
-      "integrity": "sha512-VyhnebXciFV2DESc+p6B+y0LjSm0krU4OgJN44qFAhBY0TJ+1V61tYD2+wHusZ6F9n5K+vl8k0sTy7PEfV4qpg==",
+    "execa@7.2.0": {
+      "integrity": "sha512-UduyVP7TLB5IcAQl+OzLyLcS/l32W/GLg+AhHJ+ow40FOk2U3SAllPwR44v4vmdFwIWqpdwxxpQbF1n5ta9seA==",
       "dependencies": [
         "cross-spawn",
-        "get-stream",
-        "human-signals",
+        "get-stream@6.0.1",
+        "human-signals@4.3.1",
         "is-stream@3.0.0",
         "merge-stream",
         "npm-run-path@5.3.0",
         "onetime",
-        "signal-exit",
+        "signal-exit@3.0.7",
+        "strip-final-newline"
+      ]
+    },
+    "execa@8.0.1": {
+      "integrity": "sha512-VyhnebXciFV2DESc+p6B+y0LjSm0krU4OgJN44qFAhBY0TJ+1V61tYD2+wHusZ6F9n5K+vl8k0sTy7PEfV4qpg==",
+      "dependencies": [
+        "cross-spawn",
+        "get-stream@8.0.1",
+        "human-signals@5.0.0",
+        "is-stream@3.0.0",
+        "merge-stream",
+        "npm-run-path@5.3.0",
+        "onetime",
+        "signal-exit@4.1.0",
         "strip-final-newline"
       ]
     },
@@ -2657,7 +2745,7 @@
       "integrity": "sha512-gIXjKqtFuWEgzFRJA9WCQeSJLZDjgJUOMCMzxtvFq/37KojM1BFGufqsCy0r4qSQmYLsZYMeyRqzIWOMup03sw==",
       "dependencies": [
         "cross-spawn",
-        "signal-exit"
+        "signal-exit@4.1.0"
       ]
     },
     "fraction.js@5.3.4": {
@@ -2691,6 +2779,9 @@
     },
     "get-port-please@3.2.0": {
       "integrity": "sha512-I9QVvBw5U/hw3RmWpYKRumUeaDgxTPd401x364rLmWBJcOQ753eov1eTgzDqRG9bqFIfDc7gfzcQEWrUri3o1A=="
+    },
+    "get-stream@6.0.1": {
+      "integrity": "sha512-ts6Wi+2j3jQjqi70w5AlN8DFnkSwC+MqmxEzdEALB2qXZYV3X/b1CTfgPLGJNMeAWxdPfU8FO1ms3NUfaHCPYg=="
     },
     "get-stream@8.0.1": {
       "integrity": "sha512-VaUJspBffn/LMCJVoMvSAdmscJyS1auj5Zulnn5UoYcY531UWmdwhRWkcGKnGU93m5HSXP9LP2usOryrBtQowA=="
@@ -2750,6 +2841,12 @@
       "integrity": "sha512-O1Ld7Dr+nqPnmGpdhzLmMTQ4vAsD+rHwMm1NLUmoUFFymBOMKxCCrtDxqdBRYXdeEPEi3SyoR4TizJLQrnKBNA==",
       "dependencies": [
         "duplexer"
+      ]
+    },
+    "h3-compression@0.3.2_h3@1.15.11": {
+      "integrity": "sha512-B+yCKyDRnO0BXSfjAP4tCXJgJwmnKp3GyH5Yh66mY9KuOCrrGQSPk/gBFG2TgH7OyB/6mvqNZ1X0XNVuy0qRsw==",
+      "dependencies": [
+        "h3@1.15.11"
       ]
     },
     "h3@1.15.11": {
@@ -2819,6 +2916,9 @@
     },
     "httpxy@0.5.0": {
       "integrity": "sha512-qwX7QX/rK2visT10/b7bSeZWQOMlSm3svTD0pZpU+vJjNUP0YHtNv4c3z+MO+MSnGuRFWJFdCZiV+7F7dXIOzg=="
+    },
+    "human-signals@4.3.1": {
+      "integrity": "sha512-nZXjEF2nbo7lIw3mgYjItAfgQXog3OjJogSbKa2CQIIvSGWcKgeJnQlNXip6NglNzYH45nSRiEVimMvYL8DDqQ=="
     },
     "human-signals@5.0.0": {
       "integrity": "sha512-AXcZb6vzzrFAUE61HnN4mpLqd/cSIwNQjtNWR0euPm6y0iqx3G4gOXaIDdtdDwZmhwe82LA6+zinmW4UBWVePQ=="
@@ -3099,7 +3199,7 @@
         "mlly",
         "node-forge",
         "pathe@2.0.3",
-        "std-env@4.0.0",
+        "std-env@4.1.0",
         "tinyclip",
         "ufo",
         "untun",
@@ -3111,7 +3211,7 @@
       "integrity": "sha512-arhlxbFRmoQHl33a0Zkle/YWlmNwoyt6QNZEIJcqNbdrsix5Lvc4HyyI3EnwxTYlZYc32EbYrQ8SzEZ7dqgg9A==",
       "dependencies": [
         "mlly",
-        "pkg-types@2.3.0",
+        "pkg-types@2.3.1",
         "quansync"
       ]
     },
@@ -3323,7 +3423,7 @@
         "ohash",
         "pathe@2.0.3",
         "perfect-debounce",
-        "pkg-types@2.3.0",
+        "pkg-types@2.3.1",
         "pretty-bytes",
         "radix3",
         "rollup",
@@ -3333,7 +3433,7 @@
         "serve-placeholder",
         "serve-static",
         "source-map@0.7.6",
-        "std-env@4.0.0",
+        "std-env@4.1.0",
         "ufo",
         "ultrahtml",
         "uncrypto",
@@ -3410,6 +3510,31 @@
         "boolbase"
       ]
     },
+    "nuxt-site-config-kit@2.2.21_vue@3.5.32__typescript@6.0.2": {
+      "integrity": "sha512-xO41Zf6bXlA9Zvj+fX7ftD+ITee4LfrkzHj85Gt4FpgwonFxzGO5pMBtAqIxXKJwuyT1z2wVAixHI+ov66wV0w==",
+      "dependencies": [
+        "@nuxt/kit@3.21.2",
+        "@nuxt/schema@3.21.4",
+        "pkg-types@1.3.1",
+        "site-config-stack",
+        "std-env@3.10.0",
+        "ufo"
+      ]
+    },
+    "nuxt-site-config@2.2.21_vite@7.3.2__jiti@2.6.1__lightningcss@1.32.0_vue@3.5.32__typescript@6.0.2": {
+      "integrity": "sha512-VsHpR4socGrlRPjyg2F8JqbirBqH4yCkTQa60fj7saqKMPW1VcRROn21OJzfTHDpjeD+KayRdR3FB0Jxk9WFNA==",
+      "dependencies": [
+        "@nuxt/devtools-kit@1.7.0_vite@7.3.2__jiti@2.6.1__lightningcss@1.32.0",
+        "@nuxt/kit@3.21.2",
+        "@nuxt/schema@3.21.4",
+        "nuxt-site-config-kit",
+        "pathe@1.1.2",
+        "pkg-types@1.3.1",
+        "sirv",
+        "site-config-stack",
+        "ufo"
+      ]
+    },
     "nuxt@4.4.2_@babel+core@7.29.0_@emnapi+core@1.9.2_@emnapi+runtime@1.9.2_typescript@6.0.2_vite@7.3.2__jiti@2.6.1__lightningcss@1.32.0": {
       "integrity": "sha512-iWVFpr/YEqVU/CenqIHMnIkvb2HE/9f+q8oxZ+pj2et+60NljGRClCgnmbvGPdmNFE0F1bEhoBCYfqbDOCim3Q==",
       "dependencies": [
@@ -3418,11 +3543,11 @@
         "@nuxt/devtools",
         "@nuxt/kit@4.4.2_magicast@0.5.2",
         "@nuxt/nitro-server",
-        "@nuxt/schema",
+        "@nuxt/schema@4.4.2",
         "@nuxt/telemetry",
         "@nuxt/vite-builder",
         "@unhead/vue",
-        "@vue/shared",
+        "@vue/shared@3.5.33",
         "c12",
         "chokidar@5.0.0",
         "compatx",
@@ -3446,18 +3571,80 @@
         "ofetch@1.5.1",
         "ohash",
         "on-change",
-        "oxc-minify",
-        "oxc-parser",
-        "oxc-transform",
-        "oxc-walker",
+        "oxc-minify@0.117.0_@emnapi+core@1.9.2_@emnapi+runtime@1.9.2",
+        "oxc-parser@0.117.0_@emnapi+core@1.9.2_@emnapi+runtime@1.9.2",
+        "oxc-transform@0.117.0_@emnapi+core@1.9.2_@emnapi+runtime@1.9.2",
+        "oxc-walker@0.7.0_oxc-parser@0.117.0__@emnapi+core@1.9.2__@emnapi+runtime@1.9.2_@emnapi+core@1.9.2_@emnapi+runtime@1.9.2",
         "pathe@2.0.3",
         "perfect-debounce",
         "picomatch@4.0.4",
-        "pkg-types@2.3.0",
+        "pkg-types@2.3.1",
         "rou3",
         "scule",
         "semver@7.7.4",
-        "std-env@4.0.0",
+        "std-env@4.1.0",
+        "tinyglobby",
+        "ufo",
+        "ultrahtml",
+        "uncrypto",
+        "unctx",
+        "unimport",
+        "unplugin@3.0.0",
+        "unrouting",
+        "untyped",
+        "vue",
+        "vue-router"
+      ],
+      "bin": true
+    },
+    "nuxt@4.4.2_@emnapi+core@1.10.0_@emnapi+runtime@1.10.0": {
+      "integrity": "sha512-iWVFpr/YEqVU/CenqIHMnIkvb2HE/9f+q8oxZ+pj2et+60NljGRClCgnmbvGPdmNFE0F1bEhoBCYfqbDOCim3Q==",
+      "dependencies": [
+        "@dxup/nuxt",
+        "@nuxt/cli",
+        "@nuxt/devtools",
+        "@nuxt/kit@4.4.2_magicast@0.5.2",
+        "@nuxt/nitro-server",
+        "@nuxt/schema@4.4.2",
+        "@nuxt/telemetry",
+        "@nuxt/vite-builder",
+        "@unhead/vue",
+        "@vue/shared@3.5.33",
+        "c12",
+        "chokidar@5.0.0",
+        "compatx",
+        "consola",
+        "cookie-es@2.0.1",
+        "defu",
+        "devalue",
+        "errx",
+        "escape-string-regexp",
+        "exsolve",
+        "hookable@6.1.0",
+        "ignore",
+        "impound",
+        "jiti",
+        "klona",
+        "knitwork",
+        "magic-string",
+        "mlly",
+        "nanotar",
+        "nypm",
+        "ofetch@1.5.1",
+        "ohash",
+        "on-change",
+        "oxc-minify@0.117.0_@emnapi+core@1.10.0_@emnapi+runtime@1.10.0",
+        "oxc-parser@0.117.0_@emnapi+core@1.10.0_@emnapi+runtime@1.10.0",
+        "oxc-transform@0.117.0_@emnapi+core@1.10.0_@emnapi+runtime@1.10.0",
+        "oxc-walker@0.7.0_oxc-parser@0.117.0__@emnapi+core@1.10.0__@emnapi+runtime@1.10.0_@emnapi+core@1.10.0_@emnapi+runtime@1.10.0",
+        "pathe@2.0.3",
+        "perfect-debounce",
+        "picomatch@4.0.4",
+        "pkg-types@2.3.1",
+        "rou3",
+        "scule",
+        "semver@7.7.4",
+        "std-env@4.1.0",
         "tinyglobby",
         "ufo",
         "ultrahtml",
@@ -3533,6 +3720,31 @@
         "wsl-utils@0.3.1"
       ]
     },
+    "oxc-minify@0.117.0_@emnapi+core@1.10.0_@emnapi+runtime@1.10.0": {
+      "integrity": "sha512-JHsv/b+bmBJkAzkHXgTN7RThloVxLHPT0ojHfjqxVeHuQB7LPpLUbJ2qfwz37sto9stZ9+AVwUP4b3gtR7p/Tw==",
+      "optionalDependencies": [
+        "@oxc-minify/binding-android-arm-eabi",
+        "@oxc-minify/binding-android-arm64",
+        "@oxc-minify/binding-darwin-arm64",
+        "@oxc-minify/binding-darwin-x64",
+        "@oxc-minify/binding-freebsd-x64",
+        "@oxc-minify/binding-linux-arm-gnueabihf",
+        "@oxc-minify/binding-linux-arm-musleabihf",
+        "@oxc-minify/binding-linux-arm64-gnu",
+        "@oxc-minify/binding-linux-arm64-musl",
+        "@oxc-minify/binding-linux-ppc64-gnu",
+        "@oxc-minify/binding-linux-riscv64-gnu",
+        "@oxc-minify/binding-linux-riscv64-musl",
+        "@oxc-minify/binding-linux-s390x-gnu",
+        "@oxc-minify/binding-linux-x64-gnu",
+        "@oxc-minify/binding-linux-x64-musl",
+        "@oxc-minify/binding-openharmony-arm64",
+        "@oxc-minify/binding-wasm32-wasi@0.117.0_@emnapi+core@1.10.0_@emnapi+runtime@1.10.0",
+        "@oxc-minify/binding-win32-arm64-msvc",
+        "@oxc-minify/binding-win32-ia32-msvc",
+        "@oxc-minify/binding-win32-x64-msvc"
+      ]
+    },
     "oxc-minify@0.117.0_@emnapi+core@1.9.2_@emnapi+runtime@1.9.2": {
       "integrity": "sha512-JHsv/b+bmBJkAzkHXgTN7RThloVxLHPT0ojHfjqxVeHuQB7LPpLUbJ2qfwz37sto9stZ9+AVwUP4b3gtR7p/Tw==",
       "optionalDependencies": [
@@ -3552,10 +3764,38 @@
         "@oxc-minify/binding-linux-x64-gnu",
         "@oxc-minify/binding-linux-x64-musl",
         "@oxc-minify/binding-openharmony-arm64",
-        "@oxc-minify/binding-wasm32-wasi",
+        "@oxc-minify/binding-wasm32-wasi@0.117.0_@emnapi+core@1.9.2_@emnapi+runtime@1.9.2",
         "@oxc-minify/binding-win32-arm64-msvc",
         "@oxc-minify/binding-win32-ia32-msvc",
         "@oxc-minify/binding-win32-x64-msvc"
+      ]
+    },
+    "oxc-parser@0.117.0_@emnapi+core@1.10.0_@emnapi+runtime@1.10.0": {
+      "integrity": "sha512-l3cbgK5wUvWDVNWM/JFU77qDdGZK1wudnLsFcrRyNo/bL1CyU8pC25vDhMHikVY29lbK2InTWsX42RxVSutUdQ==",
+      "dependencies": [
+        "@oxc-project/types"
+      ],
+      "optionalDependencies": [
+        "@oxc-parser/binding-android-arm-eabi",
+        "@oxc-parser/binding-android-arm64",
+        "@oxc-parser/binding-darwin-arm64",
+        "@oxc-parser/binding-darwin-x64",
+        "@oxc-parser/binding-freebsd-x64",
+        "@oxc-parser/binding-linux-arm-gnueabihf",
+        "@oxc-parser/binding-linux-arm-musleabihf",
+        "@oxc-parser/binding-linux-arm64-gnu",
+        "@oxc-parser/binding-linux-arm64-musl",
+        "@oxc-parser/binding-linux-ppc64-gnu",
+        "@oxc-parser/binding-linux-riscv64-gnu",
+        "@oxc-parser/binding-linux-riscv64-musl",
+        "@oxc-parser/binding-linux-s390x-gnu",
+        "@oxc-parser/binding-linux-x64-gnu",
+        "@oxc-parser/binding-linux-x64-musl",
+        "@oxc-parser/binding-openharmony-arm64",
+        "@oxc-parser/binding-wasm32-wasi@0.117.0_@emnapi+core@1.10.0_@emnapi+runtime@1.10.0",
+        "@oxc-parser/binding-win32-arm64-msvc",
+        "@oxc-parser/binding-win32-ia32-msvc",
+        "@oxc-parser/binding-win32-x64-msvc"
       ]
     },
     "oxc-parser@0.117.0_@emnapi+core@1.9.2_@emnapi+runtime@1.9.2": {
@@ -3580,10 +3820,35 @@
         "@oxc-parser/binding-linux-x64-gnu",
         "@oxc-parser/binding-linux-x64-musl",
         "@oxc-parser/binding-openharmony-arm64",
-        "@oxc-parser/binding-wasm32-wasi",
+        "@oxc-parser/binding-wasm32-wasi@0.117.0_@emnapi+core@1.9.2_@emnapi+runtime@1.9.2",
         "@oxc-parser/binding-win32-arm64-msvc",
         "@oxc-parser/binding-win32-ia32-msvc",
         "@oxc-parser/binding-win32-x64-msvc"
+      ]
+    },
+    "oxc-transform@0.117.0_@emnapi+core@1.10.0_@emnapi+runtime@1.10.0": {
+      "integrity": "sha512-u1Stl2uhDh9bFuOGjGXQIqx46IRUNMyHQkq59LayXNGS2flNv7RpZpRSWs5S5deuNP6jJZ12gtMBze+m4dOhmw==",
+      "optionalDependencies": [
+        "@oxc-transform/binding-android-arm-eabi",
+        "@oxc-transform/binding-android-arm64",
+        "@oxc-transform/binding-darwin-arm64",
+        "@oxc-transform/binding-darwin-x64",
+        "@oxc-transform/binding-freebsd-x64",
+        "@oxc-transform/binding-linux-arm-gnueabihf",
+        "@oxc-transform/binding-linux-arm-musleabihf",
+        "@oxc-transform/binding-linux-arm64-gnu",
+        "@oxc-transform/binding-linux-arm64-musl",
+        "@oxc-transform/binding-linux-ppc64-gnu",
+        "@oxc-transform/binding-linux-riscv64-gnu",
+        "@oxc-transform/binding-linux-riscv64-musl",
+        "@oxc-transform/binding-linux-s390x-gnu",
+        "@oxc-transform/binding-linux-x64-gnu",
+        "@oxc-transform/binding-linux-x64-musl",
+        "@oxc-transform/binding-openharmony-arm64",
+        "@oxc-transform/binding-wasm32-wasi@0.117.0_@emnapi+core@1.10.0_@emnapi+runtime@1.10.0",
+        "@oxc-transform/binding-win32-arm64-msvc",
+        "@oxc-transform/binding-win32-ia32-msvc",
+        "@oxc-transform/binding-win32-x64-msvc"
       ]
     },
     "oxc-transform@0.117.0_@emnapi+core@1.9.2_@emnapi+runtime@1.9.2": {
@@ -3605,17 +3870,24 @@
         "@oxc-transform/binding-linux-x64-gnu",
         "@oxc-transform/binding-linux-x64-musl",
         "@oxc-transform/binding-openharmony-arm64",
-        "@oxc-transform/binding-wasm32-wasi",
+        "@oxc-transform/binding-wasm32-wasi@0.117.0_@emnapi+core@1.9.2_@emnapi+runtime@1.9.2",
         "@oxc-transform/binding-win32-arm64-msvc",
         "@oxc-transform/binding-win32-ia32-msvc",
         "@oxc-transform/binding-win32-x64-msvc"
+      ]
+    },
+    "oxc-walker@0.7.0_oxc-parser@0.117.0__@emnapi+core@1.10.0__@emnapi+runtime@1.10.0_@emnapi+core@1.10.0_@emnapi+runtime@1.10.0": {
+      "integrity": "sha512-54B4KUhrzbzc4sKvKwVYm7E2PgeROpGba0/2nlNZMqfDyca+yOor5IMb4WLGBatGDT0nkzYdYuzylg7n3YfB7A==",
+      "dependencies": [
+        "magic-regexp",
+        "oxc-parser@0.117.0_@emnapi+core@1.10.0_@emnapi+runtime@1.10.0"
       ]
     },
     "oxc-walker@0.7.0_oxc-parser@0.117.0__@emnapi+core@1.9.2__@emnapi+runtime@1.9.2_@emnapi+core@1.9.2_@emnapi+runtime@1.9.2": {
       "integrity": "sha512-54B4KUhrzbzc4sKvKwVYm7E2PgeROpGba0/2nlNZMqfDyca+yOor5IMb4WLGBatGDT0nkzYdYuzylg7n3YfB7A==",
       "dependencies": [
         "magic-regexp",
-        "oxc-parser"
+        "oxc-parser@0.117.0_@emnapi+core@1.9.2_@emnapi+runtime@1.9.2"
       ]
     },
     "p-limit@2.3.0": {
@@ -3694,8 +3966,8 @@
         "pathe@2.0.3"
       ]
     },
-    "pkg-types@2.3.0": {
-      "integrity": "sha512-SIqCzDRg0s9npO5XQ3tNZioRY1uK06lA41ynBC1YmFTmnY6FjUjVt6s4LoADmwoig1qqD0oK8h1p/8mlMx8Oig==",
+    "pkg-types@2.3.1": {
+      "integrity": "sha512-y+ichcgc2LrADuhLNAx8DFjVfgz91pRxfZdI3UDhxHvcVEZsenLO+7XaU5vOp0u/7V/wZ+plyuQxtrDlZJ+yeg==",
       "dependencies": [
         "confbox@0.2.4",
         "exsolve",
@@ -4176,6 +4448,9 @@
     "siginfo@2.0.0": {
       "integrity": "sha512-ybx0WO1/8bSBLEWXZvEd7gMW3Sn3JFlW3TvX1nREbDLRNQNaeNN8WK0meBwPdAaOI7TtRRRJn/Es1zhrrCHu7g=="
     },
+    "signal-exit@3.0.7": {
+      "integrity": "sha512-wnD2ZE+l+SPC/uoS0vXeE9L1+0wuaMqKlfz9AMUo38JsyLSBWSFcHR1Rri62LZc12vLr1gb3jl7iwQhgwpAbGQ=="
+    },
     "signal-exit@4.1.0": {
       "integrity": "sha512-bzyZ1e88w9O1iNJbKnOlvYTrWPDl46O1bG0D3XInv+9tkPrxrN8jUUTiFlDkkmKWgn1M6CfIA13SuGqOa9Korw=="
     },
@@ -4199,6 +4474,13 @@
     },
     "sisteransi@1.0.5": {
       "integrity": "sha512-bLGGlR1QxBcynn2d5YmDX4MGjlZvy2MRBDRNHLJ8VI6l6+9FUiyTFNJ0IveOSP0bcXgVDPRcfGqA0pjaqUpfVg=="
+    },
+    "site-config-stack@2.2.21_vue@3.5.32__typescript@6.0.2": {
+      "integrity": "sha512-HRIgIgZAEK8XFYYepL/KtygJgmcUPdgxBJl0ueSrA12lNo2tk5aMkSuA2Oz/k6chnTbEwd6ESMYCs6opgYKNHw==",
+      "dependencies": [
+        "ufo",
+        "vue"
+      ]
     },
     "slash@5.1.0": {
       "integrity": "sha512-ZA6oR3T/pEyuqwMgAKT0/hAv8oAXckzbkmR0UkUosQ+Mc4RxGoJkRmwHgHufaenlyAgE1Mxgpdcrf75y6XcnDg=="
@@ -4238,8 +4520,8 @@
     "std-env@3.10.0": {
       "integrity": "sha512-5GS12FdOZNliM5mAOxFRg7Ir0pWz8MdpYm6AY6VPkGpbA7ZzmbzNcBJQ0GPvvyWgcY7QAhCgf9Uy89I03faLkg=="
     },
-    "std-env@4.0.0": {
-      "integrity": "sha512-zUMPtQ/HBY3/50VbpkupYHbRroTRZJPRLvreamgErJVys0ceuzMkD44J/QjqhHjOzK42GQ3QZIeFG1OYfOtKqQ=="
+    "std-env@4.1.0": {
+      "integrity": "sha512-Rq7ybcX2RuC55r9oaPVEW7/xu3tj8u4GeBYHBWCychFtzMIr86A7e3PPEBPT37sHStKX3+TiX/Fr/ACmJLVlLQ=="
     },
     "streamx@2.25.0": {
       "integrity": "sha512-0nQuG6jf1w+wddNEEXCF4nTg3LtufWINB5eFEN+5TNZW7KWJp6x87+JFL43vaAUPyCfH1wID+mNVyW6OHtFamg==",
@@ -4503,7 +4785,7 @@
         "mlly",
         "pathe@2.0.3",
         "picomatch@4.0.4",
-        "pkg-types@2.3.0",
+        "pkg-types@2.3.1",
         "scule",
         "strip-literal",
         "tinyglobby",
@@ -4589,7 +4871,7 @@
         "magic-string",
         "mlly",
         "pathe@2.0.3",
-        "pkg-types@2.3.0"
+        "pkg-types@2.3.1"
       ]
     },
     "update-browserslist-db@1.2.3_browserslist@4.28.2": {
@@ -4793,7 +5075,7 @@
         "@vue/compiler-sfc",
         "@vue/runtime-dom",
         "@vue/server-renderer",
-        "@vue/shared",
+        "@vue/shared@3.5.32",
         "typescript"
       ],
       "optionalPeers": [
@@ -4973,6 +5255,7 @@
       "dependencies": [
         "npm:@nuxt/fonts@0.14",
         "npm:@nuxt/test-utils@^3.17.0",
+        "npm:@nuxtjs/sitemap@6",
         "npm:@stripe/stripe-js@^9.0.1",
         "npm:@types/qrcode@^1.5.6",
         "npm:@vue/test-utils@^2.4.6",

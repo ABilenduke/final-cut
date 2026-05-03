@@ -19,6 +19,8 @@ test('admin can see the menu item list', function (): void {
 });
 
 test('admin can create a menu item via default Eloquent persistence', function (): void {
+    $location = Location::factory()->create();
+
     Livewire::test(CreateMenuItem::class)
         ->set('data.name', 'Large Popcorn')
         ->set('data.category', 'popcorn')
@@ -27,6 +29,7 @@ test('admin can create a menu item via default Eloquent persistence', function (
         ->set('data.allergens', ['dairy'])
         ->set('data.dietary', [])
         ->set('data.unavailable_at', true) // toggle ON = available
+        ->set('data.locations', [$location->id])
         ->call('create')
         ->assertHasNoFormErrors();
 
@@ -40,10 +43,13 @@ test('admin can create a menu item via default Eloquent persistence', function (
 });
 
 test('availability toggle OFF stamps unavailable_at', function (): void {
+    $location = Location::factory()->create();
     $item = MenuItem::factory()->create(['unavailable_at' => null]);
+    $item->locations()->attach($location);
 
     Livewire::test(EditMenuItem::class, ['record' => $item->getRouteKey()])
         ->set('data.unavailable_at', false) // toggle OFF = unavailable
+        ->set('data.locations', [$location->id])
         ->call('save')
         ->assertHasNoFormErrors();
 
@@ -52,10 +58,13 @@ test('availability toggle OFF stamps unavailable_at', function (): void {
 });
 
 test('availability toggle ON clears unavailable_at', function (): void {
+    $location = Location::factory()->create();
     $item = MenuItem::factory()->unavailable()->create();
+    $item->locations()->attach($location);
 
     Livewire::test(EditMenuItem::class, ['record' => $item->getRouteKey()])
         ->set('data.unavailable_at', true) // toggle ON = available
+        ->set('data.locations', [$location->id])
         ->call('save')
         ->assertHasNoFormErrors();
 

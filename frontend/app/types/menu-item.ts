@@ -8,6 +8,17 @@ export interface MenuItem {
   allergens: Allergen[]
   dietary: DietaryTag[]
   available: boolean
+  /**
+   * Location slugs where this item is available. An empty array means the item
+   * is not stocked anywhere (filter it out of public render). When the array
+   * equals the full venue roster, no caption is shown. A strict subset renders
+   * an "Available at X only" / "Available at X · Y" caption.
+   *
+   * Provided by the cross-location `/api/food-menu` endpoint (Task 7).
+   * Optional so legacy static menu data and per-location endpoints remain
+   * compatible without a breaking change.
+   */
+  available_at?: string[]
   /** Editorial size descriptor — e.g. "Large · 32 oz", "125 ml". */
   size?: string
   /** Curator label shown in the editorial card footer — e.g. "House", "Pairing", "Bar". */

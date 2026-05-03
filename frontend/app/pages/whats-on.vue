@@ -3,16 +3,35 @@ import type { AccessibilityTag, CalendarEvent } from '~/types/calendar-event'
 import { useApiFetch } from '~/utils/api'
 
 const route = useRoute()
+const appTimeZone = String(useRuntimeConfig().public.appTimeZone || 'America/New_York')
+
+// Use one serialized date for SSR and hydration. The client refreshes it after
+// mount so long-lived sessions can cross a date boundary without stale UI.
+const todayDate = useState<string>('whats-on:today-date', () => toLocalDateKey())
+
+if (import.meta.client) {
+  onMounted(() => {
+    todayDate.value = toLocalDateKey()
+  })
+}
+
+const todayParts = computed(() => {
+  const [yearText, monthText] = todayDate.value.split('-')
+  return {
+    year: Number(yearText),
+    month: Number(monthText),
+  }
+})
 
 // Read state from URL query params
 const month = computed(() => {
   const m = Number(route.query.month)
-  return m >= 1 && m <= 12 ? m : new Date().getMonth() + 1
+  return m >= 1 && m <= 12 ? m : todayParts.value.month
 })
 
 const year = computed(() => {
   const y = Number(route.query.year)
-  return y > 0 ? y : new Date().getFullYear()
+  return y > 0 ? y : todayParts.value.year
 })
 
 const view = computed<'month' | 'week' | 'list'>(() => {
@@ -24,12 +43,7 @@ const view = computed<'month' | 'week' | 'list'>(() => {
 const selectedDate = computed(() => {
   const d = route.query.date as string
   if (d && /^\d{4}-\d{2}-\d{2}$/.test(d)) return d
-  // Default to today
-  const now = new Date()
-  const yyyy = now.getFullYear()
-  const mm = String(now.getMonth() + 1).padStart(2, '0')
-  const dd = String(now.getDate()).padStart(2, '0')
-  return `${yyyy}-${mm}-${dd}`
+  return todayDate.value
 })
 
 const activeFilters = computed(() => {
@@ -107,6 +121,18 @@ function onNavigate(payload: { month: number; year: number }) {
   })
 }
 
+function toLocalDateKey(date = new Date()): string {
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: appTimeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  })
+  const parts = formatter.formatToParts(date)
+  const part = (type: string) => parts.find(p => p.type === type)?.value ?? ''
+  return `${part('year')}-${part('month')}-${part('day')}`
+}
+
 // SEO
 useHead({
   title: 'What\'s On — Final Cut',
@@ -137,6 +163,7 @@ useHead({
         <CalendarGrid
           :events="events"
           :selected-date="selectedDate"
+          :today-date="todayDate"
           :view="view"
           :month="month"
           :year="year"

@@ -1,11 +1,17 @@
 <script setup lang="ts">
 import type { Movie } from '~/types/movie'
+import type { FeaturedSlide } from '~/types/featured-slide'
 
 // --- SSR/ISR data ---
 const { nowShowing } = useMovies()
+const { data: slidesData } = useFeaturedSlides()
 
 const { data: nowShowingData } = nowShowing({ per_page: 12 })
 const nowShowingMovies = computed<Movie[]>(() => nowShowingData.value?.data ?? [])
+
+// Pass empty array when the API is pending/errored — the carousel's own
+// empty-state fallback renders the brand slide.
+const featuredSlides = computed<FeaturedSlide[]>(() => slidesData.value?.data ?? [])
 
 // Select featured movie from listing data (pure function, ISR-safe)
 const featuredMovie = computed<Movie | null>(
@@ -51,7 +57,10 @@ useHead({
 
 <template>
   <div class="home-page">
-    <!-- 1. Cinema hero — feature film + telemetry + side panel -->
+    <!-- 1. Featured hero carousel — admin-curated slides (Plan 13 Task 4) -->
+    <HomeFeaturedCarousel :slides="featuredSlides" />
+
+    <!-- 2. Cinema hero — feature film + telemetry + side panel (shown below the carousel when a movie is available) -->
     <HomeCinemaHero v-if="featuredMovie" :movie="featuredMovie" />
 
     <!-- 2. Now Showing — horizontal reel -->

@@ -14,4 +14,9 @@ class LocationController extends Controller
 
         return $this->successResponse(LocationResource::collection($locations));
     }
+
+    public function show(Location $location): JsonResponse
+    {
+        return $this->successResponse(new LocationResource($location));
+    }
 }

@@ -3,7 +3,11 @@
 namespace App\Providers;
 
 use App\Auth\AdminUserProvider;
+use App\Models\FeaturedSlide;
+use App\Models\MenuItem;
 use App\Models\User;
+use App\Observers\FeaturedSlideObserver;
+use App\Observers\MenuItemObserver;
 use Filament\Support\Assets\Css;
 use Filament\Support\Facades\FilamentAsset;
 use Illuminate\Auth\Events\Failed;
@@ -31,6 +35,15 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Observe MenuItem to invalidate the cross-location food-menu cache on
+        // save/delete. Pivot-level invalidation is handled by
+        // LocationMenuItemPivot (saved/deleted hooks on the pivot model itself).
+        MenuItem::observe(MenuItemObserver::class);
+
+        // Observe FeaturedSlide to invalidate the featured-slides public cache on
+        // save/delete.
+        FeaturedSlide::observe(FeaturedSlideObserver::class);
+
         // Filament admin brand overlay — Cinematic Void.
         // Plain CSS layered on top of Filament's compiled stylesheet. Run
         // `make admin-filament-assets` after editing the theme.css source.

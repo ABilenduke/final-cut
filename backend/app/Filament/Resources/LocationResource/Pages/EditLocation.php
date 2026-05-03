@@ -21,6 +21,30 @@ class EditLocation extends EditRecord
             ->updateLocation($record, $data, auth('admin')->user());
     }
 
+    /**
+     * Explode the hours JSON column into per-day virtual form fields so the
+     * Hours of Operation section hydrates correctly.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    protected function mutateFormDataBeforeFill(array $data): array
+    {
+        return LocationResource::explodeHoursForForm($data);
+    }
+
+    /**
+     * Re-assemble per-day virtual form fields back into the hours JSON shape
+     * before the data reaches handleRecordUpdate.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    protected function mutateFormDataBeforeSave(array $data): array
+    {
+        return LocationResource::implodeHoursFromForm($data);
+    }
+
     protected function getHeaderActions(): array
     {
         return [

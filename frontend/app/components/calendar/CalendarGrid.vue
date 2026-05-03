@@ -4,6 +4,7 @@ import type { CalendarEvent } from '~/types/calendar-event'
 const props = withDefaults(defineProps<{
   events: CalendarEvent[]
   selectedDate: string
+  todayDate?: string
   view?: 'month' | 'week' | 'list'
   month: number
   year: number
@@ -111,7 +112,7 @@ const eventsByDate = computed(() => {
   return map
 })
 
-const todayStr = computed(() => toISODate(new Date()))
+const todayStr = computed(() => props.todayDate ?? toISODate(new Date()))
 
 function toISODate(d: Date): string {
   const year = d.getFullYear?.() ?? d.getUTCFullYear()

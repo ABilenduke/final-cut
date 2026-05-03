@@ -11,6 +11,8 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Spatie\Activitylog\Models\Concerns\LogsActivity;
+use Spatie\Activitylog\Support\LogOptions;
 
 #[Fillable([
     'name', 'description', 'price', 'category', 'image_url',
@@ -19,7 +21,17 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 class MenuItem extends Model
 {
     /** @use HasFactory<MenuItemFactory> */
-    use HasFactory, HasUuids;
+    use HasFactory, HasUuids, LogsActivity;
+
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->logOnly(['name', 'description', 'price', 'category', 'image_url', 'allergens', 'dietary', 'unavailable_at'])
+            ->setDescriptionForEvent(fn (string $eventName) => $eventName)
+            ->logOnlyDirty()
+            ->dontLogEmptyChanges()
+            ->useLogName('admin');
+    }
 
     protected $appends = ['available'];
 

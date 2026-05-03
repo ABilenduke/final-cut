@@ -63,40 +63,23 @@ describe('useLocations', () => {
     expect(localStorageMock.setItem).not.toHaveBeenCalled()
   })
 
-  it('fetchLocations rehydrates from localStorage when locations are populated', async () => {
+  // fetchLocations no longer auto-rehydrates activeLocation — that is now
+  // the responsibility of restoreActiveLocation(), called lazily by the
+  // booking flow. These tests verify the catalog-only behaviour.
+
+  it('fetchLocations populates locations from API but does NOT set activeLocation', async () => {
     localStorageMock.setItem('active-location', 'uptown')
-    vi.clearAllMocks() // Clear the setItem mock call above
+    vi.clearAllMocks()
     mockApiFetch.mockResolvedValue({ data: [DOWNTOWN, UPTOWN] })
 
-    const { activeLocation, fetchLocations } = useLocations()
+    const { activeLocation, locations, fetchLocations } = useLocations()
     activeLocation.value = null
 
     await fetchLocations()
 
-    expect(activeLocation.value?.slug).toBe('uptown')
-  })
-
-  it('fetchLocations falls back to first location when stored slug is not found', async () => {
-    localStorageMock.setItem('active-location', 'gone')
-    vi.clearAllMocks()
-    mockApiFetch.mockResolvedValue({ data: [DOWNTOWN] })
-
-    const { activeLocation, fetchLocations } = useLocations()
-    activeLocation.value = null
-
-    await fetchLocations()
-
-    expect(activeLocation.value?.slug).toBe('downtown')
-  })
-
-  it('fetchLocations falls back to first location when no stored slug exists', async () => {
-    mockApiFetch.mockResolvedValue({ data: [DOWNTOWN] })
-    const { activeLocation, fetchLocations } = useLocations()
-    activeLocation.value = null
-
-    await fetchLocations()
-
-    expect(activeLocation.value?.slug).toBe('downtown')
+    expect(locations.value).toEqual([DOWNTOWN, UPTOWN])
+    // activeLocation must remain null — no auto-rehydration at fetch time
+    expect(activeLocation.value).toBeNull()
   })
 
   it('fetchLocations populates locations from API', async () => {
@@ -105,16 +88,6 @@ describe('useLocations', () => {
     await fetchLocations()
     expect(locations.value).toEqual([DOWNTOWN, UPTOWN])
     expect(mockApiFetch).toHaveBeenCalledWith('/api/locations')
-  })
-
-  it('fetchLocations triggers rehydration from localStorage', async () => {
-    localStorageMock.setItem('active-location', 'uptown')
-    vi.clearAllMocks()
-    mockApiFetch.mockResolvedValue({ data: [DOWNTOWN, UPTOWN] })
-    const { activeLocation, fetchLocations } = useLocations()
-    activeLocation.value = null
-    await fetchLocations()
-    expect(activeLocation.value?.slug).toBe('uptown')
   })
 
   it('fetchLocations with empty response keeps activeLocation null', async () => {
@@ -129,6 +102,54 @@ describe('useLocations', () => {
     const { locations, activeLocation, fetchLocations } = useLocations()
     await fetchLocations()
     expect(locations.value).toEqual([])
+    expect(activeLocation.value).toBeNull()
+  })
+
+  // restoreActiveLocation() — lazy bookmark restoration for the booking flow
+
+  it('restoreActiveLocation restores from localStorage when locations are loaded', () => {
+    localStorageMock.setItem('active-location', 'uptown')
+    vi.clearAllMocks()
+
+    const { locations, activeLocation, restoreActiveLocation } = useLocations()
+    locations.value = [DOWNTOWN, UPTOWN]
+    activeLocation.value = null
+
+    restoreActiveLocation()
+
+    expect(activeLocation.value?.slug).toBe('uptown')
+  })
+
+  it('restoreActiveLocation falls back to first location when stored slug is not found', () => {
+    localStorageMock.setItem('active-location', 'gone')
+    vi.clearAllMocks()
+
+    const { locations, activeLocation, restoreActiveLocation } = useLocations()
+    locations.value = [DOWNTOWN]
+    activeLocation.value = null
+
+    restoreActiveLocation()
+
+    expect(activeLocation.value?.slug).toBe('downtown')
+  })
+
+  it('restoreActiveLocation falls back to first location when no stored slug exists', () => {
+    const { locations, activeLocation, restoreActiveLocation } = useLocations()
+    locations.value = [DOWNTOWN]
+    activeLocation.value = null
+
+    restoreActiveLocation()
+
+    expect(activeLocation.value?.slug).toBe('downtown')
+  })
+
+  it('restoreActiveLocation is a noop when locations array is empty', () => {
+    const { locations, activeLocation, restoreActiveLocation } = useLocations()
+    locations.value = []
+    activeLocation.value = null
+
+    restoreActiveLocation()
+
     expect(activeLocation.value).toBeNull()
   })
 })

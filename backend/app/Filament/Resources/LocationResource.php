@@ -14,7 +14,9 @@ use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
+use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Support\Exceptions\Halt;
@@ -34,6 +36,17 @@ class LocationResource extends BaseResource
     protected static string|UnitEnum|null $navigationGroup = 'Operations';
 
     protected static ?int $navigationSort = 20;
+
+    /** Days of the week in order. Used to build the hours section. */
+    public const DAYS = [
+        'monday' => 'Monday',
+        'tuesday' => 'Tuesday',
+        'wednesday' => 'Wednesday',
+        'thursday' => 'Thursday',
+        'friday' => 'Friday',
+        'saturday' => 'Saturday',
+        'sunday' => 'Sunday',
+    ];
 
     public static function form(Schema $schema): Schema
     {
@@ -96,7 +109,137 @@ class LocationResource extends BaseResource
                         ->maxValue(180),
                 ])
                 ->columns(3),
+
+            self::hoursSection(),
         ]);
+    }
+
+    /**
+     * Builds the "Hours of Operation" form section.
+     *
+     * The `hours` JSON column is exploded into virtual per-day sub-fields
+     * by `mutateFormDataBeforeFill` on the Edit/Create page classes, then
+     * re-assembled by `mutateFormDataBeforeSave` / `mutateFormDataBeforeCreate`
+     * back into the JSON shape before reaching the service layer.
+     *
+     * The virtual fields (hours_{day}_closed, hours_{day}_open, hours_{day}_close)
+     * ARE included in the dehydrated form state (no ->dehydrated(false)) so that
+     * mutateFormDataBeforeSave can read them. implodeHoursFromForm strips them
+     * out and writes the assembled `hours` key before the data reaches the model.
+     *
+     * Shape saved to DB:
+     *   "monday": { "open": "HH:MM", "close": "HH:MM" }  — open day
+     *   "monday": null                                     — closed day
+     */
+    public static function hoursSection(): Section
+    {
+        $dayFields = [];
+
+        foreach (self::DAYS as $key => $label) {
+            $dayFields[] = Grid::make(3)
+                ->schema([
+                    Toggle::make("hours_{$key}_closed")
+                        ->label($label)
+                        ->live()
+                        ->columnSpan(1),
+
+                    TextInput::make("hours_{$key}_open")
+                        ->label('Opens')
+                        ->placeholder('HH:MM')
+                        ->regex('/^\d{1,2}:\d{2}$/')
+                        ->helperText('24-hour format, e.g. 12:00')
+                        ->hidden(fn ($get) => (bool) $get("hours_{$key}_closed"))
+                        ->columnSpan(1),
+
+                    TextInput::make("hours_{$key}_close")
+                        ->label('Closes')
+                        ->placeholder('HH:MM')
+                        ->regex('/^\d{1,2}:\d{2}$/')
+                        ->helperText('24-hour format, e.g. 23:00')
+                        ->hidden(fn ($get) => (bool) $get("hours_{$key}_closed"))
+                        ->columnSpan(1),
+                ]);
+        }
+
+        return Section::make('Hours of Operation')
+            ->description('All times are local to the venue\'s timezone. Leave a day marked "closed" for days the theater is not open.')
+            ->schema($dayFields)
+            ->collapsible();
+    }
+
+    /**
+     * Explodes the hours JSON column into per-day virtual form fields.
+     * Called from mutateFormDataBeforeFill on the Edit/Create pages.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    public static function explodeHoursForForm(array $data): array
+    {
+        $hours = $data['hours'] ?? [];
+        if (! is_array($hours)) {
+            $hours = [];
+        }
+
+        foreach (array_keys(self::DAYS) as $day) {
+            $dayData = $hours[$day] ?? null;
+
+            if ($dayData === null) {
+                // Closed — toggle on, no times
+                $data["hours_{$day}_closed"] = true;
+                $data["hours_{$day}_open"] = null;
+                $data["hours_{$day}_close"] = null;
+            } else {
+                $data["hours_{$day}_closed"] = false;
+                $data["hours_{$day}_open"] = $dayData['open'] ?? null;
+                $data["hours_{$day}_close"] = $dayData['close'] ?? null;
+            }
+        }
+
+        // Leave hours key in place — it is a real DB column that Filament
+        // will attempt to fill. mutateFormDataBeforeSave will overwrite it
+        // with the re-assembled value before the model is saved.
+        return $data;
+    }
+
+    /**
+     * Re-assembles the per-day virtual form fields back into the hours JSON
+     * shape expected by the DB column. Called from mutateFormDataBeforeSave.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    public static function implodeHoursFromForm(array $data): array
+    {
+        $hours = [];
+
+        foreach (array_keys(self::DAYS) as $day) {
+            $closed = (bool) ($data["hours_{$day}_closed"] ?? false);
+
+            if ($closed) {
+                $hours[$day] = null;
+            } else {
+                $open = $data["hours_{$day}_open"] ?? null;
+                $close = $data["hours_{$day}_close"] ?? null;
+
+                // If both times are blank treat as closed rather than storing
+                // an incomplete record.
+                if ($open === null && $close === null) {
+                    $hours[$day] = null;
+                } else {
+                    $hours[$day] = ['open' => $open, 'close' => $close];
+                }
+            }
+
+            // Remove the virtual keys — they must not reach the model.
+            unset($data["hours_{$day}_closed"]);
+            unset($data["hours_{$day}_open"]);
+            unset($data["hours_{$day}_close"]);
+        }
+
+        $data['hours'] = $hours;
+
+        return $data;
     }
 
     public static function table(Table $table): Table

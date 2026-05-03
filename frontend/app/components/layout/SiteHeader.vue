@@ -1,7 +1,6 @@
 <script setup lang="ts">
 const route = useRoute()
 const { user, isAuthenticated } = useAuth()
-const { locations, activeLocation, setLocation } = useLocations()
 const { activate, deactivate } = useFocusTrap()
 
 const mobileMenuOpen = ref(false)
@@ -26,11 +25,6 @@ function toggleMobileMenu() {
 
 function closeMobileMenu() {
   mobileMenuOpen.value = false
-}
-
-function onLocationChange(event: Event) {
-  const target = event.target as HTMLSelectElement
-  setLocation(target.value)
 }
 
 // Focus trap for mobile menu
@@ -87,22 +81,15 @@ function onKeydown(event: KeyboardEvent) {
         </NuxtLink>
       </nav>
 
-      <!-- Right cluster: location pill + auth -->
+      <!-- Right cluster: cinemas link + auth -->
       <div class="site-header__right">
-        <div v-if="locations.length > 0" class="site-header__loc-pill">
+        <!-- Location is a property of purchase intent, not browse session.
+             Users explore all cinemas via /locations; the booking flow
+             surfaces venue commitment via BookingLocationBanner. -->
+        <NuxtLink to="/locations" class="site-header__cinemas-link">
           <CvIcon name="location" size="sm" aria-hidden="true" />
-          <label for="location-select" class="sr-only">Theater location</label>
-          <select
-            id="location-select"
-            class="site-header__loc-select"
-            :value="activeLocation?.slug ?? ''"
-            @change="onLocationChange"
-          >
-            <option v-for="loc in locations" :key="loc.slug" :value="loc.slug">
-              {{ loc.name }}
-            </option>
-          </select>
-        </div>
+          <span>Find a Cinema</span>
+        </NuxtLink>
 
         <div class="site-header__auth">
           <template v-if="isAuthenticated">
@@ -313,34 +300,27 @@ function onKeydown(event: KeyboardEvent) {
   }
 }
 
-/* Location pill */
-.site-header__loc-pill {
+/* Find a Cinema link */
+.site-header__cinemas-link {
   display: inline-flex;
   align-items: center;
   gap: var(--space-sm);
   padding: var(--space-xs) var(--space-sm);
-  background-color: rgb(42 42 42 / 0.5);
-  border-radius: var(--radius-sm);
   color: var(--tertiary);
-  font-size: 0.8125rem;
-}
-
-.site-header__loc-select {
-  background: none;
-  border: none;
-  color: var(--on-surface);
   font-family: var(--font-body);
   font-size: 0.8125rem;
-  font-weight: 500;
-  padding: 0;
-  cursor: pointer;
-  max-width: 12rem;
+  text-decoration: none;
+  border-radius: var(--radius-sm);
+  transition: color var(--duration-standard) var(--ease-standard);
 }
 
-.site-header__loc-select:focus-visible {
+.site-header__cinemas-link:hover {
+  color: var(--on-surface);
+}
+
+.site-header__cinemas-link:focus-visible {
   outline: 0.125rem solid var(--secondary);
   outline-offset: 0.125rem;
-  border-radius: var(--radius-sm);
 }
 
 /* Auth */

@@ -12,11 +12,20 @@ const props = withDefaults(defineProps<{
   interactive?: boolean
   defaultCategory?: CatalogCategory
   defaultView?: ViewMode
+  /**
+   * Full venue roster from usePublicLocations.
+   * When provided, ConcessionItemCard computes availability captions for
+   * items whose available_at is a strict subset of all venues.
+   * Omit in the booking checkout flow — caption logic is handled there by
+   * Task 9's dimming/badge treatment instead.
+   */
+  venues?: Array<{ slug: string; name: string }>
 }>(), {
   cart: () => ({}),
   interactive: true,
   defaultCategory: 'all',
   defaultView: 'grid',
+  venues: () => [],
 })
 
 const emit = defineEmits<{
@@ -165,6 +174,7 @@ function quantityFor(itemId: string): number {
         :item="item"
         :quantity="quantityFor(item.id)"
         :interactive="props.interactive"
+        :venues="props.venues"
         @add="(id: string) => emit('add', id)"
         @increment="(id: string) => emit('increment', id)"
         @decrement="(id: string) => emit('decrement', id)"

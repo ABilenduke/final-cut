@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\Relations\HasManyThrough;
     'phone', 'email',
     'street', 'city', 'state', 'postal_code', 'country',
     'timezone', 'latitude', 'longitude',
+    'hours',
 ])]
 class Location extends Model
 {
@@ -27,6 +28,7 @@ class Location extends Model
         return [
             'latitude' => 'decimal:6',
             'longitude' => 'decimal:6',
+            'hours' => 'array',
         ];
     }
 
@@ -51,6 +53,7 @@ class Location extends Model
     public function menuItems(): BelongsToMany
     {
         return $this->belongsToMany(MenuItem::class)
+            ->using(LocationMenuItemPivot::class)
             ->withPivot(['price_override', 'unavailable_at'])
             ->withTimestamps();
     }
