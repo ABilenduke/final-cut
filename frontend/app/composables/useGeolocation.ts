@@ -20,6 +20,22 @@ const SESSION_KEY = 'fc:geo:coords'
 // Haversine formula constants
 const EARTH_RADIUS_MILES = 3958.8
 
+/**
+ * Round lat/long to two decimal places (~1.1 km at the equator, less at higher
+ * latitudes). The composable's only consumer is "distance to a venue" rendered
+ * as a label like "2.3 mi away" — the venues are kilometers apart, so this
+ * precision is more than enough to pick the closer one. Throwing away the
+ * extra precision before it touches sessionStorage means a future XSS or
+ * shared-machine inspection can't reverse-engineer a home address from the
+ * cache: the best a reader can do is "somewhere in this ~1 km square".
+ */
+function coarsenCoords(coords: GeolocationCoords): GeolocationCoords {
+  return {
+    latitude: Math.round(coords.latitude * 100) / 100,
+    longitude: Math.round(coords.longitude * 100) / 100,
+  }
+}
+
 function toRadians(degrees: number): number {
   return degrees * (Math.PI / 180)
 }
@@ -62,6 +78,13 @@ function readCachedCoords(): GeolocationCoords | null {
 
 function writeCachedCoords(coords: GeolocationCoords): void {
   try {
+    // Stored values are already coarsened by the caller — sessionStorage
+    // never receives raw GPS coords. CodeQL js/clear-text-storage-of-sensitive-data
+    // flags any latitude/longitude write to web storage; the threat model here
+    // is opt-in, per-tab, ~1 km precision, never sent to the server. Same-origin
+    // XSS could call navigator.geolocation directly with the granted permission,
+    // so withholding this cache only degrades the UX without changing the risk.
+    // codeql[js/clear-text-storage-of-sensitive-data]
     sessionStorage.setItem(
       SESSION_KEY,
       JSON.stringify({ latitude: coords.latitude, longitude: coords.longitude, ts: Date.now() }),
@@ -110,10 +133,13 @@ export function useGeolocation() {
     return new Promise<void>((resolve) => {
       navigator.geolocation.getCurrentPosition(
         (position) => {
-          const granted: GeolocationCoords = {
+          // Coarsen at the source — neither the in-memory `coords` ref nor the
+          // sessionStorage cache ever holds the precise reading. See coarsenCoords()
+          // for the rationale.
+          const granted = coarsenCoords({
             latitude: position.coords.latitude,
             longitude: position.coords.longitude,
-          }
+          })
           coords.value = granted
           status.value = 'granted'
           writeCachedCoords(granted)

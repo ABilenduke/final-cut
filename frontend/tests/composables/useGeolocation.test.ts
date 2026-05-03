@@ -93,6 +93,46 @@ describe('useGeolocation', () => {
     )
   })
 
+  // ── (b2) request() — coarsens GPS coords before storing ──────────────────
+
+  it('(b2) request() rounds latitude/longitude to two decimal places', async () => {
+    // 40.71281, -74.00598 → 40.71, -74.01
+    // Coarsening at the source is the active mitigation for CodeQL
+    // js/clear-text-storage-of-sensitive-data on the sessionStorage write
+    // (see useGeolocation.ts for full rationale). This test pins that
+    // neither the in-memory ref nor the cached entry carries the raw
+    // sub-100m precision the browser hands us.
+    const mockGetCurrentPosition = vi.fn((success: PositionCallback) => {
+      success({
+        coords: { latitude: 40.71281, longitude: -74.00598, accuracy: 10, altitude: null, altitudeAccuracy: null, heading: null, speed: null },
+        timestamp: Date.now(),
+      } as GeolocationPosition)
+    })
+    Object.defineProperty(globalThis.navigator, 'geolocation', {
+      value: { getCurrentPosition: mockGetCurrentPosition },
+      writable: true,
+      configurable: true,
+    })
+
+    const { coords, request } = useGeolocation()
+    await request()
+
+    expect(coords.value).toEqual({ latitude: 40.71, longitude: -74.01 })
+    expect(sessionStorageMock.setItem).toHaveBeenCalledWith(
+      'fc:geo:coords',
+      expect.stringContaining('"latitude":40.71'),
+    )
+    expect(sessionStorageMock.setItem).toHaveBeenCalledWith(
+      'fc:geo:coords',
+      expect.stringContaining('"longitude":-74.01'),
+    )
+    // And specifically NOT the raw precision
+    const writtenCalls = sessionStorageMock.setItem.mock.calls
+    const writtenPayloads = writtenCalls.map(([, v]) => v).join('\n')
+    expect(writtenPayloads).not.toContain('40.71281')
+    expect(writtenPayloads).not.toContain('-74.00598')
+  })
+
   // ── (c) request() — denied path ───────────────────────────────────────────
 
   it('(c) request() denied path sets status=denied with a non-null error', async () => {
