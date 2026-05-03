@@ -83,14 +83,23 @@ class MovieShowtimesController extends Controller
             // locations table is already joined above (line 49), so we filter
             // against locations.timezone directly instead of issuing a
             // correlated whereHas subquery per timezone.
+            //
+            // Compute both bounds in the venue timezone FIRST, then convert
+            // each to UTC. addDay() on a tz-aware Carbon respects DST so the
+            // local day is correctly 23/25 hours on transition dates; doing
+            // the math purely in UTC would add a fixed 24h and miss showtimes
+            // near the spring-forward / fall-back boundary.
             $query->where(function ($q) use ($timezones, $date) {
                 foreach ($timezones as $tz) {
-                    $dayStart = Carbon::createFromFormat('Y-m-d', $date, $tz)->startOfDay()->utc();
-                    $dayEnd = $dayStart->copy()->addDay();
+                    $localDayStart = Carbon::createFromFormat('Y-m-d', $date, $tz)->startOfDay();
+                    $localDayEnd = $localDayStart->copy()->addDay();
+                    $dayStartUtc = $localDayStart->copy()->utc();
+                    $dayEndUtc = $localDayEnd->copy()->utc();
 
-                    $q->orWhere(function ($inner) use ($dayStart, $dayEnd, $tz) {
+                    $q->orWhere(function ($inner) use ($dayStartUtc, $dayEndUtc, $tz) {
                         $inner->where('locations.timezone', $tz)
-                            ->whereBetween('showtimes.start_time', [$dayStart, $dayEnd->subSecond()]);
+                            ->where('showtimes.start_time', '>=', $dayStartUtc)
+                            ->where('showtimes.start_time', '<', $dayEndUtc);
                     });
                 }
             });

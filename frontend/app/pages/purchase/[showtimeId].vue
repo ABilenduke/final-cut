@@ -18,7 +18,7 @@ useHead({
 const route = useRoute()
 const showtimeId = route.params.showtimeId as string
 
-const { activeLocation } = useLocations()
+const { activeLocation, locations, fetchLocations, setLocation, restoreActiveLocation } = useLocations()
 const cart = useCart()
 const { show: showToast } = useToast()
 const { setStep } = usePurchaseStep()
@@ -34,8 +34,31 @@ const error = ref('')
 const partySize = ref(2)
 const preferences = ref<Preference[]>([])
 
+// The cross-location showtime selector links carry ?loc=<slug> so a direct
+// /purchase/<id> visit can bootstrap activeLocation without depending on an
+// already-restored localStorage value. Falls back to localStorage, then to
+// the first known location.
+async function ensureActiveLocation(): Promise<boolean> {
+  if (activeLocation.value) return true
+
+  if (locations.value.length === 0) {
+    await fetchLocations()
+  }
+
+  const queryLoc = route.query.loc
+  const fromQuery = typeof queryLoc === 'string' ? queryLoc : Array.isArray(queryLoc) ? queryLoc[0] : null
+  if (fromQuery) {
+    setLocation(fromQuery)
+    if (activeLocation.value) return true
+  }
+
+  restoreActiveLocation()
+  return activeLocation.value != null
+}
+
 onMounted(async () => {
-  if (!activeLocation.value) {
+  const ready = await ensureActiveLocation()
+  if (!ready) {
     showToast({ message: 'Please select a location first.', type: 'error' })
     await navigateTo('/')
     return
@@ -44,7 +67,7 @@ onMounted(async () => {
   try {
     const response = await apiFetch<{
       data: { showtime: Showtime; auditorium: Auditorium; seats: Seat[] }
-    }>(`/api/locations/${activeLocation.value.slug}/showtimes/${showtimeId}`)
+    }>(`/api/locations/${activeLocation.value!.slug}/showtimes/${showtimeId}`)
 
     showtime.value = response.data.showtime
     auditorium.value = response.data.auditorium

@@ -197,7 +197,10 @@ describe('ShowtimeSelector', () => {
 
   // ── Time slot routing ────────────────────────────────────────────────────
 
-  it('each time slot links to /purchase/:showtimeId', async () => {
+  it('each time slot links to /purchase/:showtimeId with ?loc=<venue-slug>', async () => {
+    // The ?loc= query carries the venue slug forward to the seat-picker so
+    // a direct visit can bootstrap activeLocation without depending on a
+    // previously-restored localStorage value (Codex review fix).
     const showtimes = [
       makeShowtime({ id: 'st-99', location: DOWNTOWN, startTime: '2026-04-07T19:00:00Z' }),
     ]
@@ -206,7 +209,7 @@ describe('ShowtimeSelector', () => {
     })
     const slot = wrapper.find('.showtime-selector__slot')
     expect(slot.exists()).toBe(true)
-    expect(slot.attributes('href')).toBe('/purchase/st-99')
+    expect(slot.attributes('href')).toBe('/purchase/st-99?loc=downtown')
   })
 
   // ── Venue toggle ─────────────────────────────────────────────────────────

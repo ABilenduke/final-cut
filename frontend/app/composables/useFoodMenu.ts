@@ -55,27 +55,29 @@ export function useFoodMenu() {
 
   /**
    * Fetch the food menu. Pass a locationSlug to hit the per-location API;
-   * omit it to fall back immediately to the static editorial menu (used by
-   * the /food-drink browse page until Task 7 lands the shared endpoint).
+   * omit it to hit the cross-location /api/food-menu (each item carries
+   * `available_at: string[]` so the checkout dimming + cart guard work).
    *
-   * NOTE: This path is preserved for the booking checkout flow. Do not remove.
+   * The static menuData stays as a last-resort graceful fallback if both
+   * API calls fail — items still render so the page isn't broken, but
+   * `available_at` will be undefined which the cart guard treats as allowed.
    */
   async function fetchMenu(locationSlug?: string): Promise<void> {
     loading.value = true
     error.value = null
 
-    if (!locationSlug) {
-      // No location provided — fall back to the static editorial menu.
-      items.value = menuData.map(enrich)
-      loading.value = false
-      return
-    }
-
     try {
-      const response = await apiFetch<{ data: Record<string, MenuItem[]> }>(
-        `/api/locations/${locationSlug}/food-menu`,
-      )
-      const flat = Object.values(response.data).flat()
+      const url = locationSlug
+        ? `/api/locations/${locationSlug}/food-menu`
+        : '/api/food-menu'
+
+      // The per-location endpoint returns items grouped by category;
+      // the cross-location endpoint returns a flat list. Normalise both
+      // shapes into a flat MenuItem[] for the shared `items` ref.
+      const response = await apiFetch<{ data: MenuItem[] | Record<string, MenuItem[]> }>(url)
+      const flat = Array.isArray(response.data)
+        ? response.data
+        : Object.values(response.data).flat()
       items.value = flat.map(enrich)
     } catch (err) {
       // Graceful fallback — keep the catalog visible with the static menu.

@@ -140,17 +140,37 @@ describe('useFoodMenu', () => {
   // ─── fetchMenu() — per-location path (booking flow) ───────────────────────
 
   describe('fetchMenu()', () => {
-    it('falls back to static menuData when no location slug is provided', async () => {
+    it('hits /api/food-menu when no location slug is provided', async () => {
+      // No-slug path now fetches the cross-location menu so the booking
+      // checkout flow gets each item's `available_at` for the dimming guard.
+      mockApiFetch.mockResolvedValue({
+        data: [
+          {
+            id: 'pop-sm',
+            name: 'Small Popcorn',
+            description: 'Classic buttered popcorn in a small tub.',
+            price: 699,
+            category: 'popcorn',
+            imageUrl: '/images/menu/popcorn-small.jpg',
+            allergens: ['dairy'],
+            dietary: [],
+            available: true,
+            available_at: ['downtown', 'uptown'],
+          },
+        ],
+      })
+
       const { items, fetchMenu } = useFoodMenu()
 
       await fetchMenu()
 
-      expect(mockApiFetch).not.toHaveBeenCalled()
-      expect(items.value.length).toBe(menuData.length)
-      // Fallback path still runs enrichment → editorial fields come through.
+      expect(mockApiFetch).toHaveBeenCalledWith('/api/food-menu')
+      expect(items.value.length).toBe(1)
+      // Cross-location path still runs enrichment → editorial fields come through.
       const popSm = items.value.find((i) => i.id === 'pop-sm')
       expect(popSm?.size).toBe(POP_SM_OVERLAY?.size)
       expect(popSm?.curator).toBe(POP_SM_OVERLAY?.curator)
+      expect(popSm?.available_at).toEqual(['downtown', 'uptown'])
     })
 
     it('fetches the location-scoped menu when a slug is provided and enriches items', async () => {
@@ -247,15 +267,19 @@ describe('useFoodMenu', () => {
 
     it('does not read or depend on useLocations().activeLocation', async () => {
       // This test guards the Task 2 contract: useFoodMenu must not read activeLocation.
-      // We verify that calling fetchMenu without arguments does NOT trigger an API
-      // call even if someone manually sets activeLocation (which should have no effect).
+      // Verify that calling fetchMenu does NOT read activeLocation — the
+      // composable's location coupling was demoted in Plan 13 Task 2. The
+      // no-slug path now fetches /api/food-menu (cross-location) regardless
+      // of any activeLocation value, but it must not READ that ref.
+      mockApiFetch.mockResolvedValue({ data: [] })
       const { activeLocation } = useLocations()
       activeLocation.value = { id: '1', name: 'Downtown', slug: 'downtown', address: '123 Main St' }
 
       const { fetchMenu } = useFoodMenu()
-      await fetchMenu() // no slug arg → should still use static fallback
+      await fetchMenu() // no slug arg → cross-location endpoint, never per-location
 
-      expect(mockApiFetch).not.toHaveBeenCalled()
+      expect(mockApiFetch).toHaveBeenCalledWith('/api/food-menu')
+      expect(mockApiFetch).not.toHaveBeenCalledWith('/api/locations/downtown/food-menu')
     })
   })
 })

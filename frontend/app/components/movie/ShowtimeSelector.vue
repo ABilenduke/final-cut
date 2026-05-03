@@ -316,7 +316,7 @@ function formatDistance(miles: number | null): string {
               <NuxtLink
                 v-for="slot in group.slots"
                 :key="slot.id"
-                :to="`/purchase/${slot.id}`"
+                :to="{ path: `/purchase/${slot.id}`, query: { loc: group.location.slug } }"
                 class="showtime-selector__slot"
               >
                 <span class="showtime-selector__slot-time">
