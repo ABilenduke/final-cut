@@ -22,7 +22,13 @@ class FeaturedSlideObserver
 
     public static function bumpVersion(): void
     {
-        Cache::increment(self::CACHE_VERSION_KEY);
+        // Laravel's database cache store returns false from increment() when
+        // the key is absent (only Redis/array seed atomically). Without this
+        // guard, the very first bump on a fresh cache silently no-ops and
+        // invalidation stays broken until something else seeds the key.
+        if (Cache::increment(self::CACHE_VERSION_KEY) === false) {
+            Cache::forever(self::CACHE_VERSION_KEY, 1);
+        }
     }
 
     public function saved(FeaturedSlide $slide): void

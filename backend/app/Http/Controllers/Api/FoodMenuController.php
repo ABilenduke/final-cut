@@ -34,16 +34,22 @@ class FoodMenuController extends Controller
         $version = (int) Cache::get(MenuItemObserver::CACHE_VERSION_KEY, 0);
         $cacheKey = "food_menu_public:v{$version}";
 
-        $items = Cache::remember($cacheKey, 300, function () {
+        // Cache the resolved resource array, not the Eloquent Collection.
+        // Laravel 13's `cache.serializable_classes => false` default refuses
+        // to deserialize any class out of the cache (gadget-chain protection),
+        // so storing models would round-trip as __PHP_Incomplete_Class.
+        $data = Cache::remember($cacheKey, 300, function () {
             return MenuItem::query()
                 ->currentlyAvailable()
                 ->with('locations:id,slug')
                 ->orderBy('category')
                 ->orderBy('name')
-                ->get();
+                ->get()
+                ->map(fn (MenuItem $item) => (new CrossLocationMenuItemResource($item))->resolve())
+                ->all();
         });
 
-        return $this->successResponse(CrossLocationMenuItemResource::collection($items));
+        return $this->successResponse($data);
     }
 
     /**

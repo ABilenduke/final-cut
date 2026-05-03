@@ -35,13 +35,19 @@ class FeaturedSlideController extends Controller
         $version = (int) Cache::get(FeaturedSlideObserver::CACHE_VERSION_KEY, 0);
         $cacheKey = "featured_slides_public:v{$version}";
 
-        $slides = Cache::remember($cacheKey, 300, function () {
+        // Cache the resolved resource array, not the Eloquent Collection.
+        // Laravel 13's `cache.serializable_classes => false` default refuses
+        // to deserialize any class out of the cache (gadget-chain protection),
+        // so storing models would round-trip as __PHP_Incomplete_Class.
+        $data = Cache::remember($cacheKey, 300, function () {
             return FeaturedSlide::active()
                 ->orderBy('display_order')
                 ->orderBy('id')
-                ->get();
+                ->get()
+                ->map(fn (FeaturedSlide $slide) => (new FeaturedSlideResource($slide))->resolve())
+                ->all();
         });
 
-        return $this->successResponse(FeaturedSlideResource::collection($slides));
+        return $this->successResponse($data);
     }
 }

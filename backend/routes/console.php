@@ -25,3 +25,10 @@ Schedule::command('outbox:dispatch')
     ->runInBackground();
 
 Schedule::command('outbox:prune')->daily();
+
+// Daily floor on content-cache staleness. The version keys also bump on
+// admin writes (FeaturedSlideObserver, MenuItemObserver), and the entries
+// themselves carry a 5-minute TTL, so this is belt-and-suspenders against
+// time-windowed records (slides with ends_at, menu items with seasonal
+// availability) drifting if neither path triggers.
+Schedule::command('cache:refresh-content-versions')->dailyAt('00:00');
