@@ -10,12 +10,20 @@ services:
         DEV_GID: ${DEV_GID:-1000}
     volumes:
       - ./frontend:/app
+      # Shadow .nuxt/ with a named volume so Nuxt's build output and Nitro
+      # cache live inside the container, not on the bind-mounted host
+      # filesystem. Without this, fs-lite cache key collisions (file vs
+      # directory at .nuxt/cache/nuxt/payload) persist across container
+      # rebuilds because the host tree survives `make down/build/up`.
+      - frontend-nuxt:/app/.nuxt
       - frontend-deno-cache:/home/devuser/.cache/deno
       - ./nginx/certs/ca.pem:/tls/nginx/ca.pem:ro
     environment:
       - NODE_ENV=development
       - NUXT_PUBLIC_API_BASE_URL=https://${APP_DOMAIN:-finalcut.test}
       - DENO_CERT=/tls/nginx/ca.pem
+      - DEV_UID=${DEV_UID:-1000}
+      - DEV_GID=${DEV_GID:-1000}
     healthcheck:
       test: ["CMD", "deno", "eval", "await fetch('http://127.0.0.1:3000/')"]
       interval: 15s
@@ -106,3 +114,4 @@ services:
 volumes:
   backend-vendor:
   frontend-deno-cache:
+  frontend-nuxt:
