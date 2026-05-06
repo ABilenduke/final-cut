@@ -35,6 +35,17 @@ class LocationFactory extends Factory
             'timezone' => 'America/New_York',
             'latitude' => fake()->latitude(25, 49),
             'longitude' => fake()->longitude(-124, -67),
+            // Default weekly hours. Closed days set the day key to null.
+            // Hours are local to the venue's `timezone`.
+            'hours' => [
+                'monday' => ['open' => '12:00', 'close' => '23:00'],
+                'tuesday' => ['open' => '12:00', 'close' => '23:00'],
+                'wednesday' => ['open' => '12:00', 'close' => '23:00'],
+                'thursday' => ['open' => '12:00', 'close' => '23:30'],
+                'friday' => ['open' => '12:00', 'close' => '00:30'],
+                'saturday' => ['open' => '10:00', 'close' => '00:30'],
+                'sunday' => ['open' => '10:00', 'close' => '23:00'],
+            ],
         ];
     }
 }

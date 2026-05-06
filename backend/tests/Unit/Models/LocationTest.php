@@ -53,3 +53,36 @@ it('enforces unique slug constraint', function () {
     Location::factory()->create(['slug' => 'downtown']);
     Location::factory()->create(['slug' => 'downtown']);
 })->throws(QueryException::class);
+
+it('casts hours to array', function () {
+    $hours = [
+        'monday' => ['open' => '12:00', 'close' => '23:00'],
+        'tuesday' => ['open' => '12:00', 'close' => '23:00'],
+        'wednesday' => ['open' => '12:00', 'close' => '23:00'],
+        'thursday' => ['open' => '12:00', 'close' => '23:00'],
+        'friday' => ['open' => '12:00', 'close' => '00:30'],
+        'saturday' => ['open' => '10:00', 'close' => '00:30'],
+        'sunday' => ['open' => '10:00', 'close' => '23:00'],
+    ];
+
+    $location = Location::factory()->create(['hours' => $hours]);
+
+    // Re-fetch from DB to confirm the cast round-trips through JSON storage
+    $fresh = Location::find($location->id);
+    expect($fresh->hours)->toBeArray()
+        ->and($fresh->hours['monday'])->toBe(['open' => '12:00', 'close' => '23:00'])
+        ->and($fresh->hours['saturday'])->toBe(['open' => '10:00', 'close' => '00:30']);
+});
+
+it('hours is null when not set', function () {
+    $location = Location::factory()->create(['hours' => null]);
+    $fresh = Location::find($location->id);
+    expect($fresh->hours)->toBeNull();
+});
+
+it('factory produces valid hours by default', function () {
+    $location = Location::factory()->create();
+    expect($location->hours)->toBeArray()
+        ->and($location->hours)->toHaveKey('monday')
+        ->and($location->hours)->toHaveKey('sunday');
+});

@@ -7,9 +7,18 @@ const props = withDefaults(defineProps<{
   quantity?: number
   /** When false, hides the Add / qty controls — the card becomes a static menu listing. */
   interactive?: boolean
+  /**
+   * Full venue roster used to compute the availability caption.
+   * Provided by the /food-drink browse page from usePublicLocations.
+   * Omitted in the booking checkout flow (where the menu is already
+   * filtered to the booking's location and captions are replaced by the
+   * dimming/badge treatment in Task 9).
+   */
+  venues?: Array<{ slug: string; name: string }>
 }>(), {
   quantity: 0,
   interactive: true,
+  venues: () => [],
 })
 
 const emit = defineEmits<{
@@ -64,6 +73,31 @@ const dietaryMarks = computed<Array<{ key: string; label: string }>>(() =>
     label: DIETARY_LABELS[tag] ?? tag.toUpperCase(),
   })),
 )
+
+/**
+ * Per-item availability caption for the cross-location browse page.
+ *
+ * Rules (Task 7 / PAGE_SPECS.md § /food-drink):
+ *   - available_at equals full venue roster → no caption (item everywhere)
+ *   - strict subset, one venue            → "Available at X only"
+ *   - strict subset, multiple             → "Available at X · Y"
+ *   - no venues prop or no available_at   → no caption (graceful degradation)
+ */
+const availabilityCaption = computed<string | null>(() => {
+  const venues = props.venues ?? []
+  const availableAt = props.item.available_at ?? []
+
+  if (venues.length === 0 || availableAt.length === 0) return null
+  if (availableAt.length >= venues.length) return null
+
+  const names = availableAt
+    .map(slug => venues.find(v => v.slug === slug)?.name)
+    .filter((n): n is string => Boolean(n))
+
+  if (names.length === 0) return null
+  if (names.length === 1) return `Available at ${names[0]} only`
+  return `Available at ${names.join(' · ')}`
+})
 </script>
 
 <template>
@@ -97,6 +131,11 @@ const dietaryMarks = computed<Array<{ key: string; label: string }>>(() =>
         </span>
       </div>
     </div>
+
+    <!-- Availability caption — shown only on browse page when venues prop is provided -->
+    <p v-if="availabilityCaption" class="prod__availability" aria-label="Availability note">
+      {{ availabilityCaption }}
+    </p>
 
     <div class="prod__foot">
       <span class="prod__curator"><b>{{ curatorLabel }}</b> · curated</span>
@@ -397,6 +436,28 @@ const dietaryMarks = computed<Array<{ key: string; label: string }>>(() =>
   font-family: var(--font-display);
   font-size: 0.9rem;
   line-height: 1;
+}
+
+/*
+ * Availability caption — low-emphasis ambient text per the design system's
+ * on-tertiary-fixed-variant token (#A89F91, 7.11:1 on surface). A subtle
+ * separator and leading arrow glyph signal "note" without a warning-colored
+ * badge that would over-index on a non-blocking informational cue.
+ */
+.prod__availability {
+  font-family: var(--font-body);
+  font-size: 0.6875rem;
+  letter-spacing: 0.08em;
+  color: var(--on-tertiary-fixed-variant);
+  margin: 0;
+  padding-top: var(--space-xs);
+  border-top: var(--border-hairline) solid rgb(var(--outline-variant-rgb) / 0.2);
+}
+
+.prod__availability::before {
+  content: '→ ';
+  color: var(--secondary);
+  font-family: var(--font-display);
 }
 
 @media (max-width: 60rem) {

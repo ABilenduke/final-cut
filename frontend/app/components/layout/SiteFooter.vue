@@ -2,6 +2,7 @@
 const currentYear = new Date().getFullYear()
 
 const navItems = [
+  { label: 'Our Cinemas', href: '/locations' },
   { label: 'Contact', href: '/contact' },
   { label: 'FAQ', href: '/faq' },
   { label: 'Accessibility', href: '/accessibility' },

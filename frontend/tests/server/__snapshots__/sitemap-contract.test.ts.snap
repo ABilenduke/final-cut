@@ -1,0 +1,27 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`sitemap static URL contract > locks the excluded URL set 1`] = `
+[
+  "/account",
+  "/auth/",
+  "/purchase/",
+]
+`;
+
+exports[`sitemap static URL contract > locks the static URL set the sitemap must emit 1`] = `
+[
+  "/",
+  "/accessibility",
+  "/blog",
+  "/careers",
+  "/contact",
+  "/events",
+  "/faq",
+  "/food-drink",
+  "/gift-cards",
+  "/locations",
+  "/movies",
+  "/private-screenings",
+  "/whats-on",
+]
+`;

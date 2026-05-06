@@ -22,9 +22,11 @@ return new class extends Migration
             $table->string('ticket_url')->nullable();
             $table->boolean('loyalty_only')->default(false);
             $table->json('accessibility_tags')->nullable();
+            $table->foreignUuid('location_id')->nullable()->constrained('locations')->nullOnDelete();
             $table->timestamps();
 
             $table->index(['date', 'type']);
+            $table->index('location_id');
         });
     }
 

@@ -28,6 +28,15 @@ class AuditoriumSeeder extends Seeder
                 'timezone' => 'America/New_York',
                 'latitude' => 40.712776,
                 'longitude' => -74.005974,
+                'hours' => [
+                    'monday' => ['open' => '12:00', 'close' => '23:00'],
+                    'tuesday' => ['open' => '12:00', 'close' => '23:00'],
+                    'wednesday' => ['open' => '12:00', 'close' => '23:00'],
+                    'thursday' => ['open' => '12:00', 'close' => '23:30'],
+                    'friday' => ['open' => '12:00', 'close' => '00:30'],
+                    'saturday' => ['open' => '10:00', 'close' => '00:30'],
+                    'sunday' => ['open' => '10:00', 'close' => '23:00'],
+                ],
             ],
         );
 
@@ -45,6 +54,15 @@ class AuditoriumSeeder extends Seeder
                 'timezone' => 'America/New_York',
                 'latitude' => 40.730610,
                 'longitude' => -73.935242,
+                'hours' => [
+                    'monday' => ['open' => '12:00', 'close' => '23:00'],
+                    'tuesday' => ['open' => '12:00', 'close' => '23:00'],
+                    'wednesday' => ['open' => '12:00', 'close' => '23:00'],
+                    'thursday' => ['open' => '12:00', 'close' => '23:30'],
+                    'friday' => ['open' => '12:00', 'close' => '00:30'],
+                    'saturday' => ['open' => '10:00', 'close' => '00:30'],
+                    'sunday' => null,
+                ],
             ],
         );
 

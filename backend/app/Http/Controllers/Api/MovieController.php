@@ -14,12 +14,25 @@ class MovieController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
+        $locationSlug = $this->resolveOptionalLocationSlug($request);
+        if ($locationSlug instanceof JsonResponse) {
+            return $locationSlug;
+        }
+
         $status = $request->input('status', 'now_showing');
         $perPage = min(max((int) $request->input('per_page', 20), 1), 100);
 
-        $paginator = Movie::where('status', $status)
-            ->orderBy('title')
-            ->paginate($perPage);
+        $query = Movie::where('status', $status)->orderBy('title');
+
+        if (! empty($locationSlug)) {
+            $query->whereHas('showtimes', fn ($q) => $q
+                ->where('start_time', '>=', now())
+                ->whereNull('cancelled_at')
+                ->whereHas('auditorium.location', fn ($q) => $q->where('slug', $locationSlug))
+            );
+        }
+
+        $paginator = $query->paginate($perPage);
 
         return $this->successResponse(
             MovieListResource::collection($paginator->items()),

@@ -349,4 +349,106 @@ describe('useCart', () => {
 
     expect(mockToastShow).not.toHaveBeenCalled()
   })
+
+  // ── addFoodItem availability guard (Task 9) ────────────────────────────
+  //
+  // The cart carries defense-in-depth against items that aren't stocked at
+  // the booking's location. The UI (FoodPreOrderPanel) suppresses add events
+  // before they reach here, but a buggy callsite must also be blocked.
+
+  describe('addFoodItem availability guard', () => {
+    function makeShowtimeWithLocation(locationSlug: string): Showtime {
+      return {
+        ...makeShowtime(),
+        location: { slug: locationSlug, name: 'Test Location', latitude: null, longitude: null },
+      } as Showtime
+    }
+
+    it('allows adding an item that is available at the booking location', () => {
+      const cart = useCart()
+      cart.initializeCart(makeShowtimeWithLocation('downtown'))
+
+      const result = cart.addFoodItem('pop-1', 'Large Popcorn', 800, ['downtown', 'uptown'])
+
+      expect(result).toBe(true)
+      expect(cart.foodItems.value).toHaveLength(1)
+      expect(cart.foodItems.value[0].itemId).toBe('pop-1')
+      expect(mockToastShow).not.toHaveBeenCalled()
+    })
+
+    it('blocks adding an item NOT available at the booking location and shows an error toast', () => {
+      const cart = useCart()
+      cart.initializeCart(makeShowtimeWithLocation('downtown'))
+
+      const result = cart.addFoodItem('pop-uptown', 'Uptown Special', 1200, ['uptown'])
+
+      expect(result).toBe(false)
+      expect(cart.foodItems.value).toHaveLength(0)
+      expect(mockToastShow).toHaveBeenCalledWith({
+        message: "Uptown Special isn't available at this location.",
+        type: 'error',
+      })
+    })
+
+    it('leaves cart unchanged after a rejected add', () => {
+      const cart = useCart()
+      cart.initializeCart(makeShowtimeWithLocation('downtown'))
+      // Add an allowed item first
+      cart.addFoodItem('pop-1', 'Regular Popcorn', 800, ['downtown'])
+      expect(cart.foodItems.value).toHaveLength(1)
+
+      // Attempt to add an unavailable item
+      cart.addFoodItem('pop-uptown', 'Uptown Special', 1200, ['uptown'])
+
+      // Only the first item should be in the cart
+      expect(cart.foodItems.value).toHaveLength(1)
+      expect(cart.foodItems.value[0].itemId).toBe('pop-1')
+    })
+
+    it('allows the add when available_at is an empty array (defensive default)', () => {
+      const cart = useCart()
+      cart.initializeCart(makeShowtimeWithLocation('downtown'))
+
+      const result = cart.addFoodItem('legacy-1', 'Legacy Item', 500, [])
+
+      expect(result).toBe(true)
+      expect(cart.foodItems.value).toHaveLength(1)
+      expect(mockToastShow).not.toHaveBeenCalled()
+    })
+
+    it('allows the add when available_at is undefined (defensive default)', () => {
+      const cart = useCart()
+      cart.initializeCart(makeShowtimeWithLocation('downtown'))
+
+      const result = cart.addFoodItem('legacy-1', 'Legacy Item', 500, undefined)
+
+      expect(result).toBe(true)
+      expect(cart.foodItems.value).toHaveLength(1)
+      expect(mockToastShow).not.toHaveBeenCalled()
+    })
+
+    it('allows the add when showtime has no location field (cannot determine booking location)', () => {
+      const cart = useCart()
+      // Showtime without location — guard cannot determine booking location, defaults to allow
+      cart.initializeCart(makeShowtime())
+
+      const result = cart.addFoodItem('pop-1', 'Popcorn', 800, ['uptown'])
+
+      expect(result).toBe(true)
+      expect(cart.foodItems.value).toHaveLength(1)
+      expect(mockToastShow).not.toHaveBeenCalled()
+    })
+
+    it('returns true and increments when an available item is added twice', () => {
+      const cart = useCart()
+      cart.initializeCart(makeShowtimeWithLocation('downtown'))
+
+      cart.addFoodItem('pop-1', 'Large Popcorn', 800, ['downtown'])
+      const result = cart.addFoodItem('pop-1', 'Large Popcorn', 800, ['downtown'])
+
+      expect(result).toBe(true)
+      expect(cart.foodItems.value).toHaveLength(1)
+      expect(cart.foodItems.value[0].quantity).toBe(2)
+    })
+  })
 })

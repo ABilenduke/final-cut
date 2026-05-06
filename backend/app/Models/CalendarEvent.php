@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
 
 /**
@@ -24,13 +25,14 @@ use Illuminate\Support\Carbon;
  * @property ?string $ticket_url
  * @property bool $loyalty_only
  * @property ?array<int, string> $accessibility_tags
+ * @property ?string $location_id
  * @property Carbon $created_at
  * @property Carbon $updated_at
  */
 #[Fillable([
     'type', 'title', 'date', 'start_time', 'end_time', 'description',
     'movie_slug', 'image_path', 'slug', 'ticket_url', 'loyalty_only',
-    'accessibility_tags',
+    'accessibility_tags', 'location_id',
 ])]
 class CalendarEvent extends Model
 {
@@ -47,5 +49,11 @@ class CalendarEvent extends Model
             'loyalty_only' => 'boolean',
             'accessibility_tags' => 'array',
         ];
+    }
+
+    /** @return BelongsTo<Location, $this> */
+    public function location(): BelongsTo
+    {
+        return $this->belongsTo(Location::class);
     }
 }

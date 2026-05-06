@@ -1,10 +1,9 @@
+import { hasAuthSessionMarker } from '~/composables/useAuth'
+
 export default defineNuxtPlugin(async () => {
-  // Hydrate client-side auth state from the Laravel Sanctum session
-  // cookie before route middleware runs. Without this, a page reload
-  // or direct navigation to an auth-protected route drops the
-  // useState auth:user ref back to null and kicks authenticated
-  // users out via the auth middleware.
-  if (import.meta.client) {
+  // Public initial loads should not make a guaranteed-401 /auth/me probe.
+  // Auth-gated route middleware still revalidates on direct protected loads.
+  if (import.meta.client && hasAuthSessionMarker()) {
     const { fetchUser } = useAuth()
     await fetchUser()
   }

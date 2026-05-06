@@ -167,7 +167,44 @@ export function useCart() {
     }
   }
 
-  function addFoodItem(itemId: string, name: string, unitPrice: number): void {
+  /**
+   * Add or increment a food item in the cart.
+   *
+   * @param itemId   - Menu item ID
+   * @param name     - Display name (for the order summary)
+   * @param unitPrice - Price in cents
+   * @param availableAt - Optional `available_at` array from the menu item.
+   *   When provided and the booking location slug is known, this is checked
+   *   against the cart's showtime location. If the item is not available at
+   *   the booking's location, the add is silently rejected and a toast is
+   *   shown. Defaults to allowing the add when the array is absent or empty
+   *   (defensive default while the backend populates the field).
+   *
+   * Returns `true` if the item was added/incremented, `false` if rejected.
+   */
+  function addFoodItem(
+    itemId: string,
+    name: string,
+    unitPrice: number,
+    availableAt?: string[],
+  ): boolean {
+    // Cart-level guard: reject items not stocked at the booking's location.
+    // The UI (FoodPreOrderPanel) suppresses events before they reach here, but
+    // this is defense-in-depth — protects against buggy callers.
+    if (availableAt && availableAt.length > 0) {
+      // Resolve booking location from the showtime's location field.
+      // The seatmap response populates showtime.location (ShowtimeLocation).
+      // If absent, the guard cannot determine the location and defaults to allow.
+      const bookingSlug = showtime.value?.location?.slug
+      if (bookingSlug && !availableAt.includes(bookingSlug)) {
+        showToast({
+          message: `${name} isn't available at this location.`,
+          type: 'error',
+        })
+        return false
+      }
+    }
+
     const existing = foodItems.value.find((f) => f.itemId === itemId)
     if (existing) {
       foodItems.value = foodItems.value.map((f) =>
@@ -176,6 +213,7 @@ export function useCart() {
     } else {
       foodItems.value = [...foodItems.value, { itemId, name, quantity: 1, unitPrice }]
     }
+    return true
   }
 
   function removeFoodItem(itemId: string): void {

@@ -5,10 +5,12 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BookingController;
 use App\Http\Controllers\Api\CalendarEventController;
 use App\Http\Controllers\Api\ContactController;
+use App\Http\Controllers\Api\FeaturedSlideController;
 use App\Http\Controllers\Api\FoodMenuController;
 use App\Http\Controllers\Api\GiftCardController;
 use App\Http\Controllers\Api\LocationController;
 use App\Http\Controllers\Api\MovieController;
+use App\Http\Controllers\Api\MovieShowtimesController;
 use App\Http\Controllers\Api\PaymentMethodController;
 use App\Http\Controllers\Api\RentalController;
 use App\Http\Controllers\Api\ShowtimeController;
@@ -16,10 +18,20 @@ use Illuminate\Support\Facades\Route;
 
 // Locations
 Route::get('/locations', [LocationController::class, 'index']);
+Route::get('/locations/{location}', [LocationController::class, 'show']);
 
 // Movies (shared across locations)
 Route::get('/movies', [MovieController::class, 'index']);
+// Cross-location showtimes — must be registered BEFORE /movies/{slug} to avoid the
+// wildcard {slug} segment swallowing the literal "showtimes" path segment.
+Route::get('/movies/{slug}/showtimes', [MovieShowtimesController::class, 'index']);
 Route::get('/movies/{slug}', [MovieController::class, 'show']);
+
+// Cross-location food menu (public, no location segment)
+Route::get('/food-menu', [FoodMenuController::class, 'crossLocation']);
+
+// Featured slides — admin-curated home hero carousel (public, no auth)
+Route::get('/featured-slides', [FeaturedSlideController::class, 'index']);
 
 // Location-scoped resources
 Route::prefix('locations/{location}')->group(function () {

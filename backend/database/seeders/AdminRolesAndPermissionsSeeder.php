@@ -45,6 +45,9 @@ class AdminRolesAndPermissionsSeeder extends Seeder
         'admin_users.view', 'admin_users.create', 'admin_users.update', 'admin_users.delete',
         // Activity log
         'activity.view',
+        // Marketing — Featured Slides
+        'marketing.featured_slides.view', 'marketing.featured_slides.create',
+        'marketing.featured_slides.update', 'marketing.featured_slides.delete',
     ];
 
     public const MANAGER_PERMISSIONS = [
@@ -61,6 +64,8 @@ class AdminRolesAndPermissionsSeeder extends Seeder
         'users.view',
         'loyalty.view', 'loyalty.adjust_points', 'loyalty.adjust_tier',
         'activity.view',
+        'marketing.featured_slides.view', 'marketing.featured_slides.create',
+        'marketing.featured_slides.update', 'marketing.featured_slides.delete',
     ];
 
     public const OPS_PERMISSIONS = [

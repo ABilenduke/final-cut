@@ -2,6 +2,27 @@ import type { User } from '~/types/user'
 import type { ApiErrorResponse } from '~/utils/api'
 import { apiFetch, _resetCsrf } from '~/utils/api'
 
+const AUTH_SESSION_MARKER_KEY = 'fc:auth:session'
+
+function canUseAuthStorage(): boolean {
+  return import.meta.client && typeof localStorage !== 'undefined'
+}
+
+export function markAuthSession(): void {
+  if (!canUseAuthStorage()) return
+  localStorage.setItem(AUTH_SESSION_MARKER_KEY, '1')
+}
+
+export function clearAuthSessionMarker(): void {
+  if (!canUseAuthStorage()) return
+  localStorage.removeItem(AUTH_SESSION_MARKER_KEY)
+}
+
+export function hasAuthSessionMarker(): boolean {
+  if (!canUseAuthStorage()) return false
+  return localStorage.getItem(AUTH_SESSION_MARKER_KEY) === '1'
+}
+
 export function useAuth() {
   const user = useState<User | null>('auth:user', () => null)
   const isAuthenticated = computed(() => user.value !== null)
@@ -17,6 +38,7 @@ export function useAuth() {
         body: { email, password },
       })
       user.value = response.data
+      markAuthSession()
       _resetCsrf()
     } catch (e) {
       error.value = e as ApiErrorResponse
@@ -35,6 +57,7 @@ export function useAuth() {
         body: { name, email, password, password_confirmation: passwordConfirmation },
       })
       user.value = response.data
+      markAuthSession()
       _resetCsrf()
     } catch (e) {
       error.value = e as ApiErrorResponse
@@ -48,17 +71,20 @@ export function useAuth() {
     try {
       await apiFetch('/api/auth/logout', { method: 'POST' })
       user.value = null
+      clearAuthSessionMarker()
       _resetCsrf()
     } catch (e) {
       const err = e as ApiErrorResponse
       // Server confirmed no session (401/419) — safe to clear locally
       if (err.status === 401 || err.status === 419) {
         user.value = null
+        clearAuthSessionMarker()
         _resetCsrf()
         return
       }
       // Transport failure — session may still be alive server-side
       user.value = null
+      clearAuthSessionMarker()
       _resetCsrf()
       throw e
     }
@@ -68,8 +94,13 @@ export function useAuth() {
     try {
       const response = await apiFetch<{ data: User }>('/api/auth/me')
       user.value = response.data
-    } catch {
+      markAuthSession()
+    } catch (e) {
       user.value = null
+      const err = e as ApiErrorResponse
+      if (err.status === 401 || err.status === 419) {
+        clearAuthSessionMarker()
+      }
     }
   }
 
@@ -90,5 +121,6 @@ export function useAuth() {
   return {
     user, isAuthenticated, loading, error,
     login, register, logout, fetchUser, forgotPassword, resetPassword,
+    markAuthSession, clearAuthSessionMarker, hasAuthSessionMarker,
   }
 }

@@ -51,6 +51,7 @@ class DatabaseSeeder extends Seeder
             ShowtimeSeeder::class,
             CalendarEventSeeder::class,
             MenuItemSeeder::class,
+            FeaturedSlideSeeder::class,
         ]);
 
         // Test-account-dependent seeders — only in local/testing

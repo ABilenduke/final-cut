@@ -11,8 +11,11 @@ services:
     volumes:
       - ./frontend:/app
       - frontend-deno-cache:/home/devuser/.cache/deno
+      - ./nginx/certs/ca.pem:/tls/nginx/ca.pem:ro
     environment:
       - NODE_ENV=development
+      - NUXT_PUBLIC_API_BASE_URL=https://${APP_DOMAIN:-finalcut.test}
+      - DENO_CERT=/tls/nginx/ca.pem
     healthcheck:
       test: ["CMD", "deno", "eval", "await fetch('http://127.0.0.1:3000/')"]
       interval: 15s

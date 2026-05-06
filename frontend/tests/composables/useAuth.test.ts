@@ -25,6 +25,7 @@ const MOCK_USER = {
 describe('useAuth', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    localStorage.clear()
     const { user } = useAuth()
     user.value = null
   })
@@ -36,6 +37,15 @@ describe('useAuth', () => {
     await login('test@example.com', 'password123')
 
     expect(user.value).toEqual(MOCK_USER)
+  })
+
+  it('login records that a browser session should be revalidated on future boots', async () => {
+    mockApiFetch.mockResolvedValue({ data: MOCK_USER })
+
+    const { hasAuthSessionMarker, login } = useAuth()
+    await login('test@example.com', 'password123')
+
+    expect(hasAuthSessionMarker()).toBe(true)
   })
 
   it('login throws and sets error on failure', async () => {
@@ -89,12 +99,14 @@ describe('useAuth', () => {
   it('logout clears user on success', async () => {
     mockApiFetch.mockResolvedValue({ data: { success: true } })
 
-    const { user, logout } = useAuth()
+    const { user, logout, markAuthSession } = useAuth()
     user.value = MOCK_USER
+    markAuthSession()
 
     await logout()
 
     expect(user.value).toBeNull()
+    expect(localStorage.getItem('fc:auth:session')).toBeNull()
   })
 
   it('logout clears user on 401 (session already gone)', async () => {
@@ -124,22 +136,25 @@ describe('useAuth', () => {
   it('fetchUser restores session on success', async () => {
     mockApiFetch.mockResolvedValue({ data: MOCK_USER })
 
-    const { user, fetchUser } = useAuth()
+    const { user, fetchUser, hasAuthSessionMarker } = useAuth()
     await fetchUser()
 
     expect(user.value).toEqual(MOCK_USER)
+    expect(hasAuthSessionMarker()).toBe(true)
     expect(mockApiFetch).toHaveBeenCalledWith('/api/auth/me')
   })
 
   it('fetchUser clears user on 401', async () => {
     mockApiFetch.mockRejectedValue({ errors: [{ message: 'Unauthenticated' }], status: 401 })
 
-    const { user, fetchUser } = useAuth()
+    const { user, fetchUser, markAuthSession } = useAuth()
     user.value = MOCK_USER
+    markAuthSession()
 
     await fetchUser()
 
     expect(user.value).toBeNull()
+    expect(localStorage.getItem('fc:auth:session')).toBeNull()
   })
 
   it('forgotPassword calls correct endpoint with email', async () => {

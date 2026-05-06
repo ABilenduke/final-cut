@@ -150,12 +150,15 @@ Each route group is assigned a rendering strategy based on how frequently its da
 
 | Route Pattern | Page | Strategy | Revalidation | Rationale |
 |---|---|---|---|---|
-| `/` | Home | ISR | 30 min | Content changes infrequently, SEO important |
-| `/movies` | Now Playing / Coming Soon | ISR | 30 min | Movie listings update a few times daily |
-| `/movies/:slug` | Movie Detail | ISR | 10 min | Detail pages, SEO critical |
+| `/` | Home (admin-curated hero carousel + cross-location strips) | ISR | 30 min | Content changes infrequently, SEO important |
+| `/movies` | Now Playing / Coming Soon (optional `?location=` filter) | ISR (per-query cache key) | 30 min | Movie listings update a few times daily; each filter URL is independently cacheable |
+| `/movies/:slug` | Movie Detail (cross-location showtimes grouped by venue) | ISR | 10 min | Detail pages, SEO critical |
 | `/whats-on` | Calendar View | ISR | 15 min | Calendar data changes moderately |
 | `/events` | Events Listing | ISR | 15 min | Event schedule changes moderately |
-| `/food-drink` | Food and Drink Menu | ISR | 30 min | Menu rarely changes |
+| `/events/:slug` | Event Detail | ISR | 15 min | Detail pages, SEO important |
+| `/food-drink` | Food and Drink Menu (shared, cross-location, with per-item availability arrays) | ISR | 30 min | Menu rarely changes |
+| `/locations` | All Locations (alphabetical, geolocation re-orders post-hydration) | ISR | 30 min | Venue list rarely changes |
+| `/locations/:slug` | Location Detail (LocalBusiness JSON-LD, now-showing-here strip) | ISR | 30 min | Detail pages, local-SEO critical |
 | `/blog/:slug` | Blog Post | ISR | 10 min | Content updates, SEO critical |
 | `/contact` | Contact Page | Prerendered | Build time | Static content |
 | `/faq` | FAQ | Prerendered | Build time | Static content |
@@ -177,6 +180,9 @@ export default defineNuxtConfig({
     '/food-drink':        { isr: 1800 },
     '/whats-on':          { isr: 900 },
     '/events':            { isr: 900 },
+    '/events/**':         { isr: 900 },
+    '/locations':         { isr: 1800 },
+    '/locations/**':      { isr: 1800 },
     '/blog/**':           { isr: 600 },
     '/contact':           { prerender: true },
     '/faq':               { prerender: true },
@@ -188,6 +194,10 @@ export default defineNuxtConfig({
   },
 })
 ```
+
+### Location-at-Intent Contract
+
+Public content surfaces are **cross-location and SSR'd**. Physical location is a property of the *purchase intent*, not the *browse session* — the user picks a location implicitly when they pick a showtime, and explicitly confirms it via the `BookingLocationBanner` on the seat-selection page. Browse pages never gate content behind a location selection. Optional `?location=` URL filters and opt-in browser geolocation re-ordering are the only location-aware affordances on the browse tier; both are cacheable or post-hydration enhancements that never block first paint. See `docs/architecture/CONTENT_ARCHITECTURE.md` for the full pattern.
 
 ---
 
@@ -220,10 +230,31 @@ Frontend environment variables use the `NUXT_` prefix for automatic mapping to N
 
 ```bash
 NUXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=       # Stripe publishable key (client)
-NUXT_PUBLIC_SITE_URL=                     # Base URL for SEO, OG tags, emails
+NUXT_PUBLIC_SITE_URL=                     # Base URL for SEO, OG tags, emails, sitemap
 NUXT_PUBLIC_API_BASE_URL=                 # Laravel API base URL
 NUXT_SESSION_PASSWORD=                    # 32+ char secret for nuxt-auth-utils cookie encryption
 ```
+
+Map links use raw `https://maps.google.com/?q=<lat>,<lng>` URLs constructed client-side from the `latitude`/`longitude` columns on the locations payload. No API key, no env var, no third-party SDK.
+
+---
+
+## Sitemap
+
+The app emits `sitemap.xml` at the root of the public domain via `@nuxtjs/sitemap`. It must list every public content URL so search engines can discover the full slate without crawling derivation:
+
+- `/`
+- `/movies`, every movie's `/movies/:slug`
+- `/whats-on`
+- `/events`, every event's `/events/:slug`
+- `/food-drink`
+- `/locations`, every location's `/locations/:slug`
+- `/faq`, `/contact`, `/accessibility`, `/careers`, `/gift-cards`, `/private-screenings`
+- `/blog`, every post's `/blog/:slug`
+
+Excluded: `/purchase/**`, `/account/**`, `/auth/**` (these carry `X-Robots-Tag: noindex` from `routeRules` and `<meta name="robots" content="noindex">` in their templates). The admin subdomain has its own robots policy.
+
+Dynamic URLs are sourced at sitemap generation time from `/api/movies`, `/api/calendar/events`, and `/api/locations`; blog posts come from `@nuxt/content`'s `queryContent`. Per-URL `lastmod` is derived from the underlying record's `updated_at`. The sitemap is regenerated on every ISR revalidation tick (`@nuxtjs/sitemap` handles this transparently when configured against dynamic sources).
 
 ---
 
@@ -271,8 +302,13 @@ Each composable owns a specific data domain and wraps the corresponding `/api/*`
 | Composable | Domain | Key Methods |
 |---|---|---|
 | `useMovies` | Movie listings and detail | `fetchNowPlaying`, `fetchComingSoon`, `fetchBySlug` |
-| `useShowtimes` | Showtime schedules | `fetchByMovie`, `fetchByDate`, `fetchSeatMap` |
+| `useShowtimes` | Showtime schedules. **Refactored** for cross-location: public methods now hit `/api/movies/:slug/showtimes` (no location segment), per-entry `location` payload. The per-location method (`fetchSeatMap` against `/api/locations/:loc/showtimes/:id`) is retained for the booking flow only. | `fetchByMovie` (cross-location), `fetchByDate`, `fetchSeatMap` (per-location, booking flow) |
 | `useCalendarEvents` | Calendar and events | `fetchByMonth`, `fetchByDateRange` |
+| `useFoodMenu` | Food menu. **Refactored** to call `/api/food-menu` (no location segment). Returns items with `available_at: string[]`. No longer reads `useLocations.activeLocation`. | `fetchMenu` |
+| `useFeaturedSlides` | Admin-curated home hero carousel slides | `fetchSlides` |
+| `usePublicLocations` | Public locations catalog (used by `/locations`, `/locations/:slug`, home strip, movie detail distance captions). SSR-friendly wrapper around `/api/locations`. | `fetchLocations`, `fetchBySlug` |
+| `useLocations` | **Reduced role.** Owns `locations` catalog + `activeLocation` *preferred default* (localStorage). No longer drives content fetches; readers limited to the booking-time location picker and the `LocationPreferenceSwitcher` UI. | `setLocation`, `fetchLocations` |
+| `useGeolocation` | **New.** Browser Geolocation API wrapper. Strict opt-in. Caches granted coords in `sessionStorage`. Provides `distanceTo(location)` Haversine helper. SSR returns `status: 'idle'`. | `request`, `distanceTo` |
 | `useCart` | Shopping cart state | `addTicket`, `removeTicket`, `addFoodItem`, `applyPromo`, `clear` |
 | `useAuth` | Authentication | `login`, `register`, `logout`, `session` |
 | `useAccount` | User profile and history | `fetchProfile`, `updateProfile`, `fetchOrders`, `fetchLoyaltyPoints` |

@@ -19,6 +19,49 @@ const { isAuthenticated, user } = useAuth()
 const { show: showToast } = useToast()
 const { setStep } = usePurchaseStep()
 
+// Cross-location menu for the food pre-order panel (Task 9).
+// Fetched client-side on mount — checkout is a CSR-only route (/purchase/**).
+const { items: allMenuItems, fetchMenu: fetchAllMenu } = useFoodMenu()
+onMounted(async () => {
+  await fetchAllMenu()
+})
+
+// The booking location slug — derived from the showtime's location field
+// (populated by the seat-map response), falling back to activeLocation.
+// ShowtimeLocation is typed on Showtime.location, so no cast needed.
+const bookingLocationSlug = computed<string>(() =>
+  cart.showtime.value?.location?.slug ?? activeLocation.value?.slug ?? '',
+)
+
+const bookingLocationName = computed<string>(() =>
+  cart.showtime.value?.location?.name ?? activeLocation.value?.name ?? '',
+)
+
+// Snacks-panel cart map: itemId → quantity
+const cartMap = computed<Record<string, number>>(() => {
+  const map: Record<string, number> = {}
+  for (const item of cart.foodItems.value) {
+    map[item.itemId] = item.quantity
+  }
+  return map
+})
+
+function handleFoodAdd(itemId: string) {
+  const menuItem = allMenuItems.value.find(m => m.id === itemId)
+  if (!menuItem) return
+  cart.addFoodItem(menuItem.id, menuItem.name, menuItem.price, menuItem.available_at)
+}
+
+function handleFoodIncrement(itemId: string) {
+  const menuItem = allMenuItems.value.find(m => m.id === itemId)
+  if (!menuItem) return
+  cart.addFoodItem(menuItem.id, menuItem.name, menuItem.price, menuItem.available_at)
+}
+
+function handleFoodDecrement(itemId: string) {
+  cart.removeFoodItem(itemId)
+}
+
 setStep(3, [1, 2], [1, 2])
 
 // Guard: redirect if no seats in cart
@@ -301,39 +344,38 @@ async function handleCheckoutSubmit(payload: { paymentMethodId: string; email?: 
         @error="(msg: string) => showToast({ message: msg, type: 'error' })"
       />
 
-      <!-- Snacks summary — read-only echo of what was added on /purchase/snacks -->
-      <section class="snacks-summary" aria-label="Concessions summary">
-        <header class="snacks-summary__head">
+      <!-- Snacks / Food pre-order panel (Task 9).
+           Renders the cross-location menu with availability-based dimming.
+           Items whose available_at excludes the booking's location are dimmed
+           and receive a warning badge; the cart guards against adding them. -->
+      <section class="snacks-section" aria-label="Add food and drinks">
+        <header class="snacks-section__head">
           <div>
-            <div class="snacks-summary__n">§ 03</div>
-            <h2 class="snacks-summary__title">Your <em>tray.</em></h2>
+            <div class="snacks-section__n">§ 03</div>
+            <h2 class="snacks-section__title"><em>The bar &amp;</em> snack counter.</h2>
           </div>
-          <NuxtLink :to="snacksHref" class="snacks-summary__edit">
-            ← Edit snacks
+          <NuxtLink :to="snacksHref" class="snacks-section__edit">
+            ← Edit on snacks page
           </NuxtLink>
         </header>
 
-        <p v-if="!hasSnacks" class="snacks-summary__empty">
-          You skipped the bar. Add something to your tray on the snacks step before payment.
-        </p>
+        <FoodPreOrderPanel
+          v-if="bookingLocationSlug && allMenuItems.length > 0"
+          :items="allMenuItems"
+          :cart="cartMap"
+          :booking-location-slug="bookingLocationSlug"
+          :booking-location-name="bookingLocationName || bookingLocationSlug"
+          @add="handleFoodAdd"
+          @increment="handleFoodIncrement"
+          @decrement="handleFoodDecrement"
+        />
 
-        <ul v-else class="snacks-summary__list">
-          <li v-if="cart.pairing.value" class="snacks-summary__item snacks-summary__item--pairing">
-            <span class="snacks-summary__q">1×</span>
-            <div class="snacks-summary__nm">
-              {{ cart.pairing.value.title }}
-              <span class="snacks-summary__nm-sub">
-                Pairing · pay at the bar on collection
-              </span>
-            </div>
-            <span class="snacks-summary__pr">{{ formatCurrency(cart.pairingPrice.value) }}</span>
-          </li>
-          <li v-for="f in cart.foodItems.value" :key="f.itemId" class="snacks-summary__item">
-            <span class="snacks-summary__q">{{ f.quantity }}×</span>
-            <div class="snacks-summary__nm">{{ f.name }}</div>
-            <span class="snacks-summary__pr">{{ formatCurrency(f.unitPrice * f.quantity) }}</span>
-          </li>
-        </ul>
+        <!-- Pairing echo — pairings are set on /purchase/snacks; shown read-only here -->
+        <div v-if="cart.pairing.value" class="snacks-section__pairing">
+          <span class="snacks-section__pairing-label">Programme Pairing added</span>
+          <b>{{ cart.pairing.value.title }}</b>
+          <span class="snacks-section__pairing-sub">Pay at the bar on collection</span>
+        </div>
       </section>
 
       <PromoCode
@@ -472,18 +514,14 @@ async function handleCheckoutSubmit(payload: { paymentMethodId: string; email?: 
   }
 }
 
-/* Snacks summary (read-only echo of /purchase/snacks selections) */
-.snacks-summary {
-  background-color: var(--surface-container);
-  border-radius: var(--radius-card);
-  padding: var(--space-lg);
-  border: var(--border-hairline) solid rgb(var(--outline-variant-rgb) / 0.2);
+/* Food pre-order section (Task 9) */
+.snacks-section {
   display: flex;
   flex-direction: column;
-  gap: var(--space-md);
+  gap: var(--space-lg);
 }
 
-.snacks-summary__head {
+.snacks-section__head {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
@@ -492,7 +530,7 @@ async function handleCheckoutSubmit(payload: { paymentMethodId: string; email?: 
   border-bottom: var(--border-hairline) solid rgb(var(--outline-variant-rgb) / 0.2);
 }
 
-.snacks-summary__n {
+.snacks-section__n {
   font-family: var(--font-display);
   font-size: 0.8125rem;
   color: var(--secondary);
@@ -501,7 +539,7 @@ async function handleCheckoutSubmit(payload: { paymentMethodId: string; email?: 
   font-variant-numeric: tabular-nums;
 }
 
-.snacks-summary__title {
+.snacks-section__title {
   font-family: var(--font-display);
   font-size: 1.375rem;
   font-weight: 500;
@@ -511,12 +549,12 @@ async function handleCheckoutSubmit(payload: { paymentMethodId: string; email?: 
   color: var(--on-surface);
 }
 
-.snacks-summary__title em {
+.snacks-section__title em {
   font-style: italic;
   color: var(--tertiary);
 }
 
-.snacks-summary__edit {
+.snacks-section__edit {
   font-family: var(--font-body);
   font-size: 0.6875rem;
   letter-spacing: 0.22em;
@@ -524,75 +562,44 @@ async function handleCheckoutSubmit(payload: { paymentMethodId: string; email?: 
   color: var(--secondary);
   text-decoration: none;
   align-self: center;
+  white-space: nowrap;
 }
 
-.snacks-summary__edit:hover,
-.snacks-summary__edit:focus-visible {
+.snacks-section__edit:hover,
+.snacks-section__edit:focus-visible {
   text-decoration: underline;
   text-underline-offset: 0.125rem;
 }
 
-.snacks-summary__empty {
-  font-family: var(--font-body);
-  font-size: 0.875rem;
-  color: var(--on-tertiary-fixed-variant);
-  font-style: italic;
-  margin: 0;
-}
-
-.snacks-summary__list {
-  list-style: none;
+.snacks-section__pairing {
   display: flex;
   flex-direction: column;
-  gap: 0.45rem;
-  margin: 0;
-  padding: 0;
+  gap: 0.25rem;
+  padding: var(--space-md);
+  background-color: var(--surface-container);
+  border-radius: var(--radius-card);
+  border: var(--border-hairline) solid rgb(var(--secondary-rgb) / 0.25);
 }
 
-.snacks-summary__item {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  gap: var(--space-sm);
-  align-items: center;
-  padding: 0.4rem 0;
-  border-bottom: var(--border-hairline) dashed rgb(var(--outline-variant-rgb) / 0.25);
-}
-
-.snacks-summary__item:last-child {
-  border-bottom: none;
-}
-
-.snacks-summary__q {
-  font-family: var(--font-display);
-  font-size: 0.875rem;
-  color: var(--secondary);
-  font-variant-numeric: tabular-nums;
-  font-weight: 500;
-  min-width: 1.5rem;
-  text-align: center;
-}
-
-.snacks-summary__nm {
-  font-family: var(--font-display);
-  font-size: 0.875rem;
-  color: var(--on-surface);
-  letter-spacing: -0.005em;
-}
-
-.snacks-summary__nm-sub {
+.snacks-section__pairing-label {
   font-family: var(--font-body);
   font-size: 0.6875rem;
-  color: var(--on-tertiary-fixed-variant);
-  letter-spacing: 0.12em;
+  letter-spacing: 0.22em;
   text-transform: uppercase;
-  display: block;
-  margin-top: 0.1rem;
+  color: var(--secondary);
 }
 
-.snacks-summary__pr {
+.snacks-section__pairing b {
   font-family: var(--font-display);
-  font-size: 0.875rem;
-  color: var(--tertiary);
-  font-variant-numeric: tabular-nums;
+  font-size: 1rem;
+  color: var(--on-surface);
+  font-weight: 500;
+}
+
+.snacks-section__pairing-sub {
+  font-family: var(--font-body);
+  font-size: 0.75rem;
+  color: var(--on-tertiary-fixed-variant);
+  font-style: italic;
 }
 </style>

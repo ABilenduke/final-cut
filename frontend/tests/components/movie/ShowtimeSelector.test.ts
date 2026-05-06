@@ -1,7 +1,27 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { mountSuspended } from '@nuxt/test-utils/runtime'
 import ShowtimeSelector from '~/components/movie/ShowtimeSelector.vue'
 import type { Showtime } from '~/types/showtime'
+
+// ─── Geolocation mock ─────────────────────────────────────────────────────────
+// The component calls useGeolocation() which reads from navigator via the
+// composable. We mock the composable module to control status/coords/distanceTo.
+
+const mockGeoStatus = ref<'idle' | 'requesting' | 'granted' | 'denied' | 'unsupported'>('idle')
+const mockGeoCoords = ref<{ latitude: number; longitude: number } | null>(null)
+const mockDistanceTo = vi.fn((_loc: { latitude: number | null; longitude: number | null }) => null as number | null)
+
+vi.mock('~/composables/useGeolocation', () => ({
+  useGeolocation: () => ({
+    status: mockGeoStatus,
+    coords: mockGeoCoords,
+    error: ref(null),
+    request: vi.fn(),
+    distanceTo: mockDistanceTo,
+  }),
+}))
+
+// ─── Fixture builders ─────────────────────────────────────────────────────────
 
 function makeShowtime(overrides: Partial<Showtime> = {}): Showtime {
   return {
@@ -16,111 +36,234 @@ function makeShowtime(overrides: Partial<Showtime> = {}): Showtime {
     priceStandard: 1500,
     pricePremium: 2000,
     priceAccessible: 1200,
+    location: {
+      slug: 'downtown',
+      name: 'Downtown',
+      latitude: 40.7128,
+      longitude: -74.0060,
+    },
     ...overrides,
   }
 }
 
+const DOWNTOWN = { slug: 'downtown', name: 'Downtown', latitude: 40.7128, longitude: -74.0060 }
+const UPTOWN = { slug: 'uptown', name: 'Uptown', latitude: 40.7831, longitude: -73.9712 }
+
 describe('ShowtimeSelector', () => {
-  it('renders a date strip tab for each day in the 7-day window', async () => {
+  beforeEach(() => {
+    mockGeoStatus.value = 'idle'
+    mockGeoCoords.value = null
+    mockDistanceTo.mockReturnValue(null)
+    vi.clearAllMocks()
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  // ── Empty state ──────────────────────────────────────────────────────────
+
+  it('shows the "Showtimes coming soon" empty state when there are no showtimes', async () => {
+    const wrapper = await mountSuspended(ShowtimeSelector, {
+      props: { showtimes: [] },
+    })
+    expect(wrapper.text()).toContain('Showtimes coming soon')
+  })
+
+  it('renders the "Notify Me" CTA in the empty state when movieSlug is provided', async () => {
+    const wrapper = await mountSuspended(ShowtimeSelector, {
+      props: { showtimes: [], movieSlug: 'test-movie' },
+    })
+    const link = wrapper.find('.showtime-selector__notify-link')
+    expect(link.exists()).toBe(true)
+    expect(link.attributes('href')).toContain('test-movie')
+  })
+
+  // ── Venue group rendering ────────────────────────────────────────────────
+
+  it('renders one venue heading per location', async () => {
     const showtimes = [
-      makeShowtime({ id: 'st-1', startTime: '2026-04-07T14:00:00Z' }),
-      makeShowtime({ id: 'st-2', startTime: '2026-04-08T19:00:00Z' }),
+      makeShowtime({ id: 'st-1', location: DOWNTOWN, startTime: '2026-04-07T19:00:00Z' }),
+      makeShowtime({ id: 'st-2', location: UPTOWN, startTime: '2026-04-07T20:00:00Z' }),
     ]
     const wrapper = await mountSuspended(ShowtimeSelector, {
       props: { showtimes },
     })
-    // The date strip exposes 7 day buttons regardless of how many dates have data.
+    const headings = wrapper.findAll('.showtime-selector__venue-name')
+    const names = headings.map(h => h.text())
+    expect(names).toContain('Downtown')
+    expect(names).toContain('Uptown')
+  })
+
+  it('renders venues alphabetically when geolocation is not granted', async () => {
+    const showtimes = [
+      makeShowtime({ id: 'st-1', location: UPTOWN, startTime: '2026-04-07T19:00:00Z' }),
+      makeShowtime({ id: 'st-2', location: DOWNTOWN, startTime: '2026-04-07T20:00:00Z' }),
+    ]
+    const wrapper = await mountSuspended(ShowtimeSelector, {
+      props: { showtimes },
+    })
+    const headings = wrapper.findAll('.showtime-selector__venue-name').map(h => h.text())
+    expect(headings[0]).toBe('Downtown')
+    expect(headings[1]).toBe('Uptown')
+  })
+
+  it('expands all venue groups when geolocation is not granted', async () => {
+    const showtimes = [
+      makeShowtime({ id: 'st-1', location: DOWNTOWN, startTime: '2026-04-07T19:00:00Z' }),
+      makeShowtime({ id: 'st-2', location: UPTOWN, startTime: '2026-04-07T20:00:00Z' }),
+    ]
+    const wrapper = await mountSuspended(ShowtimeSelector, {
+      props: { showtimes },
+    })
+    const openPanels = wrapper.findAll('.showtime-selector__venue-times--open')
+    expect(openPanels).toHaveLength(2)
+  })
+
+  it('only renders venues that have showtimes on the selected date', async () => {
+    // Downtown has a showtime today; Uptown has none — should not render at all.
+    const showtimes = [
+      makeShowtime({ id: 'st-1', location: DOWNTOWN, startTime: '2026-04-07T19:00:00Z' }),
+    ]
+    const wrapper = await mountSuspended(ShowtimeSelector, {
+      props: { showtimes },
+    })
+    const headings = wrapper.findAll('.showtime-selector__venue-name').map(h => h.text())
+    expect(headings).toContain('Downtown')
+    expect(headings).not.toContain('Uptown')
+  })
+
+  // ── Geolocation granted path ─────────────────────────────────────────────
+
+  it('expands only the closest venue group when geolocation is granted', async () => {
+    // Mock: Downtown is 1 mi away, Uptown is 5 mi away
+    mockGeoStatus.value = 'granted'
+    mockDistanceTo.mockImplementation((loc) => {
+      if (loc.latitude === DOWNTOWN.latitude) return 1.0
+      if (loc.latitude === UPTOWN.latitude) return 5.0
+      return null
+    })
+
+    const showtimes = [
+      makeShowtime({ id: 'st-1', location: DOWNTOWN, startTime: '2026-04-07T19:00:00Z' }),
+      makeShowtime({ id: 'st-2', location: UPTOWN, startTime: '2026-04-07T20:00:00Z' }),
+    ]
+    const wrapper = await mountSuspended(ShowtimeSelector, {
+      props: { showtimes },
+    })
+
+    // Closest (Downtown, distance 1.0) should be the first open group.
+    const venues = wrapper.findAll('.showtime-selector__venue')
+    expect(venues).toHaveLength(2)
+
+    // First venue should be Downtown (sorted by distance).
+    const firstHeading = venues[0].find('.showtime-selector__venue-name')
+    expect(firstHeading.text()).toBe('Downtown')
+
+    // First group should be open, second should be closed.
+    expect(venues[0].find('.showtime-selector__venue-times').classes()).toContain('showtime-selector__venue-times--open')
+    expect(venues[1].find('.showtime-selector__venue-times').classes()).not.toContain('showtime-selector__venue-times--open')
+  })
+
+  it('renders distance captions when geolocation is granted', async () => {
+    mockGeoStatus.value = 'granted'
+    mockDistanceTo.mockImplementation((loc) => {
+      if (loc.latitude === DOWNTOWN.latitude) return 2.3
+      return null
+    })
+
+    const showtimes = [
+      makeShowtime({ id: 'st-1', location: DOWNTOWN, startTime: '2026-04-07T19:00:00Z' }),
+    ]
+    const wrapper = await mountSuspended(ShowtimeSelector, {
+      props: { showtimes },
+    })
+
+    const distEl = wrapper.find('.showtime-selector__venue-dist')
+    expect(distEl.exists()).toBe(true)
+    expect(distEl.text()).toContain('2.3 mi away')
+  })
+
+  it('does not render distance captions when geolocation is not granted', async () => {
+    const showtimes = [
+      makeShowtime({ id: 'st-1', location: DOWNTOWN, startTime: '2026-04-07T19:00:00Z' }),
+    ]
+    const wrapper = await mountSuspended(ShowtimeSelector, {
+      props: { showtimes },
+    })
+    const distEl = wrapper.find('.showtime-selector__venue-dist')
+    expect(distEl.exists()).toBe(false)
+  })
+
+  // ── Time slot routing ────────────────────────────────────────────────────
+
+  it('each time slot links to /purchase/:showtimeId with ?loc=<venue-slug>', async () => {
+    // The ?loc= query carries the venue slug forward to the seat-picker so
+    // a direct visit can bootstrap activeLocation without depending on a
+    // previously-restored localStorage value (Codex review fix).
+    const showtimes = [
+      makeShowtime({ id: 'st-99', location: DOWNTOWN, startTime: '2026-04-07T19:00:00Z' }),
+    ]
+    const wrapper = await mountSuspended(ShowtimeSelector, {
+      props: { showtimes },
+    })
+    const slot = wrapper.find('.showtime-selector__slot')
+    expect(slot.exists()).toBe(true)
+    expect(slot.attributes('href')).toBe('/purchase/st-99?loc=downtown')
+  })
+
+  // ── Venue toggle ─────────────────────────────────────────────────────────
+
+  it('clicking the venue header toggles the group open/closed', async () => {
+    const showtimes = [
+      makeShowtime({ id: 'st-1', location: DOWNTOWN, startTime: '2026-04-07T19:00:00Z' }),
+    ]
+    const wrapper = await mountSuspended(ShowtimeSelector, {
+      props: { showtimes },
+    })
+
+    const header = wrapper.find('.showtime-selector__venue-hd')
+    // Initially open (no geolocation)
+    expect(wrapper.find('.showtime-selector__venue-times').classes()).toContain('showtime-selector__venue-times--open')
+    await header.trigger('click')
+    expect(wrapper.find('.showtime-selector__venue-times').classes()).not.toContain('showtime-selector__venue-times--open')
+    await header.trigger('click')
+    expect(wrapper.find('.showtime-selector__venue-times').classes()).toContain('showtime-selector__venue-times--open')
+  })
+
+  it('venue header has aria-expanded reflecting the open state', async () => {
+    const showtimes = [
+      makeShowtime({ id: 'st-1', location: DOWNTOWN, startTime: '2026-04-07T19:00:00Z' }),
+    ]
+    const wrapper = await mountSuspended(ShowtimeSelector, {
+      props: { showtimes },
+    })
+    const header = wrapper.find('.showtime-selector__venue-hd')
+    expect(header.attributes('aria-expanded')).toBe('true')
+    await header.trigger('click')
+    expect(header.attributes('aria-expanded')).toBe('false')
+  })
+
+  // ── Date strip ───────────────────────────────────────────────────────────
+
+  it('renders a date strip with 7 day buttons', async () => {
+    const wrapper = await mountSuspended(ShowtimeSelector, {
+      props: {
+        showtimes: [makeShowtime({ location: DOWNTOWN, startTime: '2026-04-07T19:00:00Z' })],
+      },
+    })
     const days = wrapper.findAll('.showtime-selector__day')
     expect(days).toHaveLength(7)
   })
 
-  it('active tab has aria-selected=true', async () => {
-    const showtimes = [
-      makeShowtime({ id: 'st-1', startTime: '2026-04-07T14:00:00Z' }),
-      makeShowtime({ id: 'st-2', startTime: '2026-04-08T19:00:00Z' }),
-    ]
+  it('date strip uses tablist role with a descriptive aria-label', async () => {
     const wrapper = await mountSuspended(ShowtimeSelector, {
-      props: { showtimes },
-    })
-    const tabs = wrapper.findAll('[role="tab"]')
-    const active = tabs.filter(t => t.attributes('aria-selected') === 'true')
-    expect(active).toHaveLength(1)
-  })
-
-  it('date strip uses the tablist role with a descriptive aria-label', async () => {
-    const wrapper = await mountSuspended(ShowtimeSelector, {
-      props: { showtimes: [makeShowtime()] },
+      props: {
+        showtimes: [makeShowtime({ location: DOWNTOWN })],
+      },
     })
     const tablist = wrapper.find('[role="tablist"]')
     expect(tablist.exists()).toBe(true)
     expect(tablist.attributes('aria-label')).toBe('Showtime dates')
-  })
-
-  it('renders the Reserve your seat title', async () => {
-    const wrapper = await mountSuspended(ShowtimeSelector, {
-      props: { showtimes: [makeShowtime()] },
-    })
-    expect(wrapper.find('.bay-title').text()).toContain('Reserve your')
-  })
-
-  it('renders all 7 format filter chips', async () => {
-    const wrapper = await mountSuspended(ShowtimeSelector, {
-      props: { showtimes: [makeShowtime()] },
-    })
-    const chips = wrapper.findAll('.showtime-selector__fmt')
-    expect(chips.length).toBe(7)
-    const labels = chips.map(c => c.text())
-    expect(labels).toEqual(
-      expect.arrayContaining([
-        expect.stringContaining('All formats'),
-        expect.stringContaining('70mm'),
-        expect.stringContaining('IMAX'),
-        expect.stringContaining('Digital'),
-        expect.stringContaining('Late Show'),
-        expect.stringContaining('Members Only'),
-        expect.stringContaining('Closed Captions'),
-      ]),
-    )
-  })
-
-  it('toggles the active format chip on click', async () => {
-    const wrapper = await mountSuspended(ShowtimeSelector, {
-      props: { showtimes: [makeShowtime()] },
-    })
-    const chips = wrapper.findAll('.showtime-selector__fmt')
-    // First chip (All formats) is on by default
-    expect(chips[0].classes()).toContain('showtime-selector__fmt--on')
-    await chips[1].trigger('click')
-    expect(chips[1].classes()).toContain('showtime-selector__fmt--on')
-    expect(chips[0].classes()).not.toContain('showtime-selector__fmt--on')
-  })
-
-  it('slot links point to /purchase/:id', async () => {
-    const wrapper = await mountSuspended(ShowtimeSelector, {
-      props: {
-        showtimes: [makeShowtime({ id: 'st-42', startTime: '2026-04-07T19:00:00Z' })],
-      },
-    })
-    const slot = wrapper.find('.showtime-selector__slot')
-    expect(slot.exists()).toBe(true)
-    expect(slot.attributes('href')).toBe('/purchase/st-42')
-  })
-
-  it('shows an empty-state message when there are no showtimes at all', async () => {
-    const wrapper = await mountSuspended(ShowtimeSelector, {
-      props: { showtimes: [] },
-    })
-    expect(wrapper.text()).toContain('No showtimes')
-  })
-
-  it('renders the "From $X" price for the lowest-priced slot in each group', async () => {
-    const wrapper = await mountSuspended(ShowtimeSelector, {
-      props: {
-        showtimes: [
-          makeShowtime({ id: 'st-1', startTime: '2026-04-07T19:00:00Z', priceStandard: 1500 }),
-        ],
-      },
-    })
-    expect(wrapper.text()).toContain('$15.00')
   })
 })

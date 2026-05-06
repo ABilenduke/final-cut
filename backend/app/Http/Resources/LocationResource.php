@@ -15,11 +15,34 @@ class LocationResource extends JsonResource
             'id' => $this->id,
             'name' => $this->name,
             'slug' => $this->slug,
-            // Single-line display address derived from the structured parts.
-            // The customer frontend contract (app/types/location.ts) ships a
-            // single `address` string; keep it stable while the admin panel
-            // now stores the parts in dedicated columns.
+
+            // Single-line display address — kept stable for the existing
+            // customer frontend contract (app/types/location.ts `address` field).
             'address' => $this->formatAddress(),
+
+            // Structured address parts — required by /locations and /locations/:slug
+            // frontend pages for LocalBusiness JSON-LD and the location detail panel.
+            'street' => $this->street,
+            'city' => $this->city,
+            'state' => $this->state,
+            'postal_code' => $this->postal_code,
+            'country' => $this->country,
+
+            // Contact
+            'phone' => $this->phone,
+            'email' => $this->email,
+
+            // Geolocation — exposed for client-side distance computation
+            'latitude' => $this->latitude,
+            'longitude' => $this->longitude,
+
+            // Timezone — required to interpret hours and display local showtimes
+            'timezone' => $this->timezone,
+
+            // Business hours keyed by lowercase day name.
+            // Shape: { "monday": { "open": "HH:MM", "close": "HH:MM" } | null, ... }
+            // Null day value = closed. Hours are local to `timezone`.
+            'hours' => $this->hours,
         ];
     }
 

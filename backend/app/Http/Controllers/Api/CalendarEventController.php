@@ -19,6 +19,11 @@ class CalendarEventController extends Controller
             'accessibility' => ['nullable', 'string'],
         ])->validate();
 
+        $locationSlug = $this->resolveOptionalLocationSlug($request);
+        if ($locationSlug instanceof JsonResponse) {
+            return $locationSlug;
+        }
+
         $month = isset($validated['month']) ? (int) $validated['month'] : (int) now()->format('m');
         $year = isset($validated['year']) ? (int) $validated['year'] : (int) now()->format('Y');
 
@@ -39,6 +44,16 @@ class CalendarEventController extends Controller
                 foreach ($tags as $tag) {
                     $q->orWhereJsonContains('accessibility_tags', trim($tag));
                 }
+            });
+        }
+
+        // When ?location= is provided, include:
+        //   - events scoped to that location (location_id matches)
+        //   - venue-agnostic events (location_id IS NULL) — these appear everywhere
+        if (! empty($locationSlug)) {
+            $query->where(function ($q) use ($locationSlug) {
+                $q->whereNull('location_id')
+                    ->orWhereHas('location', fn ($q) => $q->where('slug', $locationSlug));
             });
         }
 

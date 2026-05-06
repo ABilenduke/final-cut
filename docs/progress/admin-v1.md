@@ -721,3 +721,96 @@ End-to-end checks performed before opening PR-C:
 - Manual smoke against dev: admin panel reachable, `/login` rate-limited (5x 429 after burst), failed login emits JSON line, `fail2ban-regex` matches both live log + committed sample, `php artisan schedule:list` shows `outbox:dispatch` (every minute), `outbox:prune` (daily), `activitylog:clean` (daily), `movies:enrich` (hourly)
 
 This commit closes Step 9 — the parent feature branch merges to `main` after PR-C lands.
+
+---
+
+## Plan: Content Curation Admin — Task 1: FeaturedSlideResource (2026-05-02)
+**Plan file:** `docs/plans/admin/features/2026-05-02-content-curation-admin.md` § Task 1
+**Status:** ✅ Complete
+**Started:** 2026-05-02
+**Completed:** 2026-05-02
+
+### Work Done
+- [2026-05-02] Created `App\Filament\Resources\FeaturedSlideResource` under the Marketing navigation group with `static $permissionPrefix = 'marketing.featured_slides'`. Form schema covers headline (max 80 with character counter), sub_headline (max 160 nullable), image_url (URL TextInput), cta_label (max 24), cta_href (TextInput), display_order (numeric, default 0), and a publish-window section with `published_at`, `starts_at`, `ends_at` DateTimePickers.
+- [2026-05-02] Added `displayStatus()` accessor on `App\Models\FeaturedSlide` returning one of `draft`, `scheduled`, `live`, `expired` based on the publish-window timestamps. Mirrors the precedent set by `Booking::displayStatus()`.
+- [2026-05-02] Added a status badge column to the resource list using Filament `Color::*` constants mapped to the project's state-color tokens (sage = success/live, steel = info/scheduled, gray = draft, claret = danger/expired).
+- [2026-05-02] Enabled `->reorderable('display_order')` on the table so admins can drag-to-reorder. `->defaultSort('display_order')` keeps display order stable across renders.
+- [2026-05-02] Added a "Publish" custom row action that sets `published_at = now()` (with confirmation modal). Hidden on slides that are already published. Activity log writes auto-fire via the `BaseResource` trait.
+- [2026-05-02] Created the three page classes: `ListFeaturedSlides`, `CreateFeaturedSlide`, `EditFeaturedSlide`.
+- [2026-05-02] Seeded `marketing.featured_slides.{view,create,update,delete}` permissions in `PermissionSeeder.php` and attached them to the `admin` and `manager` roles.
+- [2026-05-02] Wrote 27 Pest feature tests covering: permission matrix (admin/manager/ops/anonymous), form validation (headline required, max-length constraints), status badge synthesis across all four states, publish action visibility/behavior, drag-to-reorder persistence, list/create/edit/delete CRUD.
+
+### Decisions
+- [2026-05-02] Used a TextInput URL field for `image_url` rather than a `FileUpload` — slides reference CDN/asset URLs that are typically uploaded out-of-band. Can be promoted to FileUpload later if editorial workflow demands.
+- [2026-05-02] `displayStatus()` lives on the model (not the resource) so it can be reused by future API resources or Filament infolists. Mirrors the `Booking::displayStatus()` pattern documented in CLAUDE.md.
+- [2026-05-02] Filament's `reorderable('display_order')` writes 1-based display_order values (the new position in the list, starting at 1). Test assertions reflect this — slides at positions 1 and 2, not 0 and 1.
+
+### Blockers
+- None.
+
+### Files Changed
+- `backend/app/Filament/Resources/FeaturedSlideResource.php` — new resource
+- `backend/app/Filament/Resources/FeaturedSlideResource/Pages/{List,Create,Edit}FeaturedSlide.php` — new page classes
+- `backend/app/Models/FeaturedSlide.php` — added `displayStatus()` accessor
+- `backend/database/seeders/PermissionSeeder.php` — added 4 new permissions + role attachments
+- `backend/tests/Feature/Admin/Resources/FeaturedSlideResourceTest.php` — new (27 tests, 78 assertions)
+
+---
+
+## Plan: Content Curation Admin — Task 2: MenuItem location-availability matrix (2026-05-02)
+**Plan file:** `docs/plans/admin/features/2026-05-02-content-curation-admin.md` § Task 2
+**Status:** ✅ Complete
+**Started:** 2026-05-02
+**Completed:** 2026-05-02
+
+### Work Done
+- [2026-05-02] Added a `CheckboxList::make('locations')->relationship('locations', 'name')` field to the existing `MenuItemResource` form, wrapped in a "Locations" section with helper text explaining the per-location attach/detach semantics.
+- [2026-05-02] Validation: at least one location is required (a menu item with zero attached locations would never appear in `GET /api/food-menu` — better to fail validation than to silently orphan the item).
+- [2026-05-02] Added a `TextColumn::make('locations.name')` to the table for at-a-glance scanning of which venues stock each item. Includes a `relationship` filter so admins can narrow the list by venue.
+- [2026-05-02] Eager-loaded `locations` in `getEloquentQuery()` to avoid N+1 on the table render.
+- [2026-05-02] Cache invalidation: pivot mutations are already wired through `LocationMenuItemPivot::booted()` → `MenuItemObserver::bumpVersion()` (Backend Task 1). Editing locations in the admin form bumps the `food_menu_public_version` counter so the next `GET /api/food-menu` request misses cache and re-queries.
+- [2026-05-02] Activity log writes auto-fire via the `BaseResource` trait — pivot attach/detach events are captured in the audit trail.
+
+### Decisions
+- [2026-05-02] Chose `CheckboxList` over `MultiSelect` because the project starts with 2 venues and the boundary case (~8 venues) is still well-served by a vertical checkbox list. If/when location count grows past ~10, switch to a Select with `multiple()`.
+- [2026-05-02] Required-at-least-one validation comes from Filament's built-in form validator (`->required()`); per-pivot constraints (e.g. per-location price overrides) are deferred to a dedicated flow per the helper text.
+
+### Blockers
+- 4 pre-existing `MenuItemResourceTest` cases broke because they didn't pass a `locations` value through the form, and the new validation rejected the submit. Resolved by adding a `Location::factory()->create()` + `->set('data.locations', [$location->id])` to each affected test (and attaching the location upstream for edit-flow tests).
+
+### Files Changed
+- `backend/app/Filament/Resources/MenuItemResource.php` — added `CheckboxList::make('locations')` form field, table column, table filter; eager-loaded `locations` in `getEloquentQuery()`
+- `backend/tests/Feature/Admin/Resources/MenuItemResourceTest.php` — added new "menu item can be attached to one or more locations" test; updated 3 pre-existing tests to include a location in the submitted form data
+
+---
+
+## Plan: Content Curation Admin — Task 3: LocationResource hours + audit (2026-05-02)
+**Plan file:** `docs/plans/admin/features/2026-05-02-content-curation-admin.md` § Task 3
+**Status:** ✅ Complete
+**Started:** 2026-05-02
+**Completed:** 2026-05-02
+
+### Work Done
+- [2026-05-02] Audited `LocationResource` form against the public API contract in `LocationResource` (HTTP resource). Confirmed all required fields were already editable: `name`, `slug`, `phone`, `email`, `street`, `city`, `state`, `postal_code`, `country` (defaults to `US`), `timezone` (Select with full IANA list), `latitude`, `longitude`. Only `hours` was missing.
+- [2026-05-02] Added `Section::make('Hours of Operation')` to `LocationResource::form()` using `Grid::make(3)` (from `Filament\Schemas\Components\Grid`) per-day blocks. Each day renders a `Toggle` ("closed") + two `TextInput` fields ("opens"/"closes") that hide when the closed toggle is on. Days: Monday–Sunday.
+- [2026-05-02] Added static helpers `explodeHoursForForm()` and `implodeHoursFromForm()` to `LocationResource`. These are public static so tests can verify them in isolation without rendering a full Livewire component.
+- [2026-05-02] Updated `CreateLocation` page: added `mutateFormDataBeforeFill()` (calls `explodeHoursForForm`) and `mutateFormDataBeforeCreate()` (calls `implodeHoursFromForm`).
+- [2026-05-02] Updated `EditLocation` page: added `mutateFormDataBeforeFill()` and `mutateFormDataBeforeSave()` with the same explode/implode calls.
+- [2026-05-02] Added `public const DAYS` array to `LocationResource` — single source of truth for weekday key→label map used by both the form builder and tests.
+- [2026-05-02] Extended `LocationResourceTest.php` with 7 new test cases covering: hours section field existence, `explodeHoursForForm` correctness, `implodeHoursFromForm` correctness (open days, closed days, blank-times-as-null), edit form persistence end-to-end, all-null-hours safety, and audit-field completeness.
+- [2026-05-02] All 19 `LocationResource*` tests pass. Pre-existing `MenuItemResource` failures are Task 2 (parallel agent) and unrelated to this change.
+
+### Decisions
+- [2026-05-02] Used `Grid::make(3)` from `Filament\Schemas\Components\Grid` (not `Filament\Forms\Components\Grid` which does not exist in this Filament 5 install) to lay out toggle + open + close per day at a 1/1/1 column ratio.
+- [2026-05-02] Virtual per-day fields (`hours_{day}_closed`, `hours_{day}_open`, `hours_{day}_close`) are NOT marked `->dehydrated(false)`. They must be included in Livewire's dehydrated state so that `mutateFormDataBeforeSave` can read them and reassemble the hours JSON. `implodeHoursFromForm` strips these virtual keys before the data reaches the service layer.
+- [2026-05-02] Closed-toggle convention: `true` = closed that day (day key = `null` in JSON). `false` = open. When toggle is off but both times are empty, the day is also treated as closed rather than storing an incomplete `{ open: null, close: null }` record.
+- [2026-05-02] `mutateFormDataBeforeCreate` (not `mutateFormDataBeforeSave`) is the correct Filament hook name on `CreateRecord` pages. `EditRecord` uses `mutateFormDataBeforeSave`.
+
+### Blockers
+- None.
+
+### Files Changed
+- `backend/app/Filament/Resources/LocationResource.php` — added `DAYS` constant, `hoursSection()`, `explodeHoursForForm()`, `implodeHoursFromForm()`; imported `Grid`, `Toggle`; wired `hoursSection()` into `form()`
+- `backend/app/Filament/Resources/LocationResource/Pages/CreateLocation.php` — added `mutateFormDataBeforeFill()`, `mutateFormDataBeforeCreate()`
+- `backend/app/Filament/Resources/LocationResource/Pages/EditLocation.php` — added `mutateFormDataBeforeFill()`, `mutateFormDataBeforeSave()`
+- `backend/tests/Feature/Admin/Resources/LocationResourceTest.php` — 7 new test cases for hours section

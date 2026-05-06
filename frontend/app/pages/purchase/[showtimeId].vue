@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Showtime } from '~/types/showtime'
+import type { Showtime, ShowtimeLocation } from '~/types/showtime'
 import type { Auditorium, Seat } from '~/types/auditorium'
 import type { BookingSeat } from '~/types/booking'
 import { apiFetch } from '~/utils/api'
@@ -18,7 +18,7 @@ useHead({
 const route = useRoute()
 const showtimeId = route.params.showtimeId as string
 
-const { activeLocation } = useLocations()
+const { activeLocation, locations, fetchLocations, setLocation, restoreActiveLocation } = useLocations()
 const cart = useCart()
 const { show: showToast } = useToast()
 const { setStep } = usePurchaseStep()
@@ -34,8 +34,31 @@ const error = ref('')
 const partySize = ref(2)
 const preferences = ref<Preference[]>([])
 
+// The cross-location showtime selector links carry ?loc=<slug> so a direct
+// /purchase/<id> visit can bootstrap activeLocation without depending on an
+// already-restored localStorage value. Falls back to localStorage, then to
+// the first known location.
+async function ensureActiveLocation(): Promise<boolean> {
+  if (activeLocation.value) return true
+
+  if (locations.value.length === 0) {
+    await fetchLocations()
+  }
+
+  const queryLoc = route.query.loc
+  const fromQuery = typeof queryLoc === 'string' ? queryLoc : Array.isArray(queryLoc) ? queryLoc[0] : null
+  if (fromQuery) {
+    setLocation(fromQuery)
+    if (activeLocation.value) return true
+  }
+
+  restoreActiveLocation()
+  return activeLocation.value != null
+}
+
 onMounted(async () => {
-  if (!activeLocation.value) {
+  const ready = await ensureActiveLocation()
+  if (!ready) {
     showToast({ message: 'Please select a location first.', type: 'error' })
     await navigateTo('/')
     return
@@ -44,7 +67,7 @@ onMounted(async () => {
   try {
     const response = await apiFetch<{
       data: { showtime: Showtime; auditorium: Auditorium; seats: Seat[] }
-    }>(`/api/locations/${activeLocation.value.slug}/showtimes/${showtimeId}`)
+    }>(`/api/locations/${activeLocation.value!.slug}/showtimes/${showtimeId}`)
 
     showtime.value = response.data.showtime
     auditorium.value = response.data.auditorium
@@ -65,6 +88,33 @@ onMounted(async () => {
 })
 
 const selectedSeatIds = computed(() => cart.seats.value.map(s => s.seatId))
+
+// bannerLocation: prefer the location payload from the seatmap response
+// (when the backend includes it). Falls back to activeLocation from the
+// catalog so the banner is never blank during the transition period while
+// the backend ShowtimeResource is being updated to include location fields.
+// Once the backend ships location data in the seatmap response, the
+// activeLocation fallback path is never exercised.
+// NOTE: The backend `ShowtimeResource` does not yet include location address
+// fields (street, city, state, postal_code, phone). This is a deviation from
+// the Task 8 spec — flag to laravel-api-agent to add these fields to
+// `ShowtimeResource::toArray()`. The type has been defined; the frontend
+// will render them when the backend delivers them.
+const bannerLocation = computed<ShowtimeLocation | null>(() => {
+  // Seatmap response location (richest — has address fields when backend ships them)
+  if (showtime.value?.location) return showtime.value.location
+
+  // Fallback: use activeLocation catalog entry (slug + name only, no address)
+  if (activeLocation.value) {
+    return {
+      slug: activeLocation.value.slug,
+      name: activeLocation.value.name,
+      latitude: null,
+      longitude: null,
+    }
+  }
+  return null
+})
 
 function sectionLabel(seat: Seat): string {
   return seat.type.charAt(0).toUpperCase() + seat.type.slice(1)
@@ -248,10 +298,7 @@ const changeSeatsHref = computed<string | null>(() =>
     </template>
 
     <template #header-extras>
-      <div v-if="activeLocation" class="seat-loc">
-        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 010-5 2.5 2.5 0 010 5z" /></svg>
-        <b>{{ activeLocation.name }}</b>
-      </div>
+      <!-- Location shown in the full-width banner below; header extras slot intentionally empty. -->
     </template>
 
     <template #rail>
@@ -268,6 +315,16 @@ const changeSeatsHref = computed<string | null>(() =>
         @take-pick="handleProjectionistPick"
       />
     </template>
+
+    <!-- Location confirmation banner — appears above the seat grid.
+         Renders as soon as bannerLocation resolves (even before seat data
+         loads) so the user sees the venue commitment immediately. -->
+    <BookingLocationBanner
+      v-if="bannerLocation"
+      :location="bannerLocation"
+      :movie-slug="showtime?.movieSlug ?? ''"
+      class="seat-page-banner"
+    />
 
     <div class="seat-page" :class="{ 'seat-page--with-hold': cart.seats.value.length > 0 }">
       <template v-if="loading">
@@ -364,31 +421,5 @@ const changeSeatsHref = computed<string | null>(() =>
   }
 }
 
-.seat-loc {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-family: var(--font-body);
-  color: var(--tertiary);
-  font-size: 0.8125rem;
-  padding: 0.375rem 0.625rem;
-  background-color: rgba(42, 42, 42, 0.5);
-  border-radius: 0.125rem;
-}
-
-.seat-loc svg {
-  width: 0.875rem;
-  height: 0.875rem;
-}
-
-.seat-loc b {
-  color: var(--on-surface);
-  font-weight: 500;
-}
-
-@media (max-width: 40rem) {
-  .seat-loc {
-    display: none;
-  }
-}
+/* Location chip removed — replaced by BookingLocationBanner above the seat grid. */
 </style>
