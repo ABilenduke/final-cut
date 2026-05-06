@@ -6,13 +6,20 @@ const route = useRoute()
 const slug = computed(() => route.params.slug as string)
 
 // ——— Primary venue data ———
+// Awaited so SSR can act on the resolved error before continuing setup.
+// Without `await`, `locationError.value` is still null when the gate below
+// runs and Nitro returns 200 for unknown slugs.
 const { fetchBySlug } = usePublicLocations()
-const { data: locationData, error: locationError } = fetchBySlug(slug.value)
+const { data: locationData, error: locationError } = await fetchBySlug(slug.value)
 const location = computed(() => locationData.value?.data ?? null)
 
 // ——— 404 gate ———
-if (import.meta.server && locationError.value) {
-  throw createError({ statusCode: 404, statusMessage: 'Location not found' })
+if (locationError.value) {
+  throw createError({
+    statusCode: 404,
+    statusMessage: 'Location not found',
+    fatal: true,
+  })
 }
 
 // ——— Now Showing Here ———

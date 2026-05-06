@@ -61,7 +61,10 @@ test.describe('/food-drink availability captions', () => {
     for (let i = 0; i < count; i++) {
       const text = await captions.nth(i).textContent()
       // Must match "Available at X only" or "Available at X · Y [· Z …]"
-      expect(text).toMatch(/^→\s*Available at .+$/)
+      // Note: the leading arrow glyph is rendered via a CSS ::before pseudo-element
+      // (ConcessionItemCard.vue § .prod__availability::before), so it does not
+      // appear in textContent — only the literal text node does.
+      expect(text?.trim()).toMatch(/^Available at .+$/)
     }
   })
 
