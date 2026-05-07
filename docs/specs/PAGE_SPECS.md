@@ -784,32 +784,39 @@ Accessibility:
 
 ## Calendar & Events
 
-### `/whats-on` -- What's On Calendar
+### `/whats-on` -- What's On Calendar (Bridge Console)
 
 | Property     | Value                                                                        |
 | ------------ | ---------------------------------------------------------------------------- |
 | Layout       | `default`                                                                    |
-| Compositions | Wide Frame (calendar fills width)                                            |
+| Compositions | Bridge Console — split month grid + sticky detail rail (collapses to drawer below `screen-lg`) |
 | Auth         | Public (loyalty exclusives visible but marked as "members only")             |
 
 **Sections (top to bottom)**
 
-1. **Calendar controls** -- Month, week, and list view toggle. Date navigation (previous/next). Event type filter checkboxes (showtimes, special events, loyalty exclusives). Accessibility filter checkboxes in plain language: "Sensory Friendly", "Open Captions", "Audio Described". Filtered accessibility events display a visible `CvBadge` with the accessibility type. Multiple accessibility filters use comma-separated URL encoding: `?accessibility=sensory_friendly,open_caption`. This format is canonical across deep links, URL state, and the API.
-2. **Calendar grid** -- Month grid with event indicator dots color-coded by type. Accessibility events show an additional icon indicator.
-3. **Calendar event list** -- Events for the selected day, shown below or beside the grid.
+1. **Programme toolbar** (`BridgeProgrammeToolbar`) -- "— Programme · Vol XXIII" eyebrow + display-scale h1 (`What's <em>On</em>, May 2026` with italicized "On") on the left; Month/Week/List segmented control + prev / "Today · DD MMM" / next icon buttons on the right. Week and List are disabled in v1 with a "Coming soon" tooltip; the segmented control is built on `CvSegmentedControl`. Prev/next icon buttons use `CvIconButton`.
+2. **Filter ribbon** (`BridgeFilterRibbon`) -- Six toggleable `CvChip`s (Showtimes, Specials, Members, Sensory, Captions, Audio Described) on the left; type-color legend (Special / Members / Sensory) on the right. Default = all six on. Rentals (`private_screening_blackout`) are always shown regardless of chip state. Chip state syncs to `?chips=...` (omitted at default); legacy `?type=` and `?accessibility=` URLs translate forward on first load. The chip set is the union of two backend axes — chip → backend mapping lives in `useBridgeFilters`.
+3. **Bridge layout** -- Two-column grid above `screen-lg` (1fr / 26rem fixed):
+   - **Month grid** (`BridgeMonthGrid`) -- 5- or 6-week month, Mon-start. Cells separated by 1px on a tinted background (no borders). Each `BridgeDayCell` shows the day number, up to 4 type-color flag dots, up to 2 event lines (time + title with type-color left border) and a `+N more` overflow row. States: default / hover / today (gold day number) / selected (`primary-container` fill, gold-40 inset outline) / muted (outside-month) / has-rental (135° corner-stripe). Roving tabindex; arrows / Home / End move focus.
+   - **Detail rail** (`BridgeDetailRail`) -- Sticky `top: 5.5rem`. Composes three cards top-to-bottom: `BridgeDetailHero` (eyebrow + 4rem day numeral + hero film with 4-up showtime tile grid via the calendar event's embedded `showtimes` payload), `BridgeAlsoToday` (5-row max list with × badge for rentals), `BridgeCinemaReadout` (4-stat readout — static stub for v1).
+4. **Detail drawer** (`BridgeDetailDrawer`) -- Below `screen-lg`, the rail collapses out of the grid and tapping a day cell opens a slide-up sheet that wraps the same three cards. Backdrop click and Escape close the drawer; focus is trapped inside the panel.
+
+**Hero film selection** -- per the shared `pickHeroEvent` helper: prefer `special_event` or `loyalty_exclusive`, otherwise the first non-rental event of the day. Rentals never become the hero. Same logic feeds both the rail and the drawer.
+
+**Default selected day** -- today if today is in the visible month, otherwise the 1st of that month. URL `?date=YYYY-MM-DD` overrides; clicking a day writes back to `?date=` (or strips it when the user lands back on today).
 
 **Components**
 
-`CalendarGrid`, `CalendarDayCell`, `CalendarEventList`, `CalendarFilters`, `EventListCard`, `CvButton`
+`BridgeProgrammeToolbar`, `BridgeFilterRibbon`, `BridgeMonthGrid`, `BridgeDayCell`, `BridgeDetailRail`, `BridgeDetailHero`, `BridgeAlsoToday`, `BridgeCinemaReadout`, `BridgeMiniPoster`, `BridgeDetailDrawer`, `CvChip`, `CvSegmentedControl`, `CvIconButton`, `CvIcon`
 
 **Data Requirements**
 
-- `GET /api/calendar/events?month=M&year=Y&type=filter`
+- `GET /api/calendar/events?month=M&year=Y` -- the page fetches the full visible month and applies chip filters client-side (chip toggles can't round-trip through the single-axis API filter). Synthesized `showtime`-type events carry an embedded `showtimes: Array<{ id; startTime; auditoriumLabel; soldOut }>` payload that powers the detail rail's tile grid without a second round-trip.
 
 **SEO**
 
-- Title: `What's On -- [Theater Name]`
-- Structured data: `Event`
+- Title: `What's On — Final Cut`
+- Structured data: `Event` (deferred — current page emits `og:` tags only)
 
 ---
 

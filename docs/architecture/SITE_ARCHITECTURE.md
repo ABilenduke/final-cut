@@ -32,8 +32,11 @@ app/
 │   │                    AuditoriumScreenBar, CartSummary, CheckoutForm,
 │   │                    BookingConfirmation, FoodPreOrderPanel, PromoCode,
 │   │                    PurchaseStepIndicator
-│   ├── calendar/        CalendarGrid, CalendarDayCell, CalendarEventList,
-│   │                    CalendarFilters
+│   ├── calendar/        BridgeProgrammeToolbar, BridgeFilterRibbon,
+│   │                    BridgeMonthGrid, BridgeDayCell, BridgeDetailRail,
+│   │                    BridgeDetailHero, BridgeAlsoToday,
+│   │                    BridgeCinemaReadout, BridgeMiniPoster,
+│   │                    BridgeDetailDrawer
 │   ├── account/         OrderHistoryList, LoyaltyPointsCard,
 │   │                    SavedPaymentMethods, UpcomingBookings, ProfileForm
 │   └── content/         FaqAccordionGroup, ContactForm, ContactMap, MenuItem,

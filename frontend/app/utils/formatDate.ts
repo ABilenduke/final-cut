@@ -66,3 +66,25 @@ const weekdayDateFormatter = new Intl.DateTimeFormat('en-US', {
 export function formatWeekdayDate(iso: string): string {
   return weekdayDateFormatter.format(parseDate(iso))
 }
+
+/**
+ * Pull the wire HH:mm fragment out of an ISO datetime string without going
+ * through `new Date()`. Used by SSR-rendered surfaces (Bridge calendar)
+ * that must produce identical strings on the server and the client — `formatTime`
+ * above shifts to the viewer's local timezone, which differs across SSR/client.
+ * e.g. "2026-04-03T19:00:00" → "19:00"
+ */
+export function formatWireTime(iso: string): string {
+  const m = iso.match(/T(\d{2}):(\d{2})/)
+  return m ? `${m[1]}:${m[2]}` : ''
+}
+
+/**
+ * Build a YYYY-MM-DD date key from year / month (1–12) / day. Locale-free
+ * and timezone-agnostic — for grid construction and URL state where wall-clock
+ * date arithmetic, not display formatting, is the goal.
+ */
+export function toLocalDateKey(year: number, month: number, day: number): string {
+  const pad2 = (n: number) => (n < 10 ? `0${n}` : String(n))
+  return `${year}-${pad2(month)}-${pad2(day)}`
+}

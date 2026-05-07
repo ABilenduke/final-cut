@@ -1125,3 +1125,79 @@ All sites marked `TODO(backend)` — grep `rg 'TODO\(backend\)' frontend/app/` t
 - `frontend/tests/server/__snapshots__/sitemap-contract.test.ts.snap` — new
 - `frontend/public/robots.txt` — deleted (was intercepting the new Nitro route)
 - `e2e/sitemap.spec.ts` — fixed XML declaration regex and aligned second-venue assertion to seed
+
+## /whats-on Bridge Console Redesign (2026-05-06)
+**Status:** ✅ Complete
+**Started:** 2026-05-06
+**Completed:** 2026-05-06
+
+Replaced the generic month-grid + filters + list-below `/whats-on` page with the high-fidelity "Bridge Console" split layout from `handoffs/design_handoff_calendar/` (gitignored). Two-column composition above 80rem: dense month grid on the left, persistent sticky detail rail on the right; below 80rem the rail collapses out of the grid and tapping a day cell opens a slide-up drawer.
+
+### Work Done
+
+- 2026-05-06 Audited the design tokens in `tokens.css` against the handoff's `colors_and_type.css` — every color, spacing, easing, radius, and z-index token already exists. Zero token additions required.
+- 2026-05-06 Phase A — built three new global UI primitives in `app/components/ui/`: `CvChip` (filter pill with optional 7px colored dot, gold-tinted active state, compact variant), `CvSegmentedControl` (Month/Week/List switch with roving tabindex + arrow-key nav, supports per-option `disabled`/`hint`), and `CvIconButton` (square 2.25rem, accessible-label-required, falls back from NuxtLink to button when disabled). 24 Vitest tests cover the primitives.
+- 2026-05-06 Phase B — extended `ShowtimeCalendarProjector` to embed a `showtimes: [{ id, startTime, auditoriumLabel, soldOut }]` payload on each synthesized event so the detail rail's 4-up tile grid can render without a second round-trip. `soldOut` derives from a bulk `BookingSeat` count vs `auditorium.total_seats`. `CalendarEventResource` exposes the new field; stored events return null. Six new Pest cases covering inclusion, ordering, cancelled-screening exclusion, soldOut computation, cancelled-booking exclusion, and the stored-events null contract.
+- 2026-05-06 Phase C — built `useBridgeFilters` composable: six chip slugs (`showtime/special/member/sensory/captions/audio`), default = all-on, exposed `isVisible(event)` predicate that unifies the backend's two filter axes (event type + accessibility tags), URL serialize/deserialize via `?chips=...`, and a `fromLegacyQuery` translator for old `?type=` / `?accessibility=` bookmarks. 18 Vitest tests. Added `showtimes?: Array<...>` to the `CalendarEvent` type.
+- 2026-05-06 Phase D — built nine new `Bridge*` components plus the page rewrite: `BridgeProgrammeToolbar` (eyebrow + display-scale h1 with italicized "On" + view switch + prev/today/next), `BridgeFilterRibbon` (six chips + 3-item type legend), `BridgeMonthGrid` (5–6 week Mon-start grid with grid-toolbar header and roving-tabindex keyboard nav), `BridgeDayCell` (day number + flag dots + up to 2 event lines + overflow row + has-rental corner stripe), `BridgeDetailRail` (sticky `top: 5.5rem` aside hidden below 80rem), `BridgeDetailHero` (4rem day numeral + hero film with showtime tile grid), `BridgeAlsoToday` (5-row max list with × badge for rentals), `BridgeCinemaReadout` (4-stat readout, static stub for v1), `BridgeMiniPoster` (poster image with hashed-hue gradient + initials fallback), and `BridgeDetailDrawer` (mobile slide-up sheet). Page rebuild keeps SSR-safe today derivation, URL-driven month/year/date/chip state, and the legacy `useState('whats-on:today-date')` shared key.
+- 2026-05-06 Hero film selection extracted into `pickHeroEvent` so rail and drawer agree: prefer first `special_event` or `loyalty_exclusive`, otherwise first non-rental event.
+- 2026-05-06 Phase E — responsive collapse implemented purely in CSS via `@media (min-width: 80rem)` switches. Above 80rem: rail visible, drawer hidden. Below: rail `display: none`, drawer activated by tapping a day cell. Drawer teleports to `<body>`, traps focus, dismisses on Escape and backdrop click, and respects `prefers-reduced-motion`.
+- 2026-05-06 Phase F — wrote 45 new Bridge component tests (`BridgeDayCell`, `BridgeMonthGrid`, `BridgeDetailHero`, `BridgeAlsoToday`, `BridgeFilterRibbon`, `BridgeProgrammeToolbar`) and a Playwright e2e (`e2e/whats-on-bridge.spec.ts`) covering chrome render, day-click rail update, chip toggle URL persistence, prev/next/today flow, ArrowRight selection move, and tablet-width drawer behavior.
+- 2026-05-06 Phase G — deleted the legacy `CalendarGrid.vue`, `CalendarDayCell.vue`, `CalendarEventList.vue`, `CalendarFilters.vue` and their Vitest files. Updated `tests/architecture/whats-on-date-hydration.test.ts` to assert SSR-safe today derivation against `BridgeMonthGrid` + `BridgeDayCell` instead of the deleted `CalendarGrid`. Updated `docs/specs/COMPONENT_INVENTORY.md` (added the three new Cv primitives + Bridge component map; retired the legacy entries), `docs/specs/PAGE_SPECS.md` (rewrote the `/whats-on` section), `docs/architecture/SITE_ARCHITECTURE.md` (component listing), `docs/architecture/STATE_MANAGEMENT.md` (calendar state row), and `docs/README.md` (added the `Handoffs` section explaining the gitignored `handoffs/` convention).
+- 2026-05-06 Verified frontend stack on https://finalcut.test/whats-on — page renders 200, all expected `bridge-*` and `cv-*` classes present in SSR HTML. Backend `make test-backend-feature --filter=CalendarEvent`: 31 passed (98 assertions). Frontend `make test-frontend`: 894 passed + 5 skipped (down from 944 only because we deleted legacy tests; net new = 95 Bridge-related tests).
+
+### Decisions
+
+- 2026-05-06 Filter ribbon does **client-side** chip filtering rather than per-toggle API fetches because the chip set is the union of two backend axes (`type` + `accessibility`) — the existing API filter is a single-axis intersection that can't represent the union model. The page fetches the visible month once and `useBridgeFilters.isVisible` narrows the displayed set; chip toggles round-trip through `?chips=` for shareability.
+- 2026-05-06 Kept `Showtime` capacity check naïve: occupying-seat count vs `auditorium.total_seats`. Admin-marked unavailable seats and per-section capacity nuances are deferred — the rail's "sold out" pip is informational, not a hard contract.
+- 2026-05-06 Cinema readout (Card 3) ships as a static four-stat stub for v1. Live wiring (members tonight, bar status, late showing, valet) is a follow-up.
+- 2026-05-06 Week and List views render as disabled segments in the toolbar with a "Coming soon" tooltip rather than carrying the legacy week/list code on life support — the handoff explicitly defers them and keeping the old code adds maintenance surface.
+- 2026-05-06 Default selected day is **today** if today falls within the visible month, otherwise the **1st** of that month. Handoff hardcoded the 13th because of mock-data density; against live data the principled defaults track the current day.
+- 2026-05-06 `BridgeMiniPoster` uses a plain `<img>` rather than `<NuxtImg>` because `@nuxt/image` is not installed (and the rest of the app's posters use plain `<img>` too). The fallback (hashed-hue gradient + initials + grain overlay) covers events with no `imageUrl` payload.
+
+### Files Changed
+
+- `backend/app/Services/ShowtimeCalendarProjector.php` — embeds `showtimes` payload + bulk occupying-seat counts
+- `backend/app/Http/Resources/CalendarEventResource.php` — exposes `showtimes` field
+- `backend/tests/Feature/Api/CalendarEventControllerTest.php` — six new cases for the embedded payload + soldOut behavior
+- `frontend/app/components/ui/CvChip.vue` — new
+- `frontend/app/components/ui/CvSegmentedControl.vue` — new
+- `frontend/app/components/ui/CvIconButton.vue` — new
+- `frontend/app/composables/useBridgeFilters.ts` — new (chip set + `isVisible` + `pickHeroEvent`)
+- `frontend/app/types/calendar-event.ts` — added `showtimes?: CalendarEventShowtime[]` and `CalendarEventShowtime` interface
+- `frontend/app/components/calendar/BridgeProgrammeToolbar.vue` — new
+- `frontend/app/components/calendar/BridgeFilterRibbon.vue` — new
+- `frontend/app/components/calendar/BridgeMonthGrid.vue` — new
+- `frontend/app/components/calendar/BridgeDayCell.vue` — new
+- `frontend/app/components/calendar/BridgeDetailRail.vue` — new
+- `frontend/app/components/calendar/BridgeDetailHero.vue` — new
+- `frontend/app/components/calendar/BridgeAlsoToday.vue` — new
+- `frontend/app/components/calendar/BridgeCinemaReadout.vue` — new
+- `frontend/app/components/calendar/BridgeMiniPoster.vue` — new
+- `frontend/app/components/calendar/BridgeDetailDrawer.vue` — new
+- `frontend/app/pages/whats-on.vue` — rewritten to compose the Bridge layout while keeping SSR-safe date hydration and URL state
+- `frontend/app/components/calendar/CalendarGrid.vue` — deleted
+- `frontend/app/components/calendar/CalendarDayCell.vue` — deleted
+- `frontend/app/components/calendar/CalendarEventList.vue` — deleted
+- `frontend/app/components/calendar/CalendarFilters.vue` — deleted
+- `frontend/tests/components/ui/CvChip.test.ts` — new (9 tests)
+- `frontend/tests/components/ui/CvSegmentedControl.test.ts` — new (7 tests)
+- `frontend/tests/components/ui/CvIconButton.test.ts` — new (8 tests)
+- `frontend/tests/composables/useBridgeFilters.test.ts` — new (18 tests)
+- `frontend/tests/components/calendar/BridgeDayCell.test.ts` — new (13 tests)
+- `frontend/tests/components/calendar/BridgeMonthGrid.test.ts` — new (8 tests)
+- `frontend/tests/components/calendar/BridgeDetailHero.test.ts` — new (6 tests)
+- `frontend/tests/components/calendar/BridgeAlsoToday.test.ts` — new (6 tests)
+- `frontend/tests/components/calendar/BridgeFilterRibbon.test.ts` — new (5 tests)
+- `frontend/tests/components/calendar/BridgeProgrammeToolbar.test.ts` — new (7 tests)
+- `frontend/tests/architecture/whats-on-date-hydration.test.ts` — retargeted assertions onto Bridge components
+- `frontend/tests/components/calendar/CalendarGrid.test.ts` — deleted
+- `frontend/tests/components/calendar/CalendarDayCell.test.ts` — deleted
+- `frontend/tests/components/calendar/CalendarEventList.test.ts` — deleted
+- `frontend/tests/components/calendar/CalendarFilters.test.ts` — deleted
+- `e2e/whats-on-bridge.spec.ts` — new
+- `docs/specs/COMPONENT_INVENTORY.md` — Cv primitive entries + Bridge component map; retired legacy entries
+- `docs/specs/PAGE_SPECS.md` — rewrote `/whats-on` section
+- `docs/architecture/SITE_ARCHITECTURE.md` — component listing updated
+- `docs/architecture/STATE_MANAGEMENT.md` — calendar state row updated
+- `docs/README.md` — added the `Handoffs` section

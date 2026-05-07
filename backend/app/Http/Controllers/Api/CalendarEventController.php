@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Enums\CalendarEventType;
 use App\Http\Resources\CalendarEventResource;
 use App\Models\CalendarEvent;
+use App\Services\ShowtimeCalendarProjector;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -59,7 +61,27 @@ class CalendarEventController extends Controller
 
         $events = $query->orderBy('date')->orderBy('start_time')->get();
 
-        return $this->successResponse(CalendarEventResource::collection($events));
+        // Synthesize showtime-typed entries from the showtimes table on the fly.
+        // Skipped when the type filter narrows to a non-showtime type.
+        $includeShowtimes = empty($validated['type']) || $validated['type'] === CalendarEventType::Showtime->value;
+
+        $synthetic = $includeShowtimes
+            ? app(ShowtimeCalendarProjector::class)->eventsForRange(
+                Carbon::parse($startOfMonth),
+                Carbon::parse($endOfMonth),
+                $locationSlug ?: null,
+            )
+            : collect();
+
+        $merged = $events->concat($synthetic)
+            ->sortBy(fn (CalendarEvent $event) => sprintf(
+                '%s|%s',
+                $event->date->format('Y-m-d'),
+                $event->start_time?->format('Y-m-d H:i:s') ?? '0000-00-00 00:00:00',
+            ))
+            ->values();
+
+        return $this->successResponse(CalendarEventResource::collection($merged));
     }
 
     public function show(string $slug): JsonResponse

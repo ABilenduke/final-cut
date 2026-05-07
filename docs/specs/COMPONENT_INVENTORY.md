@@ -267,6 +267,48 @@ Located in `app/components/ui/`. Auto-imported globally by Nuxt. These are the d
 
 ---
 
+### CvChip
+
+**File:** `app/components/ui/CvChip.vue`
+
+**Purpose:** Outlined toggle pill with optional colored dot. Powers the `BridgeFilterRibbon`; usable anywhere a single-value toggle should read like a tag rather than a checkbox.
+
+**Props:** `label: string`, `active?: boolean`, `color?: string` (CSS color powers the 7px dot + active glow), `compact?: boolean`, `disabled?: boolean`.
+
+**Events:** `update:active` (`boolean`), `toggle`.
+
+**Behavior:** Default — transparent bg, `outline-variant` border at 40% opacity, ambient text. Active — gold-tinted bg, gold-50 border, on-surface text, dot at full opacity with 6px box-shadow glow. Compact — tighter padding + `label-sm` text. `aria-pressed` reflects active state.
+
+---
+
+### CvSegmentedControl
+
+**File:** `app/components/ui/CvSegmentedControl.vue`
+
+**Purpose:** Generic segmented selector. Powers the Month/Week/List switch in `BridgeProgrammeToolbar`.
+
+**Props:** `modelValue: string`, `options: Array<{ value: string; label: string; disabled?: boolean; hint?: string }>`, `label?: string`.
+
+**Events:** `update:modelValue` (`string`).
+
+**Behavior:** `surface-container-low` track, `radius-sm`. Active option is `primary-container` bg + `primary` text. Disabled options carry an `aria-disabled` and a tooltip via `hint`. Roving tabindex; ArrowLeft / ArrowRight navigate, skipping disabled options. `role="tablist"` with `role="tab"` per button.
+
+---
+
+### CvIconButton
+
+**File:** `app/components/ui/CvIconButton.vue`
+
+**Purpose:** Square 2.25rem icon button. Used for prev/next month controls in `BridgeProgrammeToolbar`; reusable wherever a labelled icon affordance fits.
+
+**Props:** `icon: IconName` (CvIcon name), `label: string` (required accessible name), `size?: 'sm' | 'default' | 'lg'`, `disabled?: boolean`, `href?: string`.
+
+**Events:** `click` (`MouseEvent`).
+
+**Behavior:** Renders as a `<button>` by default; switches to `<NuxtLink>` when `href` is provided and not disabled. Hover lifts background to `surface-container-high` and tints icon to `secondary` (gold). Same gold double-ring focus indicator as the rest of the Cv primitives.
+
+---
+
 ## Tier 2: Layout Components
 
 Located in `app/components/layout/`. These form the persistent site shell.
@@ -687,83 +729,28 @@ Located in `app/components/booking/`.
 
 ---
 
-## Tier 2: Domain Components — Calendar
+## Tier 2: Domain Components — Calendar (Bridge Console)
 
-Located in `app/components/calendar/`.
+Located in `app/components/calendar/`. The `/whats-on` page composes these into the "Bridge Console" split layout — dense month grid on the left, persistent detail rail on the right (collapses to a slide-up drawer below `screen-lg`). The original `CalendarGrid` / `CalendarDayCell` / `CalendarEventList` / `CalendarFilters` components were retired in the redesign.
 
----
+The chip-based filter model and event-type color palette are owned by the `useBridgeFilters` composable (`app/composables/useBridgeFilters.ts`). Six toggleable chips collapse the backend's two-axis filter model (event type + accessibility tags) into a single ribbon; rentals are always visible regardless of chip state.
 
-### CalendarGrid
+| Component | File | Role |
+| --- | --- | --- |
+| `BridgeProgrammeToolbar` | `BridgeProgrammeToolbar.vue` | Eyebrow + h1 (`What's <em>On</em>, May 2026`) + Month/Week/List segmented control + prev/today/next icon buttons |
+| `BridgeFilterRibbon` | `BridgeFilterRibbon.vue` | Six `CvChip` toggles + 3-item type legend; reads/writes `useBridgeFilters` |
+| `BridgeMonthGrid` | `BridgeMonthGrid.vue` | 5-or-6-week month grid with grid-toolbar header (Mon-start, screening + special counters); `role="grid"`, roving tabindex; emits `select-date` |
+| `BridgeDayCell` | `BridgeDayCell.vue` | Day number, type-color flag dots (cap 4), up to 2 event lines + `+N more`; states: default / today / selected / muted / has-rental (135° corner stripe) |
+| `BridgeDetailRail` | `BridgeDetailRail.vue` | Sticky right column (`top: 5.5rem`); composes the three detail cards; hidden below `screen-lg` |
+| `BridgeDetailHero` | `BridgeDetailHero.vue` | Selected-day card: 4rem day numeral + meta + hero film (`BridgeMiniPoster`) + 4-up showtime tile grid (`is-soldout` strikethrough state) |
+| `BridgeAlsoToday` | `BridgeAlsoToday.vue` | "Also Today" list of remaining events; rentals render with × badge + muted treatment |
+| `BridgeCinemaReadout` | `BridgeCinemaReadout.vue` | 4-stat readout (members tonight / bar opens / late showing / valet); static stub for v1 |
+| `BridgeMiniPoster` | `BridgeMiniPoster.vue` | Poster thumbnail with image fallback to a hashed-hue gradient + initials mark + grain overlay |
+| `BridgeDetailDrawer` | `BridgeDetailDrawer.vue` | Slide-up sheet that wraps the same three detail cards; only visible below `screen-lg`; teleports to `<body>`, focus-trapped, dismisses on Escape and backdrop click |
 
-**File:** `app/components/calendar/CalendarGrid.vue`
+Hero film selection rule (shared between rail and drawer via `pickHeroEvent`): prefer the first `special_event` or `loyalty_exclusive`; otherwise the first non-rental event; otherwise null.
 
-**Purpose:** Month/week calendar grid with keyboard navigation.
-
-**Props:**
-
-| Name | Type | Required | Default | Description |
-| ---- | ---- | -------- | ------- | ----------- |
-| `events` | `Array<CalendarEvent>` | Yes | — | Events for current month/range |
-| `selectedDate` | `string` | Yes | — | ISO date string of selected day |
-| `view` | `'month' \| 'week' \| 'list'` | No | `'month'` | Display mode |
-
-**Events:** `select-date` (`string`), `navigate` (`{ month: number; year: number }`).
-
-**Behavior:** Day cell: 3rem minimum at all breakpoints. Event dots color-coded by type (showtime: `tertiary`, special event: `secondary`, loyalty: `primary-container`).
-
-**Accessibility:** `role="grid"`, roving tabindex. Keyboard navigation per `DESIGN_SYSTEM_STRUCTURE.md` § 7. Each cell: `aria-label="[Full date]. [N] events."`, `aria-selected`. Column headers: `role="columnheader"`.
-
----
-
-### CalendarDayCell
-
-**File:** `app/components/calendar/CalendarDayCell.vue`
-
-**Purpose:** Individual day cell within calendar grid.
-
-**Props:**
-
-| Name | Type | Required | Default | Description |
-| ---- | ---- | -------- | ------- | ----------- |
-| `date` | `string` | Yes | — | ISO date |
-| `events` | `Array<CalendarEvent>` | Yes | — | Events for this day |
-| `selected` | `boolean` | Yes | — | Whether this day is selected |
-| `today` | `boolean` | Yes | — | Whether this is today |
-
----
-
-### CalendarEventList
-
-**File:** `app/components/calendar/CalendarEventList.vue`
-
-**Purpose:** List of events for a selected day.
-
-**Props:**
-
-| Name | Type | Required | Default | Description |
-| ---- | ---- | -------- | ------- | ----------- |
-| `events` | `Array<CalendarEvent>` | Yes | — | Events to display |
-| `date` | `string` | Yes | — | Selected date for heading |
-
-**Structure:** Grouped by event type. Each event shows time, title, type badge, and link to detail.
-
----
-
-### CalendarFilters
-
-**File:** `app/components/calendar/CalendarFilters.vue`
-
-**Purpose:** View toggle and event type filter controls.
-
-**Props:**
-
-| Name | Type | Required | Default | Description |
-| ---- | ---- | -------- | ------- | ----------- |
-| `activeView` | `'month' \| 'week' \| 'list'` | Yes | — | Current view mode |
-| `activeFilters` | `Array<string>` | Yes | — | Active event type filters |
-| `activeAccessibilityFilters` | `Array<AccessibilityTag>` | No | `[]` | Active accessibility filters |
-
-**Events:** `view-change` (`string`), `filter-change` (`Array<string>`), `accessibility-filter-change` (`Array<AccessibilityTag>`).
+The Bridge components do not call `new Date()` for "today" comparisons — `pages/whats-on.vue` derives the SSR-safe today key once via `Intl.DateTimeFormat({ timeZone: appTimeZone })` and passes it down. This contract is locked by `tests/architecture/whats-on-date-hydration.test.ts`.
 
 ---
 
