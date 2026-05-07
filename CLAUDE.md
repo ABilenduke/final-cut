@@ -126,9 +126,9 @@ These default to `1000` (standard first user on Linux/WSL). If your host UID dif
 
 **Backend:** PHP-FPM workers run as `devuser` (not `www-data`). A `dev-entrypoint.sh` script starts as root to fix ownership on `storage/` and `bootstrap/cache/` dirs that may have stale permissions, then exec's `php-fpm`. The vendor directory uses a named Docker volume (`backend-vendor`) owned by `devuser`.
 
-**Frontend:** Deno runs as `devuser`. The Deno cache directory is a named volume (`frontend-deno-cache`) mounted at `/home/devuser/.cache/deno`.
+**Frontend:** Deno runs as `devuser`, dropped from root by `frontend/docker/dev-entrypoint.sh` which first chowns `/app/.nuxt` (Docker creates named-volume roots as `root:root`), then `runuser`s to `devuser` before exec'ing `deno task dev`. Two named volumes back the dev container: `frontend-deno-cache` mounted at `/home/devuser/.cache/deno` (Deno module cache) and `frontend-nuxt` mounted at `/app/.nuxt` (Nuxt build output and Nitro cache). The `.nuxt` volume isolates Nuxt's `fs-lite` cache tree from the host bind mount so file-vs-directory key collisions (e.g. `cache:nuxt:payload` vs `cache:nuxt:payload:<route>`) cannot persist across `make down/build/up` — recovery is `docker volume rm <project>_frontend-nuxt` instead of editing host paths. The image USER defaults to root so the entrypoint can chown the volume; `docker exec` and the compose healthcheck must drop to devuser explicitly (`-u 1000`, or `runuser -u devuser`).
 
-**Hooks note:** Any `docker exec` commands in hooks (e.g., running Pint) must use `-u 1000` to match the `devuser` UID inside the container.
+**Hooks note:** Any `docker exec` commands in hooks (e.g., running Pint) must use `-u 1000` to match the `devuser` UID inside the container. This applies to both backend and frontend dev containers.
 
 ## Key Domain Concepts
 

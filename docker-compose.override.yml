@@ -25,7 +25,13 @@ services:
       - DEV_UID=${DEV_UID:-1000}
       - DEV_GID=${DEV_GID:-1000}
     healthcheck:
-      test: ["CMD", "deno", "eval", "await fetch('http://127.0.0.1:3000/')"]
+      # Run as devuser explicitly. The image USER defaults to root (the
+      # entrypoint drops privs at runtime), but Docker healthchecks bypass
+      # the entrypoint and execute as the image USER. Without runuser here,
+      # the healthcheck would write Deno runtime artifacts into
+      # frontend-deno-cache as root, blocking the actual dev process from
+      # reading them on next start (EACCES).
+      test: ["CMD", "runuser", "-u", "devuser", "--", "deno", "eval", "await fetch('http://127.0.0.1:3000/')"]
       interval: 15s
       timeout: 5s
       retries: 5
