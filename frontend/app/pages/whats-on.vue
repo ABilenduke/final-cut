@@ -118,14 +118,16 @@ function updateQuery(updates: Record<string, string | undefined>) {
   for (const [key, val] of Object.entries(route.query)) {
     if (typeof val === 'string') query[key] = val
   }
+  // `undefined` strips the param; `''` is preserved because some encodings (notably
+  // `?chips=` for "all chips off") need an empty string to round-trip through
+  // reload.
   for (const [key, val] of Object.entries(updates)) {
-    if (val !== undefined && val !== null && val !== '') {
-      query[key] = val
-    } else {
+    if (val === undefined || val === null) {
       delete query[key]
+    } else {
+      query[key] = val
     }
   }
-  // Strip legacy params once the user starts driving the new chip URL state.
   if ('chips' in updates) {
     delete query.type
     delete query.accessibility

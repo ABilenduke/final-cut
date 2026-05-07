@@ -111,6 +111,11 @@ const gridEl = ref<HTMLElement | null>(null)
 
 function focusCell(date: string) {
   focusedDate.value = date
+  // Single-press selection: arrow / Home / End move both focus AND selection,
+  // so keyboard users don't need a follow-up Enter to commit a day. Click is
+  // already a single press; this keeps the two paths symmetrical and matches
+  // the calendar pattern in Google Calendar / iOS Date Picker.
+  emit('select-date', date)
   nextTick(() => {
     if (!gridEl.value) return
     const el = gridEl.value.querySelector<HTMLElement>(`[data-date="${date}"]`)

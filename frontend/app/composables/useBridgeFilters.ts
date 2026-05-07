@@ -23,14 +23,21 @@ export type ChipSlug = (typeof ALL_CHIPS)[number]
 
 /**
  * Color tokens used by the chip dots, day-cell event-line accents, and the
- * detail rail's type pip. Lifted from the design handoff's `FC_TYPES` map.
+ * detail rail's type pip. Lifted from the design handoff's `FC_TYPES` map,
+ * with one deviation: `member` substitutes a darker rose (`#D6928A`) for the
+ * handoff's `#FFB4A8`, because `#FFB4A8` is the project's `--primary` token
+ * and the design system reserves it strictly for text/icon use on
+ * `--primary-container` fills (`docs/design-system/DESIGN_SYSTEM.md` §
+ * "Token Mapping" — never as a fill, even at small sizes). The substitute
+ * keeps the warm "premium / loyalty" reading without violating the rule.
+ *
  * Rental is included because it appears in the legend and event lines, even
  * though its chip is not user-toggleable.
  */
 export const FC_TYPE_COLORS: Record<ChipSlug | 'rental', string> = {
   showtime: '#CCC6B6',
   special: '#DAC769',
-  member: '#FFB4A8',
+  member: '#D6928A',
   sensory: '#A8C9FF',
   captions: '#A8FFC9',
   audio: '#FFC9A8',

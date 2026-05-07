@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref } from 'vue'
 
 interface SegmentOption {
   value: string
@@ -19,8 +19,6 @@ const emit = defineEmits<{
 }>()
 
 const buttons = ref<HTMLButtonElement[]>([])
-
-const enabledOptions = computed(() => props.options.filter((o) => !o.disabled))
 
 function select(value: string) {
   const opt = props.options.find((o) => o.value === value)

@@ -13,6 +13,8 @@ const emit = defineEmits<{
 }>()
 
 const panelRef = ref<HTMLElement | null>(null)
+const focusTrap = useFocusTrap()
+let trapActive = false
 let priorBodyOverflow: string | null = null
 
 function close() {
@@ -40,11 +42,27 @@ function unlockBodyScroll() {
   priorBodyOverflow = null
 }
 
+function activateTrap() {
+  if (trapActive || !panelRef.value) return
+  focusTrap.activate(panelRef.value)
+  trapActive = true
+}
+
+function deactivateTrap() {
+  if (!trapActive) return
+  focusTrap.deactivate()
+  trapActive = false
+}
+
 watch(() => props.open, (isOpen) => {
   if (isOpen) {
     lockBodyScroll()
-    requestAnimationFrame(() => panelRef.value?.focus())
+    // Defer the trap activation until the panel ref is wired and the
+    // teleport has flushed; useFocusTrap moves focus + sets `inert` on
+    // siblings.
+    requestAnimationFrame(activateTrap)
   } else {
+    deactivateTrap()
     unlockBodyScroll()
   }
 })
@@ -59,6 +77,7 @@ onBeforeUnmount(() => {
   if (typeof document !== 'undefined') {
     document.removeEventListener('keydown', onKeydown)
   }
+  deactivateTrap()
   unlockBodyScroll()
 })
 </script>
