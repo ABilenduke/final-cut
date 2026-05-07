@@ -78,15 +78,19 @@ test.describe('What\'s On — Bridge Console', () => {
   })
 
   test('focused cell responds to ArrowRight by moving selection', async ({ page }) => {
-    const grid = page.locator('.bridge-month-grid__cells')
-    await grid.focus()
     // Find the currently selected cell and press ArrowRight.
     const selectedCell = page.locator('.bridge-day-cell--selected').first()
     const before = await selectedCell.getAttribute('data-date')
     await selectedCell.focus()
     await selectedCell.press('ArrowRight')
-    const newSelected = await page.locator('.bridge-day-cell--selected').first().getAttribute('data-date')
-    expect(newSelected).not.toBe(before)
+
+    // Selection moves via emit → updateQuery → navigateTo → reactive prop update.
+    // That chain spans multiple microtasks, so poll until the DOM reflects it.
+    await expect
+      .poll(async () =>
+        page.locator('.bridge-day-cell--selected').first().getAttribute('data-date'),
+      )
+      .not.toBe(before)
   })
 
   test('detail rail is hidden and drawer opens on tablet width', async ({ browser }) => {
