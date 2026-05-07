@@ -718,3 +718,91 @@ test('stored calendar_events rows return null for the showtimes field', function
         ->assertJsonCount(1, 'data')
         ->assertJsonPath('data.0.showtimes', null);
 });
+
+/*
+|--------------------------------------------------------------------------
+| GET /api/calendar/events — venue-timezone month-boundary handling
+|--------------------------------------------------------------------------
+|
+| Showtimes group by venue-local date. The UTC fetch window is padded by ±1
+| day and the synthesized groups are filtered by computed local date so:
+|   - late-evening local-month-end showtimes whose UTC value crosses into
+|     the next day still appear in the requested month
+|   - early-morning showtimes that land in the requested UTC bucket but
+|     belong to the previous month locally are dropped
+|
+*/
+
+test('includes a west-coast showtime whose local date is the last day of the month even when its UTC value crosses to the next month', function () {
+    $movie = Movie::factory()->create(['slug' => 'tz-late-edge']);
+    $location = Location::factory()->create([
+        'slug' => 'la-tz-late',
+        'timezone' => 'America/Los_Angeles',
+    ]);
+    $auditorium = Auditorium::factory()->create(['location_id' => $location->id]);
+
+    // 23:00 PT on 2026-06-30 → 06:00 UTC on 2026-07-01 (PDT, UTC-7).
+    Showtime::factory()->create([
+        'movie_id' => $movie->id,
+        'auditorium_id' => $auditorium->id,
+        'start_time' => '2026-07-01 06:00:00',
+        'end_time' => '2026-07-01 08:00:00',
+    ]);
+
+    getJson('/api/calendar/events?month=6&year=2026')
+        ->assertOk()
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('data.0.date', '2026-06-30')
+        ->assertJsonPath('data.0.type', 'showtime');
+});
+
+test('excludes a west-coast showtime whose local date is in the previous month even when its UTC value lands in the requested month bucket', function () {
+    $movie = Movie::factory()->create(['slug' => 'tz-early-edge']);
+    $location = Location::factory()->create([
+        'slug' => 'la-tz-early',
+        'timezone' => 'America/Los_Angeles',
+    ]);
+    $auditorium = Auditorium::factory()->create(['location_id' => $location->id]);
+
+    // 19:00 PT on 2026-05-31 → 02:00 UTC on 2026-06-01 (PDT, UTC-7). The
+    // stored UTC stamp is inside the unpadded June UTC bucket, but the local
+    // date is May 31 — must not surface in a June response.
+    Showtime::factory()->create([
+        'movie_id' => $movie->id,
+        'auditorium_id' => $auditorium->id,
+        'start_time' => '2026-06-01 02:00:00',
+        'end_time' => '2026-06-01 04:00:00',
+    ]);
+
+    getJson('/api/calendar/events?month=6&year=2026')
+        ->assertOk()
+        ->assertJsonCount(0, 'data');
+});
+
+test('synthesized event start_time renders the venue-local wall-clock value', function () {
+    $movie = Movie::factory()->create();
+    $location = Location::factory()->create([
+        'slug' => 'la-tz-walltime',
+        'timezone' => 'America/Los_Angeles',
+    ]);
+    $auditorium = Auditorium::factory()->create(['location_id' => $location->id]);
+
+    // 02:00 UTC on 2026-06-16 → 19:00 PT on 2026-06-15 (PDT, UTC-7).
+    Showtime::factory()->create([
+        'movie_id' => $movie->id,
+        'auditorium_id' => $auditorium->id,
+        'start_time' => '2026-06-16 02:00:00',
+        'end_time' => '2026-06-16 04:00:00',
+    ]);
+
+    $response = getJson('/api/calendar/events?month=6&year=2026')
+        ->assertOk()
+        ->assertJsonCount(1, 'data');
+
+    // formatWireTime() reads the literal HH:MM out of the ISO string without
+    // applying any timezone conversion, so the venue's wall-clock hour must
+    // appear in the wire payload — never the UTC hour.
+    expect($response->json('data.0.startTime'))->toContain('19:00');
+    expect($response->json('data.0.startTime'))->not->toContain('02:00');
+    expect($response->json('data.0.date'))->toBe('2026-06-15');
+});

@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-
 interface Props {
   monthLabel: string
   year: number
@@ -9,7 +7,7 @@ interface Props {
   volumeLabel?: string
 }
 
-const props = withDefaults(defineProps<Props>(), {
+withDefaults(defineProps<Props>(), {
   volumeLabel: 'Programme',
 })
 
@@ -29,15 +27,13 @@ const viewOptions = [
 function onViewChange(value: string) {
   emit('view-change', value as 'month' | 'week' | 'list')
 }
-
-const titleHtml = computed(() => `What's <em>On</em>, ${props.monthLabel} ${props.year}`)
 </script>
 
 <template>
   <header class="bridge-toolbar">
     <div class="bridge-toolbar__lead">
       <p class="bridge-toolbar__eyebrow">{{ volumeLabel }}</p>
-      <h1 class="bridge-toolbar__title" v-html="titleHtml" />
+      <h1 class="bridge-toolbar__title">What's <em>On</em>, {{ monthLabel }} {{ year }}</h1>
     </div>
     <div class="bridge-toolbar__controls">
       <CvSegmentedControl

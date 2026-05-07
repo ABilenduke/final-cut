@@ -17,7 +17,7 @@ describe('BridgeProgrammeToolbar', () => {
     expect(title.text()).toContain('On')
     expect(title.text()).toContain('May')
     expect(title.text()).toContain('2026')
-    expect(title.html()).toContain('<em>On</em>')
+    expect(title.html()).toMatch(/<em[^>]*>On<\/em>/)
   })
 
   it('renders the volume label in the eyebrow', async () => {

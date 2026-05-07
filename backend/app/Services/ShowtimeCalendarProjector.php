@@ -33,12 +33,20 @@ class ShowtimeCalendarProjector
         CarbonInterface $endDate,
         ?string $locationSlug = null,
     ): Collection {
+        // Showtimes are bucketed by their *venue-local* date, not by their
+        // stored UTC value. Pad the UTC fetch window by ±1 day so a showtime
+        // whose UTC stamp crosses midnight relative to its venue (e.g. 23:00
+        // PT on local-day-end → 06:00 UTC next day) is still considered, then
+        // post-filter the synthesized groups by computed local date so
+        // showtimes whose local date falls outside the requested range are
+        // dropped (e.g. 19:00 PT on local-prev-day → 02:00 UTC of the first
+        // day in the requested UTC bucket). ±1 day covers UTC-12 → UTC+14.
         $query = Showtime::query()
             ->with(['movie', 'auditorium.location'])
             ->whereNull('cancelled_at')
             ->whereBetween('start_time', [
-                $startDate->copy()->startOfDay(),
-                $endDate->copy()->endOfDay(),
+                $startDate->copy()->startOfDay()->subDay(),
+                $endDate->copy()->endOfDay()->addDay(),
             ]);
 
         if ($locationSlug !== null && $locationSlug !== '') {
@@ -54,9 +62,17 @@ class ShowtimeCalendarProjector
             $showtimes->pluck('id')->all(),
         );
 
+        $startKey = $startDate->copy()->toDateString();
+        $endKey = $endDate->copy()->toDateString();
+
         return $showtimes
             ->groupBy(fn (Showtime $s) => $this->groupKey($s))
             ->map(fn (Collection $group) => $this->synthesize($group, $occupyingSeatCounts))
+            ->filter(function (CalendarEvent $event) use ($startKey, $endKey) {
+                $localDate = $event->date->toDateString();
+
+                return $localDate >= $startKey && $localDate <= $endKey;
+            })
             ->values();
     }
 
@@ -133,13 +149,24 @@ class ShowtimeCalendarProjector
             ])
             ->all();
 
+        // The Bridge calendar surfaces format times via `formatWireTime`, which
+        // reads the literal HH:MM out of the ISO string without applying any
+        // timezone conversion. Convert the synthesized event's start/end to
+        // venue-local time so the day-cell event lines render the venue's
+        // wall-clock value rather than UTC. The `datetime` cast roundtrip
+        // preserves the wall-clock portion (formatted as a tz-naive string,
+        // re-parsed as UTC on read) — semantically the emitted ISO claims UTC
+        // but the wall-clock matches the venue, which is the only contract
+        // the consuming surfaces care about. The embedded `showtimes[]`
+        // payload below carries proper venue-local ISO with offsets for the
+        // detail-rail tile grid.
         return (new CalendarEvent)->forceFill([
             'id' => "showtime-{$movie->id}-{$location->id}-{$localDate}",
             'type' => CalendarEventType::Showtime,
             'title' => $movie->title,
             'date' => $localDate,
-            'start_time' => $earliestStart,
-            'end_time' => $latestEnd,
+            'start_time' => $earliestStart->copy()->setTimezone($location->timezone),
+            'end_time' => $latestEnd->copy()->setTimezone($location->timezone),
             'description' => null,
             'movie_slug' => $movie->slug,
             'image_path' => null,
