@@ -56,3 +56,9 @@ Execution journals tracking decisions, blockers, and file changes.
 Production operational procedures.
 
 - [Admin Operations](runbooks/admin-operations.md) — Common admin-panel ops (create users, unban IPs, rotate passwords, emergency shutdown)
+
+## Handoffs
+
+Design references that don't ship with the repo. The `handoffs/` directory at the project root holds high-fidelity design bundles delivered by external designers — typically a working HTML/JSX prototype plus a CSS token sheet. The directory is `.gitignore`d (the prototypes pull in CDN React / Babel and aren't part of the runtime), but they're load-bearing references during implementation. Do not copy them into the codebase verbatim — they're a visual contract, not source code. Examples:
+
+- `handoffs/design_handoff_calendar/` — `/whats-on` Bridge Console redesign (lifted into `app/components/calendar/Bridge*.vue`)

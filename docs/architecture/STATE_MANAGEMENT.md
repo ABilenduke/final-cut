@@ -263,8 +263,9 @@ Local state is component-scoped. It uses Vue's `ref()` and `reactive()` directly
 | Form validation errors | Form components | Cleared on submit, no cross-component need |
 | Accordion open/closed | CvAccordion | UI toggle per instance |
 | Modal open/closed | Per modal instance | Each modal manages its own visibility |
-| Calendar current month/year | CalendarGrid | Navigation state for one calendar |
-| Calendar selected date | CalendarGrid / page | Passed via props/emits, not global |
+| Calendar current month/year | `pages/whats-on.vue` (URL `?month=&year=`) | URL is the source of truth; toolbar prev/next/today rewrite the query |
+| Calendar selected date | `pages/whats-on.vue` (URL `?date=`) | Day cells emit `select-date`; rail / drawer derive from prop |
+| Calendar chip filters | `useBridgeFilters` (page-scoped `useState`) + URL `?chips=` | Page-scoped because the chip set is shared between toolbar, ribbon, grid, and rail |
 | Active tab (category tabs) | MenuCategoryTabs, ShowtimeSelector | Local UI state |
 | Movie list filters (genre, rating) | Movie listing pages | URL query params, not state |
 | Search query | Search components | Ephemeral input |

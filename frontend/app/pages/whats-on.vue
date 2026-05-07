@@ -1,29 +1,32 @@
 <script setup lang="ts">
-import type { AccessibilityTag, CalendarEvent } from '~/types/calendar-event'
+import { computed, onMounted, ref, watch } from 'vue'
+import type { CalendarEvent } from '~/types/calendar-event'
 import { useApiFetch } from '~/utils/api'
+import { useBridgeFilters } from '~/composables/useBridgeFilters'
+import { toLocalDateKey } from '~/utils/formatDate'
 
 const route = useRoute()
 const appTimeZone = String(useRuntimeConfig().public.appTimeZone || 'America/New_York')
 
-// Use one serialized date for SSR and hydration. The client refreshes it after
+// Use one serialized date for SSR and hydration. The client refreshes after
 // mount so long-lived sessions can cross a date boundary without stale UI.
-const todayDate = useState<string>('whats-on:today-date', () => toLocalDateKey())
+const todayDate = useState<string>('whats-on:today-date', () => currentAppTodayKey())
 
 if (import.meta.client) {
   onMounted(() => {
-    todayDate.value = toLocalDateKey()
+    todayDate.value = currentAppTodayKey()
   })
 }
 
 const todayParts = computed(() => {
-  const [yearText, monthText] = todayDate.value.split('-')
+  const [yearText, monthText, dayText] = todayDate.value.split('-')
   return {
     year: Number(yearText),
     month: Number(monthText),
+    day: Number(dayText),
   }
 })
 
-// Read state from URL query params
 const month = computed(() => {
   const m = Number(route.query.month)
   return m >= 1 && m <= 12 ? m : todayParts.value.month
@@ -43,85 +46,166 @@ const view = computed<'month' | 'week' | 'list'>(() => {
 const selectedDate = computed(() => {
   const d = route.query.date as string
   if (d && /^\d{4}-\d{2}-\d{2}$/.test(d)) return d
-  return todayDate.value
+  // Default: today if it's in the visible month, otherwise the 1st.
+  if (
+    todayParts.value.year === year.value
+    && todayParts.value.month === month.value
+  ) {
+    return todayDate.value
+  }
+  return toLocalDateKey(year.value, month.value, 1)
 })
 
-const activeFilters = computed(() => {
-  const t = route.query.type as string
-  return t ? t.split(',').filter(Boolean) : []
-})
+const filters = useBridgeFilters()
 
-const activeAccessibilityFilters = computed<AccessibilityTag[]>(() => {
-  const a = route.query.accessibility as string
-  if (!a) return []
-  return a.split(',').filter(Boolean) as AccessibilityTag[]
-})
+let hydratedFromUrl = false
+function hydrateFiltersFromRoute() {
+  if (hydratedFromUrl) return
+  hydratedFromUrl = true
+  if (route.query.chips !== undefined) {
+    filters.fromQueryValue(route.query.chips as string | string[])
+    return
+  }
+  filters.fromLegacyQuery(
+    route.query.type as string | string[] | undefined,
+    route.query.accessibility as string | string[] | undefined,
+  )
+}
+hydrateFiltersFromRoute()
 
-// Build API query params
-const typeQuery = computed(() => activeFilters.value.join(',') || undefined)
-const accessibilityQuery = computed(() => activeAccessibilityFilters.value.join(',') || undefined)
-
-// Fetch events — reactive query ensures re-fetch on param change
+// Always fetch the full month (no API filter) and apply chip filtering client-side
+// — chip toggles are a union model that the existing single-axis API filter can't
+// represent.
 const apiQuery = computed(() => ({
   month: month.value,
   year: year.value,
-  ...(typeQuery.value ? { type: typeQuery.value } : {}),
-  ...(accessibilityQuery.value ? { accessibility: accessibilityQuery.value } : {}),
 }))
 
-const { data: eventsData } = useApiFetch<{ data: CalendarEvent[] }>('/api/calendar/events', {
-  query: apiQuery,
-  watch: [apiQuery],
-})
-
-const events = computed(() => eventsData.value?.data ?? [])
-
-const eventsForSelectedDate = computed(() =>
-  events.value.filter(e => e.date === selectedDate.value),
+const { data: eventsData } = useApiFetch<{ data: CalendarEvent[] }>(
+  '/api/calendar/events',
+  {
+    query: apiQuery,
+    watch: [apiQuery],
+  },
 )
 
-// Update URL when filters change
+const allEvents = computed(() => eventsData.value?.data ?? [])
+
+const visibleEvents = computed(() =>
+  allEvents.value.filter((e) => filters.isVisible(e)),
+)
+
+const eventsForSelectedDate = computed(() =>
+  visibleEvents.value
+    .filter((e) => e.date === selectedDate.value)
+    .sort((a, b) => a.startTime.localeCompare(b.startTime)),
+)
+
+const monthLabel = computed(() =>
+  new Date(year.value, month.value - 1, 1).toLocaleDateString('en-US', { month: 'long' }),
+)
+
+const todayLabel = computed(() =>
+  new Date(
+    todayParts.value.year,
+    todayParts.value.month - 1,
+    todayParts.value.day,
+  ).toLocaleDateString('en-US', { day: 'numeric', month: 'short' }),
+)
+
 function updateQuery(updates: Record<string, string | undefined>) {
   const query: Record<string, string> = {}
-  // Preserve existing query params
   for (const [key, val] of Object.entries(route.query)) {
     if (typeof val === 'string') query[key] = val
   }
-  // Apply updates, remove undefined values
   for (const [key, val] of Object.entries(updates)) {
-    if (val) {
+    if (val !== undefined && val !== null && val !== '') {
       query[key] = val
     } else {
       delete query[key]
     }
   }
+  // Strip legacy params once the user starts driving the new chip URL state.
+  if ('chips' in updates) {
+    delete query.type
+    delete query.accessibility
+  }
+  if (queriesEqual(route.query, query)) return
   navigateTo({ query })
 }
 
-function onViewChange(newView: string) {
+function queriesEqual(
+  a: Record<string, unknown>,
+  b: Record<string, string>,
+): boolean {
+  const aKeys = Object.keys(a).filter((k) => typeof a[k] === 'string')
+  const bKeys = Object.keys(b)
+  if (aKeys.length !== bKeys.length) return false
+  return aKeys.every((k) => a[k] === b[k])
+}
+
+function onViewChange(newView: 'month' | 'week' | 'list') {
   updateQuery({ view: newView === 'month' ? undefined : newView })
 }
 
-function onFilterChange(filters: string[]) {
-  updateQuery({ type: filters.length ? filters.join(',') : undefined })
-}
-
-function onAccessibilityFilterChange(filters: AccessibilityTag[]) {
-  updateQuery({ accessibility: filters.length ? filters.join(',') : undefined })
-}
-
 function onSelectDate(date: string) {
-  updateQuery({ date })
+  updateQuery({ date: date === todayDate.value ? undefined : date })
+  if (import.meta.client && window.matchMedia('(max-width: 80rem)').matches) {
+    drawerOpen.value = true
+  }
 }
 
-function onNavigate(payload: { month: number; year: number }) {
+function onPrev() {
+  let newMonth = month.value - 1
+  let newYear = year.value
+  if (newMonth < 1) {
+    newMonth = 12
+    newYear -= 1
+  }
   updateQuery({
-    month: String(payload.month),
-    year: String(payload.year),
+    month: String(newMonth),
+    year: String(newYear),
+    date: undefined,
   })
 }
 
-function toLocalDateKey(date = new Date()): string {
+function onNext() {
+  let newMonth = month.value + 1
+  let newYear = year.value
+  if (newMonth > 12) {
+    newMonth = 1
+    newYear += 1
+  }
+  updateQuery({
+    month: String(newMonth),
+    year: String(newYear),
+    date: undefined,
+  })
+}
+
+function onToday() {
+  updateQuery({
+    month: undefined,
+    year: undefined,
+    date: undefined,
+  })
+}
+
+watch(
+  () => Array.from(filters.activeChips.value),
+  () => {
+    if (!hydratedFromUrl) return
+    updateQuery({ chips: filters.toQueryValue() })
+  },
+  { deep: false },
+)
+
+const drawerOpen = ref(false)
+function onDrawerClose() {
+  drawerOpen.value = false
+}
+
+function currentAppTodayKey(date = new Date()): string {
   const formatter = new Intl.DateTimeFormat('en-US', {
     timeZone: appTimeZone,
     year: 'numeric',
@@ -129,72 +213,92 @@ function toLocalDateKey(date = new Date()): string {
     day: '2-digit',
   })
   const parts = formatter.formatToParts(date)
-  const part = (type: string) => parts.find(p => p.type === type)?.value ?? ''
+  const part = (type: string) => parts.find((p) => p.type === type)?.value ?? ''
   return `${part('year')}-${part('month')}-${part('day')}`
 }
 
-// SEO
 useHead({
-  title: 'What\'s On — Final Cut',
+  title: "What's On — Final Cut",
   meta: [
-    { name: 'description', content: 'Browse showtimes, special events, and accessibility screenings at Final Cut.' },
-    { property: 'og:title', content: 'What\'s On — Final Cut' },
-    { property: 'og:description', content: 'Browse showtimes, special events, and accessibility screenings at Final Cut.' },
+    {
+      name: 'description',
+      content:
+        'Browse showtimes, special events, and accessibility screenings at Final Cut.',
+    },
+    { property: 'og:title', content: "What's On — Final Cut" },
+    {
+      property: 'og:description',
+      content:
+        'Browse showtimes, special events, and accessibility screenings at Final Cut.',
+    },
     { property: 'og:type', content: 'website' },
   ],
 })
 </script>
 
 <template>
-  <div class="whats-on-page">
-    <div class="container">
-      <h1 class="whats-on-page__heading headline-lg">What's On</h1>
+  <div class="whats-on-bridge">
+    <BridgeProgrammeToolbar
+      :month-label="monthLabel"
+      :year="year"
+      :view="view"
+      :today-label="todayLabel"
+      @view-change="onViewChange"
+      @prev="onPrev"
+      @next="onNext"
+      @today="onToday"
+    />
 
-      <CalendarFilters
-        :active-view="view"
-        :active-filters="activeFilters"
-        :active-accessibility-filters="activeAccessibilityFilters"
-        @view-change="onViewChange"
-        @filter-change="onFilterChange"
-        @accessibility-filter-change="onAccessibilityFilterChange"
+    <BridgeFilterRibbon />
+
+    <div class="whats-on-bridge__layout">
+      <BridgeMonthGrid
+        :events="visibleEvents"
+        :selected-date="selectedDate"
+        :today-date="todayDate"
+        :month="month"
+        :year="year"
+        @select-date="onSelectDate"
       />
 
-      <div class="whats-on-page__content">
-        <CalendarGrid
-          :events="events"
-          :selected-date="selectedDate"
-          :today-date="todayDate"
-          :view="view"
-          :month="month"
-          :year="year"
-          @select-date="onSelectDate"
-          @navigate="onNavigate"
-        />
-
-        <CalendarEventList
-          v-if="view !== 'list'"
-          :events="eventsForSelectedDate"
-          :date="selectedDate"
-        />
-      </div>
+      <BridgeDetailRail
+        :selected-date="selectedDate"
+        :events="eventsForSelectedDate"
+      />
     </div>
+
+    <BridgeDetailDrawer
+      :open="drawerOpen"
+      :selected-date="selectedDate"
+      :events="eventsForSelectedDate"
+      @close="onDrawerClose"
+    />
   </div>
 </template>
 
 <style scoped>
-.whats-on-page {
-  padding-block: var(--space-3xl);
+.whats-on-bridge {
+  padding: var(--space-2xl) var(--space-2xl) var(--space-3xl);
+  max-width: 90rem;
+  margin: 0 auto;
 }
 
-.whats-on-page__heading {
-  color: var(--on-surface);
-  margin: 0 0 var(--space-xl) 0;
+.whats-on-bridge__layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-xl);
+  align-items: flex-start;
 }
 
-.whats-on-page__content {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2xl);
-  margin-top: var(--space-xl);
+@media (min-width: 80rem) {
+  .whats-on-bridge__layout {
+    grid-template-columns: 1fr 26rem;
+  }
+}
+
+@media (max-width: 60rem) {
+  .whats-on-bridge {
+    padding: var(--space-xl) var(--space-md) var(--space-2xl);
+  }
 }
 </style>
