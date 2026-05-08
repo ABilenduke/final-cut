@@ -154,7 +154,7 @@ test('purchase stores idempotency_key and payload_hash on gift card', function (
 test('purchase returns 422 when amount below minimum', function () {
     fakeGiftCardStripe();
 
-    postJson('/api/gift-cards/purchase', validPurchasePayload(['amount' => 499]), idempotencyHeader())
+    postJson('/api/gift-cards/purchase', validPurchasePayload(['amount' => 2499]), idempotencyHeader())
         ->assertStatus(422)
         ->assertJsonValidationErrors(['amount']);
 });

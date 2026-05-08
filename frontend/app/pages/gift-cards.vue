@@ -139,6 +139,7 @@ function toggleFaq(index: number): void {
               :class="{ 'gift-cards-page__faq-item--open': openFaqIndex === index }"
             >
               <button
+                :id="`gift-cards-faq-q-${index}`"
                 type="button"
                 class="gift-cards-page__faq-q"
                 :aria-expanded="openFaqIndex === index"
@@ -153,8 +154,9 @@ function toggleFaq(index: number): void {
                 :id="`gift-cards-faq-${index}`"
                 class="gift-cards-page__faq-a"
                 role="region"
+                :aria-labelledby="`gift-cards-faq-q-${index}`"
               >
-                {{ item.answer }}
+                <div class="gift-cards-page__faq-a-inner">{{ item.answer }}</div>
               </div>
             </div>
           </div>
@@ -262,8 +264,8 @@ function toggleFaq(index: number): void {
 
 .gift-cards-page__meta-pill::before {
   content: '';
-  width: 5px;
-  height: 5px;
+  width: 0.3125rem;
+  height: 0.3125rem;
   border-radius: 50%;
   background: var(--secondary);
 }
@@ -449,19 +451,29 @@ function toggleFaq(index: number): void {
   transform: scaleY(0);
 }
 
+/* Open/close uses a grid-row-template animation so answers of any height
+ * fit without truncation — same pattern the design system's CvAccordion
+ * uses. The wrapper holds `grid-template-rows: 0fr | 1fr`; the inner
+ * `<div>` (rendered via the `:before/:after` of overflow:hidden) is the
+ * grid track that grows. */
 .gift-cards-page__faq-a {
   color: var(--tertiary);
   font-size: 0.9375rem;
   line-height: 1.6;
+  display: grid;
+  grid-template-rows: 0fr;
   padding: 0 0 0 2.625rem;
   margin-top: 0;
-  max-height: 0;
+  transition: grid-template-rows 350ms var(--ease-standard), margin-top 350ms, padding-bottom 350ms;
+}
+
+.gift-cards-page__faq-a > * {
+  min-height: 0;
   overflow: hidden;
-  transition: max-height 350ms var(--ease-standard), margin-top 350ms, padding-bottom 350ms;
 }
 
 .gift-cards-page__faq-item--open .gift-cards-page__faq-a {
-  max-height: 200px;
+  grid-template-rows: 1fr;
   margin-top: var(--space-md);
   padding-bottom: var(--space-md);
 }

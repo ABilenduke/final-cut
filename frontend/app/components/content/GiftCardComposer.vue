@@ -54,15 +54,23 @@ function selectPreset(cents: number): void {
 }
 
 function onCustomInput(event: Event): void {
-  const raw = (event.target as HTMLInputElement).value.replace(/[^0-9.]/g, '')
+  // Whole-dollar increments only — matches the "Increments of $1" hint.
+  // Strip everything but digits so a typo'd decimal (e.g. "75.50") falls
+  // back to the integer dollars without silently ringing up cents the user
+  // didn't see.
+  const raw = (event.target as HTMLInputElement).value.replace(/[^0-9]/g, '')
   customRaw.value = raw
+  if (raw === '') {
+    composer.setAmountCents(0)
+    return
+  }
   const dollars = Number(raw)
-  if (!Number.isFinite(dollars) || raw === '') {
+  if (!Number.isFinite(dollars)) {
     composer.setAmountCents(0)
     return
   }
   const clamped = Math.min(MAX_AMOUNT_CENTS / 100, Math.max(0, dollars))
-  composer.setAmountCents(Math.round(clamped * 100))
+  composer.setAmountCents(clamped * 100)
   delete errors.value.amount
 }
 
@@ -103,8 +111,22 @@ function onCustomDateInput(event: Event): void {
   const value = (event.target as HTMLInputElement).value
   customDateValue.value = value
   if (state.value.schedule === 'custom') {
-    composer.setSchedule('custom', value ? new Date(value).toISOString() : null)
+    composer.setSchedule('custom', value ? localDateAt9(value) : null)
   }
+}
+
+/**
+ * Build an ISO timestamp at local-time 09:00 from a `<input type="date">`
+ * `YYYY-MM-DD` value. Using `new Date('YYYY-MM-DD').toISOString()` would
+ * parse the value as UTC midnight and shift the day for users west of UTC,
+ * landing the scheduled-send 24 hours early. Constructing via the
+ * year/month/day constructor keeps the date in the user's local zone, then
+ * `toISOString` normalises to UTC for transport — matching the
+ * "tomorrow at 9:00 AM" chip's local-time semantics.
+ */
+function localDateAt9(yyyyMmDd: string): string {
+  const [year, month, day] = yyyyMmDd.split('-').map(Number)
+  return new Date(year, month - 1, day, 9, 0, 0, 0).toISOString()
 }
 
 const messageCount = computed(() => state.value.message.length)
@@ -633,8 +655,8 @@ const customAmountMax = computed(() => MAX_AMOUNT_CENTS / 100)
 }
 
 .composer__delivery-head :deep(svg) {
-  width: 18px;
-  height: 18px;
+  width: 1.125rem;
+  height: 1.125rem;
   color: var(--on-tertiary-fixed-variant);
   transition: color 200ms;
 }

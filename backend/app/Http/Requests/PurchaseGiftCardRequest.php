@@ -30,7 +30,7 @@ class PurchaseGiftCardRequest extends FormRequest
     {
         return [
             'idempotencyKey' => ['required', 'uuid'],
-            'amount' => ['required', 'integer', 'min:500', 'max:50000'],
+            'amount' => ['required', 'integer', 'min:2500', 'max:50000'],
             'recipientEmail' => ['required', 'email'],
             'recipientName' => ['required', 'string', 'max:255'],
             'senderName' => ['required', 'string', 'max:255'],

@@ -51,12 +51,12 @@ const cornerNo = computed(() => meta.value.serial)
   isolation: isolate;
   background: linear-gradient(145deg, #1a0a0a 0%, #0a0605 65%, #000 100%);
   box-shadow: var(--shadow-float);
-  transform: perspective(1200px) rotateX(2deg) rotateY(-4deg);
+  transform: perspective(75rem) rotateX(2deg) rotateY(-4deg);
   transition: transform 500ms var(--ease-standard);
 }
 
 .gift-card-visual:hover {
-  transform: perspective(1200px) rotateX(0deg) rotateY(0deg);
+  transform: perspective(75rem) rotateX(0deg) rotateY(0deg);
 }
 
 .gift-card-visual::before {
@@ -75,8 +75,8 @@ const cornerNo = computed(() => meta.value.serial)
   inset: 0;
   z-index: 0;
   background:
-    repeating-linear-gradient(135deg, transparent 0 4px, rgba(218, 199, 105, 0.025) 4px 5px),
-    repeating-linear-gradient(0deg, transparent 0 2px, rgba(255, 255, 255, 0.012) 2px 3px);
+    repeating-linear-gradient(135deg, transparent 0 0.25rem, rgba(218, 199, 105, 0.025) 0.25rem 0.3125rem),
+    repeating-linear-gradient(0deg, transparent 0 0.125rem, rgba(255, 255, 255, 0.012) 0.125rem 0.1875rem);
   mix-blend-mode: overlay;
 }
 

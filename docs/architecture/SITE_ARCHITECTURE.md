@@ -163,6 +163,8 @@ Each route group is assigned a rendering strategy based on how frequently its da
 | `/locations` | All Locations (alphabetical, geolocation re-orders post-hydration) | ISR | 30 min | Venue list rarely changes |
 | `/locations/:slug` | Location Detail (LocalBusiness JSON-LD, now-showing-here strip) | ISR | 30 min | Detail pages, local-SEO critical |
 | `/blog/:slug` | Blog Post | ISR | 10 min | Content updates, SEO critical |
+| `/gift-cards` | Gift Cards (composer + live preview, balance lookup strip) | ISR | 30 min | Editorial content rarely changes; suppresses global `NeuralTicker` via `definePageMeta({ hideTicker: true })` so the balance strip can occupy the chrome slot |
+| `/gift-cards/bulk` | Bulk Gifting placeholder (corporate concierge CTA) | Prerendered | Build time | Static placeholder until the bulk-gifting form ships |
 | `/contact` | Contact Page | Prerendered | Build time | Static content |
 | `/faq` | FAQ | Prerendered | Build time | Static content |
 | `/accessibility` | Accessibility Statement | Prerendered | Build time | Static content |
@@ -187,6 +189,8 @@ export default defineNuxtConfig({
     '/locations':         { isr: 1800 },
     '/locations/**':      { isr: 1800 },
     '/blog/**':           { isr: 600 },
+    '/gift-cards':        { isr: 1800 },
+    '/gift-cards/bulk':   { prerender: true },
     '/contact':           { prerender: true },
     '/faq':               { prerender: true },
     '/accessibility':     { prerender: true },
@@ -252,7 +256,7 @@ The app emits `sitemap.xml` at the root of the public domain via `@nuxtjs/sitema
 - `/events`, every event's `/events/:slug`
 - `/food-drink`
 - `/locations`, every location's `/locations/:slug`
-- `/faq`, `/contact`, `/accessibility`, `/careers`, `/gift-cards`, `/private-screenings`
+- `/faq`, `/contact`, `/accessibility`, `/careers`, `/gift-cards`, `/gift-cards/bulk`, `/private-screenings`
 - `/blog`, every post's `/blog/:slug`
 
 Excluded: `/purchase/**`, `/account/**`, `/auth/**` (these carry `X-Robots-Tag: noindex` from `routeRules` and `<meta name="robots" content="noindex">` in their templates). The admin subdomain has its own robots policy.
