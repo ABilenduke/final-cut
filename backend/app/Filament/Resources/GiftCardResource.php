@@ -2,6 +2,8 @@
 
 namespace App\Filament\Resources;
 
+use App\Enums\GiftCardDeliveryMethod;
+use App\Enums\GiftCardEdition;
 use App\Enums\GiftCardStatus;
 use App\Exceptions\GiftCardNotVoidableException;
 use App\Filament\Concerns\FormatsCurrency;
@@ -87,6 +89,24 @@ class GiftCardResource extends BaseResource
                     TextEntry::make('voided_reason')->placeholder('—'),
                 ])
                 ->columns(2),
+
+            Section::make('Design & Delivery')
+                ->schema([
+                    TextEntry::make('edition')
+                        ->badge()
+                        ->formatStateUsing(fn ($state) => self::enumLabel($state, GiftCardEdition::class))
+                        ->color(fn ($state) => self::editionColor($state)),
+                    TextEntry::make('delivery_method')
+                        ->label('Delivery method')
+                        ->badge()
+                        ->formatStateUsing(fn ($state) => self::enumLabel($state, GiftCardDeliveryMethod::class))
+                        ->color(fn ($state) => self::deliveryMethodColor($state)),
+                    TextEntry::make('scheduled_send_at')
+                        ->label('Scheduled send')
+                        ->dateTime()
+                        ->placeholder('Sent immediately'),
+                ])
+                ->columns(3),
         ]);
     }
 
@@ -108,6 +128,25 @@ class GiftCardResource extends BaseResource
                 TextColumn::make('status')
                     ->badge()
                     ->color(fn ($state) => self::statusColor($state)),
+                TextColumn::make('edition')
+                    ->badge()
+                    ->formatStateUsing(fn ($state) => self::enumLabel($state, GiftCardEdition::class))
+                    ->color(fn ($state) => self::editionColor($state))
+                    ->sortable()
+                    ->toggleable(),
+                TextColumn::make('delivery_method')
+                    ->label('Delivery')
+                    ->badge()
+                    ->formatStateUsing(fn ($state) => self::enumLabel($state, GiftCardDeliveryMethod::class))
+                    ->color(fn ($state) => self::deliveryMethodColor($state))
+                    ->sortable()
+                    ->toggleable(),
+                TextColumn::make('scheduled_send_at')
+                    ->label('Scheduled')
+                    ->dateTime()
+                    ->placeholder('—')
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('purchased_at')->date()->sortable(),
                 ...self::standardTimestamps(),
             ])
@@ -118,6 +157,18 @@ class GiftCardResource extends BaseResource
                         'depleted' => 'Depleted',
                         'voided' => 'Voided',
                         'expired' => 'Expired',
+                    ]),
+                SelectFilter::make('edition')
+                    ->options([
+                        'reactor' => 'Reactor',
+                        'gold' => 'Charter Gold',
+                        'void' => 'Pure Void',
+                    ]),
+                SelectFilter::make('delivery_method')
+                    ->label('Delivery')
+                    ->options([
+                        'email' => 'By email',
+                        'print' => 'Printed & posted',
                     ]),
                 Filter::make('with_balance')
                     ->label('Has remaining balance')
@@ -189,6 +240,53 @@ class GiftCardResource extends BaseResource
             'depleted' => 'gray',
             'voided' => 'danger',
             'expired' => 'warning',
+            default => 'gray',
+        };
+    }
+
+    /**
+     * Render a labelled enum for table/infolist columns. The
+     * `\App\Enums\HasLabel` constraint is what gives PHPStan confidence the
+     * resolved enum exposes a `label()` method; the generic erases the
+     * union of concrete types.
+     *
+     * @template T of \BackedEnum&\App\Enums\HasLabel
+     *
+     * @param  class-string<T>  $enumClass
+     */
+    private static function enumLabel(BackedEnum|string|null $state, string $enumClass): string
+    {
+        if ($state === null) {
+            return '—';
+        }
+
+        if ($state instanceof $enumClass) {
+            return $state->label();
+        }
+
+        /** @var T|null $enum */
+        $enum = $enumClass::tryFrom((string) $state);
+
+        return $enum?->label() ?? (string) $state;
+    }
+
+    private static function editionColor(GiftCardEdition|string|null $state): string
+    {
+        $value = $state instanceof GiftCardEdition ? $state->value : $state;
+
+        return match ($value) {
+            'reactor' => 'danger',
+            'gold' => 'warning',
+            default => 'gray',
+        };
+    }
+
+    private static function deliveryMethodColor(GiftCardDeliveryMethod|string|null $state): string
+    {
+        $value = $state instanceof GiftCardDeliveryMethod ? $state->value : $state;
+
+        return match ($value) {
+            'email' => 'info',
             default => 'gray',
         };
     }

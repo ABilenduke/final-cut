@@ -13,7 +13,7 @@ const mockApiFetch = vi.mocked(apiFetch)
 describe('useGiftCards', () => {
   beforeEach(() => { vi.clearAllMocks() })
 
-  it('purchase sends correct payload with idempotency key', async () => {
+  it('purchase sends camelCase payload with new design fields and idempotency key', async () => {
     mockApiFetch.mockResolvedValue({ data: {} })
     const { purchase } = useGiftCards()
     await purchase({
@@ -22,6 +22,9 @@ describe('useGiftCards', () => {
       recipientName: 'Friend',
       senderName: 'Me',
       message: 'Enjoy!',
+      edition: 'gold',
+      deliveryMethod: 'print',
+      scheduledSendAt: '2026-06-01T09:00:00.000Z',
       paymentMethodId: 'pm-1',
       idempotencyKey: 'uuid-abc',
     })
@@ -29,13 +32,40 @@ describe('useGiftCards', () => {
       method: 'POST',
       body: {
         amount: 5000,
-        recipient_email: 'friend@test.com',
-        recipient_name: 'Friend',
-        sender_name: 'Me',
+        recipientEmail: 'friend@test.com',
+        recipientName: 'Friend',
+        senderName: 'Me',
         message: 'Enjoy!',
-        payment_method_id: 'pm-1',
+        edition: 'gold',
+        deliveryMethod: 'print',
+        scheduledSendAt: '2026-06-01T09:00:00.000Z',
+        paymentMethodId: 'pm-1',
       },
       idempotencyKey: 'uuid-abc',
+    })
+  })
+
+  it('purchase passes scheduledSendAt as null for immediate sends', async () => {
+    mockApiFetch.mockResolvedValue({ data: {} })
+    const { purchase } = useGiftCards()
+    await purchase({
+      amount: 2500,
+      recipientEmail: 'a@b.test',
+      recipientName: 'A',
+      senderName: 'B',
+      message: null,
+      edition: 'reactor',
+      deliveryMethod: 'email',
+      scheduledSendAt: null,
+      paymentMethodId: 'pm-2',
+      idempotencyKey: 'uuid-2',
+    })
+    const call = mockApiFetch.mock.calls[0]
+    expect(call[1]?.body).toMatchObject({
+      edition: 'reactor',
+      deliveryMethod: 'email',
+      scheduledSendAt: null,
+      message: null,
     })
   })
 

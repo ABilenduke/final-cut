@@ -2,9 +2,12 @@
 
 namespace Database\Factories;
 
+use App\Enums\GiftCardDeliveryMethod;
+use App\Enums\GiftCardEdition;
 use App\Enums\GiftCardStatus;
 use App\Models\GiftCard;
 use App\Models\User;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
 
@@ -25,9 +28,27 @@ class GiftCardFactory extends Factory
             'recipient_name' => fake()->name(),
             'sender_name' => fake()->name(),
             'message' => fake()->optional()->sentence(),
+            'edition' => GiftCardEdition::Reactor,
+            'delivery_method' => GiftCardDeliveryMethod::Email,
+            'scheduled_send_at' => null,
             'status' => GiftCardStatus::Active,
             'purchased_at' => now(),
         ];
+    }
+
+    public function withEdition(GiftCardEdition $edition): static
+    {
+        return $this->state(fn () => ['edition' => $edition]);
+    }
+
+    public function posted(): static
+    {
+        return $this->state(fn () => ['delivery_method' => GiftCardDeliveryMethod::Print]);
+    }
+
+    public function scheduledFor(CarbonInterface $when): static
+    {
+        return $this->state(fn () => ['scheduled_send_at' => $when]);
     }
 
     public function active(): static

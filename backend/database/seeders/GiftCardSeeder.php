@@ -2,6 +2,8 @@
 
 namespace Database\Seeders;
 
+use App\Enums\GiftCardDeliveryMethod;
+use App\Enums\GiftCardEdition;
 use App\Enums\GiftCardStatus;
 use App\Models\GiftCard;
 use Illuminate\Database\Seeder;
@@ -10,7 +12,9 @@ class GiftCardSeeder extends Seeder
 {
     public function run(): void
     {
-        // 3 active gift cards with varying balances (deterministic codes for test references)
+        // 3 active gift cards with varying balances (deterministic codes for test references).
+        // Vary edition / delivery method / scheduled-send across the seeds so admin and
+        // customer surfaces have realistic stateful data to render.
         GiftCard::factory()->create([
             'code' => 'SEED-ACTIVE-2500',
             'initial_balance' => 2500,
@@ -29,6 +33,7 @@ class GiftCardSeeder extends Seeder
             'recipient_name' => 'Member User',
             'sender_name' => 'A Friend',
             'message' => 'Happy birthday!',
+            'edition' => GiftCardEdition::CharterGold,
         ]);
 
         GiftCard::factory()->create([
@@ -39,6 +44,9 @@ class GiftCardSeeder extends Seeder
             'recipient_name' => 'Guest Moviegoer',
             'sender_name' => 'Final Cut Theatre',
             'message' => null,
+            'edition' => GiftCardEdition::PureVoid,
+            'delivery_method' => GiftCardDeliveryMethod::Print,
+            'scheduled_send_at' => now()->addDays(3),
         ]);
 
         // 1 depleted gift card

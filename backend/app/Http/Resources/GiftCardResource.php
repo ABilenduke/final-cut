@@ -20,6 +20,9 @@ class GiftCardResource extends JsonResource
             'recipientName' => $this->recipient_name,
             'senderName' => $this->sender_name,
             'message' => $this->message,
+            'edition' => $this->edition->value,
+            'deliveryMethod' => $this->delivery_method->value,
+            'scheduledSendAt' => $this->scheduled_send_at?->toIso8601String(),
             'status' => $this->status->value,
             'purchasedAt' => $this->purchased_at?->toIso8601String(),
         ];
