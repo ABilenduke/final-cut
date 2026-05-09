@@ -56,6 +56,9 @@ test('purchase creates a gift card and returns 201 with correct structure', func
                 'recipientName',
                 'senderName',
                 'message',
+                'edition',
+                'deliveryMethod',
+                'scheduledSendAt',
                 'status',
                 'purchasedAt',
             ],
@@ -66,6 +69,9 @@ test('purchase creates a gift card and returns 201 with correct structure', func
         ->assertJsonPath('data.recipientName', 'Jane Doe')
         ->assertJsonPath('data.senderName', 'John Doe')
         ->assertJsonPath('data.message', 'Happy Birthday!')
+        ->assertJsonPath('data.edition', 'reactor')
+        ->assertJsonPath('data.deliveryMethod', 'email')
+        ->assertJsonPath('data.scheduledSendAt', null)
         ->assertJsonPath('data.status', 'active');
 
     expect(GiftCard::count())->toBe(1);
@@ -148,7 +154,7 @@ test('purchase stores idempotency_key and payload_hash on gift card', function (
 test('purchase returns 422 when amount below minimum', function () {
     fakeGiftCardStripe();
 
-    postJson('/api/gift-cards/purchase', validPurchasePayload(['amount' => 499]), idempotencyHeader())
+    postJson('/api/gift-cards/purchase', validPurchasePayload(['amount' => 2499]), idempotencyHeader())
         ->assertStatus(422)
         ->assertJsonValidationErrors(['amount']);
 });
@@ -746,4 +752,131 @@ test('confirm issues compensating refund when DB write fails after payment', fun
     expect($fake->refundedPaymentIntents[0]['paymentIntentId'])->toBe($piId);
 
     expect(GiftCard::count())->toBe(0);
+});
+
+/*
+|--------------------------------------------------------------------------
+| Design fields — edition / delivery_method / scheduled_send_at
+|--------------------------------------------------------------------------
+*/
+
+test('purchase persists edition, delivery method, and scheduled send when supplied', function () {
+    fakeGiftCardStripe();
+
+    $sendAt = now()->addDays(2)->setTime(9, 0)->toIso8601String();
+
+    postJson(
+        '/api/gift-cards/purchase',
+        validPurchasePayload([
+            'edition' => 'gold',
+            'deliveryMethod' => 'print',
+            'scheduledSendAt' => $sendAt,
+        ]),
+        idempotencyHeader(),
+    )
+        ->assertStatus(201)
+        ->assertJsonPath('data.edition', 'gold')
+        ->assertJsonPath('data.deliveryMethod', 'print');
+
+    $giftCard = GiftCard::first();
+    expect($giftCard->edition->value)->toBe('gold')
+        ->and($giftCard->delivery_method->value)->toBe('print')
+        ->and($giftCard->scheduled_send_at)->not->toBeNull();
+});
+
+test('purchase defaults edition and delivery method when omitted', function () {
+    fakeGiftCardStripe();
+
+    $payload = validPurchasePayload();
+    unset($payload['edition'], $payload['deliveryMethod'], $payload['scheduledSendAt']);
+
+    postJson('/api/gift-cards/purchase', $payload, idempotencyHeader())
+        ->assertStatus(201)
+        ->assertJsonPath('data.edition', 'reactor')
+        ->assertJsonPath('data.deliveryMethod', 'email')
+        ->assertJsonPath('data.scheduledSendAt', null);
+
+    $giftCard = GiftCard::first();
+    expect($giftCard->edition->value)->toBe('reactor')
+        ->and($giftCard->delivery_method->value)->toBe('email')
+        ->and($giftCard->scheduled_send_at)->toBeNull();
+});
+
+test('purchase rejects an invalid edition with 422', function () {
+    fakeGiftCardStripe();
+
+    postJson(
+        '/api/gift-cards/purchase',
+        validPurchasePayload(['edition' => 'platinum']),
+        idempotencyHeader(),
+    )
+        ->assertStatus(422)
+        ->assertJsonValidationErrors(['edition']);
+});
+
+test('purchase rejects an invalid delivery method with 422', function () {
+    fakeGiftCardStripe();
+
+    postJson(
+        '/api/gift-cards/purchase',
+        validPurchasePayload(['deliveryMethod' => 'fax']),
+        idempotencyHeader(),
+    )
+        ->assertStatus(422)
+        ->assertJsonValidationErrors(['deliveryMethod']);
+});
+
+test('purchase rejects a past scheduled_send_at with 422', function () {
+    fakeGiftCardStripe();
+
+    postJson(
+        '/api/gift-cards/purchase',
+        validPurchasePayload(['scheduledSendAt' => now()->subDay()->toIso8601String()]),
+        idempotencyHeader(),
+    )
+        ->assertStatus(422)
+        ->assertJsonValidationErrors(['scheduledSendAt']);
+});
+
+test('purchase returns 409 when same idempotency key reused with different edition', function () {
+    fakeGiftCardStripe();
+    $headers = idempotencyHeader();
+
+    postJson('/api/gift-cards/purchase', validPurchasePayload(['edition' => 'reactor']), $headers)
+        ->assertStatus(201);
+
+    postJson('/api/gift-cards/purchase', validPurchasePayload(['edition' => 'gold']), $headers)
+        ->assertStatus(409)
+        ->assertJsonPath('errors.0.field', 'idempotencyKey');
+});
+
+test('confirm preserves design fields cached during 3DS flow', function () {
+    $fake = fakeGiftCardStripe();
+    $fake->shouldRequire3ds();
+
+    $sendAt = now()->addDays(5)->toIso8601String();
+
+    $response = postJson(
+        '/api/gift-cards/purchase',
+        validPurchasePayload([
+            'edition' => 'void',
+            'deliveryMethod' => 'print',
+            'scheduledSendAt' => $sendAt,
+        ]),
+        idempotencyHeader(),
+    );
+    $paymentIntentId = $response->json('data.paymentIntentId');
+
+    $fake->shouldSucceed();
+
+    postJson('/api/gift-cards/confirm', ['paymentIntentId' => $paymentIntentId])
+        ->assertStatus(201)
+        ->assertJsonPath('data.edition', 'void')
+        ->assertJsonPath('data.deliveryMethod', 'print');
+
+    expect(GiftCard::count())->toBe(1);
+    $giftCard = GiftCard::first();
+    expect($giftCard->edition->value)->toBe('void')
+        ->and($giftCard->delivery_method->value)->toBe('print')
+        ->and($giftCard->scheduled_send_at)->not->toBeNull();
 });

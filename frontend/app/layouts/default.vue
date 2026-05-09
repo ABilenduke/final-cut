@@ -10,6 +10,12 @@ const tickerItems = [
   { label: 'Food', text: 'Director\u2019s Flight · paired nightly' },
   { label: 'Loyalty', text: 'Charter enrolment open through April' },
 ]
+
+// Pages can suppress the global NeuralTicker via `definePageMeta({ hideTicker: true })`.
+// Used by /gift-cards, where a page-specific balance-lookup strip occupies the same
+// chrome slot as the ticker would.
+const route = useRoute()
+const showTicker = computed(() => !route.meta.hideTicker)
 </script>
 
 <template>
@@ -17,7 +23,7 @@ const tickerItems = [
     <SkipNav />
     <div class="layout-default__chrome">
       <SiteHeader />
-      <NeuralTicker :items="tickerItems" />
+      <NeuralTicker v-if="showTicker" :items="tickerItems" />
     </div>
 
     <main id="main-content" tabindex="-1" class="layout-default__main">

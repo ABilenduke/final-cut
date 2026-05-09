@@ -38,6 +38,9 @@ class GiftCardController extends Controller
             $validated['recipientName'],
             $validated['senderName'],
             $validated['message'] ?? null,
+            $validated['edition'],
+            $validated['deliveryMethod'],
+            $validated['scheduledSendAt'] ?? null,
         );
 
         // 1. Check DB for completed purchase with this idempotency key
@@ -96,6 +99,9 @@ class GiftCardController extends Controller
                     'recipientName' => $validated['recipientName'],
                     'senderName' => $validated['senderName'],
                     'message' => $validated['message'] ?? null,
+                    'edition' => $validated['edition'],
+                    'deliveryMethod' => $validated['deliveryMethod'],
+                    'scheduledSendAt' => $validated['scheduledSendAt'] ?? null,
                     'payload_hash' => $payloadHash,
                 ], now()->addMinutes(self::PENDING_TTL_MINUTES));
 
@@ -196,7 +202,10 @@ class GiftCardController extends Controller
             ], 502);
         }
 
-        // 4. Payment confirmed — create gift card from cached pending data
+        // 4. Payment confirmed — create gift card from cached pending data.
+        // edition/deliveryMethod are always present in $pendingData because
+        // PurchaseGiftCardRequest::prepareForValidation() defaults them before
+        // the cache write upstream.
         $result = $this->createGiftCard(
             [
                 'amount' => $pendingData['amount'],
@@ -204,6 +213,9 @@ class GiftCardController extends Controller
                 'recipientName' => $pendingData['recipientName'],
                 'senderName' => $pendingData['senderName'],
                 'message' => $pendingData['message'],
+                'edition' => $pendingData['edition'],
+                'deliveryMethod' => $pendingData['deliveryMethod'],
+                'scheduledSendAt' => $pendingData['scheduledSendAt'] ?? null,
             ],
             $paymentIntentId,
             $pendingData['idempotency_key'],
@@ -263,6 +275,9 @@ class GiftCardController extends Controller
                         'recipient_name' => $data['recipientName'],
                         'sender_name' => $data['senderName'],
                         'message' => $data['message'] ?? null,
+                        'edition' => $data['edition'],
+                        'delivery_method' => $data['deliveryMethod'],
+                        'scheduled_send_at' => $data['scheduledSendAt'] ?? null,
                         'status' => GiftCardStatus::Active,
                         'stripe_payment_intent_id' => $paymentIntentId,
                         'idempotency_key' => $idempotencyKey,

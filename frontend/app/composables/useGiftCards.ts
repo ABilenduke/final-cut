@@ -1,15 +1,5 @@
-import type { GiftCard } from '~/types/gift-card'
+import type { GiftCard, PurchaseGiftCardData } from '~/types/gift-card'
 import { apiFetch } from '~/utils/api'
-
-interface PurchaseGiftCardData {
-  amount: number
-  recipientEmail: string
-  recipientName: string
-  senderName: string
-  message: string
-  paymentMethodId: string
-  idempotencyKey: string
-}
 
 export function useGiftCards() {
   const purchase = (data: PurchaseGiftCardData) =>
@@ -17,11 +7,14 @@ export function useGiftCards() {
       method: 'POST',
       body: {
         amount: data.amount,
-        recipient_email: data.recipientEmail,
-        recipient_name: data.recipientName,
-        sender_name: data.senderName,
+        recipientEmail: data.recipientEmail,
+        recipientName: data.recipientName,
+        senderName: data.senderName,
         message: data.message,
-        payment_method_id: data.paymentMethodId,
+        edition: data.edition,
+        deliveryMethod: data.deliveryMethod,
+        scheduledSendAt: data.scheduledSendAt,
+        paymentMethodId: data.paymentMethodId,
       },
       idempotencyKey: data.idempotencyKey,
     })

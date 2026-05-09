@@ -44,6 +44,7 @@ export default defineNuxtConfig({
     '/careers': { prerender: true },
     '/private-screenings': { prerender: true },
     '/gift-cards': { isr: 1800 },
+    '/gift-cards/bulk': { prerender: true },
     // X-Robots-Tag header keeps these out of search indices. The matching
     // sitemap opt-out lives in server/routes/sitemap.xml.ts EXCLUDED_PREFIXES.
     '/purchase/**': { ssr: false, headers: { 'X-Robots-Tag': 'noindex' } },
