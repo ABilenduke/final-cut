@@ -67,8 +67,8 @@ function paymentLabel(method: Booking['paymentMethod']): string {
           <div class="order-history__section">
             <h4 class="order-history__section-title label-lg">Seats</h4>
             <ul class="order-history__items">
-              <li v-for="seat in order.seats" :key="seat.seatId" class="order-history__item body-sm">
-                {{ seat.seatId }} ({{ seat.section }}) — {{ formatCurrency(seat.price) }}
+              <li v-for="seat in order.seats" :key="seat.id" class="order-history__item body-sm">
+                {{ seat.label }} ({{ seat.section }}) — {{ formatCurrency(seat.price) }}
               </li>
             </ul>
           </div>

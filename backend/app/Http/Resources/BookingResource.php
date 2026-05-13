@@ -18,8 +18,8 @@ class BookingResource extends JsonResource
             'screenName' => $this->showtime->auditorium->name,
             'startTime' => $this->showtime->start_time->toIso8601String(),
             'seats' => $this->seats->map(fn (mixed $s) => [
-                'seatId' => $s->seat_id,
-                'seatLabel' => $s->seat->label,
+                'id' => $s->seat_id,
+                'label' => $s->seat->label,
                 'section' => $s->section,
                 'price' => $s->price,
             ])->values(),

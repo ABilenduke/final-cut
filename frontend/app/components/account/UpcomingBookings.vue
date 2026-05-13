@@ -6,7 +6,7 @@ defineProps<{
 }>()
 
 function seatsSummary(seats: Booking['seats']): string {
-  return seats.map(s => s.seatId).join(', ')
+  return seats.map(s => s.label).join(', ')
 }
 </script>
 

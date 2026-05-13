@@ -22,13 +22,13 @@ const formattedTime = computed<string>(() => {
 const rowLabel = computed<string>(() => {
   if (props.seats.length === 0) return '—'
   const first = props.seats[0]
-  return first?.seatId?.match(/^([A-Z]+)/)?.[1] ?? '—'
+  return first?.label?.match(/^([A-Z]+)/)?.[1] ?? '—'
 })
 
 const seatNumbers = computed<string>(() => {
   if (props.seats.length === 0) return '—'
   return props.seats
-    .map(s => s.seatId.replace(/^[A-Z]+/, ''))
+    .map(s => s.label.replace(/^[A-Z]+/, ''))
     .join(', ')
 })
 

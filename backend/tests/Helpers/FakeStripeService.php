@@ -37,6 +37,8 @@ class FakeStripeService extends StripeService
 
     public array $detachedPaymentMethods = [];
 
+    public array $metadataUpdates = [];
+
     private array $fakePaymentMethods = [];
 
     private string $retrievedPmCustomerId = 'cus_fake_xxx';
@@ -88,14 +90,22 @@ class FakeStripeService extends StripeService
         return $this;
     }
 
-    public function createPaymentIntent(int $amount, string $paymentMethodId, array $metadata = [], ?string $idempotencyKey = null): PaymentIntent
-    {
+    public function createPaymentIntent(
+        int $amount,
+        string $paymentMethodId,
+        array $metadata = [],
+        ?string $idempotencyKey = null,
+        ?string $description = null,
+        ?string $receiptEmail = null,
+    ): PaymentIntent {
         $this->createCallCount++;
         $this->createdPaymentIntents[] = [
             'amount' => $amount,
             'paymentMethodId' => $paymentMethodId,
             'metadata' => $metadata,
             'idempotencyKey' => $idempotencyKey,
+            'description' => $description,
+            'receiptEmail' => $receiptEmail,
         ];
 
         if ($this->behavior === 'decline') {
@@ -198,6 +208,21 @@ class FakeStripeService extends StripeService
             'object' => 'refund',
             'payment_intent' => $paymentIntentId,
             'status' => 'succeeded',
+        ]);
+    }
+
+    public function updatePaymentIntentMetadata(string $paymentIntentId, array $metadata): PaymentIntent
+    {
+        $this->metadataUpdates[] = [
+            'paymentIntentId' => $paymentIntentId,
+            'metadata' => $metadata,
+        ];
+
+        return PaymentIntent::constructFrom([
+            'id' => $paymentIntentId,
+            'object' => 'payment_intent',
+            'status' => 'succeeded',
+            'metadata' => $metadata,
         ]);
     }
 

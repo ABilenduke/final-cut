@@ -17,8 +17,8 @@ const showtime = {
 }
 
 const seats = [
-  { seatId: 'F7', section: 'Standard', price: 1850 },
-  { seatId: 'F8', section: 'Standard', price: 1850 },
+  { id: 'uuid-f7', label: 'F7', section: 'Standard', price: 1850 },
+  { id: 'uuid-f8', label: 'F8', section: 'Standard', price: 1850 },
 ]
 
 describe('CheckoutOrderCard', () => {

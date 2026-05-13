@@ -40,7 +40,7 @@ function generateIcs() {
 
   const end = new Date(start.getTime() + 2.5 * 60 * 60 * 1000) // Approximate 2.5 hour duration
 
-  const seatList = props.booking.seats.map(s => s.seatId).join(', ')
+  const seatList = props.booking.seats.map(s => s.label).join(', ')
 
   const now = new Date()
   const uid = `${props.booking.confirmationCode}@finalcut.test`
@@ -119,10 +119,10 @@ function handlePrint() {
       <ul class="confirmation__seat-list">
         <li
           v-for="seat in booking.seats"
-          :key="seat.seatId"
+          :key="seat.id"
           class="confirmation__seat-item"
         >
-          <span>{{ seat.seatId }} ({{ seat.section }})</span>
+          <span>{{ seat.label }} ({{ seat.section }})</span>
           <span>{{ formatCurrency(seat.price) }}</span>
         </li>
       </ul>

@@ -1,13 +1,5 @@
 import type { Showtime } from '~/types/showtime'
 import type { BookingSeat } from '~/types/booking'
-import type { ProgrammePairing } from '~/types/programme-pairing'
-
-export interface CartFoodItem {
-  itemId: string
-  name: string
-  quantity: number
-  unitPrice: number
-}
 
 // The seat-hold duration the UI promises ("eight minutes" — see
 // SeatSelectionHouseRules, SeatSelectionHero, MovieSeatPreview,
@@ -28,13 +20,11 @@ let sessionStartedAt: number | null = null
 export function useCart() {
   const showtime = useState<Showtime | null>('cart-showtime', () => null)
   const seats = useState<BookingSeat[]>('cart-seats', () => [])
-  const foodItems = useState<CartFoodItem[]>('cart-food-items', () => [])
   const promoCode = useState<string | null>('cart-promo-code', () => null)
   const promoDiscount = useState<number>('cart-promo-discount', () => 0)
   const giftCardCode = useState<string | null>('cart-gift-card-code', () => null)
   const giftCardAmount = useState<number>('cart-gift-card-amount', () => 0)
   const timeRemaining = useState<number>('cart-time-remaining', () => 0)
-  const pairing = useState<ProgrammePairing | null>('cart-pairing', () => null)
 
   function stopTimers(): void {
     // Timer IDs live in module scope; they are only ever set on the client
@@ -57,35 +47,12 @@ export function useCart() {
     timeRemaining.value = 0
   }
 
-  /** À la carte sum of the pairing's three courses, in cents. Zero when no pairing. */
-  const pairingCoursesTotal = computed<number>(() =>
-    pairing.value
-      ? pairing.value.courses.reduce((sum, c) => sum + c.price, 0)
-      : 0,
+  // Concessions are not part of the booking flow — they live on /food-drink
+  // as a browse-only catalog. The Stripe charge created at /purchase/checkout
+  // only covers seats.
+  const subtotal = computed<number>(() =>
+    seats.value.reduce((sum, s) => sum + s.price, 0),
   )
-
-  /** What the bundle actually costs (already discounted), in cents. */
-  const pairingPrice = computed<number>(() => pairing.value?.bundlePrice ?? 0)
-
-  /** Discount the user gets for taking the bundle vs buying the courses separately. */
-  const pairingSavings = computed<number>(() =>
-    Math.max(0, pairingCoursesTotal.value - pairingPrice.value),
-  )
-
-  // `subtotal` deliberately excludes the programme pairing price. A pairing
-  // is a bar-side tab — the user pays for it at the bar on collection (see
-  // the "pay at the bar on collection" copy on both the snacks tray rail
-  // and the checkout order card). The Stripe charge created at /purchase
-  // /checkout only covers seats + food, so the authoritative total the
-  // user sees on the snacks rail AND on checkout must match that scope.
-  // If/when a backend `programme_pairings` table exists and we move the
-  // pairing onto the card charge, include `pairingPrice` here in one
-  // place and the rest of the UI will follow.
-  const subtotal = computed<number>(() => {
-    const seatsTotal = seats.value.reduce((sum, s) => sum + s.price, 0)
-    const foodTotal = foodItems.value.reduce((sum, f) => sum + f.unitPrice * f.quantity, 0)
-    return seatsTotal + foodTotal
-  })
 
   const total = computed<number>(() =>
     Math.max(0, subtotal.value - promoDiscount.value - giftCardAmount.value),
@@ -134,8 +101,7 @@ export function useCart() {
     // navigating back from checkout via the step indicator) should
     // preserve the user's selections. Only reset when the showtime
     // actually changes — switching showtimes logically invalidates
-    // the old selections (including the curated pairing, which is
-    // tied to the film).
+    // the old selections.
     if (showtime.value?.id === st.id) {
       showtime.value = st
       return
@@ -144,16 +110,14 @@ export function useCart() {
     stopTimers()
     showtime.value = st
     seats.value = []
-    foodItems.value = []
     promoCode.value = null
     promoDiscount.value = 0
     giftCardCode.value = null
     giftCardAmount.value = 0
-    pairing.value = null
   }
 
   function addSeat(seat: BookingSeat): void {
-    if (seats.value.some((s) => s.seatId === seat.seatId)) return
+    if (seats.value.some((s) => s.id === seat.id)) return
     seats.value = [...seats.value, seat]
     if (seats.value.length === 1) {
       startTimers()
@@ -161,79 +125,10 @@ export function useCart() {
   }
 
   function removeSeat(seatId: string): void {
-    seats.value = seats.value.filter((s) => s.seatId !== seatId)
+    seats.value = seats.value.filter((s) => s.id !== seatId)
     if (seats.value.length === 0) {
       stopTimers()
     }
-  }
-
-  /**
-   * Add or increment a food item in the cart.
-   *
-   * @param itemId   - Menu item ID
-   * @param name     - Display name (for the order summary)
-   * @param unitPrice - Price in cents
-   * @param availableAt - Optional `available_at` array from the menu item.
-   *   When provided and the booking location slug is known, this is checked
-   *   against the cart's showtime location. If the item is not available at
-   *   the booking's location, the add is silently rejected and a toast is
-   *   shown. Defaults to allowing the add when the array is absent or empty
-   *   (defensive default while the backend populates the field).
-   *
-   * Returns `true` if the item was added/incremented, `false` if rejected.
-   */
-  function addFoodItem(
-    itemId: string,
-    name: string,
-    unitPrice: number,
-    availableAt?: string[],
-  ): boolean {
-    // Cart-level guard: reject items not stocked at the booking's location.
-    // The UI (FoodPreOrderPanel) suppresses events before they reach here, but
-    // this is defense-in-depth — protects against buggy callers.
-    if (availableAt && availableAt.length > 0) {
-      // Resolve booking location from the showtime's location field.
-      // The seatmap response populates showtime.location (ShowtimeLocation).
-      // If absent, the guard cannot determine the location and defaults to allow.
-      const bookingSlug = showtime.value?.location?.slug
-      if (bookingSlug && !availableAt.includes(bookingSlug)) {
-        showToast({
-          message: `${name} isn't available at this location.`,
-          type: 'error',
-        })
-        return false
-      }
-    }
-
-    const existing = foodItems.value.find((f) => f.itemId === itemId)
-    if (existing) {
-      foodItems.value = foodItems.value.map((f) =>
-        f.itemId === itemId ? { ...f, quantity: f.quantity + 1 } : f,
-      )
-    } else {
-      foodItems.value = [...foodItems.value, { itemId, name, quantity: 1, unitPrice }]
-    }
-    return true
-  }
-
-  function removeFoodItem(itemId: string): void {
-    const existing = foodItems.value.find((f) => f.itemId === itemId)
-    if (!existing) return
-    if (existing.quantity <= 1) {
-      foodItems.value = foodItems.value.filter((f) => f.itemId !== itemId)
-    } else {
-      foodItems.value = foodItems.value.map((f) =>
-        f.itemId === itemId ? { ...f, quantity: f.quantity - 1 } : f,
-      )
-    }
-  }
-
-  function setPairing(p: ProgrammePairing): void {
-    pairing.value = p
-  }
-
-  function clearPairing(): void {
-    pairing.value = null
   }
 
   function applyPromoCode(code: string, discount: number): void {
@@ -260,36 +155,25 @@ export function useCart() {
     stopTimers()
     showtime.value = null
     seats.value = []
-    foodItems.value = []
     promoCode.value = null
     promoDiscount.value = 0
     giftCardCode.value = null
     giftCardAmount.value = 0
-    pairing.value = null
   }
 
   return {
     showtime: readonly(showtime),
     seats: readonly(seats),
-    foodItems: readonly(foodItems),
     promoCode: readonly(promoCode),
     promoDiscount: readonly(promoDiscount),
     giftCardCode: readonly(giftCardCode),
     giftCardAmount: readonly(giftCardAmount),
     timeRemaining: readonly(timeRemaining),
-    pairing: readonly(pairing),
-    pairingCoursesTotal,
-    pairingPrice,
-    pairingSavings,
     subtotal,
     total,
     initializeCart,
     addSeat,
     removeSeat,
-    addFoodItem,
-    removeFoodItem,
-    setPairing,
-    clearPairing,
     applyPromoCode,
     removePromoCode,
     applyGiftCard,
