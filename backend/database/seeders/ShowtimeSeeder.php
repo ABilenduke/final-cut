@@ -20,10 +20,11 @@ class ShowtimeSeeder extends Seeder
      * and leave 3 venue-exclusive titles per side so the two locations don't
      * look like clones — Downtown leans matinee, Eastside leans late-evening.
      *
-     * Indices reference MovieSeeder's $nowShowing order; movies are then loaded
-     * by `tmdb_id` so we don't depend on insertion order if MovieSeeder ever
-     * shuffles. Out-of-range indices are silently skipped, which keeps this
-     * seeder resilient if the now-showing list shrinks below 12 films.
+     * Indices are positional into the result of `Movie::where(status, NowShowing)
+     * ->orderBy('id')->get()`. MovieSeeder inserts the now-showing list in a
+     * stable, append-only order so positional addressing works in practice;
+     * out-of-range indices are silently skipped, which keeps this seeder
+     * resilient if the now-showing list shrinks below 12 films.
      */
     private const LOCATION_PROGRAMMING = [
         'downtown' => [
@@ -44,8 +45,8 @@ class ShowtimeSeeder extends Seeder
 
     public function run(): void
     {
-        // Build a tmdb_id → Movie lookup so the location slates can address
-        // films by stable identifier rather than insertion order.
+        // Load now-showing movies in stable id order so the LOCATION_PROGRAMMING
+        // positional indices resolve deterministically across runs.
         $movies = Movie::where('status', MovieStatus::NowShowing)
             ->orderBy('id')
             ->get();
