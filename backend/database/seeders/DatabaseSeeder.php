@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Enums\LoyaltyTier;
+use App\Models\AdminProfile;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
@@ -57,10 +58,44 @@ class DatabaseSeeder extends Seeder
         // Test-account-dependent seeders — only in local/testing
         // These seeders reference test@finalcut.test and member@finalcut.test
         if (app()->environment('local', 'testing')) {
+            $this->provisionPersonalAdmin();
+
             $this->call([
                 BookingSeeder::class,
                 GiftCardSeeder::class,
             ]);
         }
+    }
+
+    /**
+     * Seed a working admin account so `make fresh` always leaves a known-good
+     * login. Runs after AdminRolesAndPermissionsSeeder so the `admin` role
+     * exists. Idempotent — re-running resets the password back to whatever the
+     * env says.
+     *
+     * Override per-environment via SEEDER_ADMIN_EMAIL / SEEDER_ADMIN_NAME /
+     * SEEDER_ADMIN_PASSWORD (see backend/.env.example). Defaults are the
+     * project owner's preferred dev credentials; forks can override without
+     * editing this file. Gated by `app()->environment('local', 'testing')`
+     * at the call site — never runs in staging/production.
+     */
+    private function provisionPersonalAdmin(): void
+    {
+        $email = (string) env('SEEDER_ADMIN_EMAIL', 'andrewbilenduke@gmail.com');
+        $name = (string) env('SEEDER_ADMIN_NAME', 'Andrew Bilenduke');
+        $password = (string) env('SEEDER_ADMIN_PASSWORD', 'Test@1234!!!');
+
+        $user = User::updateOrCreate(
+            ['email' => $email],
+            [
+                'name' => $name,
+                'password' => $password,
+                'email_verified_at' => now(),
+            ],
+        );
+
+        AdminProfile::firstOrCreate(['user_id' => $user->id]);
+
+        $user->syncRoles(['admin']);
     }
 }
