@@ -52,13 +52,14 @@ test.describe('Purchase Flow', () => {
     await expect(page.getByRole('heading', { name: /finish the\s+booking/i })).toBeVisible({ timeout: 10_000 })
 
     // 10. Verify the order card renders the seat's human LABEL, not a UUID.
-    // The card formats the label as "A·12" so we look for the dot separator
-    // followed by digits, which only ever appears for a labelled seat.
-    const orderCardSeats = page.locator('.order-card__seats, .order-card__main').first()
-    await expect(orderCardSeats).toBeVisible()
-    const orderCardText = await orderCardSeats.textContent()
-    expect(orderCardText, 'seat label, not a UUID, should be visible on the order card')
-      .toMatch(/[A-Z]·\d/)
+    // The CheckoutOrderCard formats labels like "A12" as "A·12" with a
+    // middle-dot separator in `.order-card__seats-num`, so a UUID render
+    // (no dot followed by digits) would fail this match.
+    const seatCallout = page.locator('.order-card__seats-num')
+    await expect(seatCallout).toBeVisible()
+    const calloutText = await seatCallout.textContent()
+    expect(calloutText, 'seat label, not a UUID, should be visible on the order card')
+      .toMatch(/[A-Z]+·\d+/)
   })
 
   test('guest checkout shows email field', async ({ page }) => {
