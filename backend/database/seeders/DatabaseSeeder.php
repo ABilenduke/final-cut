@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Enums\LoyaltyTier;
+use App\Models\AdminProfile;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
@@ -57,10 +58,34 @@ class DatabaseSeeder extends Seeder
         // Test-account-dependent seeders — only in local/testing
         // These seeders reference test@finalcut.test and member@finalcut.test
         if (app()->environment('local', 'testing')) {
+            $this->provisionPersonalAdmin();
+
             $this->call([
                 BookingSeeder::class,
                 GiftCardSeeder::class,
             ]);
         }
+    }
+
+    /**
+     * Bake the project owner in as a working admin so `make fresh` always
+     * leaves a known-good login. Runs after AdminRolesAndPermissionsSeeder
+     * so the `admin` role exists. Idempotent — re-running resets the password
+     * back to the documented value.
+     */
+    private function provisionPersonalAdmin(): void
+    {
+        $user = User::updateOrCreate(
+            ['email' => 'andrewbilenduke@gmail.com'],
+            [
+                'name' => 'Andrew Bilenduke',
+                'password' => 'Test@1234!!!',
+                'email_verified_at' => now(),
+            ],
+        );
+
+        AdminProfile::firstOrCreate(['user_id' => $user->id]);
+
+        $user->syncRoles(['admin']);
     }
 }
