@@ -22,7 +22,7 @@ const { setStep } = usePurchaseStep()
 // step is tracked via `currentStep`; it must not also appear in
 // `completedSteps` or the indicator will render the same step as both
 // "current" and "completed", muddying its styling/semantics.
-setStep(4, [1, 2, 3], [])
+setStep(3, [1, 2], [])
 
 const { isAuthenticated } = useAuth()
 
