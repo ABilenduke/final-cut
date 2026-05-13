@@ -181,13 +181,16 @@ class BookingController extends Controller
                     }
 
                     try {
+                        $authedUser = $request->user();
+                        $receiptEmail = $authedUser ? $authedUser->email : $request->input('email');
+
                         $paymentIntent = $this->stripeService->createPaymentIntent(
                             $cardAmount,
                             $paymentMethodId,
                             $this->buildStripeMetadata($showtime, $location, $seatIds, $booking),
                             $request->header('Idempotency-Key'),
                             $this->buildStripeDescription($showtime),
-                            $request->user()?->email ?? $request->input('email'),
+                            $receiptEmail,
                         );
 
                         if ($paymentIntent->status === 'requires_action') {
@@ -568,7 +571,9 @@ class BookingController extends Controller
      */
     private function buildStripeDescription(Showtime $showtime): string
     {
-        $movieTitle = $showtime->movie?->title ?? 'Final Cut';
+        // store() and confirm() both load the showtime with `with('movie')`,
+        // so the relation is never null on this path.
+        $movieTitle = $showtime->movie->title;
         $date = $showtime->start_time->toDateString();
 
         return "Final Cut · {$movieTitle} · {$date}";
@@ -583,12 +588,14 @@ class BookingController extends Controller
      */
     private function buildStripeMetadata(Showtime $showtime, Location $location, array $seatIds, Booking $booking): array
     {
+        // store() loads the showtime with `with('auditorium', 'movie')`, so
+        // both relations are always present on this path.
         return [
             'booking_id' => $booking->id,
             'showtime_id' => $showtime->id,
             'location_slug' => $location->slug,
-            'auditorium' => $showtime->auditorium?->name ?? '',
-            'movie_title' => $showtime->movie?->title ?? '',
+            'auditorium' => $showtime->auditorium->name,
+            'movie_title' => $showtime->movie->title,
             'seat_count' => (string) count($seatIds),
         ];
     }
