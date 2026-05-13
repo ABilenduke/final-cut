@@ -25,6 +25,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Stripe\Exception\ApiErrorException;
 use Stripe\Exception\CardException;
 use Stripe\Exception\InvalidRequestException;
@@ -183,7 +184,10 @@ class BookingController extends Controller
                         $paymentIntent = $this->stripeService->createPaymentIntent(
                             $cardAmount,
                             $paymentMethodId,
-                            ['showtime_id' => $showtime->id],
+                            $this->buildStripeMetadata($showtime, $location, $seatIds, $booking),
+                            $request->header('Idempotency-Key'),
+                            $this->buildStripeDescription($showtime),
+                            $request->user()?->email ?? $request->input('email'),
                         );
 
                         if ($paymentIntent->status === 'requires_action') {
@@ -264,6 +268,15 @@ class BookingController extends Controller
                 }
 
                 $booking->load(self::BOOKING_RELATIONS);
+
+                // Best-effort: attach the booking's confirmation_code to the
+                // Stripe PaymentIntent so a row in the Stripe dashboard ties
+                // back to the human-readable code on the customer's receipt.
+                // Payment has already succeeded; a failure here must not
+                // block the customer.
+                if ($stripePaymentIntentId) {
+                    $this->attachConfirmationCodeToStripe($stripePaymentIntentId, $booking);
+                }
 
                 return $this->successResponse(new BookingResource($booking), status: 201);
             });
@@ -451,6 +464,12 @@ class BookingController extends Controller
 
                 $booking->load(self::BOOKING_RELATIONS);
 
+                // Same best-effort metadata patch as the non-3DS path. The
+                // PaymentIntent already carries the showtime/movie metadata
+                // from store(); here we tack the booking's confirmation_code
+                // on now that the row exists.
+                $this->attachConfirmationCodeToStripe($paymentIntentId, $booking);
+
                 return $this->successResponse(new BookingResource($booking), status: 201);
             });
         } catch (PromoCodeNotConsumableException $e) {
@@ -539,5 +558,71 @@ class BookingController extends Controller
         }
 
         return PaymentMethod::Card;
+    }
+
+    /**
+     * Build the Stripe PaymentIntent description string. Shown in the Stripe
+     * dashboard column and on the hosted receipt. Format chosen so a finance
+     * scan of the dashboard tells you which film and date the charge covers
+     * without needing to cross-reference internal IDs.
+     */
+    private function buildStripeDescription(Showtime $showtime): string
+    {
+        $movieTitle = $showtime->movie?->title ?? 'Final Cut';
+        $date = $showtime->start_time->toDateString();
+
+        return "Final Cut · {$movieTitle} · {$date}";
+    }
+
+    /**
+     * Build the Stripe PaymentIntent metadata bag. All values must be
+     * Stripe-compatible strings (no nulls, no arrays). Keys mirror the field
+     * names you'd want when filtering charges in the dashboard.
+     *
+     * @param  string[]  $seatIds
+     */
+    private function buildStripeMetadata(Showtime $showtime, Location $location, array $seatIds, Booking $booking): array
+    {
+        return [
+            'booking_id' => $booking->id,
+            'showtime_id' => $showtime->id,
+            'location_slug' => $location->slug,
+            'auditorium' => $showtime->auditorium?->name ?? '',
+            'movie_title' => $showtime->movie?->title ?? '',
+            'seat_count' => (string) count($seatIds),
+        ];
+    }
+
+    /**
+     * Patch a captured PaymentIntent's metadata with the finalized booking's
+     * confirmation_code and ID. In the 3DS path the booking that exists at
+     * confirm() time is a new row — different ID from the provisional one
+     * stamped into metadata at createPaymentIntent time — so we re-write
+     * booking_id alongside confirmation_code to keep the dashboard pointing
+     * at a live row. Best-effort: payment has already succeeded, log + move
+     * on if Stripe is unreachable.
+     */
+    private function attachConfirmationCodeToStripe(string $paymentIntentId, Booking $booking): void
+    {
+        if (! $booking->confirmation_code) {
+            return;
+        }
+
+        try {
+            $this->stripeService->updatePaymentIntentMetadata(
+                $paymentIntentId,
+                [
+                    'confirmation_code' => $booking->confirmation_code,
+                    'booking_id' => $booking->id,
+                ],
+            );
+        } catch (\Throwable $e) {
+            Log::warning('Failed to attach confirmation_code to Stripe PaymentIntent', [
+                'payment_intent_id' => $paymentIntentId,
+                'booking_id' => $booking->id,
+                'confirmation_code' => $booking->confirmation_code,
+                'exception' => $e->getMessage(),
+            ]);
+        }
     }
 }

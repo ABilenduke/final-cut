@@ -4,17 +4,14 @@ import CheckoutTotalsRail from '~/components/booking/CheckoutTotalsRail.vue'
 
 const baseProps = {
   seats: [
-    { seatId: 'F7', section: 'Standard', price: 1850 },
-    { seatId: 'F8', section: 'Standard', price: 1850 },
-  ],
-  foodItems: [
-    { itemId: 'pop', name: 'Popcorn', quantity: 1, unitPrice: 900 },
+    { id: 'uuid-f7', label: 'F7', section: 'Standard', price: 1850 },
+    { id: 'uuid-f8', label: 'F8', section: 'Standard', price: 1850 },
   ],
   promoCode: null,
   promoDiscount: 0,
   giftCardAmount: 0,
-  subtotal: 4600, // 2*1850 + 900
-  total: 4600,
+  subtotal: 3700, // 2 × 1850 — seats only; concessions moved off the booking flow.
+  total: 3700,
   timeRemaining: 462,
 }
 
@@ -31,25 +28,27 @@ describe('CheckoutTotalsRail', () => {
     expect(text).toContain('Total due')
     expect(text).not.toContain('Booking fee')
     expect(text).not.toContain('Tax')
-    expect(wrapper.find('.totals-rail__grand-v').text()).toBe('$46.00')
+    // No Concessions line — those live on /food-drink, not in the booking rail.
+    expect(text).not.toContain('Concessions')
+    expect(wrapper.find('.totals-rail__grand-v').text()).toBe('$37.00')
   })
 
   it('reflects promo discount in the grand total via the total prop', async () => {
     const wrapper = await mountSuspended(CheckoutTotalsRail, {
-      props: { ...baseProps, promoCode: 'REEL', promoDiscount: 400, total: 4200 },
+      props: { ...baseProps, promoCode: 'REEL', promoDiscount: 400, total: 3300 },
     })
     const text = wrapper.text()
     expect(text).toContain('Member discount')
     expect(text).toContain('REEL')
     expect(wrapper.find('.totals-rail__v--neg').text()).toContain('−$4.00')
-    expect(wrapper.find('.totals-rail__grand-v').text()).toBe('$42.00')
+    expect(wrapper.find('.totals-rail__grand-v').text()).toBe('$33.00')
   })
 
   it('reflects gift card redemption in the grand total via the total prop', async () => {
     const wrapper = await mountSuspended(CheckoutTotalsRail, {
-      props: { ...baseProps, giftCardAmount: 1000, total: 3600 },
+      props: { ...baseProps, giftCardAmount: 1000, total: 2700 },
     })
-    expect(wrapper.find('.totals-rail__grand-v').text()).toBe('$36.00')
+    expect(wrapper.find('.totals-rail__grand-v').text()).toBe('$27.00')
     expect(wrapper.text()).toContain('Gift card')
   })
 
@@ -63,7 +62,7 @@ describe('CheckoutTotalsRail', () => {
 
   it('disables the pay button when seats array is empty', async () => {
     const wrapper = await mountSuspended(CheckoutTotalsRail, {
-      props: { ...baseProps, seats: [], foodItems: [], subtotal: 0, total: 0 },
+      props: { ...baseProps, seats: [], subtotal: 0, total: 0 },
     })
     expect(wrapper.find('.totals-rail__pay').attributes('disabled')).toBeDefined()
   })

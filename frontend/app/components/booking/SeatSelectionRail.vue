@@ -26,7 +26,7 @@ const payLabel = computed<string>(() => {
     const remaining = props.partySize - seatsCount.value
     return `Pick ${remaining} more`
   }
-  return 'Continue to concessions'
+  return 'Continue to payment'
 })
 
 const payAmount = computed<string>(() =>
@@ -35,7 +35,7 @@ const payAmount = computed<string>(() =>
 
 const railSeatList = computed<string>(() => {
   if (seatsCount.value === 0) return 'No seats yet'
-  return props.seats.map(s => s.seatId).join(', ')
+  return props.seats.map(s => s.label).join(', ')
 })
 
 const formattedHold = computed<string>(() => {
@@ -93,7 +93,7 @@ const posterStyle = computed(() => {
         <template v-else>
           <SeatStub
             v-for="seat in seats"
-            :key="seat.seatId"
+            :key="seat.id"
             :seat="seat"
             @remove="(id) => emit('remove-seat', id)"
           />

@@ -3,8 +3,8 @@ import { mountSuspended } from '@nuxt/test-utils/runtime'
 import CheckoutHoldTimer from '~/components/booking/CheckoutHoldTimer.vue'
 
 const sampleSeats = [
-  { seatId: 'F7', section: 'Standard', price: 1850 },
-  { seatId: 'F8', section: 'Standard', price: 1850 },
+  { id: 'uuid-f7', label: 'F7', section: 'Standard', price: 1850 },
+  { id: 'uuid-f8', label: 'F8', section: 'Standard', price: 1850 },
 ]
 
 describe('CheckoutHoldTimer', () => {

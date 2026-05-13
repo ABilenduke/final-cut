@@ -19,9 +19,8 @@ const resolvedNavigableSteps = computed(() =>
 
 const steps = [
   { number: 1, label: 'Seats' },
-  { number: 2, label: 'Snacks & Bar' },
-  { number: 3, label: 'Payment' },
-  { number: 4, label: 'Confirmation' },
+  { number: 2, label: 'Payment' },
+  { number: 3, label: 'Confirmation' },
 ] as const
 
 function isCompleted(step: PurchaseStep): boolean {

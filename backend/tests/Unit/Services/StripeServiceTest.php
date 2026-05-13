@@ -40,13 +40,81 @@ test('createPaymentIntent calls Stripe with correct parameters', function () {
                 && $params['currency'] === 'usd'
                 && $params['payment_method'] === 'pm_test_xyz'
                 && $params['confirm'] === true
-                && $params['automatic_payment_methods']['enabled'] === true
-                && $params['automatic_payment_methods']['allow_redirects'] === 'never';
+                && $params['payment_method_types'] === ['card']
+                && ! array_key_exists('automatic_payment_methods', $params);
         }), Mockery::type('array'))
         ->andReturn(fakePaymentIntent());
 
     $service = new StripeService(client: $client);
     $service->createPaymentIntent(2500, 'pm_test_xyz');
+});
+
+test('createPaymentIntent forwards description and receipt_email when provided', function () {
+    [$client, $piService] = mockStripeClient();
+
+    $piService->shouldReceive('create')
+        ->once()
+        ->with(Mockery::on(function (array $params) {
+            return $params['description'] === 'Final Cut · Dune · 2026-05-13'
+                && $params['receipt_email'] === 'fan@finalcut.test';
+        }), Mockery::type('array'))
+        ->andReturn(fakePaymentIntent());
+
+    $service = new StripeService(client: $client);
+    $service->createPaymentIntent(
+        2500,
+        'pm_test_xyz',
+        [],
+        null,
+        'Final Cut · Dune · 2026-05-13',
+        'fan@finalcut.test',
+    );
+});
+
+test('createPaymentIntent omits description and receipt_email when null', function () {
+    [$client, $piService] = mockStripeClient();
+
+    $piService->shouldReceive('create')
+        ->once()
+        ->with(Mockery::on(function (array $params) {
+            return ! array_key_exists('description', $params)
+                && ! array_key_exists('receipt_email', $params);
+        }), Mockery::type('array'))
+        ->andReturn(fakePaymentIntent());
+
+    $service = new StripeService(client: $client);
+    $service->createPaymentIntent(2500, 'pm_test_xyz');
+});
+
+test('createPaymentIntent forwards idempotency key via options', function () {
+    [$client, $piService] = mockStripeClient();
+
+    $piService->shouldReceive('create')
+        ->once()
+        ->with(Mockery::type('array'), Mockery::on(fn (array $opts) => $opts['idempotency_key'] === 'idem-xyz-123'))
+        ->andReturn(fakePaymentIntent());
+
+    $service = new StripeService(client: $client);
+    $service->createPaymentIntent(2500, 'pm_test_xyz', [], 'idem-xyz-123');
+});
+
+test('updatePaymentIntentMetadata patches metadata on an existing PaymentIntent', function () {
+    [$client, $piService] = mockStripeClient();
+
+    $piService->shouldReceive('update')
+        ->once()
+        ->with('pi_test_abc123', Mockery::on(fn (array $params) => $params['metadata'] === ['confirmation_code' => 'CVF-A3X9K2']))
+        ->andReturn(PaymentIntent::constructFrom([
+            'id' => 'pi_test_abc123',
+            'object' => 'payment_intent',
+            'status' => 'succeeded',
+            'metadata' => ['confirmation_code' => 'CVF-A3X9K2'],
+        ]));
+
+    $service = new StripeService(client: $client);
+    $result = $service->updatePaymentIntentMetadata('pi_test_abc123', ['confirmation_code' => 'CVF-A3X9K2']);
+
+    expect($result->metadata['confirmation_code'])->toBe('CVF-A3X9K2');
 });
 
 test('createPaymentIntent passes metadata through to Stripe', function () {

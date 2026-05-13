@@ -12,7 +12,7 @@ function mockBooking(overrides: Partial<Booking> = {}): Booking {
     moviePosterUrl: 'https://example.com/poster.jpg',
     screenName: 'Screen 1',
     startTime: '2026-04-03T19:00:00Z',
-    seats: [{ seatId: 'A1', section: 'Standard', price: 1500 }],
+    seats: [{ id: 'uuid-a1', label: 'A1', section: 'Standard', price: 1500 }],
     foodItems: [],
     subtotal: 1500,
     discount: 0,

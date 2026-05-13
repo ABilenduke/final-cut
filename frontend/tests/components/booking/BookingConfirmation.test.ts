@@ -17,8 +17,8 @@ function makeBooking(overrides: Partial<Booking> = {}): Booking {
     screenName: 'Screen 3',
     startTime: '2026-04-10T19:00:00Z',
     seats: [
-      { seatId: 'A1', section: 'Standard', price: 1200 },
-      { seatId: 'A2', section: 'Premium', price: 1800 },
+      { id: 'uuid-a1', label: 'A1', section: 'Standard', price: 1200 },
+      { id: 'uuid-a2', label: 'A2', section: 'Premium', price: 1800 },
     ],
     foodItems: [],
     subtotal: 3000,

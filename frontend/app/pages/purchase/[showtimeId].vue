@@ -87,7 +87,7 @@ onMounted(async () => {
   }
 })
 
-const selectedSeatIds = computed(() => cart.seats.value.map(s => s.seatId))
+const selectedSeatIds = computed(() => cart.seats.value.map(s => s.id))
 
 // bannerLocation: prefer the location payload from the seatmap response
 // (when the backend includes it). Falls back to activeLocation from the
@@ -122,7 +122,8 @@ function sectionLabel(seat: Seat): string {
 
 function toBookingSeat(seat: Seat): BookingSeat {
   return {
-    seatId: seat.id,
+    id: seat.id,
+    label: seat.label,
     section: sectionLabel(seat),
     price: seat.price,
   }
@@ -136,7 +137,7 @@ function handleSeatToggle(payload: { seatId: string; selected: boolean }) {
     // Enforce party size — if at cap, drop the oldest selection first
     if (cart.seats.value.length >= partySize.value) {
       const first = cart.seats.value[0]
-      if (first) cart.removeSeat(first.seatId)
+      if (first) cart.removeSeat(first.id)
     }
     cart.addSeat(toBookingSeat(seat))
   } else {
@@ -149,13 +150,13 @@ function handlePartyChange(next: number) {
   while (cart.seats.value.length > partySize.value) {
     const last = cart.seats.value[cart.seats.value.length - 1]
     if (!last) break
-    cart.removeSeat(last.seatId)
+    cart.removeSeat(last.id)
   }
 }
 
 function clearSelections() {
   for (const seat of [...cart.seats.value]) {
-    cart.removeSeat(seat.seatId)
+    cart.removeSeat(seat.id)
   }
 }
 
@@ -261,7 +262,7 @@ const priceByTier = computed<{ standard?: number; premium?: number; accessible?:
 const canProceed = computed(() => cart.seats.value.length > 0)
 
 function handleContinue() {
-  if (canProceed.value) navigateTo('/purchase/snacks')
+  if (canProceed.value) navigateTo('/purchase/checkout')
 }
 
 function handleRemoveSeat(seatId: string) {
