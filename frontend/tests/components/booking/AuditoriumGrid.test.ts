@@ -18,15 +18,18 @@ function makeAuditorium(): Auditorium {
 }
 
 function makeSeats(): Seat[] {
+  // The Auditorium grid tests address seats by `id` (UUID slot) but the new
+  // shape also requires a `label` for display. Tests use label-shaped ids so
+  // existing emit-payload assertions remain readable.
   return [
     // Row A: seat A1 is taken, A2 and A3 are available
-    { id: 'A1', row: 'A', number: 1, status: 'taken', type: 'standard', price: 1200 },
-    { id: 'A2', row: 'A', number: 2, status: 'available', type: 'standard', price: 1200 },
-    { id: 'A3', row: 'A', number: 3, status: 'available', type: 'standard', price: 1200 },
+    { id: 'A1', label: 'A1', row: 'A', number: 1, status: 'taken', type: 'standard', price: 1200 },
+    { id: 'A2', label: 'A2', row: 'A', number: 2, status: 'available', type: 'standard', price: 1200 },
+    { id: 'A3', label: 'A3', row: 'A', number: 3, status: 'available', type: 'standard', price: 1200 },
     // Row B: all available
-    { id: 'B1', row: 'B', number: 1, status: 'available', type: 'standard', price: 1200 },
-    { id: 'B2', row: 'B', number: 2, status: 'available', type: 'standard', price: 1200 },
-    { id: 'B3', row: 'B', number: 3, status: 'available', type: 'standard', price: 1200 },
+    { id: 'B1', label: 'B1', row: 'B', number: 1, status: 'available', type: 'standard', price: 1200 },
+    { id: 'B2', label: 'B2', row: 'B', number: 2, status: 'available', type: 'standard', price: 1200 },
+    { id: 'B3', label: 'B3', row: 'B', number: 3, status: 'available', type: 'standard', price: 1200 },
   ]
 }
 

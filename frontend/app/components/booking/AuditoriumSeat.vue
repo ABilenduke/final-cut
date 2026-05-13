@@ -31,7 +31,7 @@ const seatLabel = computed(() => {
       : props.selected
         ? 'selected'
         : 'available'
-  return `Seat ${props.seat.id}, ${status}. Row ${props.seat.row}, seat ${props.seat.number}. ${tierLabel.value} section. ${formatCurrency(props.seat.price)}`
+  return `Seat ${props.seat.label}, ${status}. Row ${props.seat.row}, seat ${props.seat.number}. ${tierLabel.value} section. ${formatCurrency(props.seat.price)}`
 })
 
 const tooltipStatus = computed(() => {

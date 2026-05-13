@@ -9,8 +9,8 @@ const emit = defineEmits<{
   remove: [seatId: string]
 }>()
 
-const row = computed(() => props.seat.seatId.match(/^([A-Z]+)/)?.[1] ?? '—')
-const num = computed(() => props.seat.seatId.replace(/^[A-Z]+/, ''))
+const row = computed(() => props.seat.label.match(/^([A-Z]+)/)?.[1] ?? '—')
+const num = computed(() => props.seat.label.replace(/^[A-Z]+/, ''))
 
 const tierLabel = computed(() => {
   const section = (props.seat.section ?? '').toLowerCase()
@@ -25,7 +25,7 @@ const tierLabel = computed(() => {
   <div class="seat-stub">
     <span class="seat-stub__tag">{{ row }} · {{ num }}</span>
     <div class="seat-stub__lbl">
-      Seat {{ seat.seatId }}
+      Seat {{ seat.label }}
       <span class="seat-stub__tier">{{ tierLabel }} · Adult</span>
     </div>
     <div class="seat-stub__right">
@@ -33,7 +33,7 @@ const tierLabel = computed(() => {
       <button
         type="button"
         class="seat-stub__rm"
-        @click="emit('remove', seat.seatId)"
+        @click="emit('remove', seat.id)"
       >Remove</button>
     </div>
   </div>

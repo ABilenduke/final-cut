@@ -13,8 +13,8 @@ function mockBooking(overrides: Partial<Booking> = {}): Booking {
     screenName: 'Screen 1',
     startTime: '2026-04-10T19:00:00Z',
     seats: [
-      { seatId: 'A1', section: 'Standard', price: 1500 },
-      { seatId: 'A2', section: 'Standard', price: 1500 },
+      { id: 'uuid-a1', label: 'A1', section: 'Standard', price: 1500 },
+      { id: 'uuid-a2', label: 'A2', section: 'Standard', price: 1500 },
     ],
     foodItems: [],
     subtotal: 3000,

@@ -19,7 +19,10 @@ export interface AuditoriumSection {
 }
 
 export interface Seat {
+  // UUID — addresses the seat row when posting bookings. Never displayed.
   id: string
+  // Human label e.g. "A12". Always use this for any user-visible text.
+  label: string
   row: string
   number: number
   status: 'available' | 'taken' | 'held'

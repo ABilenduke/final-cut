@@ -59,8 +59,8 @@ test('successful guest booking creates booking and returns 201', function () {
     $response->assertStatus(201)
         ->assertJsonStructure(['data' => [
             'id', 'confirmationCode', 'showtimeId', 'movieTitle',
-            'screenName', 'startTime', 'seats', 'subtotal', 'total',
-            'paymentMethod', 'status', 'createdAt',
+            'screenName', 'startTime', 'seats' => ['*' => ['id', 'label', 'section', 'price']],
+            'subtotal', 'total', 'paymentMethod', 'status', 'createdAt',
         ]]);
 
     $data = $response->json('data');
@@ -71,9 +71,96 @@ test('successful guest booking creates booking and returns 201', function () {
         ->and($data['subtotal'])->toBe(2400) // 2 × $12
         ->and($data['paymentMethod'])->toBe('card');
 
+    // Seat rows expose human label, never the raw UUID, for display purposes.
+    expect($data['seats'])->toHaveCount(2);
+    foreach ($data['seats'] as $seat) {
+        expect($seat)->toHaveKeys(['id', 'label', 'section', 'price']);
+        // Label is the human format e.g. "A1", "B12" — not a UUID.
+        expect($seat['label'])->toMatch('/^[A-Z]+\d+$/');
+    }
+
     expect(BookingSeat::where('booking_id', $data['id'])->count())->toBe(2);
     expect($fakeStripe->createCallCount)->toBe(1);
     expect($fakeStripe->createdPaymentIntents[0]['amount'])->toBe(2400);
+});
+
+test('Stripe PaymentIntent receives identifiable description, receipt_email and metadata', function () {
+    $fixture = $this->createShowtimeWithSeats();
+    $fakeStripe = $this->fakeStripe();
+
+    $response = postJson($this->bookingUrl($fixture['location']), [
+        'showtimeId' => $fixture['showtime']->id,
+        'seatIds' => [$fixture['seats'][0]->id, $fixture['seats'][1]->id],
+        'paymentMethodId' => 'pm_test_visa',
+        'email' => 'guest@example.com',
+    ]);
+
+    $response->assertStatus(201);
+
+    expect($fakeStripe->createdPaymentIntents)->toHaveCount(1);
+    $created = $fakeStripe->createdPaymentIntents[0];
+
+    // Description: "Final Cut · {Movie Title} · {YYYY-MM-DD}"
+    expect($created['description'])->toStartWith('Final Cut · ')
+        ->and($created['description'])->toContain($fixture['showtime']->movie->title)
+        ->and($created['description'])->toContain($fixture['showtime']->start_time->toDateString());
+
+    // Receipt email: the guest email comes through; an authenticated booking
+    // (see next test) prefers user->email.
+    expect($created['receiptEmail'])->toBe('guest@example.com');
+
+    // Metadata bag for dashboard filtering.
+    expect($created['metadata'])->toHaveKeys([
+        'booking_id', 'showtime_id', 'location_slug', 'auditorium', 'movie_title', 'seat_count',
+    ]);
+    expect($created['metadata']['showtime_id'])->toBe($fixture['showtime']->id);
+    expect($created['metadata']['location_slug'])->toBe($fixture['location']->slug);
+    expect($created['metadata']['movie_title'])->toBe($fixture['showtime']->movie->title);
+    expect($created['metadata']['seat_count'])->toBe('2');
+
+    // After finalization, confirmation_code is patched on. Both records the
+    // final booking_id (matches the JSON response) and the human code.
+    expect($fakeStripe->metadataUpdates)->toHaveCount(1);
+    $patched = $fakeStripe->metadataUpdates[0];
+    $data = $response->json('data');
+    expect($patched['metadata']['confirmation_code'])->toBe($data['confirmationCode'])
+        ->and($patched['metadata']['booking_id'])->toBe($data['id']);
+});
+
+test('Stripe PaymentIntent receipt_email prefers authenticated user email over guest input', function () {
+    $fixture = $this->createShowtimeWithSeats();
+    $fakeStripe = $this->fakeStripe();
+
+    $user = User::factory()->create(['email' => 'member@finalcut.test', 'loyalty_points' => 0]);
+
+    actingAs($user)->postJson($this->bookingUrl($fixture['location']), [
+        'showtimeId' => $fixture['showtime']->id,
+        'seatIds' => [$fixture['seats'][0]->id],
+        'paymentMethodId' => 'pm_test_visa',
+        // intentionally include a different `email` in the body — the auth
+        // user's email should win.
+        'email' => 'spoofed@example.com',
+    ])->assertStatus(201);
+
+    expect($fakeStripe->createdPaymentIntents[0]['receiptEmail'])->toBe('member@finalcut.test');
+});
+
+test('Idempotency-Key header is forwarded to Stripe', function () {
+    $fixture = $this->createShowtimeWithSeats();
+    $fakeStripe = $this->fakeStripe();
+
+    postJson(
+        $this->bookingUrl($fixture['location']),
+        [
+            'showtimeId' => $fixture['showtime']->id,
+            'seatIds' => [$fixture['seats'][0]->id],
+            'paymentMethodId' => 'pm_test_visa',
+            'email' => 'guest@example.com',
+        ],
+        ['Idempotency-Key' => 'idem-booking-abc123'],
+    )->assertStatus(201);
+
+    expect($fakeStripe->createdPaymentIntents[0]['idempotencyKey'])->toBe('idem-booking-abc123');
 });
 
 test('successful authenticated booking awards loyalty points', function () {

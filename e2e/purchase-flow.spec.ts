@@ -42,20 +42,24 @@ test.describe('Purchase Flow', () => {
     const totalDisplay = page.locator('[aria-live="polite"]').first()
     await expect(totalDisplay).toBeVisible()
 
-    // 8. Click Continue to concessions (step 2)
-    const continueToConcessions = page.getByRole('button', { name: /continue to concessions/i })
-    await expect(continueToConcessions).toBeEnabled()
-    await continueToConcessions.click()
-    await page.waitForURL(/\/purchase\/snacks/)
-
-    // 9. Skip concessions and land on checkout
-    const skipConcessions = page.getByRole('button', { name: /skip concessions/i })
-    await expect(skipConcessions).toBeVisible({ timeout: 10_000 })
-    await skipConcessions.click()
+    // 8. Click "Continue to payment" — concessions are no longer in the booking flow.
+    const continueToPayment = page.getByRole('button', { name: /continue to payment/i })
+    await expect(continueToPayment).toBeEnabled()
+    await continueToPayment.click()
     await page.waitForURL(/\/purchase\/checkout/)
 
-    // 10. Verify the checkout page has rendered
+    // 9. Verify the checkout page has rendered (direct seats → payment, no snacks step)
     await expect(page.getByRole('heading', { name: /finish the\s+booking/i })).toBeVisible({ timeout: 10_000 })
+
+    // 10. Verify the order card renders the seat's human LABEL, not a UUID.
+    // The CheckoutOrderCard formats labels like "A12" as "A·12" with a
+    // middle-dot separator in `.order-card__seats-num`, so a UUID render
+    // (no dot followed by digits) would fail this match.
+    const seatCallout = page.locator('.order-card__seats-num')
+    await expect(seatCallout).toBeVisible()
+    const calloutText = await seatCallout.textContent()
+    expect(calloutText, 'seat label, not a UUID, should be visible on the order card')
+      .toMatch(/[A-Z]+·\d+/)
   })
 
   test('guest checkout shows email field', async ({ page }) => {
@@ -74,10 +78,8 @@ test.describe('Purchase Flow', () => {
     await availableSeats.nth(0).dispatchEvent('click')
     await availableSeats.nth(1).dispatchEvent('click')
 
-    // Continue to concessions, then skip to checkout
-    await page.getByRole('button', { name: /continue to concessions/i }).click()
-    await page.waitForURL(/\/purchase\/snacks/)
-    await page.getByRole('button', { name: /skip concessions/i }).click()
+    // Continue to payment — no concessions step.
+    await page.getByRole('button', { name: /continue to payment/i }).click()
     await page.waitForURL(/\/purchase\/checkout/)
 
     // Guest should see an email field. Narrow to the textbox role — the
@@ -159,16 +161,14 @@ test.describe('Purchase Flow', () => {
     await availableSeats.nth(0).dispatchEvent('click')
     await availableSeats.nth(1).dispatchEvent('click')
 
-    // Continue to concessions, then skip to checkout
-    await page.getByRole('button', { name: /continue to concessions/i }).click()
-    await page.waitForURL(/\/purchase\/snacks/)
-    await page.getByRole('button', { name: /skip concessions/i }).click()
+    // Continue to payment — direct, no concessions step.
+    await page.getByRole('button', { name: /continue to payment/i }).click()
     await page.waitForURL(/\/purchase\/checkout/)
 
     // Navigate back via step indicator — step 1 label is "Seats"
     const step1 = page.locator('nav[aria-label="Purchase steps"]').getByText(/^seats$/i)
     await step1.click()
-    await page.waitForURL(/\/purchase\/(?!checkout|snacks)/)
+    await page.waitForURL(/\/purchase\/(?!checkout)/)
 
     // Verify seats are still selected
     const selectedSeats = page.locator('button.auditorium-seat.auditorium-seat--selected')

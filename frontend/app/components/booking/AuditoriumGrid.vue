@@ -66,11 +66,11 @@ function handleSeatToggle(seat: Seat) {
   emit('seat-toggled', { seatId: seat.id, selected: !isCurrentlySelected })
 
   if (isCurrentlySelected) {
-    announce(`Seat ${seat.id} deselected.`)
+    announce(`Seat ${seat.label} deselected.`)
   } else {
     const newCount = selectedCount.value + 1
     const newTotal = selectedTotal.value + seat.price
-    announce(`Seat ${seat.id} selected. ${newCount} seats selected, ${formatCurrency(newTotal)} total.`)
+    announce(`Seat ${seat.label} selected. ${newCount} seats selected, ${formatCurrency(newTotal)} total.`)
   }
 }
 

@@ -1,10 +1,8 @@
 <script setup lang="ts">
 import type { BookingSeat } from '~/types/booking'
-import type { CartFoodItem } from '~/composables/useCart'
 
 const props = defineProps<{
   seats: readonly BookingSeat[]
-  foodItems: readonly CartFoodItem[]
   promoCode: string | null
   promoDiscount: number
   giftCardAmount: number
@@ -23,14 +21,6 @@ const emit = defineEmits<{
 
 const seatsTotal = computed<number>(() =>
   props.seats.reduce((sum, s) => sum + s.price, 0),
-)
-
-const foodTotal = computed<number>(() =>
-  props.foodItems.reduce((sum, f) => sum + f.unitPrice * f.quantity, 0),
-)
-
-const foodCount = computed<number>(() =>
-  props.foodItems.reduce((sum, f) => sum + f.quantity, 0),
 )
 
 const seatSectionLabel = computed<string>(() => {
@@ -65,13 +55,6 @@ const formattedHold = computed<string>(() => {
             <em v-if="seats.length">· Adult admission</em>
           </span>
           <span class="totals-rail__v">{{ formatCurrency(seatsTotal) }}</span>
-        </div>
-        <div class="totals-rail__line" :class="{ 'totals-rail__line--muted': foodCount === 0 }">
-          <span>
-            Concessions
-            <em>{{ foodCount === 0 ? 'No items' : `${foodCount} item${foodCount > 1 ? 's' : ''} · collect at bar` }}</em>
-          </span>
-          <span class="totals-rail__v">{{ formatCurrency(foodTotal) }}</span>
         </div>
         <div class="totals-rail__rule" />
         <div class="totals-rail__line">

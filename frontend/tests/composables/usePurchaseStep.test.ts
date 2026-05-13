@@ -27,15 +27,15 @@ describe('usePurchaseStep', () => {
     expect(navigableSteps.value).toEqual([])
   })
 
-  it('supports the new step 4 (Confirmation) for the four-step flow', () => {
+  it('supports step 3 (Confirmation) for the three-step flow', () => {
     const { currentStep, completedSteps, navigableSteps, setStep } = usePurchaseStep()
-    setStep(4, [1, 2, 3, 4], [])
-    expect(currentStep.value).toBe(4)
-    expect(completedSteps.value).toEqual([1, 2, 3, 4])
+    setStep(3, [1, 2, 3], [])
+    expect(currentStep.value).toBe(3)
+    expect(completedSteps.value).toEqual([1, 2, 3])
     expect(navigableSteps.value).toEqual([])
   })
 
-  it('supports stepping through 1 → 2 (Snacks) → 3 (Payment) → 4 (Confirmation)', () => {
+  it('supports stepping through 1 (Seats) → 2 (Payment) → 3 (Confirmation)', () => {
     const { currentStep, completedSteps, navigableSteps, setStep } = usePurchaseStep()
 
     setStep(1, [], [])
@@ -45,13 +45,9 @@ describe('usePurchaseStep', () => {
     expect(currentStep.value).toBe(2)
     expect(navigableSteps.value).toEqual([1])
 
-    setStep(3, [1, 2], [1, 2])
+    setStep(3, [1, 2, 3], [])
     expect(currentStep.value).toBe(3)
-    expect(navigableSteps.value).toEqual([1, 2])
-
-    setStep(4, [1, 2, 3, 4], [])
-    expect(currentStep.value).toBe(4)
-    expect(completedSteps.value).toEqual([1, 2, 3, 4])
+    expect(completedSteps.value).toEqual([1, 2, 3])
   })
 
   it('setStep defaults completed and navigable to empty arrays', () => {

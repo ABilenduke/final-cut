@@ -52,12 +52,13 @@ const doorsLabel = computed<string>(() => {
 
 const seatCallout = computed<string>(() => {
   if (props.seats.length === 0) return '—'
-  return props.seats.map(s => s.seatId.replace(/([A-Z]+)(\d+)/, '$1·$2')).join(' / ')
+  // seat.label is the human format "A12" — format as "A·12" for the headline.
+  return props.seats.map(s => s.label.replace(/([A-Z]+)(\d+)/, '$1·$2')).join(' / ')
 })
 
 const seatSummary = computed<string>(() => {
   if (props.seats.length === 0) return ''
-  const firstRow = props.seats[0]?.seatId.match(/^([A-Z]+)/)?.[1] ?? ''
+  const firstRow = props.seats[0]?.label.match(/^([A-Z]+)/)?.[1] ?? ''
   const section = props.seats[0]?.section ?? ''
   return section ? `Row ${firstRow} · ${section}` : `Row ${firstRow}`
 })

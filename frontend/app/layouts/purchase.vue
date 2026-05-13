@@ -10,15 +10,8 @@ const cartItems = computed(() => {
 
   for (const seat of cart.seats.value) {
     items.push({
-      label: `Seat ${seat.seatId} (${seat.section})`,
+      label: `Seat ${seat.label} (${seat.section})`,
       price: seat.price,
-    })
-  }
-
-  for (const food of cart.foodItems.value) {
-    items.push({
-      label: `${food.name} x${food.quantity}`,
-      price: food.unitPrice * food.quantity,
     })
   }
 
@@ -47,12 +40,10 @@ function handleStepNavigate(step: PurchaseStep) {
     return
   }
   if (step === 2) {
-    navigateTo('/purchase/snacks')
-    return
-  }
-  if (step === 3) {
     navigateTo('/purchase/checkout')
   }
+  // Step 3 (confirmation) is reached only on successful payment; no
+  // navigable click target.
 }
 </script>
 

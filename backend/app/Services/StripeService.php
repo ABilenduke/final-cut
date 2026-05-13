@@ -45,29 +45,64 @@ class StripeService
      * Callers must check status === 'requires_action' to detect 3DS challenges.
      *
      * @param  ?string  $idempotencyKey  Optional Stripe idempotency key for request deduplication.
+     * @param  ?string  $description  Human-readable charge description shown in the Stripe dashboard.
+     * @param  ?string  $receiptEmail  Address to send Stripe's hosted receipt to.
      *
      * @throws CardException Propagates — controller maps to 402
      * @throws InvalidRequestException Propagates — controller maps to 400
      */
-    public function createPaymentIntent(int $amount, string $paymentMethodId, array $metadata = [], ?string $idempotencyKey = null): PaymentIntent
-    {
+    public function createPaymentIntent(
+        int $amount,
+        string $paymentMethodId,
+        array $metadata = [],
+        ?string $idempotencyKey = null,
+        ?string $description = null,
+        ?string $receiptEmail = null,
+    ): PaymentIntent {
         $options = [];
 
         if ($idempotencyKey !== null) {
             $options['idempotency_key'] = $idempotencyKey;
         }
 
-        return $this->client()->paymentIntents->create([
+        $params = [
             'amount' => $amount,
             'currency' => 'usd',
             'payment_method' => $paymentMethodId,
             'confirm' => true,
-            'automatic_payment_methods' => [
-                'enabled' => true,
-                'allow_redirects' => 'never',
-            ],
+            // Card-only flow. `payment_method_types: ['card']` is more explicit
+            // than `automatic_payment_methods` for our use case and avoids any
+            // ambiguity around redirect-based methods we don't support yet.
+            'payment_method_types' => ['card'],
             'metadata' => $metadata,
-        ], $options);
+        ];
+
+        if ($description !== null && $description !== '') {
+            $params['description'] = $description;
+        }
+
+        if ($receiptEmail !== null && $receiptEmail !== '') {
+            $params['receipt_email'] = $receiptEmail;
+        }
+
+        return $this->client()->paymentIntents->create($params, $options);
+    }
+
+    /**
+     * Best-effort metadata patch for an existing PaymentIntent — used to attach
+     * a booking's confirmation_code after the row has been finalized. Stripe
+     * accepts the merge semantics natively, so we only send the new keys.
+     *
+     * Callers should not let a failure here surface as a user error: the
+     * payment has already succeeded by the time we get here. Log and move on.
+     *
+     * @throws ApiErrorException
+     */
+    public function updatePaymentIntentMetadata(string $paymentIntentId, array $metadata): PaymentIntent
+    {
+        return $this->client()->paymentIntents->update($paymentIntentId, [
+            'metadata' => $metadata,
+        ]);
     }
 
     /**

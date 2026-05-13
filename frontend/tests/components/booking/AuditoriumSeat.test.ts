@@ -6,6 +6,7 @@ import type { Seat } from '~/types/auditorium'
 function makeSeat(overrides: Partial<Seat> = {}): Seat {
   return {
     id: 'A1',
+    label: 'A1',
     row: 'A',
     number: 1,
     status: 'available',
@@ -106,7 +107,7 @@ describe('AuditoriumSeat', () => {
   })
 
   it('has aria-label with seat info using the tier label', async () => {
-    const seat = makeSeat({ id: 'B3', row: 'B', number: 3, price: 1800, type: 'premium' })
+    const seat = makeSeat({ id: 'B3', label: 'B3', row: 'B', number: 3, price: 1800, type: 'premium' })
     const wrapper = await mountSuspended(AuditoriumSeat, {
       props: { seat, selected: false, focused: false },
     })

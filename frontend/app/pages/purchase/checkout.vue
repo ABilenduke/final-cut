@@ -19,50 +19,9 @@ const { isAuthenticated, user } = useAuth()
 const { show: showToast } = useToast()
 const { setStep } = usePurchaseStep()
 
-// Cross-location menu for the food pre-order panel (Task 9).
-// Fetched client-side on mount — checkout is a CSR-only route (/purchase/**).
-const { items: allMenuItems, fetchMenu: fetchAllMenu } = useFoodMenu()
-onMounted(async () => {
-  await fetchAllMenu()
-})
-
-// The booking location slug — derived from the showtime's location field
-// (populated by the seat-map response), falling back to activeLocation.
-// ShowtimeLocation is typed on Showtime.location, so no cast needed.
-const bookingLocationSlug = computed<string>(() =>
-  cart.showtime.value?.location?.slug ?? activeLocation.value?.slug ?? '',
-)
-
-const bookingLocationName = computed<string>(() =>
-  cart.showtime.value?.location?.name ?? activeLocation.value?.name ?? '',
-)
-
-// Snacks-panel cart map: itemId → quantity
-const cartMap = computed<Record<string, number>>(() => {
-  const map: Record<string, number> = {}
-  for (const item of cart.foodItems.value) {
-    map[item.itemId] = item.quantity
-  }
-  return map
-})
-
-function handleFoodAdd(itemId: string) {
-  const menuItem = allMenuItems.value.find(m => m.id === itemId)
-  if (!menuItem) return
-  cart.addFoodItem(menuItem.id, menuItem.name, menuItem.price, menuItem.available_at)
-}
-
-function handleFoodIncrement(itemId: string) {
-  const menuItem = allMenuItems.value.find(m => m.id === itemId)
-  if (!menuItem) return
-  cart.addFoodItem(menuItem.id, menuItem.name, menuItem.price, menuItem.available_at)
-}
-
-function handleFoodDecrement(itemId: string) {
-  cart.removeFoodItem(itemId)
-}
-
-setStep(3, [1, 2], [1, 2])
+// 3 steps total: Seats (1) → Payment (2) → Confirmation (3). Concessions
+// live on /food-drink as a browse-only catalog, not in the booking flow.
+setStep(2, [1], [1])
 
 // Guard: redirect if no seats in cart
 onMounted(() => {
@@ -95,12 +54,6 @@ watchEffect(() => {
   if (user.value && !contactName.value) contactName.value = user.value.name
   if (user.value && !contactEmail.value) contactEmail.value = user.value.email
 })
-
-// Snacks were chosen on /purchase/snacks; this page just shows what's in the cart.
-const snacksHref = '/purchase/snacks'
-const hasSnacks = computed<boolean>(() =>
-  cart.foodItems.value.length > 0 || cart.pairing.value !== null,
-)
 
 // Promo code handling
 function handlePromoApply(code: string) {
@@ -182,8 +135,8 @@ async function handleCheckoutSubmit(payload: { paymentMethodId: string; email?: 
   try {
     const body = {
       showtimeId: cart.showtime.value.id,
-      seatIds: cart.seats.value.map(s => s.seatId),
-      foodItems: cart.foodItems.value.map(f => ({ itemId: f.itemId, quantity: f.quantity })),
+      // `seat.id` is the UUID the backend keys on; `seat.label` is for display.
+      seatIds: cart.seats.value.map(s => s.id),
       paymentMethodId: payload.paymentMethodId,
       promoCode: cart.promoCode.value,
       giftCardCode: cart.giftCardCode.value,
@@ -292,7 +245,6 @@ async function handleCheckoutSubmit(payload: { paymentMethodId: string; email?: 
     <template #rail>
       <CheckoutTotalsRail
         :seats="cart.seats.value"
-        :food-items="cart.foodItems.value"
         :promo-code="cart.promoCode.value"
         :promo-discount="cart.promoDiscount.value"
         :gift-card-amount="cart.giftCardAmount.value"
@@ -308,7 +260,7 @@ async function handleCheckoutSubmit(payload: { paymentMethodId: string; email?: 
     <div class="checkout-page">
     <header class="checkout-page__top">
       <div>
-        <div class="checkout-page__eyebrow">Reel 03 · Payment</div>
+        <div class="checkout-page__eyebrow">Reel 02 · Payment</div>
         <h1 class="checkout-page__title">
           <em>Finish the</em> booking.
         </h1>
@@ -343,40 +295,6 @@ async function handleCheckoutSubmit(payload: { paymentMethodId: string; email?: 
         @submit="handleCheckoutSubmit"
         @error="(msg: string) => showToast({ message: msg, type: 'error' })"
       />
-
-      <!-- Snacks / Food pre-order panel (Task 9).
-           Renders the cross-location menu with availability-based dimming.
-           Items whose available_at excludes the booking's location are dimmed
-           and receive a warning badge; the cart guards against adding them. -->
-      <section class="snacks-section" aria-label="Add food and drinks">
-        <header class="snacks-section__head">
-          <div>
-            <div class="snacks-section__n">§ 03</div>
-            <h2 class="snacks-section__title"><em>The bar &amp;</em> snack counter.</h2>
-          </div>
-          <NuxtLink :to="snacksHref" class="snacks-section__edit">
-            ← Edit on snacks page
-          </NuxtLink>
-        </header>
-
-        <FoodPreOrderPanel
-          v-if="bookingLocationSlug && allMenuItems.length > 0"
-          :items="allMenuItems"
-          :cart="cartMap"
-          :booking-location-slug="bookingLocationSlug"
-          :booking-location-name="bookingLocationName || bookingLocationSlug"
-          @add="handleFoodAdd"
-          @increment="handleFoodIncrement"
-          @decrement="handleFoodDecrement"
-        />
-
-        <!-- Pairing echo — pairings are set on /purchase/snacks; shown read-only here -->
-        <div v-if="cart.pairing.value" class="snacks-section__pairing">
-          <span class="snacks-section__pairing-label">Programme Pairing added</span>
-          <b>{{ cart.pairing.value.title }}</b>
-          <span class="snacks-section__pairing-sub">Pay at the bar on collection</span>
-        </div>
-      </section>
 
       <PromoCode
         v-model:accept-terms="acceptTerms"
@@ -512,94 +430,5 @@ async function handleCheckoutSubmit(payload: { paymentMethodId: string; email?: 
   .checkout-loc {
     display: none;
   }
-}
-
-/* Food pre-order section (Task 9) */
-.snacks-section {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-lg);
-}
-
-.snacks-section__head {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: var(--space-md);
-  padding-bottom: var(--space-sm);
-  border-bottom: var(--border-hairline) solid rgb(var(--outline-variant-rgb) / 0.2);
-}
-
-.snacks-section__n {
-  font-family: var(--font-display);
-  font-size: 0.8125rem;
-  color: var(--secondary);
-  font-weight: 500;
-  letter-spacing: 0.08em;
-  font-variant-numeric: tabular-nums;
-}
-
-.snacks-section__title {
-  font-family: var(--font-display);
-  font-size: 1.375rem;
-  font-weight: 500;
-  letter-spacing: -0.015em;
-  line-height: 1.1;
-  margin: 0.2rem 0 0;
-  color: var(--on-surface);
-}
-
-.snacks-section__title em {
-  font-style: italic;
-  color: var(--tertiary);
-}
-
-.snacks-section__edit {
-  font-family: var(--font-body);
-  font-size: 0.6875rem;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  color: var(--secondary);
-  text-decoration: none;
-  align-self: center;
-  white-space: nowrap;
-}
-
-.snacks-section__edit:hover,
-.snacks-section__edit:focus-visible {
-  text-decoration: underline;
-  text-underline-offset: 0.125rem;
-}
-
-.snacks-section__pairing {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  padding: var(--space-md);
-  background-color: var(--surface-container);
-  border-radius: var(--radius-card);
-  border: var(--border-hairline) solid rgb(var(--secondary-rgb) / 0.25);
-}
-
-.snacks-section__pairing-label {
-  font-family: var(--font-body);
-  font-size: 0.6875rem;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  color: var(--secondary);
-}
-
-.snacks-section__pairing b {
-  font-family: var(--font-display);
-  font-size: 1rem;
-  color: var(--on-surface);
-  font-weight: 500;
-}
-
-.snacks-section__pairing-sub {
-  font-family: var(--font-body);
-  font-size: 0.75rem;
-  color: var(--on-tertiary-fixed-variant);
-  font-style: italic;
 }
 </style>
