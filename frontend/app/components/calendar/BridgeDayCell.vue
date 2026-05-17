@@ -116,7 +116,8 @@ const ariaLabel = computed(() => {
 .bridge-day-cell {
   background-color: var(--surface-container-lowest);
   padding: var(--space-sm);
-  min-height: 8rem;
+  aspect-ratio: 1 / 1;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
@@ -132,6 +133,7 @@ const ariaLabel = computed(() => {
 .bridge-day-cell--muted {
   background-color: var(--surface);
   cursor: default;
+  opacity: 0.55;
 }
 
 .bridge-day-cell--muted .bridge-day-cell__num {
@@ -144,6 +146,7 @@ const ariaLabel = computed(() => {
 
 .bridge-day-cell--today .bridge-day-cell__num {
   color: var(--secondary);
+  font-weight: 600;
 }
 
 .bridge-day-cell--selected {
@@ -211,15 +214,16 @@ const ariaLabel = computed(() => {
   flex-direction: column;
   gap: 0.15rem;
   flex: 1;
+  min-height: 0;
 }
 
 .bridge-day-cell__event {
   display: flex;
   align-items: baseline;
   gap: 0.4rem;
-  font-size: 0.625rem;
+  font-size: 0.6875rem;
   color: var(--tertiary);
-  line-height: 1.15;
+  line-height: 1.3;
   padding: 0.0625rem 0.1875rem;
   border-left: 0.125rem solid var(--bridge-event-color, transparent);
   background-color: rgba(255, 255, 255, 0.025);
@@ -232,7 +236,7 @@ const ariaLabel = computed(() => {
   letter-spacing: -0.01em;
   color: var(--on-surface);
   flex-shrink: 0;
-  font-size: 0.625rem;
+  font-size: 0.6875rem;
 }
 
 .bridge-day-cell__event-title {
@@ -247,12 +251,18 @@ const ariaLabel = computed(() => {
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--on-tertiary-fixed-variant);
-  margin-top: 0.1rem;
+  margin-top: auto;
+  padding-top: 0.25rem;
 }
 
-@media (max-width: 80rem) {
+@media (max-width: 60rem) {
   .bridge-day-cell {
-    min-height: 6rem;
+    min-height: 3rem;
+  }
+
+  .bridge-day-cell__events,
+  .bridge-day-cell__overflow {
+    display: none;
   }
 }
 </style>

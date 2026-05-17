@@ -40,6 +40,18 @@ function dayHref(event: CalendarEvent): string {
   return '/whats-on'
 }
 
+function whatsOnHref(iso: string): string {
+  const [y, m] = iso.split('-')
+  return `/whats-on?date=${iso}&month=${Number(m)}&year=${Number(y)}`
+}
+
+const fullDayFmt = new Intl.DateTimeFormat('en-US', {
+  weekday: 'long', month: 'long', day: 'numeric',
+})
+function dayAriaLabel(iso: string): string {
+  return `View ${fullDayFmt.format(new Date(`${iso}T12:00:00`))} in the calendar`
+}
+
 const cells = computed<DayCell[]>(() => {
   const out: DayCell[] = []
   const d = new Date(range.start)
@@ -109,7 +121,11 @@ const rangeLabel = computed(() => {
         >
           <div class="cal-strip__day-head">
             <span class="cal-strip__dow">{{ cell.dow }}<span v-if="cell.isToday"> · Today</span></span>
-            <span class="cal-strip__date">{{ cell.dom }}</span>
+            <NuxtLink
+              :to="whatsOnHref(cell.iso)"
+              :aria-label="dayAriaLabel(cell.iso)"
+              class="cal-strip__date cal-strip__date--link"
+            >{{ cell.dom }}</NuxtLink>
           </div>
           <div class="cal-strip__events">
             <NuxtLink
@@ -124,9 +140,12 @@ const rangeLabel = computed(() => {
             <span v-if="cell.events.length === 0" class="cal-strip__event cal-strip__event--empty">
               <span>Quiet day</span>
             </span>
-            <span v-if="cell.overflow > 0" class="cal-strip__overflow">
-              + {{ cell.overflow }} more
-            </span>
+            <NuxtLink
+              v-if="cell.overflow > 0"
+              :to="whatsOnHref(cell.iso)"
+              :aria-label="`${dayAriaLabel(cell.iso)} (${cell.overflow} more)`"
+              class="cal-strip__overflow cal-strip__overflow--link"
+            >+ {{ cell.overflow }} more</NuxtLink>
           </div>
         </div>
       </div>
@@ -317,5 +336,17 @@ const rangeLabel = computed(() => {
   letter-spacing: 0.16em;
   text-transform: uppercase;
   margin-top: 0.25rem;
+}
+
+.cal-strip__date--link,
+.cal-strip__overflow--link {
+  text-decoration: none;
+  color: inherit;
+  transition: color var(--duration-micro) var(--ease-standard);
+}
+
+.cal-strip__date--link:hover,
+.cal-strip__overflow--link:hover {
+  color: var(--secondary);
 }
 </style>
