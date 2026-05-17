@@ -46,10 +46,14 @@ function whatsOnHref(iso: string): string {
 }
 
 const fullDayFmt = new Intl.DateTimeFormat('en-US', {
-  weekday: 'long', month: 'long', day: 'numeric',
+  weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
 })
 function dayAriaLabel(iso: string): string {
   return `View ${fullDayFmt.format(new Date(`${iso}T12:00:00`))} in the calendar`
+}
+function overflowAriaLabel(iso: string, count: number): string {
+  const formatted = fullDayFmt.format(new Date(`${iso}T12:00:00`))
+  return `View ${count} more event${count === 1 ? '' : 's'} for ${formatted} in the calendar`
 }
 
 const cells = computed<DayCell[]>(() => {
@@ -143,7 +147,7 @@ const rangeLabel = computed(() => {
             <NuxtLink
               v-if="cell.overflow > 0"
               :to="whatsOnHref(cell.iso)"
-              :aria-label="`${dayAriaLabel(cell.iso)} (${cell.overflow} more)`"
+              :aria-label="overflowAriaLabel(cell.iso, cell.overflow)"
               class="cal-strip__overflow cal-strip__overflow--link"
             >+ {{ cell.overflow }} more</NuxtLink>
           </div>

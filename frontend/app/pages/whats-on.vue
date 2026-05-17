@@ -15,6 +15,13 @@ const todayDate = useState<string>('whats-on:today-date', () => currentAppTodayK
 if (import.meta.client) {
   onMounted(() => {
     todayDate.value = currentAppTodayKey()
+    // When a deep link arrives with `?date=...` on a viewport where the
+    // detail rail collapses out (≤80rem), open the drawer so the user sees
+    // the events that motivated the link. Without this, mobile/tablet
+    // visitors land on a selected day with no detail visible.
+    if (route.query.date && window.matchMedia('(max-width: 80rem)').matches) {
+      drawerOpen.value = true
+    }
   })
 }
 
