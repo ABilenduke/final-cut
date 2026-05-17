@@ -40,8 +40,14 @@ test-backend-unit:
 test-backend-feature:
 	docker compose exec -u 1000 backend php artisan test --testsuite=Feature
 
+# Use `run --rm` (not `exec`) so each test invocation gets a fresh,
+# disposable container. Vitest workers under Deno's npm shim leak child
+# processes that, in the long-lived dev container, accumulate as zombies
+# and deadlock future runs. An ephemeral container is destroyed on exit
+# along with any leaked workers. --no-deps keeps backend/postgres/redis
+# untouched; -T disables TTY so output streams cleanly to the host.
 test-frontend:
-	docker compose exec frontend deno run -A npm:vitest run
+	docker compose run --rm --no-deps -T frontend deno run -A npm:vitest run
 
 PROD_COMPOSE = APP_ENV=production APP_DEBUG=false NODE_ENV=production docker compose -f docker-compose.yml -f docker-compose.prod.yml
 LOCAL_PROD_COMPOSE = APP_ENV=production APP_DEBUG=false NODE_ENV=production docker compose -f docker-compose.yml -f docker-compose.local-prod.yml -f docker-compose.stack.yml
