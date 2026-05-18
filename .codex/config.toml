@@ -8,10 +8,8 @@ primary_instruction_file = "AGENTS.md"
 agent_manifest = ".cowork/agents.toml"
 skills_manifest = ".cowork/skills.toml"
 default_verification = "make test"
-
-[model]
-preferred = "gpt-5.5"
-reasoning_effort = "high"
+instructions = "AGENTS.md"
+model = "gpt-5.5"
 
 [sandbox]
 mode = "workspace-write"
@@ -20,12 +18,6 @@ writable_roots = [
   "/home/abilenduke/code/abilenduke/final-cut",
   "/tmp",
 ]
-
-[instructions]
-root = "AGENTS.md"
-frontend = "frontend/AGENTS.md"
-backend = "backend/AGENTS.md"
-claude_source = "CLAUDE.md"
 
 [commands]
 setup = "make certs && make up"
