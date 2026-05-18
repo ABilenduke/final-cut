@@ -1,0 +1,13 @@
+# Project-local skill registry for Final Cut.
+
+[[skills]]
+name = "finalcut-design"
+path = ".cowork/skills/finalcut-design/SKILL.md"
+source = ".claude/skills/finalcut-design/SKILL.md"
+use_when = "Customer-facing Nuxt/Vue UI work, visual polish, component design, accessibility, layout, icons, tokens, or Final Cut brand expression under frontend/."
+
+[[skills]]
+name = "finalcut-admin-design"
+path = ".cowork/skills/finalcut-admin-design/SKILL.md"
+source = ".claude/skills/finalcut-admin-design/SKILL.md"
+use_when = "Filament admin panel design, resource UI, widgets, custom admin pages, badges, notifications, table styling, or admin theme CSS."

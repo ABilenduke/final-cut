@@ -1,0 +1,39 @@
+# Project-local cowork/Codex manifest for Final Cut.
+# This file is committed with the repo; keep user secrets and personal auth in global config.
+
+project_name = "Final Cut"
+project_root = "/home/abilenduke/code/abilenduke/final-cut"
+source_instruction_file = "CLAUDE.md"
+primary_instruction_file = "AGENTS.md"
+agent_manifest = ".cowork/agents.toml"
+skills_manifest = ".cowork/skills.toml"
+default_verification = "make test"
+
+[model]
+preferred = "gpt-5.5"
+reasoning_effort = "high"
+
+[sandbox]
+mode = "workspace-write"
+approval_policy = "on-request"
+writable_roots = [
+  "/home/abilenduke/code/abilenduke/final-cut",
+  "/tmp",
+]
+
+[instructions]
+root = "AGENTS.md"
+frontend = "frontend/AGENTS.md"
+backend = "backend/AGENTS.md"
+claude_source = "CLAUDE.md"
+
+[commands]
+setup = "make certs && make up"
+test_all = "make test"
+test_backend = "make test-backend"
+test_backend_unit = "make test-backend-unit"
+test_backend_feature = "make test-backend-feature"
+test_frontend = "make test-frontend"
+test_e2e = "make e2e"
+admin_test = "make admin-test"
+admin_assets = "make admin-filament-assets"

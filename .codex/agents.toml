@@ -1,0 +1,51 @@
+# Project role routing for Final Cut cowork sessions.
+# These are manifests for agent selection, not personal model credentials.
+
+[[agents]]
+id = "architecture-guardian"
+scope = ["backend/**", "frontend/**", "docs/**", "docker-compose*.yml"]
+use_when = "Reviewing implementation plans, diffs, PRs, or cross-stack changes for architecture, tenancy, caching, idempotency, payments, admin, and test coverage risks."
+required_context = ["AGENTS.md", "CLAUDE.md", "docs/architecture/DATA_MODELS.md"]
+preferred_after = ["non-trivial code changes", "schema changes", "payment changes", "admin permission changes"]
+
+[[agents]]
+id = "nuxt-frontend"
+scope = ["frontend/**"]
+use_when = "Building or modifying Nuxt pages, Vue components, composables, customer-facing UI, route rules, accessibility, Vitest, or Playwright coverage."
+required_context = ["AGENTS.md", "frontend/AGENTS.md", ".cowork/skills/finalcut-design/SKILL.md"]
+verification = ["make test-frontend", "make e2e when user-facing flows change"]
+
+[[agents]]
+id = "laravel-api"
+scope = ["backend/app/Http/**", "backend/routes/**", "backend/tests/Feature/**"]
+use_when = "Building or modifying Laravel routes, controllers, middleware, form requests, API resources, auth/session behavior, or request/response contracts."
+required_context = ["AGENTS.md", "backend/AGENTS.md", "CLAUDE.md"]
+verification = ["make test-backend-feature"]
+
+[[agents]]
+id = "database-schema"
+scope = ["backend/database/**", "backend/app/Models/**", "backend/app/Enums/**", "backend/tests/**"]
+use_when = "Creating or changing migrations, models, factories, seeders, enum-backed columns, indexes, or data persistence rules."
+required_context = ["AGENTS.md", "backend/AGENTS.md", "docs/architecture/DATA_MODELS.md"]
+verification = ["make test-backend"]
+
+[[agents]]
+id = "filament-admin"
+scope = ["backend/app/Filament/**", "backend/resources/views/filament/**", "backend/resources/css/filament/**", "backend/app/Providers/Filament/**"]
+use_when = "Building or styling Filament resources, custom admin pages, widgets, actions, auth gates, admin session behavior, or admin theme CSS."
+required_context = ["AGENTS.md", "backend/AGENTS.md", ".cowork/skills/finalcut-admin-design/SKILL.md"]
+verification = ["make admin-test", "make admin-filament-assets after CSS changes"]
+
+[[agents]]
+id = "domain-action"
+scope = ["backend/app/Actions/**", "backend/app/Services/**", "backend/tests/**"]
+use_when = "Implementing invariant-bearing mutations, payment flows, loyalty adjustments, booking transitions, outbox dispatch, or idempotent commands."
+required_context = ["AGENTS.md", "backend/AGENTS.md", "CLAUDE.md"]
+verification = ["make test-backend"]
+
+[[agents]]
+id = "tenancy-location"
+scope = ["backend/**", "frontend/**"]
+use_when = "Designing or reviewing anything that must not leak or hardcode theatre location context, including menus, showtimes, auditoriums, seats, bookings, and cache keys."
+required_context = ["AGENTS.md", "CLAUDE.md", "docs/architecture/DATA_MODELS.md"]
+verification = ["targeted cross-location tests when applicable"]
