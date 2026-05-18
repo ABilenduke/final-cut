@@ -10,7 +10,7 @@ function makeItem(overrides: Partial<MenuItem> = {}): MenuItem {
     description: 'Brown-butter popcorn for sharing.',
     price: 999,
     category: 'popcorn',
-    imageUrl: 'https://andrewbilendukecdn.nyc3.cdn.digitaloceanspaces.com/finalcut/concessions/popcorn_lg.webp',
+    imageUrl: 'https://cdn.example.test/finalcut/concessions/popcorn_lg.webp',
     allergens: ['dairy'],
     dietary: ['vegetarian'],
     available: true,

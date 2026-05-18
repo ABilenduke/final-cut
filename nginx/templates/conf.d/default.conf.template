@@ -80,7 +80,7 @@ server {
     #   style-src   'self' 'unsafe-inline' — CSS from same origin + inline styles
     #                                        (Nuxt injects scoped <style> blocks)
     #   img-src     'self' data: blob: https://image.tmdb.org
-    #                      https://andrewbilendukecdn.nyc3.cdn.digitaloceanspaces.com
+    #                      DO_SPACES_URL
     #                                      — same-origin images, data/blob URLs,
     #                                        TMDB-hosted poster/backdrop art, and
     #                                        the DigitalOcean Spaces CDN that
@@ -103,7 +103,7 @@ server {
     #                                        (only effective in enforcing mode;
     #                                        add it back when switching from
     #                                        Report-Only to Content-Security-Policy)
-    add_header Content-Security-Policy-Report-Only "default-src 'self'; script-src 'self' 'unsafe-inline' https://js.stripe.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://image.tmdb.org https://andrewbilendukecdn.nyc3.cdn.digitaloceanspaces.com https://*.stripe.com; font-src 'self'; connect-src 'self' https://api.stripe.com https://m.stripe.network; media-src 'self'; frame-src https://www.youtube.com https://www.youtube-nocookie.com https://js.stripe.com https://hooks.stripe.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'" always;
+    add_header Content-Security-Policy-Report-Only "default-src 'self'; script-src 'self' 'unsafe-inline' https://js.stripe.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://image.tmdb.org ${DO_SPACES_URL} https://*.stripe.com; font-src 'self'; connect-src 'self' https://api.stripe.com https://m.stripe.network; media-src 'self'; frame-src https://www.youtube.com https://www.youtube-nocookie.com https://js.stripe.com https://hooks.stripe.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'" always;
 
     # ── Fail2Ban banned IPs ───────────────────
     # Written by the fail2ban sidecar via shared nginx-deny volume.

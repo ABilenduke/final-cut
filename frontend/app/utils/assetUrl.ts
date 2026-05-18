@@ -4,7 +4,7 @@
  * Handles three shapes:
  *   - absolute URL (`http://`, `https://`) or `data:`/`blob:`/protocol-relative
  *     (`//`) → returned unchanged. Backend already-resolved URLs (Filament
- *     uploads, TMDB posters, seeded concession CDN photos) all flow through here.
+ *     uploads, TMDB posters, seeded concession photos) all flow through here.
  *   - root-relative app path (`/images/...`) → returned unchanged. Still served
  *     by the Nuxt app; Nuxt build assets are deliberately not on the CDN.
  *   - bare relative path (`concessions/foo.webp`) → prefixed with the configured

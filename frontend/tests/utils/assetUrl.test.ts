@@ -23,7 +23,7 @@ describe('assetUrl', () => {
   })
 
   it('passes absolute https URLs through unchanged', () => {
-    const url = 'https://andrewbilendukecdn.nyc3.cdn.digitaloceanspaces.com/finalcut/concessions/bottle_of_water.webp'
+    const url = 'https://cdn.example.test/finalcut/concessions/bottle_of_water.webp'
     expect(assetUrl(url)).toBe(url)
   })
 
@@ -49,10 +49,10 @@ describe('assetUrl', () => {
   })
 
   it('prefixes bare relative paths with cdnBaseUrl when configured', () => {
-    mockCdnBase = 'https://andrewbilendukecdn.nyc3.cdn.digitaloceanspaces.com/finalcut'
+    mockCdnBase = 'https://cdn.example.test/finalcut'
 
     expect(assetUrl('concessions/bottle_of_water.webp'))
-      .toBe('https://andrewbilendukecdn.nyc3.cdn.digitaloceanspaces.com/finalcut/concessions/bottle_of_water.webp')
+      .toBe('https://cdn.example.test/finalcut/concessions/bottle_of_water.webp')
   })
 
   it('trims a trailing slash on cdnBaseUrl', () => {

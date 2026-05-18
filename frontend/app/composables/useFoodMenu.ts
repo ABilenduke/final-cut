@@ -30,11 +30,10 @@ export function useFoodMenu() {
     const overlay = editorialOverlayFor(item.id)
     return {
       ...item,
-      // Backend now returns absolute CDN URLs (seeded concession photos go
-      // straight through AssetUrl::resolve), but the static fallback in
-      // app/data/menu.ts uses bare paths like "concessions/popcorn_sm.webp"
-      // that need the CDN prefix applied here. assetUrl() is the single
-      // chokepoint that handles both shapes.
+      // Backend responses already contain resolved public URLs, but the static
+      // fallback in app/data/menu.ts uses bare paths like
+      // "concessions/popcorn_sm.webp" that need the CDN prefix applied here.
+      // assetUrl() is the single chokepoint that handles both shapes.
       imageUrl: assetUrl(item.imageUrl),
       size: item.size ?? overlay.size,
       curator: item.curator ?? overlay.curator,

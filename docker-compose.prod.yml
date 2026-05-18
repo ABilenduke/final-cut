@@ -39,6 +39,7 @@ services:
     environment:
       - APP_ENV=${APP_ENV:-production}
       - ADMIN_IP_ALLOWLIST=${ADMIN_IP_ALLOWLIST:-}
+      - DO_SPACES_URL=${DO_SPACES_URL:-}
       - SSL_CERTIFICATE=/etc/letsencrypt/live/${APP_DOMAIN}/fullchain.pem
       - SSL_CERTIFICATE_KEY=/etc/letsencrypt/live/${APP_DOMAIN}/privkey.pem
     volumes:

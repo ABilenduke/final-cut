@@ -11,8 +11,8 @@ use Illuminate\Support\Facades\Storage;
  *
  * Image columns across the app store one of three shapes:
  *   - null                              → no asset
- *   - absolute URL ("https://...")      → seeded references (concession CDN photos,
- *                                         TMDB poster URLs) — passed through unchanged
+ *   - absolute URL ("https://...")      → external references (TMDB poster URLs,
+ *                                         third-party media) — passed through unchanged
  *   - relative path ("menu-items/x.png")→ Filament uploads on the `public` disk —
  *                                         resolved via Storage::disk('public')->url($path),
  *                                         which honours whatever the disk is bound to

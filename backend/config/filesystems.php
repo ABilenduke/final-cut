@@ -56,7 +56,7 @@ return [
                 // and we don't want a stray env flip to break uploads.
                 'use_path_style_endpoint' => false,
                 // DO_SPACES_URL is the CDN host only (e.g.
-                // https://andrewbilendukecdn.nyc3.cdn.digitaloceanspaces.com)
+                // https://cdn.example.com)
                 // — NOT including the bucket prefix. Laravel's S3 url() builder
                 // prepends the disk `root` (the bucket prefix) to the path
                 // before concatenating, so we must not double-include it.

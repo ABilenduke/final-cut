@@ -244,8 +244,8 @@ const availabilityCaption = computed<string | null>(() => {
     rgba(0, 0, 0, 0.08) 0.125rem 0.1875rem
   );
   mix-blend-mode: multiply;
-  /* Above the photo so the scanline still reads, below the cat-tag /
-     flag overlays which sit at z-index 2 by default in stacking order. */
+  /* Above the photo so the scanline still reads, below the explicit
+     overlay layers. */
   z-index: 1;
 }
 
@@ -270,6 +270,7 @@ const availabilityCaption = computed<string | null>(() => {
 .prod__glyph {
   position: absolute;
   inset: 0;
+  z-index: 2;
   display: grid;
   place-items: center;
   font-family: var(--font-display);
@@ -281,6 +282,7 @@ const availabilityCaption = computed<string | null>(() => {
 
 .prod__cat-tag {
   position: absolute;
+  z-index: 2;
   top: 0.55rem;
   left: 0.55rem;
   font-family: var(--font-body);
@@ -297,6 +299,7 @@ const availabilityCaption = computed<string | null>(() => {
 
 .prod__flag {
   position: absolute;
+  z-index: 2;
   top: 0.55rem;
   right: 0.55rem;
   font-family: var(--font-display);
