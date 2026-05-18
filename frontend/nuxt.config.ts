@@ -59,6 +59,7 @@ export default defineNuxtConfig({
       stripePublishableKey: '',    // Stripe publishable key (client-side only)
       siteUrl: 'https://finalcut.test', // Base URL for SEO, OG tags, sitemap (NUXT_PUBLIC_SITE_URL)
       appTimeZone: 'America/New_York', // Date-only UI timezone (NUXT_PUBLIC_APP_TIME_ZONE)
+      cdnBaseUrl: '',              // Public asset CDN root (NUXT_PUBLIC_CDN_BASE_URL) — e.g. https://andrewbilendukecdn.nyc3.cdn.digitaloceanspaces.com/finalcut
     },
   },
 

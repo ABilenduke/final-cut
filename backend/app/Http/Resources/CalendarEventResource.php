@@ -3,9 +3,9 @@
 namespace App\Http\Resources;
 
 use App\Models\CalendarEvent;
+use App\Support\AssetUrl;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
-use Illuminate\Support\Facades\Storage;
 
 /**
  * @mixin CalendarEvent
@@ -24,11 +24,10 @@ class CalendarEventResource extends JsonResource
             'description' => $this->description,
             'movieSlug' => $this->movie_slug,
             // Synthetic showtime entries (see ShowtimeCalendarProjector) preset
-            // `image_url` to a full URL — bypass the image_path → Storage::url path
-            // for those, but keep it for stored calendar_events rows.
-            'imageUrl' => $this->image_url ?? ($this->image_path
-                ? Storage::disk('public')->url($this->image_path)
-                : null),
+            // `image_url` to a full URL; stored calendar_events rows carry only
+            // `image_path`. AssetUrl::resolve passes absolute URLs through and
+            // resolves bare paths via Storage::disk('public')->url().
+            'imageUrl' => AssetUrl::resolve($this->image_url ?? $this->image_path),
             'slug' => $this->slug,
             'ticketUrl' => $this->ticket_url,
             'loyaltyOnly' => $this->loyalty_only,
