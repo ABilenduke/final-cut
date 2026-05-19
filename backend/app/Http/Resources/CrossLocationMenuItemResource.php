@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Resources;
 
+use App\Support\AssetUrl;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -24,7 +25,7 @@ class CrossLocationMenuItemResource extends JsonResource
             'description' => $this->description,
             'price' => (int) $this->price,
             'category' => $this->category->value,
-            'image_url' => $this->image_url,
+            'imageUrl' => AssetUrl::resolve($this->image_url),
             'allergens' => $this->allergens ?? [],
             'dietary' => $this->dietary ?? [],
             'available_at' => $this->whenLoaded(

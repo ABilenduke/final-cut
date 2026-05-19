@@ -61,6 +61,23 @@ const glyph = computed<string>(() => {
   return first || '·'
 })
 
+// A small subset of menu items (negroni, olives, chocolate, madeleine,
+// caramel) have no concession photo yet — their imageUrl is the empty
+// string. Those fall back to the gradient + glyph thumbnail. We also flip
+// to the fallback if the configured URL fails to load (CDN ACL changes,
+// missing object) so a broken-image icon never reaches the user.
+const imageFailed = ref(false)
+const showImage = computed<boolean>(
+  () => Boolean(props.item.imageUrl) && !imageFailed.value,
+)
+
+// If the parent swaps imageUrl (API data replacing a fallback fixture, a
+// row mutating in place under the same :key, or a retry button repointing
+// at a fresh CDN URL) the prior <img>'s @error sticks unless we clear it.
+watch(() => props.item.imageUrl, () => {
+  imageFailed.value = false
+})
+
 const categoryLabel = computed<string>(() =>
   CATEGORY_LABELS[props.item.category] ?? props.item.category,
 )
@@ -105,10 +122,24 @@ const availabilityCaption = computed<string | null>(() => {
     class="prod"
     :class="{ 'prod--on': props.quantity > 0, 'prod--browse': !props.interactive }"
   >
-    <div class="prod__thumb" :style="{ background: gradient }" aria-hidden="true">
+    <div
+      class="prod__thumb"
+      :class="{ 'prod__thumb--has-image': showImage }"
+      :style="{ background: gradient }"
+      aria-hidden="true"
+    >
+      <img
+        v-if="showImage"
+        :src="props.item.imageUrl"
+        alt=""
+        class="prod__img"
+        loading="lazy"
+        decoding="async"
+        @error="imageFailed = true"
+      >
       <span class="prod__cat-tag">{{ categoryLabel }}</span>
       <span v-if="props.item.flag" class="prod__flag">{{ props.item.flag }}</span>
-      <span class="prod__glyph">{{ glyph }}</span>
+      <span v-if="!showImage" class="prod__glyph">{{ glyph }}</span>
     </div>
 
     <div class="prod__body">
@@ -220,11 +251,33 @@ const availabilityCaption = computed<string | null>(() => {
     rgba(0, 0, 0, 0.08) 0.125rem 0.1875rem
   );
   mix-blend-mode: multiply;
+  /* Above the photo so the scanline still reads, below the explicit
+     overlay layers. */
+  z-index: 1;
+}
+
+/* Suppress the scanline overlay when a real photo is showing — the texture
+   was a stand-in for missing imagery and only muddies the actual webp. */
+.prod__thumb--has-image::before {
+  display: none;
+}
+
+.prod__img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  /* Below the cat-tag / flag overlays (DOM-order natural stacking) and
+     below the scanline ::before — but the scanline is hidden when this
+     element is present, so the photo reads cleanly. */
+  z-index: 0;
 }
 
 .prod__glyph {
   position: absolute;
   inset: 0;
+  z-index: 2;
   display: grid;
   place-items: center;
   font-family: var(--font-display);
@@ -236,6 +289,7 @@ const availabilityCaption = computed<string | null>(() => {
 
 .prod__cat-tag {
   position: absolute;
+  z-index: 2;
   top: 0.55rem;
   left: 0.55rem;
   font-family: var(--font-body);
@@ -252,6 +306,7 @@ const availabilityCaption = computed<string | null>(() => {
 
 .prod__flag {
   position: absolute;
+  z-index: 2;
   top: 0.55rem;
   right: 0.55rem;
   font-family: var(--font-display);

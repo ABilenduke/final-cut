@@ -254,8 +254,8 @@ const ariaLive = computed<'polite' | 'off'>(() =>
 
 .carousel__track {
   position: relative;
-  min-height: 70vh;
-  min-height: clamp(28rem, 70vh, 56rem);
+  min-height: 90vh;
+  min-height: clamp(28rem, 90vh, 66rem);
 }
 
 /* ─── Slide ─────────────────────────────────────────────────────────────────── */
@@ -293,7 +293,7 @@ const ariaLive = computed<'polite' | 'off'>(() =>
   width: 100%;
   height: 100%;
   object-fit: cover;
-  object-position: center 30%;
+  object-position: center 60%;
   z-index: var(--z-recessed);
 }
 

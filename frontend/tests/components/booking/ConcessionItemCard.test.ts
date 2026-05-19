@@ -10,7 +10,7 @@ function makeItem(overrides: Partial<MenuItem> = {}): MenuItem {
     description: 'Brown-butter popcorn for sharing.',
     price: 999,
     category: 'popcorn',
-    imageUrl: '/images/menu/popcorn-large.jpg',
+    imageUrl: 'https://cdn.example.test/finalcut/concessions/popcorn_lg.webp',
     allergens: ['dairy'],
     dietary: ['vegetarian'],
     available: true,
@@ -125,5 +125,83 @@ describe('ConcessionItemCard', () => {
     const gfMark = wrapper.findAll('.prod__diet').find(d => d.text() === 'GF')
     expect(gfMark).toBeDefined()
     expect(gfMark!.classes()).toContain('prod__diet--gf')
+  })
+
+  // ─── Thumbnail rendering ──────────────────────────────────────────────────
+  // Items with a concession photo render the <img>; items without (the five
+  // editorial fallbacks: negroni, olives, chocolate, madeleine, caramel)
+  // keep the gradient + glyph placeholder. Both paths show the cat-tag.
+
+  it('renders the concession photo when imageUrl is set', async () => {
+    const wrapper = await mountSuspended(ConcessionItemCard, {
+      props: {
+        item: makeItem({ imageUrl: 'https://cdn.example.com/finalcut/concessions/popcorn_lg.webp' }),
+        quantity: 0,
+        interactive: true,
+      },
+    })
+    const img = wrapper.find('img.prod__img')
+    expect(img.exists()).toBe(true)
+    expect(img.attributes('src')).toBe('https://cdn.example.com/finalcut/concessions/popcorn_lg.webp')
+    expect(img.attributes('loading')).toBe('lazy')
+    // Glyph placeholder is suppressed when the photo is present.
+    expect(wrapper.find('.prod__glyph').exists()).toBe(false)
+    // Thumb gets the has-image modifier so the scanline overlay is hidden.
+    expect(wrapper.find('.prod__thumb').classes()).toContain('prod__thumb--has-image')
+  })
+
+  it('falls back to gradient + glyph when imageUrl is empty', async () => {
+    const wrapper = await mountSuspended(ConcessionItemCard, {
+      props: {
+        item: makeItem({ imageUrl: '' }),
+        quantity: 0,
+        interactive: true,
+      },
+    })
+    expect(wrapper.find('img.prod__img').exists()).toBe(false)
+    expect(wrapper.find('.prod__glyph').exists()).toBe(true)
+    expect(wrapper.find('.prod__thumb').classes()).not.toContain('prod__thumb--has-image')
+  })
+
+  it('falls back to gradient + glyph when the image fails to load', async () => {
+    const wrapper = await mountSuspended(ConcessionItemCard, {
+      props: {
+        item: makeItem({ imageUrl: 'https://cdn.example.com/finalcut/concessions/popcorn_lg.webp' }),
+        quantity: 0,
+        interactive: true,
+      },
+    })
+    expect(wrapper.find('img.prod__img').exists()).toBe(true)
+
+    await wrapper.find('img.prod__img').trigger('error')
+
+    expect(wrapper.find('img.prod__img').exists()).toBe(false)
+    expect(wrapper.find('.prod__glyph').exists()).toBe(true)
+  })
+
+  it('retries the image when imageUrl changes after a prior load failure', async () => {
+    const wrapper = await mountSuspended(ConcessionItemCard, {
+      props: {
+        item: makeItem({ imageUrl: 'https://cdn.example.com/finalcut/concessions/popcorn_lg.webp' }),
+        quantity: 0,
+        interactive: true,
+      },
+    })
+
+    // Simulate the CDN object being missing on the first render.
+    await wrapper.find('img.prod__img').trigger('error')
+    expect(wrapper.find('img.prod__img').exists()).toBe(false)
+    expect(wrapper.find('.prod__glyph').exists()).toBe(true)
+
+    // Parent swaps in a fresh URL (API data replacing a fallback fixture, or
+    // the row mutating in place under the same :key).
+    await wrapper.setProps({
+      item: makeItem({ imageUrl: 'https://cdn.example.com/finalcut/concessions/popcorn_lg_v2.webp' }),
+    })
+
+    const img = wrapper.find('img.prod__img')
+    expect(img.exists()).toBe(true)
+    expect(img.attributes('src')).toBe('https://cdn.example.com/finalcut/concessions/popcorn_lg_v2.webp')
+    expect(wrapper.find('.prod__glyph').exists()).toBe(false)
   })
 })

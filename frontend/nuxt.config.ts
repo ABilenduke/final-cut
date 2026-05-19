@@ -24,6 +24,15 @@ export default defineNuxtConfig({
   app: {
     head: {
       htmlAttrs: { lang: 'en' },
+      meta: [
+        { name: 'theme-color', content: '#550000' },
+      ],
+      link: [
+        { rel: 'icon', type: 'image/png', sizes: '32x32', href: '/favicon-32x32.png' },
+        { rel: 'icon', type: 'image/png', sizes: '16x16', href: '/favicon-16x16.png' },
+        { rel: 'apple-touch-icon', sizes: '180x180', href: '/apple-touch-icon.png' },
+        { rel: 'manifest', href: '/site.webmanifest' },
+      ],
     },
   },
 
@@ -59,6 +68,7 @@ export default defineNuxtConfig({
       stripePublishableKey: '',    // Stripe publishable key (client-side only)
       siteUrl: 'https://finalcut.test', // Base URL for SEO, OG tags, sitemap (NUXT_PUBLIC_SITE_URL)
       appTimeZone: 'America/New_York', // Date-only UI timezone (NUXT_PUBLIC_APP_TIME_ZONE)
+      cdnBaseUrl: '',              // Public asset CDN root (NUXT_PUBLIC_CDN_BASE_URL) — e.g. https://cdn.example.com/finalcut
     },
   },
 

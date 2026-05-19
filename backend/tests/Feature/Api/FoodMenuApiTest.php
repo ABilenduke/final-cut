@@ -24,7 +24,7 @@ test('GET /api/food-menu returns all available items across all locations', func
     $response = getJson('/api/food-menu');
 
     $response->assertOk()
-        ->assertJsonStructure(['data' => [['id', 'name', 'description', 'price', 'category', 'image_url', 'allergens', 'dietary', 'available_at']]]);
+        ->assertJsonStructure(['data' => [['id', 'name', 'description', 'price', 'category', 'imageUrl', 'allergens', 'dietary', 'available_at']]]);
 
     $names = collect($response->json('data'))->pluck('name')->all();
 

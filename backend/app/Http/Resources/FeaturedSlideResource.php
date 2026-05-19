@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Resources;
 
+use App\Support\AssetUrl;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -22,7 +23,7 @@ class FeaturedSlideResource extends JsonResource
             'id' => $this->id,
             'headline' => $this->headline,
             'sub_headline' => $this->sub_headline,
-            'image_url' => $this->image_url,
+            'image_url' => AssetUrl::resolve($this->image_url),
             'cta_label' => $this->cta_label,
             'cta_href' => $this->cta_href,
         ];

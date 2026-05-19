@@ -54,6 +54,7 @@ services:
       - APP_DOMAIN=${APP_DOMAIN:-finalcut.test}
       - APP_ENV=${APP_ENV:-local}
       - ADMIN_IP_ALLOWLIST=${ADMIN_IP_ALLOWLIST:-}
+      - DO_SPACES_URL=${DO_SPACES_URL:-}
       - SSL_CERTIFICATE=${SSL_CERTIFICATE:-/etc/nginx/certs/server.pem}
       - SSL_CERTIFICATE_KEY=${SSL_CERTIFICATE_KEY:-/etc/nginx/certs/server.key}
       - NGINX_ENVSUBST_OUTPUT_DIR=/etc/nginx
