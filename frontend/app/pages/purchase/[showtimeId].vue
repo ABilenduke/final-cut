@@ -227,23 +227,22 @@ function handleAutoPick() {
   })
 }
 
-const projectionistPick = computed<string[]>(() => {
+const projectionistPick = computed<Seat[]>(() => {
   if (!allSeats.value.length) return []
   for (const row of rowPreferenceOrder.value) {
     const pair = findContiguousRun(row, 2)
-    if (pair) return pair.map(s => s.id)
+    if (pair) return pair
   }
   return []
 })
 
 function handleProjectionistPick() {
-  const ids = projectionistPick.value
-  if (ids.length < 2) return
+  const picks = projectionistPick.value
+  if (picks.length < 2) return
   if (partySize.value < 2) partySize.value = 2
   clearSelections()
-  for (const id of ids) {
-    const seat = allSeats.value.find(s => s.id === id)
-    if (seat) cart.addSeat(toBookingSeat(seat))
+  for (const seat of picks) {
+    cart.addSeat(toBookingSeat(seat))
   }
 }
 

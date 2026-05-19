@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Enums\CalendarEventType;
 use App\Models\CalendarEvent;
+use App\Support\SeederUuid;
 use Carbon\Carbon;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Str;
@@ -108,15 +109,17 @@ class CalendarEventSeeder extends Seeder
         foreach ($events as $event) {
             $date = Carbon::today()->addDays($event['days_offset']);
             $startTime = $date->copy()->setTimeFromTimeString($event['time']);
+            $slug = Str::slug($event['title']);
 
             CalendarEvent::create([
+                'id' => SeederUuid::for("event:{$slug}"),
                 'type' => $event['type'],
                 'title' => $event['title'],
                 'date' => $date,
                 'start_time' => $startTime,
                 'end_time' => $startTime->copy()->addMinutes($event['duration']),
                 'description' => $event['description'],
-                'slug' => Str::slug($event['title']),
+                'slug' => $slug,
                 'loyalty_only' => $event['type'] === CalendarEventType::LoyaltyExclusive,
                 'accessibility_tags' => $event['accessibility_tags'],
             ]);

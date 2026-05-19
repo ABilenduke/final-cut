@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Enums\MenuCategory;
 use App\Models\Location;
 use App\Models\MenuItem;
+use App\Support\SeederUuid;
 use Illuminate\Database\Seeder;
 
 class MenuItemSeeder extends Seeder
@@ -52,7 +53,10 @@ class MenuItemSeeder extends Seeder
         ];
 
         foreach ($items as $item) {
-            MenuItem::create($item);
+            MenuItem::create([
+                'id' => SeederUuid::for("menu:{$item['name']}"),
+                ...$item,
+            ]);
         }
 
         $this->attachToLocations();

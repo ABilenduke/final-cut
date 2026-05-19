@@ -28,6 +28,7 @@ migrate:
 
 fresh:
 	docker compose exec backend php artisan migrate:fresh --seed
+	docker compose exec backend php artisan optimize:clear
 
 test: test-backend test-frontend
 

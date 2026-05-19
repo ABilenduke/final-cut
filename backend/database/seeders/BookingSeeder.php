@@ -10,6 +10,7 @@ use App\Models\BookingFoodItem;
 use App\Models\BookingSeat;
 use App\Models\Showtime;
 use App\Models\User;
+use App\Support\SeederUuid;
 use Carbon\Carbon;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Collection;
@@ -24,6 +25,14 @@ class BookingSeeder extends Seeder
      */
     private array $usedSeats = [];
 
+    /**
+     * Monotonic counter feeding SeederUuid for booking + child row IDs. The
+     * seeder runs in a fixed plan + fixed fill order, so a simple counter
+     * yields deterministic IDs across reseeds without needing per-row
+     * natural keys.
+     */
+    private int $bookingIndex = 0;
+
     public function run(): void
     {
         $testUser = User::where('email', 'test@finalcut.test')->firstOrFail();
@@ -35,11 +44,13 @@ class BookingSeeder extends Seeder
         $pastShowtimes = Showtime::with('auditorium.seats', 'auditorium.location.menuItems')
             ->where('start_time', '<', $now)
             ->orderBy('start_time')
+            ->orderBy('id')
             ->get();
 
         $futureShowtimes = Showtime::with('auditorium.seats', 'auditorium.location.menuItems')
             ->where('start_time', '>=', $now)
             ->orderBy('start_time')
+            ->orderBy('id')
             ->get();
 
         if ($pastShowtimes->isEmpty() || $futureShowtimes->isEmpty()) {
@@ -176,7 +187,11 @@ class BookingSeeder extends Seeder
 
         $subtotal = $seatTotal + $foodTotal;
 
+        $bookingIndex = $this->bookingIndex++;
+        $bookingKey = "booking:{$bookingIndex}";
+
         $booking = Booking::create([
+            'id' => SeederUuid::for($bookingKey),
             'showtime_id' => $showtime->id,
             'user_id' => $user?->id,
             'guest_email' => $guestEmail,
@@ -185,11 +200,13 @@ class BookingSeeder extends Seeder
             'discount' => 0,
             'total' => $subtotal,
             'payment_method' => PaymentMethod::Card,
-            'stripe_payment_intent_id' => 'pi_seed_'.fake()->regexify('[a-zA-Z0-9]{20}'),
+            // Stripe PI id is deterministic per booking so fixtures stay stable.
+            'stripe_payment_intent_id' => sprintf('pi_seed_%020d', $bookingIndex),
         ]);
 
-        foreach ($availableSeats as $seat) {
+        foreach ($availableSeats as $seatIndex => $seat) {
             BookingSeat::create([
+                'id' => SeederUuid::for("booking-seat:{$bookingIndex}:{$seatIndex}"),
                 'booking_id' => $booking->id,
                 'showtime_id' => $showtime->id,
                 'seat_id' => $seat->id,
@@ -207,8 +224,9 @@ class BookingSeeder extends Seeder
             $this->markSeatsUsed($showtime->id, $availableSeats->pluck('id')->all());
         }
 
-        foreach ($resolvedFood as $food) {
+        foreach ($resolvedFood as $foodIndex => $food) {
             BookingFoodItem::create(array_merge($food, [
+                'id' => SeederUuid::for("booking-food:{$bookingIndex}:{$foodIndex}"),
                 'booking_id' => $booking->id,
             ]));
         }
