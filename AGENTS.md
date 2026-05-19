@@ -13,8 +13,8 @@ This repository is Final Cut, a full-stack movie theatre application with a Nuxt
 
 1. Read `CLAUDE.md` first for the full project context.
 2. Read the nearest scoped `AGENTS.md` (`frontend/AGENTS.md` or `backend/AGENTS.md`) before changing files in that tree.
-3. Use `.cowork/config.toml`, `.cowork/agents.toml`, and `.cowork/skills.toml` as the project-local cowork manifest.
-4. Use `.cowork/skills/finalcut-design/SKILL.md` for customer-facing UI work and `.cowork/skills/finalcut-admin-design/SKILL.md` for Filament admin UI work.
+3. Use `.codex/config.toml`, `.codex/agents.toml`, and `.codex/skills.toml` as the project-local cowork manifest.
+4. Use `.codex/skills/finalcut-design/SKILL.md` for customer-facing UI work and `.codex/skills/finalcut-admin-design/SKILL.md` for Filament admin UI work.
 
 ## Common Commands
 
