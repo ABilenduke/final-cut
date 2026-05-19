@@ -61,9 +61,10 @@ describe('assetUrl', () => {
     expect(assetUrl('concessions/foo.webp')).toBe('https://cdn.example.com/finalcut/concessions/foo.webp')
   })
 
-  it('joins cleanly when the path begins with a slash after the prefix trim', () => {
-    // Defensive: assetUrl strips a leading "/" off the path before joining,
-    // so callers that accidentally pass "//foo" still produce a sane URL.
+  it('joins base + bare path with exactly one separating slash', () => {
+    // Base has no trailing slash and path has no leading slash — assetUrl
+    // inserts the single "/" between them rather than producing "base//path"
+    // or "basepath".
     mockCdnBase = 'https://cdn.example.com/finalcut'
 
     expect(assetUrl('concessions/foo.webp')).toBe('https://cdn.example.com/finalcut/concessions/foo.webp')

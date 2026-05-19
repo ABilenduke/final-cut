@@ -178,4 +178,30 @@ describe('ConcessionItemCard', () => {
     expect(wrapper.find('img.prod__img').exists()).toBe(false)
     expect(wrapper.find('.prod__glyph').exists()).toBe(true)
   })
+
+  it('retries the image when imageUrl changes after a prior load failure', async () => {
+    const wrapper = await mountSuspended(ConcessionItemCard, {
+      props: {
+        item: makeItem({ imageUrl: 'https://cdn.example.com/finalcut/concessions/popcorn_lg.webp' }),
+        quantity: 0,
+        interactive: true,
+      },
+    })
+
+    // Simulate the CDN object being missing on the first render.
+    await wrapper.find('img.prod__img').trigger('error')
+    expect(wrapper.find('img.prod__img').exists()).toBe(false)
+    expect(wrapper.find('.prod__glyph').exists()).toBe(true)
+
+    // Parent swaps in a fresh URL (API data replacing a fallback fixture, or
+    // the row mutating in place under the same :key).
+    await wrapper.setProps({
+      item: makeItem({ imageUrl: 'https://cdn.example.com/finalcut/concessions/popcorn_lg_v2.webp' }),
+    })
+
+    const img = wrapper.find('img.prod__img')
+    expect(img.exists()).toBe(true)
+    expect(img.attributes('src')).toBe('https://cdn.example.com/finalcut/concessions/popcorn_lg_v2.webp')
+    expect(wrapper.find('.prod__glyph').exists()).toBe(false)
+  })
 })

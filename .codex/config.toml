@@ -2,7 +2,6 @@
 # This file is committed with the repo; keep user secrets and personal auth in global config.
 
 project_name = "Final Cut"
-project_root = "/home/abilenduke/code/abilenduke/final-cut"
 source_instruction_file = "CLAUDE.md"
 primary_instruction_file = "AGENTS.md"
 agent_manifest = ".codex/agents.toml"
@@ -11,13 +10,13 @@ default_verification = "make test"
 instructions = "AGENTS.md"
 model = "gpt-5.5"
 
+# Workspace root is inferred from the directory hosting this config so the
+# manifest stays portable across machines and CI. Per-user paths (e.g. extra
+# writable_roots) belong in an untracked local override, not this committed file.
 [sandbox]
 mode = "workspace-write"
 approval_policy = "on-request"
-writable_roots = [
-  "/home/abilenduke/code/abilenduke/final-cut",
-  "/tmp",
-]
+writable_roots = ["/tmp"]
 
 [commands]
 setup = "make certs && make up"

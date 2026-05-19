@@ -43,5 +43,5 @@ export function assetUrl(value: string | null | undefined): string {
     return value
   }
 
-  return `${base.replace(/\/$/, '')}/${value.replace(/^\//, '')}`
+  return `${base.replace(/\/$/, '')}/${value}`
 }

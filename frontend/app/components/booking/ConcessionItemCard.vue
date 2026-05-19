@@ -71,6 +71,13 @@ const showImage = computed<boolean>(
   () => Boolean(props.item.imageUrl) && !imageFailed.value,
 )
 
+// If the parent swaps imageUrl (API data replacing a fallback fixture, a
+// row mutating in place under the same :key, or a retry button repointing
+// at a fresh CDN URL) the prior <img>'s @error sticks unless we clear it.
+watch(() => props.item.imageUrl, () => {
+  imageFailed.value = false
+})
+
 const categoryLabel = computed<string>(() =>
   CATEGORY_LABELS[props.item.category] ?? props.item.category,
 )
