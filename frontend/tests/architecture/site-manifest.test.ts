@@ -19,6 +19,7 @@ type WebManifest = {
     src: string
     sizes: string
     type: string
+    purpose?: string
   }>
 }
 
@@ -39,7 +40,7 @@ describe('architecture - site manifest', () => {
       scope: '/',
       display: 'standalone',
       theme_color: '#550000',
-      background_color: '#0e0e0e',
+      background_color: '#131313',
     })
     expect(manifest.description).toContain('Final Cut')
   })
@@ -48,8 +49,8 @@ describe('architecture - site manifest', () => {
     const manifest = readManifest()
 
     expect(manifest.icons).toEqual(expect.arrayContaining([
-      { src: '/android-chrome-192x192.png', sizes: '192x192', type: 'image/png' },
-      { src: '/android-chrome-512x512.png', sizes: '512x512', type: 'image/png' },
+      { src: '/android-chrome-192x192.png', sizes: '192x192', type: 'image/png', purpose: 'any maskable' },
+      { src: '/android-chrome-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' },
     ]))
 
     for (const icon of manifest.icons) {
