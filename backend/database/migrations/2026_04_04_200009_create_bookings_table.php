@@ -14,7 +14,12 @@ return new class extends Migration
         Schema::create('bookings', function (Blueprint $table) {
             $table->uuid('id')->primary();
             $table->string('confirmation_code')->unique();
-            $table->foreignUuid('showtime_id')->constrained()->cascadeOnDelete();
+            // RESTRICT, not CASCADE: a Booking is a financial record (Stripe
+            // PaymentIntent id, confirmation code, totals). Deleting a Showtime
+            // must never silently erase bookings — showtimes are soft-cancelled
+            // via cancelled_at, and AuditoriumService guards the location/
+            // auditorium cascade paths. (ultrareview P0 #5)
+            $table->foreignUuid('showtime_id')->constrained()->restrictOnDelete();
             $table->foreignUuid('user_id')->nullable()->constrained()->nullOnDelete();
             $table->string('guest_email')->nullable();
             $table->string('status')->default('confirmed');
@@ -26,7 +31,18 @@ return new class extends Migration
             $table->unsignedInteger('total');
             $table->string('payment_method')->nullable();
             $table->string('stripe_payment_intent_id')->nullable();
+            // Client-supplied request key for booking-store idempotency. Nullable
+            // (Postgres allows many NULLs under a unique index) so legacy/keyless
+            // requests still insert; a retry that reuses the key replays the
+            // original booking instead of double-charging. (ultrareview P0 #7)
+            $table->uuid('idempotency_key')->nullable()->unique();
             $table->timestamps();
+
+            // Postgres does not auto-index FK columns. Both are hot read paths:
+            // user_id (account orders/bookings/loyalty) and showtime_id (seat
+            // availability + per-showtime booking lookups). (ultrareview perf)
+            $table->index('user_id');
+            $table->index('showtime_id');
         });
     }
 

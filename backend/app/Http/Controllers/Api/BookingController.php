@@ -44,6 +44,19 @@ class BookingController extends Controller
 
     public function store(Location $location, CreateBookingRequest $request): JsonResponse
     {
+        // Idempotency replay: a retried POST (lost response, double-click) that
+        // reuses the client's Idempotency-Key returns the original booking
+        // instead of creating a second one / capturing a second charge.
+        $idempotencyKey = $request->input('idempotencyKey');
+        if ($idempotencyKey) {
+            $replay = Booking::where('idempotency_key', $idempotencyKey)->first();
+            if ($replay) {
+                $replay->load(self::BOOKING_RELATIONS);
+
+                return $this->successResponse(new BookingResource($replay), status: 201);
+            }
+        }
+
         $showtime = Showtime::whereHas('auditorium', fn ($q) => $q->where('location_id', $location->id))
             ->whereNull('cancelled_at')
             ->find($request->input('showtimeId'));
@@ -112,7 +125,7 @@ class BookingController extends Controller
 
         try {
             return DB::transaction(function () use (
-                $location, $showtime, $seatIds, $resolvedFoodItems, $foodTotal, $promo, $giftCardCode, $paymentMethodId, $request,
+                $location, $showtime, $seatIds, $resolvedFoodItems, $foodTotal, $promo, $giftCardCode, $paymentMethodId, $request, $idempotencyKey,
             ) {
                 $showtime = Showtime::with('auditorium', 'movie')
                     ->whereHas('auditorium', fn ($q) => $q->where('location_id', $location->id))
@@ -133,6 +146,7 @@ class BookingController extends Controller
                 $booking->subtotal = 0;
                 $booking->discount = 0;
                 $booking->total = 0;
+                $booking->idempotency_key = $idempotencyKey;
                 $booking->save();
 
                 $seatTotal = $this->seatService->reserveSeats($showtime, $seatIds, $booking);
@@ -188,7 +202,10 @@ class BookingController extends Controller
                             $cardAmount,
                             $paymentMethodId,
                             $this->buildStripeMetadata($showtime, $location, $seatIds, $booking),
-                            $request->header('Idempotency-Key'),
+                            // Namespace the client key so a booking and a gift-card
+                            // purchase that happen to share a UUID can't collide in
+                            // Stripe's idempotency store.
+                            $idempotencyKey ? "booking:{$idempotencyKey}" : null,
                             $this->buildStripeDescription($showtime),
                             $receiptEmail,
                         );
@@ -197,6 +214,7 @@ class BookingController extends Controller
                             Cache::put("pending_booking:{$paymentIntent->id}", [
                                 'location_id' => $location->id,
                                 'showtime_id' => $showtime->id,
+                                'idempotency_key' => $idempotencyKey,
                                 'user_id' => $request->user()?->id,
                                 'guest_email' => $request->user() ? null : $request->input('email'),
                                 'seat_ids' => $seatIds,
@@ -291,6 +309,20 @@ class BookingController extends Controller
                 'field' => 'promoCode',
                 'message' => 'This promo code is no longer redeemable. Please remove it and try again.',
             ]], 409);
+        } catch (UniqueConstraintViolationException $e) {
+            // Concurrent double-submit of the same Idempotency-Key: the second
+            // transaction lost the race on the unique index. Replay the booking
+            // the winner created rather than surfacing a 500.
+            if ($idempotencyKey) {
+                $existing = Booking::where('idempotency_key', $idempotencyKey)->first();
+                if ($existing) {
+                    $existing->load(self::BOOKING_RELATIONS);
+
+                    return $this->successResponse(new BookingResource($existing), status: 201);
+                }
+            }
+
+            throw $e;
         }
     }
 
@@ -442,6 +474,9 @@ class BookingController extends Controller
                     $booking->total = $total;
                     $booking->payment_method = $this->determinePaymentMethod($cardAmount, $giftCardAmount);
                     $booking->stripe_payment_intent_id = $paymentIntentId;
+                    // Carry the original store() Idempotency-Key onto the booking
+                    // created after 3DS, so a replayed store() finds it.
+                    $booking->idempotency_key = $pendingData['idempotency_key'] ?? null;
                     $booking->save();
 
                     $this->seatService->reserveSeats($showtime, $pendingData['seat_ids'], $booking);

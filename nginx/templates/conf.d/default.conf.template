@@ -63,6 +63,11 @@ server {
     add_header Referrer-Policy        "strict-origin-when-cross-origin" always;
     add_header Permissions-Policy     "camera=(), microphone=(), geolocation=()" always;
     add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    # X-Frame-Options is the *enforced* clickjacking control while the CSP below
+    # is still Report-Only (a Report-Only `frame-ancestors` only logs, it does
+    # not block). Keep this header even after the CSP is promoted to enforcing —
+    # it covers older browsers that ignore `frame-ancestors`.
+    add_header X-Frame-Options        "SAMEORIGIN" always;
 
     # ── Content Security Policy (report-only) ─
     # Using Report-Only so violations are logged (in browser console / report-uri)
@@ -98,7 +103,9 @@ server {
     #   frame-src   https://www.youtube.com https://www.youtube-nocookie.com
     #                                      — allow the movie trailer embeds
     #   frame-ancestors 'self'             — only same origin can embed in iframe
-    #                                        (replaces X-Frame-Options)
+    #                                        (NOT enforced while this header is
+    #                                        Report-Only — the X-Frame-Options
+    #                                        header above is the active control)
     #   upgrade-insecure-requests          — auto-upgrade http:// to https://
     #                                        (only effective in enforcing mode;
     #                                        add it back when switching from
@@ -151,7 +158,10 @@ server {
     }
 
     # ── Auth endpoints (stricter rate limit) ─
-    location ~ ^/api/(login|register|forgot-password|reset-password) {
+    # NOTE: the customer auth routes live under /api/auth/ (see routes/api.php),
+    # so the prefix MUST include `auth/` — an earlier regex omitted it and this
+    # block never matched, leaving auth traffic on the generic /api zone.
+    location ~ ^/api/auth/(login|register|forgot-password|reset-password) {
         limit_req zone=auth burst=3 nodelay;
 
         fastcgi_pass $upstream_backend;

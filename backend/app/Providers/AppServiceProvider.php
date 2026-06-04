@@ -14,11 +14,15 @@ use Illuminate\Auth\Events\Failed;
 use Illuminate\Auth\Events\Login;
 use Illuminate\Auth\Events\Logout;
 use Illuminate\Auth\Notifications\ResetPassword;
+use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Contracts\Foundation\Application;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Support\Str;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -35,6 +39,29 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // ── Rate limiters (ultrareview P0 #1) ───────────────────────────────
+        // `auth` guards the unauthenticated, brute-forceable customer endpoints
+        // (login / register / forgot- / reset-password). Two limits compose:
+        // 5/min per ip+email throttles credential-stuffing of a single account,
+        // and 20/min per ip caps password-spraying across many accounts from one
+        // source. The nginx `auth` zone is the edge backstop; this is the
+        // app-layer defense that survives a proxy/topology change.
+        RateLimiter::for('auth', function (Request $request): array {
+            $email = Str::lower((string) $request->input('email'));
+
+            return [
+                Limit::perMinute(5)->by($request->ip().'|'.$email),
+                Limit::perMinute(20)->by((string) $request->ip()),
+            ];
+        });
+
+        // `public-lookup` throttles unauthenticated code-enumeration surfaces
+        // (gift-card balance, booking lookup) that return per-record data keyed
+        // by a guessable code.
+        RateLimiter::for('public-lookup', function (Request $request): Limit {
+            return Limit::perMinute(30)->by((string) $request->ip());
+        });
+
         // Observe MenuItem to invalidate the cross-location food-menu cache on
         // save/delete. Pivot-level invalidation is handled by
         // LocationMenuItemPivot (saved/deleted hooks on the pivot model itself).

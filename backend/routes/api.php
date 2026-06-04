@@ -43,20 +43,24 @@ Route::prefix('locations/{location}')->group(function () {
 });
 
 // Bookings (not location-scoped — looked up by booking ID or confirmation code)
-Route::get('/bookings/lookup', [BookingController::class, 'lookup']);
+Route::get('/bookings/lookup', [BookingController::class, 'lookup'])->middleware('throttle:public-lookup');
 Route::get('/bookings/{id}', [BookingController::class, 'show']);
 
 // Calendar
 Route::get('/calendar/events', [CalendarEventController::class, 'index']);
 Route::get('/calendar/events/{slug}', [CalendarEventController::class, 'show']);
 
-// Auth
-Route::post('/auth/register', [AuthController::class, 'register']);
-Route::post('/auth/login', [AuthController::class, 'login']);
+// Auth — unauthenticated, brute-forceable endpoints carry the strict `auth`
+// limiter (5/min per ip+email, 20/min per ip). logout/me are session-gated and
+// stay on the global API throttle.
+Route::middleware('throttle:auth')->group(function () {
+    Route::post('/auth/register', [AuthController::class, 'register']);
+    Route::post('/auth/login', [AuthController::class, 'login']);
+    Route::post('/auth/forgot-password', [AuthController::class, 'forgotPassword']);
+    Route::post('/auth/reset-password', [AuthController::class, 'resetPassword']);
+});
 Route::post('/auth/logout', [AuthController::class, 'logout'])->middleware('auth:sanctum');
 Route::get('/auth/me', [AuthController::class, 'me'])->middleware('auth:sanctum');
-Route::post('/auth/forgot-password', [AuthController::class, 'forgotPassword']);
-Route::post('/auth/reset-password', [AuthController::class, 'resetPassword']);
 
 // Account (all auth-protected)
 Route::middleware('auth:sanctum')->prefix('account')->group(function () {
@@ -73,7 +77,7 @@ Route::middleware('auth:sanctum')->prefix('account')->group(function () {
 // Gift Cards
 Route::post('/gift-cards/purchase', [GiftCardController::class, 'purchase']);
 Route::post('/gift-cards/confirm', [GiftCardController::class, 'confirm']);
-Route::get('/gift-cards/balance', [GiftCardController::class, 'balance']);
+Route::get('/gift-cards/balance', [GiftCardController::class, 'balance'])->middleware('throttle:public-lookup');
 
 // Contact / Rentals (rate-limited: 5 per minute)
 Route::middleware('throttle:5,1')->group(function () {

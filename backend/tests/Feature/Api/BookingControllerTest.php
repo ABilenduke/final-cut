@@ -12,6 +12,7 @@ use App\Models\MenuItem;
 use App\Models\PromoCode;
 use App\Models\User;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Str;
 use Tests\Helpers\BookingTestHelper;
 
 use function Pest\Laravel\actingAs;
@@ -145,9 +146,10 @@ test('Stripe PaymentIntent receipt_email prefers authenticated user email over g
     expect($fakeStripe->createdPaymentIntents[0]['receiptEmail'])->toBe('member@finalcut.test');
 });
 
-test('Idempotency-Key header is forwarded to Stripe', function () {
+test('Idempotency-Key header is forwarded to Stripe (namespaced)', function () {
     $fixture = $this->createShowtimeWithSeats();
     $fakeStripe = $this->fakeStripe();
+    $key = (string) Str::uuid();
 
     postJson(
         $this->bookingUrl($fixture['location']),
@@ -157,10 +159,10 @@ test('Idempotency-Key header is forwarded to Stripe', function () {
             'paymentMethodId' => 'pm_test_visa',
             'email' => 'guest@example.com',
         ],
-        ['Idempotency-Key' => 'idem-booking-abc123'],
+        ['Idempotency-Key' => $key],
     )->assertStatus(201);
 
-    expect($fakeStripe->createdPaymentIntents[0]['idempotencyKey'])->toBe('idem-booking-abc123');
+    expect($fakeStripe->createdPaymentIntents[0]['idempotencyKey'])->toBe("booking:{$key}");
 });
 
 test('successful authenticated booking awards loyalty points', function () {

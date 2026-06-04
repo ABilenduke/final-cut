@@ -31,6 +31,7 @@ use Sqids\Sqids;
  * @property int $total
  * @property PaymentMethod|null $payment_method
  * @property string|null $stripe_payment_intent_id
+ * @property string|null $idempotency_key
  * @property Showtime $showtime
  * @property User|null $user
  */
@@ -38,7 +39,7 @@ use Sqids\Sqids;
     'confirmation_code', 'showtime_id', 'user_id', 'guest_email',
     'status', 'flagged_at', 'flag_reason', 'notes',
     'subtotal', 'discount', 'total', 'payment_method',
-    'stripe_payment_intent_id',
+    'stripe_payment_intent_id', 'idempotency_key',
 ])]
 #[Hidden(['stripe_payment_intent_id'])]
 class Booking extends Model

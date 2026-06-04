@@ -106,41 +106,51 @@ class ShowtimeService
             || (string) $auditorium->id !== (string) $showtime->auditorium_id
             || ! $start->equalTo($showtime->start_time);
 
-        if ($structurallyChanged) {
-            $bookingCount = $showtime->bookings()
-                ->whereIn('status', BookingStatus::occupyingStatuses())
-                ->count();
-
-            if ($bookingCount > 0) {
-                throw new ShowtimeHasBookingsException($showtime, $bookingCount);
-            }
-        }
-
         try {
-            $updated = DB::transaction(function () use ($showtime, $attributes, $movie, $auditorium, $start, $end, $actor) {
-                $showtime->fill([
+            $updated = DB::transaction(function () use ($showtime, $attributes, $movie, $auditorium, $start, $end, $actor, $structurallyChanged) {
+                // Re-read under a row lock so the booking-count guard is
+                // serialized against the customer booking flow, which also takes
+                // lockForUpdate on this showtime before reserving seats. The
+                // check used to run *outside* the transaction, leaving a TOCTOU
+                // window where a booking could commit between the count and the
+                // structural save — orphaning its booking_seats on the old
+                // layout / silently re-parenting a sold showtime. (mirrors the
+                // lock-first pattern in cancel().)
+                $locked = Showtime::whereKey($showtime->id)->lockForUpdate()->firstOrFail();
+
+                if ($structurallyChanged) {
+                    $bookingCount = $locked->bookings()
+                        ->whereIn('status', BookingStatus::occupyingStatuses())
+                        ->count();
+
+                    if ($bookingCount > 0) {
+                        throw new ShowtimeHasBookingsException($locked, $bookingCount);
+                    }
+                }
+
+                $locked->fill([
                     'movie_id' => $movie->id,
                     'auditorium_id' => $auditorium->id,
                     'start_time' => $start,
                     'end_time' => $end,
-                    'price_standard' => (int) ($attributes['price_standard'] ?? $showtime->price_standard),
-                    'price_premium' => (int) ($attributes['price_premium'] ?? $showtime->price_premium),
-                    'price_accessible' => (int) ($attributes['price_accessible'] ?? $showtime->price_accessible),
+                    'price_standard' => (int) ($attributes['price_standard'] ?? $locked->price_standard),
+                    'price_premium' => (int) ($attributes['price_premium'] ?? $locked->price_premium),
+                    'price_accessible' => (int) ($attributes['price_accessible'] ?? $locked->price_accessible),
                 ]);
 
-                $dirtyKeys = array_keys($showtime->getDirty());
-                $before = array_intersect_key($showtime->getOriginal(), array_flip($dirtyKeys));
-                $showtime->save();
-                $after = array_intersect_key($showtime->getAttributes(), array_flip($dirtyKeys));
+                $dirtyKeys = array_keys($locked->getDirty());
+                $before = array_intersect_key($locked->getOriginal(), array_flip($dirtyKeys));
+                $locked->save();
+                $after = array_intersect_key($locked->getAttributes(), array_flip($dirtyKeys));
 
                 if ($dirtyKeys !== []) {
-                    $this->logIfAdmin(self::EVENT_UPDATED, $showtime, $actor, [
+                    $this->logIfAdmin(self::EVENT_UPDATED, $locked, $actor, [
                         'before' => $before,
                         'after' => $after,
                     ]);
                 }
 
-                return $showtime;
+                return $locked;
             });
         } catch (QueryException $e) {
             throw $this->translateExclusionViolation($e, $auditorium->id, $start, $end, $showtime->id);

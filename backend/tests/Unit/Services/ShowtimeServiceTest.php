@@ -15,6 +15,7 @@ use App\Models\Showtime;
 use App\Services\ShowtimeService;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 beforeEach(function (): void {
     $this->service = app(ShowtimeService::class);
@@ -340,6 +341,34 @@ test('update only blocks when an occupying-status booking exists — cancelled b
     ]);
 
     expect($updated->start_time->format('H:i'))->toBe('20:00');
+});
+
+test('update acquires a FOR UPDATE row lock on the showtime (TOCTOU guard runs under lock)', function (): void {
+    // The structural-change booking guard must read the booking count inside
+    // the transaction under a row lock, so it serializes against the booking
+    // flow's own lockForUpdate on the same showtime row. Without the lock, an
+    // admin edit and a concurrent booking can both commit, orphaning
+    // booking_seats. We assert the lock is taken by observing the SQL.
+    $showtime = Showtime::factory()->create([
+        'movie_id' => $this->movie->id,
+        'auditorium_id' => $this->auditorium->id,
+        'start_time' => '2026-05-01 19:00:00',
+    ]);
+
+    $captured = [];
+    DB::listen(function ($query) use (&$captured): void {
+        $captured[] = strtolower($query->sql);
+    });
+
+    $this->service->update($showtime, ['start_time' => '2026-05-01 20:00:00']);
+
+    $lockedShowtimeReads = array_filter(
+        $captured,
+        fn (string $sql): bool => str_contains($sql, 'for update')
+            && str_contains($sql, 'showtimes'),
+    );
+
+    expect($lockedShowtimeReads)->not->toBeEmpty();
 });
 
 /*

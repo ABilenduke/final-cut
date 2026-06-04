@@ -144,10 +144,16 @@ async function handleCheckoutSubmit(payload: { paymentMethodId: string; email?: 
       loyaltyOptIn: payload.loyaltyOptIn ?? false,
     }
 
+    // Idempotency key for this submit attempt. apiFetch sends it as the
+    // Idempotency-Key header and reuses it on its internal 419 retry, so a
+    // lost-response/double-submit replays the original booking instead of
+    // double-charging. A fresh key per attempt avoids replaying a changed order.
+    const idempotencyKey = crypto.randomUUID()
+
     type BookingAction = { requiresAction: true; clientSecret: string; paymentIntentId: string }
     const response = await apiFetch<{ data: Booking | BookingAction }>(
       `/api/locations/${activeLocation.value.slug}/bookings`,
-      { method: 'POST', body },
+      { method: 'POST', body, idempotencyKey },
     )
 
     if ('requiresAction' in response.data && response.data.requiresAction) {
