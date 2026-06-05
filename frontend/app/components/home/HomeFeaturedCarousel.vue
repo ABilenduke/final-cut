@@ -14,10 +14,10 @@ const props = defineProps<{
 const BRAND_FALLBACK: FeaturedSlide = {
   id: '__brand_fallback__',
   headline: 'The Cinematic Void',
-  sub_headline: 'Two screens. One obsession. Now showing at both locations.',
-  image_url: null,
-  cta_label: 'See What\'s On',
-  cta_href: '/movies',
+  subHeadline: 'Two screens. One obsession. Now showing at both locations.',
+  imageUrl: null,
+  ctaLabel: 'See What\'s On',
+  ctaHref: '/movies',
 }
 
 // ─── Resolved slide list (always at least 1 item) ─────────────────────────────
@@ -25,6 +25,23 @@ const BRAND_FALLBACK: FeaturedSlide = {
 const resolvedSlides = computed<FeaturedSlide[]>(() =>
   props.slides.length > 0 ? props.slides : [BRAND_FALLBACK],
 )
+
+// ─── CTA href safety ──────────────────────────────────────────────────────────
+// cta_href is admin-supplied. Allow only http(s) absolute URLs or leading-slash
+// relative paths — a `javascript:`/`data:` scheme renders no link rather than a
+// navigable XSS vector. Defence-in-depth alongside the backend validator.
+function safeCtaHref(href: string | null): string | null {
+  if (!href) return null
+  const trimmed = href.trim()
+  if (trimmed.startsWith('/')) return trimmed
+  try {
+    const url = new URL(trimmed)
+    return url.protocol === 'http:' || url.protocol === 'https:' ? trimmed : null
+  }
+  catch {
+    return null
+  }
+}
 
 const slideCount = computed(() => resolvedSlides.value.length)
 
@@ -164,8 +181,8 @@ const ariaLive = computed<'polite' | 'off'>(() =>
       >
         <!-- Background image -->
         <img
-          v-if="slide.image_url"
-          :src="slide.image_url"
+          v-if="slide.imageUrl"
+          :src="slide.imageUrl"
           alt=""
           aria-hidden="true"
           class="carousel__slide-bg"
@@ -179,15 +196,15 @@ const ariaLive = computed<'polite' | 'off'>(() =>
         <!-- Content -->
         <div class="carousel__slide-inner">
           <h2 class="carousel__headline">{{ slide.headline }}</h2>
-          <p v-if="slide.sub_headline" class="carousel__sub">
-            {{ slide.sub_headline }}
+          <p v-if="slide.subHeadline" class="carousel__sub">
+            {{ slide.subHeadline }}
           </p>
           <NuxtLink
-            v-if="slide.cta_label && slide.cta_href"
-            :to="slide.cta_href"
+            v-if="slide.ctaLabel && safeCtaHref(slide.ctaHref)"
+            :to="safeCtaHref(slide.ctaHref)"
             class="carousel__cta"
           >
-            {{ slide.cta_label }}
+            {{ slide.ctaLabel }}
             <span aria-hidden="true">&nbsp;&rarr;</span>
           </NuxtLink>
         </div>

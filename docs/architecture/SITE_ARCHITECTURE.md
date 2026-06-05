@@ -216,7 +216,9 @@ Public content surfaces are **cross-location and SSR'd**. Physical location is a
 | `@nuxt/content` | Blog and FAQ content | Markdown authoring with frontmatter, query API, zero infrastructure required |
 | `@stripe/stripe-js` | Client-side payments | PCI-compliant card collection via Stripe Elements without handling raw card data |
 | `stripe` | Server-side payments | PaymentIntent creation, webhook handling, customer management |
-| `nuxt-auth-utils` | Frontend SSR auth state | Stores user state in a sealed encrypted cookie for Nuxt SSR hydration. Complements Laravel Sanctum, which handles actual API authentication via session cookies. These are two complementary systems: Sanctum authenticates, nuxt-auth-utils hydrates. |
+
+
+> **Auth note (corrected):** `nuxt-auth-utils` was considered for SSR auth hydration but **never adopted** — it is not a dependency and nothing imports it. Authentication is Laravel **Sanctum** (HTTP-only session cookie) only; the frontend hydrates auth state client-side via `useState('auth:user')` + a `localStorage` marker (`fc:auth:session`) gating the `/api/auth/me` probe. Protected routes are `ssr: false`, so there is no server-side auth hydration. See STATE_MANAGEMENT.md § Auth. Pinned by `frontend/tests/architecture/auth-mechanism.test.ts`.
 
 ---
 
@@ -239,8 +241,9 @@ Frontend environment variables use the `NUXT_` prefix for automatic mapping to N
 NUXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=       # Stripe publishable key (client)
 NUXT_PUBLIC_SITE_URL=                     # Base URL for SEO, OG tags, emails, sitemap
 NUXT_PUBLIC_API_BASE_URL=                 # Laravel API base URL
-NUXT_SESSION_PASSWORD=                    # 32+ char secret for nuxt-auth-utils cookie encryption
 ```
+
+> `NUXT_SESSION_PASSWORD` was previously listed here for `nuxt-auth-utils` cookie encryption. Since that module was never adopted (see the Auth note above), the variable is **not required** and is intentionally omitted.
 
 Map links use raw `https://maps.google.com/?q=<lat>,<lng>` URLs constructed client-side from the `latitude`/`longitude` columns on the locations payload. No API key, no env var, no third-party SDK.
 

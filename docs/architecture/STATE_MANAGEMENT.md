@@ -28,9 +28,9 @@ Global state is shared across components and persists across page navigations wi
 - `logout(): Promise<void>` — POST `/api/auth/logout`, clears user state + cookie
 - `fetchUser(): Promise<void>` — GET `/api/auth/me`, refreshes user state from server (called on app init to restore session)
 
-**Persistence:** Two complementary session mechanisms:
-- **Laravel Sanctum** (backend) — authenticates API requests via a session cookie. The session is stored in Redis server-side. Sanctum's `AuthenticateSession` middleware validates the password hash on each request, automatically invalidating sessions after password changes.
-- **nuxt-auth-utils** (frontend) — stores user state in a sealed encrypted HTTP-only cookie for Nuxt SSR hydration. This allows the server-side renderer to know the user is logged in without making an API call on every page load. The `user` ref in `useState` is hydrated from this cookie on SSR and revalidated on client init via `GET /api/auth/me`.
+**Persistence:** The authoritative session is the **Laravel Sanctum** cookie; the frontend keeps only in-memory + marker state.
+- **Laravel Sanctum** (backend) — authenticates API requests via an HTTP-only session cookie stored in Redis server-side. Sanctum's `AuthenticateSession` middleware validates the password hash on each request, automatically invalidating other sessions after a password change/reset.
+- **Frontend hydration** — `useAuth` holds the user in `useState('auth:user')` (in-memory, request-scoped). A non-sensitive `localStorage` marker (`fc:auth:session`) records "this browser has logged in", so the client-init plugin only probes `GET /api/auth/me` when the marker is present (avoiding a guaranteed-401 probe for anonymous visitors). There is **no** encrypted-cookie SSR auth layer: protected/account/purchase routes are `ssr: false`, so auth state is hydrated client-side only. (`nuxt-auth-utils` was evaluated but never adopted — do not add it; nothing consumes it and it would introduce an unused `NUXT_SESSION_PASSWORD` secret. An architecture guard test, `frontend/tests/architecture/auth-mechanism.test.ts`, pins this.)
 
 **Usage:**
 ```typescript

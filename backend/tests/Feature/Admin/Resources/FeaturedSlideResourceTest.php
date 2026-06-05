@@ -204,6 +204,35 @@ test('headline is required', function (): void {
         ->assertHasFormErrors(['headline']);
 });
 
+test('cta_href rejects a javascript: URL (XSS guard)', function (): void {
+    $this->actingAsAdmin();
+
+    Livewire::test(CreateFeaturedSlide::class)
+        ->set('data.headline', 'Valid Headline')
+        ->set('data.cta_label', 'Click')
+        ->set('data.cta_href', 'javascript:alert(document.cookie)')
+        ->call('create')
+        ->assertHasFormErrors(['cta_href']);
+});
+
+test('cta_href accepts an https URL and a relative path', function (): void {
+    $this->actingAsAdmin();
+
+    Livewire::test(CreateFeaturedSlide::class)
+        ->set('data.headline', 'Https Slide')
+        ->set('data.cta_label', 'Click')
+        ->set('data.cta_href', 'https://example.com/movies')
+        ->call('create')
+        ->assertHasNoFormErrors(['cta_href']);
+
+    Livewire::test(CreateFeaturedSlide::class)
+        ->set('data.headline', 'Relative Slide')
+        ->set('data.cta_label', 'Click')
+        ->set('data.cta_href', '/movies?location=downtown')
+        ->call('create')
+        ->assertHasNoFormErrors(['cta_href']);
+});
+
 test('headline max length is 80 characters', function (): void {
     $this->actingAsAdmin();
 

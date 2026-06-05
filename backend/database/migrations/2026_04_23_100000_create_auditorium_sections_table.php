@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -18,6 +19,10 @@ return new class extends Migration
 
             $table->unique(['auditorium_id', 'name']);
         });
+
+        // Defense in depth for the AuditoriumService > 0 guard: the DB itself
+        // refuses a non-positive multiplier (0 → free seats, negative → bad price).
+        DB::statement('ALTER TABLE auditorium_sections ADD CONSTRAINT auditorium_sections_price_multiplier_positive CHECK (price_multiplier > 0)');
 
         // `seats.section_id` was added by the create_seats_table migration but
         // could not carry its foreign-key constraint there — this table didn't

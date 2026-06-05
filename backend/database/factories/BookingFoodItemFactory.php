@@ -4,8 +4,8 @@ namespace Database\Factories;
 
 use App\Models\Booking;
 use App\Models\BookingFoodItem;
+use App\Models\MenuItem;
 use Illuminate\Database\Eloquent\Factories\Factory;
-use Illuminate\Support\Str;
 
 /** @extends Factory<BookingFoodItem> */
 class BookingFoodItemFactory extends Factory
@@ -19,7 +19,7 @@ class BookingFoodItemFactory extends Factory
 
         return [
             'booking_id' => Booking::factory(),
-            'menu_item_id' => Str::uuid()->toString(),
+            'menu_item_id' => MenuItem::factory(),
             'name' => fake()->words(2, true),
             'quantity' => $quantity,
             'unit_price' => $unitPrice,

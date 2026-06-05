@@ -125,10 +125,14 @@ class GiftCardController extends Controller
                 ['field' => 'payment', 'message' => $e->getMessage()],
             ], 402);
         } catch (InvalidRequestException $e) {
-            $this->cacheHardFailure($idempotencyKey, 'payment', $e->getMessage(), 400, $payloadHash);
+            report($e);
+            // Cache the SANITISED message so an idempotent replay returns the same
+            // generic error, never the raw integration-facing Stripe text.
+            $genericMessage = 'We could not process your payment. Please try again or contact support.';
+            $this->cacheHardFailure($idempotencyKey, 'payment', $genericMessage, 400, $payloadHash);
 
             return $this->errorResponse([
-                ['field' => 'payment', 'message' => $e->getMessage()],
+                ['field' => 'payment', 'message' => $genericMessage],
             ], 400);
         } catch (ApiErrorException $e) {
             report($e);
@@ -190,8 +194,10 @@ class GiftCardController extends Controller
                 ['field' => 'payment', 'message' => $e->getMessage()],
             ], 402);
         } catch (InvalidRequestException $e) {
+            report($e);
+
             return $this->errorResponse([
-                ['field' => 'payment', 'message' => $e->getMessage()],
+                ['field' => 'payment', 'message' => 'We could not process your payment. Please try again or contact support.'],
             ], 400);
         } catch (ApiErrorException $e) {
             report($e);

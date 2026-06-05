@@ -76,7 +76,9 @@ services:
   # The --nginx plugin can also be used but requires certbot to have
   # write access to nginx config. The webroot method is simpler in Docker.
   certbot:
-    image: certbot/certbot:latest
+    # Pinned for reproducibility (was :latest). Digest = the current certbot
+    # image; verify ACME flags after any future bump.
+    image: certbot/certbot@sha256:0107d084c225631fc64a8313e19adb07275f7296fde338f7dfa93986c80b2e3e
     volumes:
       - letsencrypt:/etc/letsencrypt
       - certbot-webroot:/var/www/certbot

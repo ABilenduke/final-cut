@@ -3,10 +3,10 @@
 export interface FeaturedSlide {
   id: string | number
   headline: string
-  sub_headline: string | null
-  image_url: string | null
-  cta_label: string | null
-  cta_href: string | null
+  subHeadline: string | null
+  imageUrl: string | null
+  ctaLabel: string | null
+  ctaHref: string | null
 }
 
 export interface FeaturedSlidesResponse {

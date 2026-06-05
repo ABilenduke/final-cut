@@ -31,7 +31,9 @@ class PaymentMethodController extends Controller
                 ])->values()
             );
         } catch (InvalidRequestException $e) {
-            return $this->errorResponse([['field' => 'stripe', 'message' => $e->getMessage()]], 400);
+            report($e);
+
+            return $this->errorResponse([['field' => 'stripe', 'message' => 'We could not complete that request. Please try again or contact support.']], 400);
         } catch (ApiErrorException $e) {
             report($e);
 
@@ -50,7 +52,9 @@ class PaymentMethodController extends Controller
                 'clientSecret' => $setupIntent->client_secret,
             ]);
         } catch (InvalidRequestException $e) {
-            return $this->errorResponse([['field' => 'stripe', 'message' => $e->getMessage()]], 400);
+            report($e);
+
+            return $this->errorResponse([['field' => 'stripe', 'message' => 'We could not complete that request. Please try again or contact support.']], 400);
         } catch (ApiErrorException $e) {
             report($e);
 
@@ -82,7 +86,9 @@ class PaymentMethodController extends Controller
 
             return $this->successResponse(['success' => true]);
         } catch (InvalidRequestException $e) {
-            return $this->errorResponse([['field' => 'stripe', 'message' => $e->getMessage()]], 400);
+            report($e);
+
+            return $this->errorResponse([['field' => 'stripe', 'message' => 'We could not complete that request. Please try again or contact support.']], 400);
         } catch (ApiErrorException $e) {
             report($e);
 

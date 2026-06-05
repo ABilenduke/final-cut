@@ -21,10 +21,11 @@ test('create persists a promo code and writes activity when actor is set', funct
     ], $admin);
 
     // Uppercasing defence — even a lowercase input is persisted uppercase.
-    // DB default for is_active is true; refresh to pick up the DB-resolved value.
+    // deactivated_at defaults to NULL, so the is_active accessor is true.
     $promo->refresh();
     expect($promo->code)->toBe('HELLO10')
-        ->and($promo->is_active)->toBeTrue();
+        ->and($promo->is_active)->toBeTrue()
+        ->and($promo->deactivated_at)->toBeNull();
 
     expect(Activity::where('log_name', 'admin')->where('description', PromoCodeService::EVENT_CREATED)->count())
         ->toBe(1);
@@ -50,13 +51,17 @@ test('update persists changes and logs with actor', function (): void {
     expect(Activity::where('description', PromoCodeService::EVENT_UPDATED)->count())->toBe(1);
 });
 
-test('deactivate sets is_active false and logs', function (): void {
+test('deactivate stamps deactivated_at, flips is_active false, and logs', function (): void {
     $admin = User::factory()->admin()->create();
-    $promo = PromoCode::factory()->create(['is_active' => true]);
+    $promo = PromoCode::factory()->create(); // active by default (deactivated_at = null)
 
     $this->service->deactivate($promo, $admin);
 
-    expect($promo->fresh()->is_active)->toBeFalse();
+    $fresh = $promo->fresh();
+    expect($fresh->is_active)->toBeFalse()
+        // The whole point of the nullable-timestamp convention: free WHEN metadata.
+        ->and($fresh->deactivated_at)->not->toBeNull()
+        ->and($fresh->deactivated_at->isToday())->toBeTrue();
     expect(Activity::where('description', PromoCodeService::EVENT_DEACTIVATED)->count())->toBe(1);
 });
 
@@ -87,7 +92,7 @@ test('delete throws PromoCodeInUseException when uses_count > 0', function (): v
 });
 
 test('validateCode normalises input to uppercase and returns active non-expired row', function (): void {
-    PromoCode::factory()->create(['code' => 'SUMMER25', 'is_active' => true]);
+    PromoCode::factory()->create(['code' => 'SUMMER25', 'deactivated_at' => null]);
 
     $result = $this->service->validateCode('summer25', 5000);
 

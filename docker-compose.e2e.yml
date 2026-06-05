@@ -48,6 +48,9 @@ services:
       # ISR renders to time out and cache incomplete pages.
       - ./backend/php-fpm-e2e.conf:/usr/local/etc/php-fpm.d/zz-e2e.conf:ro
     environment:
+      # Fixed, intentionally-public test key — APP_ENV=testing against the
+      # throwaway final_cut_test DB. NOT a leaked secret; never used where
+      # APP_ENV=production. CI may override via the APP_KEY env var.
       - APP_KEY=${APP_KEY:-base64:Ktj1Q0ICzknLQ4jhpPOAPELk7cHPk7LPJSImpY6sDjc=}
       - APP_ENV=testing
       - APP_DEBUG=true
@@ -85,6 +88,9 @@ services:
       - ./redis/certs/ca.pem:/tls/redis/ca.pem:ro
       - ./postgres/certs/ca.pem:/tls/postgres/ca.pem:ro
     environment:
+      # Fixed, intentionally-public test key — APP_ENV=testing against the
+      # throwaway final_cut_test DB. NOT a leaked secret; never used where
+      # APP_ENV=production. CI may override via the APP_KEY env var.
       - APP_KEY=${APP_KEY:-base64:Ktj1Q0ICzknLQ4jhpPOAPELk7cHPk7LPJSImpY6sDjc=}
       - APP_ENV=testing
       - APP_DEBUG=true

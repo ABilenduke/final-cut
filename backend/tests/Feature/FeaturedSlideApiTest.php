@@ -150,18 +150,24 @@ test('response contains only the public fields and excludes internal timestamps'
                 [
                     'id',
                     'headline',
-                    'sub_headline',
-                    'image_url',
-                    'cta_label',
-                    'cta_href',
+                    'subHeadline',
+                    'imageUrl',
+                    'ctaLabel',
+                    'ctaHref',
                 ],
             ],
         ]);
 
     $item = $response->json('data.0');
 
-    // Explicitly present
-    expect($item)->toHaveKeys(['id', 'headline', 'sub_headline', 'image_url', 'cta_label', 'cta_href']);
+    // Explicitly present (camelCase wire contract, matching every other resource)
+    expect($item)->toHaveKeys(['id', 'headline', 'subHeadline', 'imageUrl', 'ctaLabel', 'ctaHref']);
+
+    // Legacy snake_case keys must be gone
+    expect($item)->not->toHaveKey('sub_headline')
+        ->not->toHaveKey('image_url')
+        ->not->toHaveKey('cta_label')
+        ->not->toHaveKey('cta_href');
 
     // Excluded
     expect($item)->not->toHaveKey('display_order')
@@ -184,7 +190,7 @@ test('sub_headline can be null in response', function () {
 
     $item = collect($response->json('data'))->firstWhere('headline', 'No Subtitle');
     expect($item)->not->toBeNull()
-        ->and($item['sub_headline'])->toBeNull();
+        ->and($item['subHeadline'])->toBeNull();
 });
 
 // ── (d) cache invalidates when a slide is published ───────────────────────────

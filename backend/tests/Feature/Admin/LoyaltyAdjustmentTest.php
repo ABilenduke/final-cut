@@ -79,13 +79,20 @@ test('updating a LoyaltyAdjustment writes a second activity row with a diff limi
     }
 });
 
-test('deleting the customer user cascades and removes the adjustment row', function (): void {
+test('deleting the customer user preserves the adjustment audit row with a null user_id', function (): void {
+    // P1 cascade-cluster fix: deleting a user must NOT destroy the loyalty
+    // points audit trail — only the subject reference is cleared (nullOnDelete).
     $this->actingAsAdmin();
 
     $user = User::factory()->create();
-    $adjustment = LoyaltyAdjustment::factory()->for($user)->create();
+    $adjustment = LoyaltyAdjustment::factory()->for($user)->create([
+        'points_delta' => 175,
+    ]);
 
     $user->delete();
 
-    expect(LoyaltyAdjustment::find($adjustment->id))->toBeNull();
+    $fresh = LoyaltyAdjustment::find($adjustment->id);
+    expect($fresh)->not->toBeNull()
+        ->and($fresh->user_id)->toBeNull()
+        ->and($fresh->points_delta)->toBe(175);
 });

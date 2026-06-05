@@ -77,7 +77,7 @@ test('delete on an unused code with admin actor removes the row and writes activ
 });
 
 test('validateCode normalises uppercase and returns row only when active and not expired or over-limit', function (): void {
-    PromoCode::factory()->create(['code' => 'GOOD', 'is_active' => true]);
+    PromoCode::factory()->create(['code' => 'GOOD', 'deactivated_at' => null]);
     PromoCode::factory()->expired()->create(['code' => 'OLD']);
     PromoCode::factory()->inactive()->create(['code' => 'OFF']);
     PromoCode::factory()->withUsage(5, 5)->create(['code' => 'MAX']);

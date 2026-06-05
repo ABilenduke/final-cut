@@ -234,7 +234,9 @@ test('days param controls the query window', function () {
 
 test('returns 404 for unknown movie slug', function () {
     getJson('/api/movies/nonexistent-slug/showtimes')
-        ->assertNotFound();
+        ->assertNotFound()
+        ->assertJsonStructure(['errors' => [['message']]])
+        ->assertJsonPath('errors.0.message', 'Movie not found');
 });
 
 // ── (g) Empty array for movie with no upcoming showtimes ─────────────────────

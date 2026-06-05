@@ -134,6 +134,15 @@ async function lookup(): Promise<void> {
   cursor: not-allowed;
 }
 
+/* Keyboard focus indicators (WCAG 2.4.7) — design-system gold double-ring,
+   replacing the stripped outline. */
+.gift-card-balance-strip__input:focus-visible,
+.gift-card-balance-strip__btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 0.125rem var(--surface), 0 0 0 0.25rem var(--secondary);
+  border-radius: var(--radius-sm);
+}
+
 .gift-card-balance-strip__btn {
   font-size: 0.6875rem;
   letter-spacing: 0.22em;

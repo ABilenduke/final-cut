@@ -112,7 +112,9 @@ test('GET /api/movies/{slug} returns movie detail for valid slug', function () {
 
 test('GET /api/movies/{slug} returns 404 for unknown slug', function () {
     getJson('/api/movies/nonexistent-movie')
-        ->assertNotFound();
+        ->assertNotFound()
+        ->assertJsonStructure(['errors' => [['message']]])
+        ->assertJsonPath('errors.0.message', 'Movie not found');
 });
 
 test('GET /api/movies/{slug} returns empty cast when cast is null', function () {
@@ -293,7 +295,9 @@ test('GET showtimes returns 404 for unknown movie slug', function () {
     $location = Location::factory()->create();
 
     getJson("/api/locations/{$location->slug}/movies/nonexistent/showtimes")
-        ->assertNotFound();
+        ->assertNotFound()
+        ->assertJsonStructure(['errors' => [['message']]])
+        ->assertJsonPath('errors.0.message', 'Movie not found');
 });
 
 /*

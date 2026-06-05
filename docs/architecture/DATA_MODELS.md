@@ -319,7 +319,7 @@ Returns showtime details with full seat map including current availability. This
 | POST | `/api/auth/forgot-password` | Guest | Local | `{ email }` | `{ data: { success: true } }` |
 | POST | `/api/auth/reset-password` | Guest | Local | `{ token, email, password, password_confirmation }` | `{ data: { success: true } }` |
 
-Session-based auth via Laravel Sanctum. Sessions stored server-side in Redis; the browser sends an HTTP-only session cookie. `nuxt-auth-utils` on the frontend provides SSR hydration only — it stores user state in an encrypted cookie so the Nuxt server-renderer knows the auth state without an API call per page load.
+Session-based auth via Laravel Sanctum. Sessions stored server-side in Redis; the browser sends an HTTP-only session cookie. The frontend hydrates auth state client-side (`useState('auth:user')` + a `localStorage` marker gating the `/api/auth/me` probe) — there is no encrypted-cookie SSR auth layer. (`nuxt-auth-utils` was evaluated but never adopted; see STATE_MANAGEMENT.md § Auth.)
 
 ### Account
 

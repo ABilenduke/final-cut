@@ -179,13 +179,18 @@ defineExpose({ submit, isSubmitting, stripeReady })
       <span class="bay__badge">PCI-DSS · TLS 1.3</span>
     </header>
 
-    <div class="payment-bay__methods" role="tablist" aria-label="Payment method">
+    <!--
+      Button group, not a tab widget: only one method is selectable today and
+      the other three are disabled placeholders, so a tablist (with its
+      aria-controls/tabpanel + roving-tabindex contract) would be incorrect.
+      The active method is conveyed via aria-pressed.
+    -->
+    <div class="payment-bay__methods" role="group" aria-label="Payment method">
       <button
         type="button"
-        role="tab"
         class="method"
         :class="{ 'method--active': activeMethod === 'card' }"
-        :aria-selected="activeMethod === 'card'"
+        :aria-pressed="activeMethod === 'card'"
         @click="setMethod('card')"
       >
         <span class="method__lbl">Credit / Debit</span>
@@ -199,9 +204,7 @@ defineExpose({ submit, isSubmitting, stripeReady })
       </button>
       <button
         type="button"
-        role="tab"
         class="method method--disabled"
-        aria-selected="false"
         :aria-disabled="true"
         disabled
         title="PayPal coming soon"
@@ -212,9 +215,7 @@ defineExpose({ submit, isSubmitting, stripeReady })
       </button>
       <button
         type="button"
-        role="tab"
         class="method method--disabled"
-        aria-selected="false"
         :aria-disabled="true"
         disabled
         title="Gift card redemption coming soon"
@@ -225,9 +226,7 @@ defineExpose({ submit, isSubmitting, stripeReady })
       </button>
       <button
         type="button"
-        role="tab"
         class="method method--disabled"
-        aria-selected="false"
         :aria-disabled="true"
         disabled
         title="Pay on Arrival coming soon"

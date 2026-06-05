@@ -536,6 +536,14 @@ const customAmountMax = computed(() => MAX_AMOUNT_CENTS / 100)
   outline: none;
 }
 
+/* Keyboard focus indicator (the wrapper's :focus-within border alone is
+   insufficient for WCAG 2.4.7). Design-system gold double-ring. */
+.composer__custom-input:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 0.125rem var(--surface), 0 0 0 0.25rem var(--secondary);
+  border-radius: var(--radius-sm);
+}
+
 .composer__custom-input::placeholder {
   color: var(--on-tertiary-fixed-variant);
 }

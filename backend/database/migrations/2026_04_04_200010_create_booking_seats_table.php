@@ -12,7 +12,10 @@ return new class extends Migration
             $table->uuid('id')->primary();
             $table->foreignUuid('booking_id')->constrained()->cascadeOnDelete();
             $table->foreignUuid('showtime_id')->constrained()->cascadeOnDelete();
-            $table->foreignUuid('seat_id')->constrained()->cascadeOnDelete();
+            // nullOnDelete (not cascade): seat regeneration deletes seats, but the
+            // booking_seats row is a price/section snapshot that must survive —
+            // only the seat reference is cleared. Nullable to allow the null FK.
+            $table->foreignUuid('seat_id')->nullable()->constrained()->nullOnDelete();
             $table->string('section')->nullable();
             $table->unsignedInteger('price');
             $table->timestamps();

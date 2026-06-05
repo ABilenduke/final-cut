@@ -282,13 +282,18 @@ class BookingController extends Controller
                     $receiptEmail,
                 );
             } catch (CardException $e) {
+                // Stripe card-decline messages are designed to be surfaced to the
+                // cardholder (e.g. "Your card was declined"), so they pass through.
                 $this->discardHeldBooking($booking);
 
                 return $this->errorResponse([['field' => 'payment', 'message' => $e->getMessage()]], 402);
             } catch (InvalidRequestException $e) {
+                // Integration-facing message (param names, ids) — never leak to the
+                // client; log it for operators and return a generic error.
+                report($e);
                 $this->discardHeldBooking($booking);
 
-                return $this->errorResponse([['field' => 'payment', 'message' => $e->getMessage()]], 400);
+                return $this->errorResponse([['field' => 'payment', 'message' => 'We could not process your payment. Please try again or contact support.']], 400);
             } catch (ApiErrorException $e) {
                 $this->discardHeldBooking($booking);
                 report($e);
@@ -428,9 +433,17 @@ class BookingController extends Controller
             'email' => 'required|email',
         ]);
 
+        // Email is the shared secret. Match it against the guest_email on guest
+        // bookings OR the account email on member bookings (which carry a NULL
+        // guest_email and so could never be found by the guest_email match alone).
+        $email = $request->query('email');
+
         $booking = Booking::with(self::BOOKING_RELATIONS)
             ->where('confirmation_code', $request->query('confirmation_code'))
-            ->where('guest_email', $request->query('email'))
+            ->where(function ($query) use ($email) {
+                $query->where('guest_email', $email)
+                    ->orWhereHas('user', fn ($u) => $u->where('email', $email));
+            })
             ->first();
 
         if (! $booking) {
@@ -514,9 +527,12 @@ class BookingController extends Controller
                 return $this->errorResponse([['field' => 'payment', 'message' => 'Payment confirmation failed.']], 402);
             }
         } catch (CardException $e) {
+            // Card-decline messages are intended for the cardholder — pass through.
             return $this->errorResponse([['field' => 'payment', 'message' => $e->getMessage()]], 402);
         } catch (InvalidRequestException $e) {
-            return $this->errorResponse([['field' => 'payment', 'message' => $e->getMessage()]], 400);
+            report($e);
+
+            return $this->errorResponse([['field' => 'payment', 'message' => 'We could not process your payment. Please try again or contact support.']], 400);
         } catch (ApiErrorException $e) {
             report($e);
 
@@ -552,6 +568,16 @@ class BookingController extends Controller
                     $promo = PromoCode::query()->find($pendingData['promo_code_id']);
                     if ($promo === null) {
                         throw new PromoCodeNotConsumableException(PromoCodeNotConsumableException::REASON_NOT_FOUND);
+                    }
+
+                    // Re-derive the discount from the LIVE promo. The PaymentIntent
+                    // was sized during store(), so an admin editing the promo amount
+                    // mid-3DS-window cannot change what was captured — detect the
+                    // drift and refund+409 rather than booking at the stale figure.
+                    $expectedPromoDiscount = $this->promoCodeService->calculateDiscount($promo, $pendingData['subtotal']);
+                    $cachedPromoDiscount = $pendingData['discount'] - $giftCardAmount;
+                    if ($cachedPromoDiscount !== $expectedPromoDiscount) {
+                        throw new PromoCodeNotConsumableException(PromoCodeNotConsumableException::REASON_AMOUNT_CHANGED);
                     }
                 }
 

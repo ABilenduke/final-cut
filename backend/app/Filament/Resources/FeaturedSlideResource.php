@@ -91,11 +91,15 @@ class FeaturedSlideResource extends BaseResource
                         ->required()
                         ->helperText('URL or internal route path (e.g. `/movies/the-brutalist`). Full URLs are accepted too.')
                         ->rules(['required', 'string', fn () => function (string $attribute, mixed $value, \Closure $fail): void {
-                            if (! (
-                                filter_var($value, FILTER_VALIDATE_URL) ||
-                                (is_string($value) && str_starts_with($value, '/'))
-                            )) {
-                                $fail('The CTA link must be a full URL or a path starting with /.');
+                            // FILTER_VALIDATE_URL accepts `javascript:` and `data:`
+                            // (URL syntax, not scheme safety). Allow only http(s)
+                            // absolute URLs or leading-slash relative paths.
+                            $scheme = is_string($value) ? strtolower((string) parse_url($value, PHP_URL_SCHEME)) : '';
+                            $isRelative = is_string($value) && str_starts_with($value, '/');
+                            $isHttp = in_array($scheme, ['http', 'https'], true);
+
+                            if (! ($isRelative || $isHttp)) {
+                                $fail('The CTA link must be an http(s) URL or a path starting with /.');
                             }
                         }]),
                 ]),

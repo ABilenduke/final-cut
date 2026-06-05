@@ -186,7 +186,9 @@ test('returns 404 for non-existent showtime', function () {
     $location = Location::factory()->create();
 
     getJson("/api/locations/{$location->slug}/showtimes/00000000-0000-0000-0000-000000000000")
-        ->assertNotFound();
+        ->assertNotFound()
+        ->assertJsonStructure(['errors' => [['message']]])
+        ->assertJsonPath('errors.0.message', 'Showtime not found');
 });
 
 test('cancelled showtimes are hidden from the public showtime endpoint', function () {

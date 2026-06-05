@@ -117,6 +117,8 @@ class CalendarEventResource extends BaseResource
                     Textarea::make('description')->rows(5),
                     FileUpload::make('image_path')
                         ->image()
+                        ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp'])
+                        ->maxSize(5120) // 5 MB; raster-only — SVG excluded (XML → stored XSS off the public disk)
                         ->directory('calendar-events')
                         ->disk('public')
                         ->visibility('public')

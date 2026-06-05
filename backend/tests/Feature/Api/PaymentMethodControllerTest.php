@@ -2,6 +2,8 @@
 
 use App\Models\User;
 use App\Services\StripeService;
+use Illuminate\Support\Facades\Exceptions;
+use Stripe\Exception\InvalidRequestException;
 use Tests\Helpers\FakeStripeService;
 
 use function Pest\Laravel\actingAs;
@@ -241,14 +243,19 @@ test('list payment methods returns 502 when Stripe is unavailable', function () 
         ->assertJsonPath('errors.0.field', 'stripe');
 });
 
-test('list payment methods returns 400 for invalid Stripe request', function () {
-    fakeStripe()->shouldFailWithInvalidRequest('No such customer: cus_deleted');
+test('list payment methods returns a generic 400 without leaking the raw Stripe request', function () {
+    Exceptions::fake();
+    fakeStripe()->shouldFailWithInvalidRequest('No such customer: cus_deleted_secret');
     $user = User::factory()->create(['stripe_customer_id' => 'cus_deleted']);
 
     $response = actingAs($user)->getJson('/api/account/payment-methods');
 
     $response->assertStatus(400)
         ->assertJsonPath('errors.0.field', 'stripe');
+    expect($response->json('errors.0.message'))->not->toContain('No such customer')
+        ->and($response->json('errors.0.message'))->not->toContain('cus_deleted_secret');
+
+    Exceptions::assertReported(InvalidRequestException::class);
 });
 
 test('store payment method returns 502 when Stripe is unavailable', function () {

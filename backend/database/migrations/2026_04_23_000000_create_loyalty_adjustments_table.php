@@ -11,7 +11,10 @@ return new class extends Migration
         Schema::create('loyalty_adjustments', function (Blueprint $table) {
             $table->id();
             // users.id is a UUID, so foreignUuid is required.
-            $table->foreignUuid('user_id')->constrained('users')->cascadeOnDelete();
+            // nullOnDelete (not cascade): deleting a user must NOT destroy the
+            // loyalty points audit trail — only the subject reference is cleared,
+            // mirroring the admin_user_id (actor) treatment below.
+            $table->foreignUuid('user_id')->nullable()->constrained('users')->nullOnDelete();
             // Nullable so system-initiated adjustments (e.g. scheduled premier
             // expirations) can be recorded without an admin actor. Admin-facing
             // Filament actions always pass the authenticated admin user.
