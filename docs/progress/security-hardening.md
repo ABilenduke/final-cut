@@ -125,4 +125,31 @@ Baseline before any change: **1001 backend tests passing** (after `optimize:clea
 - `backend/tests/Feature/Api/BookingIdempotencyTest.php` (new); `backend/tests/Feature/Api/BookingControllerTest.php` (updated test).
 
 ## Step 7: Move Stripe out of the DB transaction + lock (HIGHEST RISK)
-**Status:** 🔲 Not Started
+**Status:** ✅ Complete
+**Started:** 2026-06-04 **Completed:** 2026-06-04
+
+### Work Done
+- [2026-06-04] `BookingController::store()` restructured into 3 phases: **A** (short txn, `lockForUpdate`) reserves seats via a committed `Held` booking + persists real provisional amounts → **B** (NO txn/lock) calls Stripe `createPaymentIntent` → **C** (short txn) re-locks + re-validates the gift card, flips `Held`→`Confirmed`, redeems gift card, consumes promo, awards loyalty. 3DS `requires_action` discards the Held booking (seats freed during the wait — preserves prior 3DS semantics) and caches pending. Failure paths refund + `discardHeldBooking`.
+- [2026-06-04] `BookingController::confirm()` restructured into the same 3 phases: **A** validates seats + gift card under lock (no Stripe, no writes) → **B** confirms the PaymentIntent with no lock → **C** creates booking + reserves seats + finalizes; failures refund + 409, pending preserved on retryable paths.
+- [2026-06-04] New `App\Exceptions\GiftCardBalanceChangedException` (post-charge gift-card revalidation signal). New `discardHeldBooking()` helper (deletes Held booking → cascade-frees seats + idempotency_key). `attachConfirmationCodeToStripe` now runs outside any transaction in both paths.
+- [2026-06-04] FakeStripe records `DB::transactionLevel()` at each call; new `BookingStripeOutsideTransactionTest` asserts Stripe runs at the RefreshDatabase baseline level (no app transaction nesting) for both store() and confirm().
+
+### Decisions
+- [2026-06-04] **Held-then-Confirmed reservation** is what lets the lock be released across the Stripe call: the committed `Held` booking (occupying status) holds the seats with no lock. This also resolves the P1 "provisional booking saved as Confirmed total=0" finding.
+- [2026-06-04] 3DS path **discards** the Held booking on `requires_action` (rather than persisting it) so the existing 3DS seat-conflict / gift-card / promo contracts (7 tests) hold unchanged — minimal behavioral change.
+- [2026-06-04] Accepted tradeoff (per plan): a crash strictly between Phase A and Phase C leaks a `Held` booking; all handled failure paths discard it. A `Held`-expiry sweeper is deferred to a later tier.
+- [2026-06-04] confirm() now has a small charge-then-refund window if seats are taken in the A→C gap (rare); the pre-Stripe Phase A check still catches pre-existing conflicts with no capture.
+
+### Verification
+- All 53 booking tests pass (every 3DS/gift-card/promo/seat-conflict/idempotency contract preserved). New Stripe-outside-transaction tests RED→GREEN. **Full backend suite: 1016 passed.** Pint clean (378 files).
+
+### Files Changed
+- `backend/app/Http/Controllers/Api/BookingController.php` — store() + confirm() 3-phase rewrite + discardHeldBooking.
+- `backend/app/Exceptions/GiftCardBalanceChangedException.php` — new.
+- `backend/tests/Helpers/FakeStripeService.php` — transaction-level capture.
+- `backend/tests/Feature/Api/BookingStripeOutsideTransactionTest.php` — new.
+
+---
+
+## Summary
+All 7 P0 steps complete. Backend **1016 passed**, frontend **885 passed**, Pint clean. Steps 1–6 committed at `2ee19a6`; Step 7 follows.
