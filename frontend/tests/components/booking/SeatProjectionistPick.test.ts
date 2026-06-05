@@ -2,9 +2,12 @@ import { describe, it, expect } from 'vitest'
 import { mountSuspended } from '@nuxt/test-utils/runtime'
 import SeatProjectionistPick from '~/components/booking/SeatProjectionistPick.vue'
 
+// IDs are generated at runtime (not hardcoded) per the repo's testing
+// guidelines; they stay UUID-shaped so the "never leaks a UUID" assertion below
+// remains meaningful, while label/row/number drive the rendered output.
 const pair = [
-  { id: '46547fb2-574b-5d69-96da-528e70c9a72d', label: 'D6', row: 'D', number: 6 },
-  { id: '1651e760-5adb-5c5c-b9f7-657dd96efb8b', label: 'D7', row: 'D', number: 7 },
+  { id: crypto.randomUUID(), label: 'D6', row: 'D', number: 6 },
+  { id: crypto.randomUUID(), label: 'D7', row: 'D', number: 7 },
 ]
 
 describe('SeatProjectionistPick', () => {

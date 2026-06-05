@@ -53,7 +53,11 @@ class MenuItemSeeder extends Seeder
         ];
 
         foreach ($items as $item) {
-            MenuItem::create([
+            // forceCreate (not create): `id` is not in MenuItem's #[Fillable], so
+            // a guarded create would strip the deterministic SeederUuid and let
+            // HasUuids generate a random one. This seeder also runs standalone
+            // (MenuItemSeederTest), so it can't rely on DatabaseSeeder's unguard.
+            MenuItem::forceCreate([
                 'id' => SeederUuid::for("menu:{$item['name']}"),
                 ...$item,
             ]);

@@ -16,6 +16,18 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
+        // Seeders set explicit deterministic `id` values via SeederUuid. Those
+        // keys are NOT in the models' #[Fillable] allowlists, so mass-assignment
+        // would silently strip them and HasUuids would generate random ids —
+        // defeating the whole point of deterministic seeding. Unguarding for the
+        // duration of the seed (Model::unguarded restores guarding via finally,
+        // so test isolation is preserved) lets the ids land. The global flag
+        // also covers every sub-seeder invoked via $this->call() below.
+        \Illuminate\Database\Eloquent\Model::unguarded(fn () => $this->seedAll());
+    }
+
+    private function seedAll(): void
+    {
         // Test users — only in local/testing environments
         if (app()->environment('local', 'testing')) {
             User::firstOrCreate(

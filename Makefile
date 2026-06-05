@@ -28,7 +28,11 @@ migrate:
 
 fresh:
 	docker compose exec backend php artisan migrate:fresh --seed
+	# Clear, then rebuild — leaves the same warmed-cache state as a fresh
+	# container boot (dev-entrypoint.sh). `optimize:clear` alone would leave
+	# config/route/view caches cold and inconsistent with the boot contract.
 	docker compose exec backend php artisan optimize:clear
+	docker compose exec backend php artisan optimize
 
 test: test-backend test-frontend
 
