@@ -33,4 +33,23 @@ if [ -d storage/logs ]; then
     chmod 0640 storage/logs/admin-auth-events.log
 fi
 
+# Flush + rebuild Laravel caches on every boot so we never carry stale
+# bootstrap/config/route/view caches OR stale Redis-backed application
+# cache entries (e.g. food menu, featured slides) across container
+# restarts. `|| true` guards against transient boot ordering issues
+# (Redis not yet healthy) so the container doesn't refuse to start.
+# Runs as devuser via `su` (Alpine — no `runuser`) so emitted cache
+# files match php-fpm worker UID. `-s /bin/sh` forces a POSIX shell
+# regardless of the user's login shell entry.
+#
+# Tradeoff: `php artisan optimize` runs config:cache, which means edits
+# to backend/.env won't take effect until the next container restart or
+# a manual `php artisan optimize:clear`. Accepted because it matches the
+# operator's stated boot contract.
+if [ -f /var/www/html/artisan ]; then
+    echo "[entrypoint] flushing + rebuilding Laravel caches…"
+    su -s /bin/sh devuser -c 'php /var/www/html/artisan optimize:clear' || true
+    su -s /bin/sh devuser -c 'php /var/www/html/artisan optimize' || true
+fi
+
 exec "$@"

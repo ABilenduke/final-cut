@@ -7,6 +7,7 @@ use App\Models\Auditorium;
 use App\Models\AuditoriumSection;
 use App\Models\Location;
 use App\Models\Seat;
+use App\Support\SeederUuid;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Str;
 
@@ -17,6 +18,7 @@ class AuditoriumSeeder extends Seeder
         $downtown = Location::updateOrCreate(
             ['slug' => 'downtown'],
             [
+                'id' => SeederUuid::for('location:downtown'),
                 'name' => 'Downtown',
                 'phone' => '(212) 555-0101',
                 'email' => 'downtown@finalcut.test',
@@ -43,6 +45,7 @@ class AuditoriumSeeder extends Seeder
         $eastside = Location::updateOrCreate(
             ['slug' => 'eastside'],
             [
+                'id' => SeederUuid::for('location:eastside'),
                 'name' => 'Eastside',
                 'phone' => '(212) 555-0202',
                 'email' => 'eastside@finalcut.test',
@@ -67,21 +70,29 @@ class AuditoriumSeeder extends Seeder
         );
 
         $locationLayouts = [
-            $downtown->id => [
+            $downtown->slug => [
                 ['name' => 'Screen 1', 'rows' => 8, 'seats_per_row' => 10, 'premium_rows' => ['D', 'E', 'F']],
                 ['name' => 'Screen 2', 'rows' => 12, 'seats_per_row' => 14, 'premium_rows' => ['E', 'F', 'G', 'H']],
                 ['name' => 'IMAX', 'rows' => 15, 'seats_per_row' => 20, 'premium_rows' => ['F', 'G', 'H', 'I', 'J']],
             ],
-            $eastside->id => [
+            $eastside->slug => [
                 ['name' => 'Screen 1', 'rows' => 8, 'seats_per_row' => 10, 'premium_rows' => ['D', 'E', 'F']],
                 ['name' => 'Screen 2', 'rows' => 10, 'seats_per_row' => 12, 'premium_rows' => ['D', 'E', 'F']],
             ],
         ];
 
-        foreach ($locationLayouts as $locationId => $layouts) {
+        $locationIdsBySlug = [
+            $downtown->slug => $downtown->id,
+            $eastside->slug => $eastside->id,
+        ];
+
+        foreach ($locationLayouts as $locationSlug => $layouts) {
+            $locationId = $locationIdsBySlug[$locationSlug];
+
             foreach ($layouts as $layout) {
                 $totalSeats = $layout['rows'] * $layout['seats_per_row'];
                 $auditorium = Auditorium::create([
+                    'id' => SeederUuid::for("auditorium:{$locationSlug}:{$layout['name']}"),
                     'location_id' => $locationId,
                     'name' => $layout['name'],
                     'slug' => Str::slug($layout['name']),
@@ -91,18 +102,21 @@ class AuditoriumSeeder extends Seeder
 
                 $sections = [
                     SeatType::Standard->value => AuditoriumSection::create([
+                        'id' => SeederUuid::for("section:{$locationSlug}:{$layout['name']}:".SeatType::Standard->value),
                         'auditorium_id' => $auditorium->id,
                         'name' => 'Standard',
                         'price_multiplier' => 1.00,
                         'display_order' => 10,
                     ]),
                     SeatType::Premium->value => AuditoriumSection::create([
+                        'id' => SeederUuid::for("section:{$locationSlug}:{$layout['name']}:".SeatType::Premium->value),
                         'auditorium_id' => $auditorium->id,
                         'name' => 'Premium',
                         'price_multiplier' => 1.25,
                         'display_order' => 20,
                     ]),
                     SeatType::Accessible->value => AuditoriumSection::create([
+                        'id' => SeederUuid::for("section:{$locationSlug}:{$layout['name']}:".SeatType::Accessible->value),
                         'auditorium_id' => $auditorium->id,
                         'name' => 'Accessible',
                         'price_multiplier' => 1.00,
@@ -129,11 +143,13 @@ class AuditoriumSeeder extends Seeder
                             $type = SeatType::Premium;
                         }
 
+                        $label = $rowLetter.$s;
+
                         $seatRows[] = [
-                            'id' => (string) Str::uuid(),
+                            'id' => SeederUuid::for("seat:{$locationSlug}:{$layout['name']}:{$label}"),
                             'auditorium_id' => $auditorium->id,
                             'section_id' => $sections[$type->value]->id,
-                            'label' => $rowLetter.$s,
+                            'label' => $label,
                             'row' => $rowLetter,
                             'number' => $s,
                             'type' => $type->value,

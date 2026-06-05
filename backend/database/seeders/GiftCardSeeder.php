@@ -6,6 +6,7 @@ use App\Enums\GiftCardDeliveryMethod;
 use App\Enums\GiftCardEdition;
 use App\Enums\GiftCardStatus;
 use App\Models\GiftCard;
+use App\Support\SeederUuid;
 use Illuminate\Database\Seeder;
 
 class GiftCardSeeder extends Seeder
@@ -16,6 +17,7 @@ class GiftCardSeeder extends Seeder
         // Vary edition / delivery method / scheduled-send across the seeds so admin and
         // customer surfaces have realistic stateful data to render.
         GiftCard::factory()->create([
+            'id' => SeederUuid::for('giftcard:SEED-ACTIVE-2500'),
             'code' => 'SEED-ACTIVE-2500',
             'initial_balance' => 2500,
             'current_balance' => 2500,
@@ -26,6 +28,7 @@ class GiftCardSeeder extends Seeder
         ]);
 
         GiftCard::factory()->create([
+            'id' => SeederUuid::for('giftcard:SEED-ACTIVE-5000'),
             'code' => 'SEED-ACTIVE-5000',
             'initial_balance' => 5000,
             'current_balance' => 3200,
@@ -37,6 +40,7 @@ class GiftCardSeeder extends Seeder
         ]);
 
         GiftCard::factory()->create([
+            'id' => SeederUuid::for('giftcard:SEED-ACTIVE-10000'),
             'code' => 'SEED-ACTIVE-10000',
             'initial_balance' => 10000,
             'current_balance' => 10000,
@@ -51,6 +55,7 @@ class GiftCardSeeder extends Seeder
 
         // 1 depleted gift card
         GiftCard::factory()->depleted()->create([
+            'id' => SeederUuid::for('giftcard:SEED-DEPLETED-5000'),
             'code' => 'SEED-DEPLETED-5000',
             'initial_balance' => 5000,
             'recipient_email' => 'test@finalcut.test',
@@ -61,6 +66,7 @@ class GiftCardSeeder extends Seeder
 
         // 1 expired gift card
         GiftCard::factory()->create([
+            'id' => SeederUuid::for('giftcard:SEED-EXPIRED-5000'),
             'code' => 'SEED-EXPIRED-5000',
             'initial_balance' => 5000,
             'current_balance' => 5000,
