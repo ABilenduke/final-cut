@@ -6,6 +6,11 @@
 
 **Tech Stack:** Laravel 13 (PHP 8.4, Pest) · PostgreSQL 18 · Nuxt 4 (Vitest) · Docker Compose · Filament 5
 
+> **Implementation deviations from this dossier (authoritative = the shipped code + `docs/progress/promo-per-user-limit.md`):**
+> 1. **FK ordering.** The bookings migration could NOT use `->constrained()->nullOnDelete()` because `bookings` (04-04) is created before `promo_codes` (04-24). Shipped: a plain BIGINT `promo_code_id` column + composite index in the bookings migration, and the FK constraint added in the `create_promo_codes_table` migration (where the referenced table exists).
+> 2. **No confirm() Phase-A pre-charge per-user check** (the dossier's Task 4 step 5). The store-time `validateCode` pre-check + the authoritative `consume()` lock cover correctness; the Phase-A optimization was dropped to keep the change focused (the rare concurrent-3DS race is handled by `consume()`'s charge-then-refund 409).
+> 3. **Identity symmetry fix** (post-review): a guest email that belongs to a registered account also resolves that account's `user_id`, so prior authed redemptions count.
+
 ---
 
 
