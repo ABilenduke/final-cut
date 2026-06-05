@@ -2,8 +2,10 @@
 
 namespace App\Services;
 
+use App\Enums\BookingStatus;
 use App\Exceptions\PromoCodeInUseException;
 use App\Exceptions\PromoCodeNotConsumableException;
+use App\Models\Booking;
 use App\Models\PromoCode;
 use App\Models\User;
 use App\Services\Concerns\LogsAdminActivity;
@@ -126,14 +128,17 @@ class PromoCodeService
      *  - `expires_at` is null or in the future
      *  - `usage_limit` is null or `uses_count < usage_limit`
      *
-     * Per-user limit enforcement is deferred to v2; the column exists on the
-     * schema but this method ignores it.
+     * When an `$identity` is supplied and the code carries a `per_user_limit`,
+     * this also rejects codes the customer has already redeemed up to that cap
+     * (a friendly pre-check; `consume()` is the authoritative locked guard).
+     * With no identity, per-user enforcement is skipped (only the global
+     * `usage_limit` applies) — back-compat for the two-arg callers.
      *
      * The `$bookingTotalCents` parameter is accepted for future conditional
      * rules (minimum spend). Not currently used by the service; the caller
      * still performs the discount math.
      */
-    public function validateCode(string $code, int $bookingTotalCents): ?PromoCode
+    public function validateCode(string $code, int $bookingTotalCents, ?PromoRedemptionIdentity $identity = null): ?PromoCode
     {
         $normalised = strtoupper(trim($code));
         if ($normalised === '') {
@@ -152,6 +157,11 @@ class PromoCodeService
         }
 
         if ($promo->usage_limit !== null && $promo->uses_count >= $promo->usage_limit) {
+            return null;
+        }
+
+        if ($promo->per_user_limit !== null && $identity !== null && ! $identity->isEmpty()
+            && $this->countRedemptions($promo, $identity) >= $promo->per_user_limit) {
             return null;
         }
 
@@ -196,12 +206,19 @@ class PromoCodeService
      * written — the `uses_count` increment is the customer-path audit
      * trail.
      *
+     * When `$identity` is supplied and the code carries a `per_user_limit`, the
+     * per-customer redemption count is re-checked under the same lock. The count
+     * relies on the current booking already being persisted with its
+     * `promo_code_id` BEFORE this runs (store/confirm Phase C), so the caller
+     * must pass `excludeBookingId` to keep the current booking from counting
+     * itself.
+     *
      * @throws PromoCodeNotConsumableException if the code is no longer
      *                                         redeemable when the lock is acquired.
      */
-    public function consume(PromoCode $promo, ?User $actor = null): PromoCode
+    public function consume(PromoCode $promo, ?User $actor = null, ?PromoRedemptionIdentity $identity = null): PromoCode
     {
-        return DB::transaction(function () use ($promo, $actor): PromoCode {
+        return DB::transaction(function () use ($promo, $actor, $identity): PromoCode {
             /** @var PromoCode|null $locked */
             $locked = PromoCode::query()->whereKey($promo->id)->lockForUpdate()->first();
 
@@ -229,6 +246,13 @@ class PromoCodeService
                 );
             }
 
+            if ($locked->per_user_limit !== null && $identity !== null && ! $identity->isEmpty()
+                && $this->countRedemptions($locked, $identity) >= $locked->per_user_limit) {
+                throw new PromoCodeNotConsumableException(
+                    PromoCodeNotConsumableException::REASON_PER_USER_LIMIT,
+                );
+            }
+
             $locked->increment('uses_count');
             $promo->setRawAttributes($locked->getAttributes(), sync: true);
 
@@ -241,5 +265,43 @@ class PromoCodeService
 
             return $locked;
         });
+    }
+
+    /**
+     * Count how many times this customer has already redeemed this promo.
+     *
+     * Status set is a deliberate LIFETIME anti-abuse cap, NOT
+     * `BookingStatus::occupyingStatuses()`:
+     *   - `Refunded` STILL counts — a refund does not hand back a fresh
+     *     redemption (otherwise refund-then-rebook farms unlimited uses).
+     *   - `Held` does NOT count — an abandoned 3DS hold must not self-lock the
+     *     customer for the ~20 min until ExpireHeldBookings sweeps it.
+     *   - `Cancelled` does NOT count.
+     *
+     * Identity matches on `user_id` OR case-insensitive `guest_email`, so a
+     * guest who later registers under the same email still hits their cap.
+     * `excludeBookingId` removes the current in-flight booking (already saved
+     * with this `promo_code_id`) from its own count.
+     */
+    private function countRedemptions(PromoCode $promo, PromoRedemptionIdentity $identity): int
+    {
+        $statuses = array_map(
+            fn (BookingStatus $s): string => $s->value,
+            [BookingStatus::Confirmed, BookingStatus::RefundPending, BookingStatus::Refunded],
+        );
+
+        return Booking::query()
+            ->where('promo_code_id', $promo->id)
+            ->whereIn('status', $statuses)
+            ->where(function ($query) use ($identity): void {
+                if ($identity->userId !== null) {
+                    $query->orWhere('user_id', $identity->userId);
+                }
+                if ($identity->guestEmail !== null) {
+                    $query->orWhereRaw('lower(guest_email) = ?', [mb_strtolower($identity->guestEmail)]);
+                }
+            })
+            ->when($identity->excludeBookingId !== null, fn ($query) => $query->where('id', '!=', $identity->excludeBookingId))
+            ->count();
     }
 }

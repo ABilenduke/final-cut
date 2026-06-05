@@ -21,6 +21,12 @@ return new class extends Migration
             // auditorium cascade paths. (ultrareview P0 #5)
             $table->foreignUuid('showtime_id')->constrained()->restrictOnDelete();
             $table->foreignUuid('user_id')->nullable()->constrained()->nullOnDelete();
+            // BIGINT column (promo_codes uses $table->id()), NOT foreignUuid.
+            // Records which promo a booking redeemed so PromoCodeService can
+            // enforce per_user_limit. The FK constraint itself is added in the
+            // create_promo_codes_table migration (it runs after this one, so the
+            // referenced table doesn't exist yet here). (per-user-limit)
+            $table->foreignId('promo_code_id')->nullable();
             $table->string('guest_email')->nullable();
             $table->string('status')->default('confirmed');
             $table->timestamp('flagged_at')->nullable();
@@ -47,6 +53,10 @@ return new class extends Migration
             // availability + per-showtime booking lookups). (ultrareview perf)
             $table->index('user_id');
             $table->index('showtime_id');
+            // Narrows the per_user_limit redemption count to a promo's bookings
+            // (the user_id / lower(guest_email) identity predicate is filtered
+            // in memory). (per-user-limit)
+            $table->index(['promo_code_id', 'status']);
         });
     }
 

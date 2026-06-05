@@ -21,6 +21,7 @@ use App\Models\User;
 use App\Services\GiftCardService;
 use App\Services\LoyaltyService;
 use App\Services\PromoCodeService;
+use App\Services\PromoRedemptionIdentity;
 use App\Services\SeatAvailabilityService;
 use App\Services\StripeService;
 use Illuminate\Database\UniqueConstraintViolationException;
@@ -114,7 +115,13 @@ class BookingController extends Controller
         // Validate promo code — DB-backed via PromoCodeService (replaced config/promo_codes.php).
         $promo = null;
         if ($promoCode) {
-            $promo = $this->promoCodeService->validateCode($promoCode, 0);
+            // Pre-check rejects a code this customer has already redeemed up to
+            // its per_user_limit (email is canonicalized by CreateBookingRequest).
+            $promo = $this->promoCodeService->validateCode(
+                $promoCode,
+                0,
+                $this->promoRedemptionIdentity($request->user()?->id, $request->input('email')),
+            );
 
             if (! $promo) {
                 return $this->errorResponse([['field' => 'promoCode', 'message' => 'Invalid promo code.']], 400);
@@ -371,9 +378,19 @@ class BookingController extends Controller
 
                 $booking->status = BookingStatus::Confirmed;
                 $booking->stripe_payment_intent_id = $stripePaymentIntentId;
+                $booking->promo_code_id = $promo?->id;
                 $booking->save();
 
-                $this->finalizeBooking($booking, $resolvedFoodItems, $giftCard, $giftCardAmount, $promo, $request->user()?->id, $reservation['total']);
+                $this->finalizeBooking(
+                    $booking,
+                    $resolvedFoodItems,
+                    $giftCard,
+                    $giftCardAmount,
+                    $promo,
+                    $request->user()?->id,
+                    $reservation['total'],
+                    $this->promoRedemptionIdentity($booking->user_id, $booking->guest_email, $booking->id),
+                );
             });
         } catch (GiftCardBalanceChangedException $e) {
             if ($stripePaymentIntentId) {
@@ -592,6 +609,7 @@ class BookingController extends Controller
                 $booking->payment_method = $this->determinePaymentMethod($originalCardAmount, $giftCardAmount);
                 $booking->stripe_payment_intent_id = $paymentIntentId;
                 $booking->idempotency_key = $pendingData['idempotency_key'] ?? null;
+                $booking->promo_code_id = $promo?->id;
                 $booking->save();
 
                 $this->seatService->reserveSeats($showtime, $pendingData['seat_ids'], $booking);
@@ -604,6 +622,7 @@ class BookingController extends Controller
                     $promo,
                     $pendingData['user_id'],
                     $pendingData['total'],
+                    $this->promoRedemptionIdentity($pendingData['user_id'], $pendingData['guest_email'], $booking->id),
                 );
 
                 return $booking;
@@ -671,6 +690,7 @@ class BookingController extends Controller
         ?PromoCode $promo,
         ?string $userId,
         int $total,
+        ?PromoRedemptionIdentity $promoIdentity = null,
     ): void {
         foreach ($foodItems as $foodItem) {
             BookingFoodItem::create(array_merge($foodItem, [
@@ -690,10 +710,10 @@ class BookingController extends Controller
         if ($promo) {
             // Atomic re-validate + increment under lock. Throws
             // `PromoCodeNotConsumableException` if the code was deactivated,
-            // expired, or hit its usage limit between pre-check and now —
-            // the booking transaction rolls back and the outer try/catch
-            // refunds the captured PaymentIntent.
-            $this->promoCodeService->consume($promo, null);
+            // expired, hit its usage limit, or this customer hit their
+            // per_user_limit between pre-check and now — the booking transaction
+            // rolls back and the outer try/catch refunds the captured PaymentIntent.
+            $this->promoCodeService->consume($promo, null, $promoIdentity);
         }
 
         /** @var User|null $user */
@@ -701,6 +721,28 @@ class BookingController extends Controller
         if ($user) {
             $this->loyaltyService->awardPointsForPurchase($user, $total);
         }
+    }
+
+    /**
+     * Build the customer identity used to enforce a promo's per_user_limit.
+     *
+     * For an authenticated user, the account email is ALSO carried (alongside
+     * the user id) so prior GUEST redemptions under the same email still count —
+     * a guest who later registers can't reset their cap. For a guest, the
+     * canonical guest email (already lowercased+trimmed by CreateBookingRequest)
+     * is the key. `$guestEmail` is ignored when `$userId` is present (the two are
+     * mutually exclusive on a booking row).
+     */
+    private function promoRedemptionIdentity(?string $userId, ?string $guestEmail, ?string $excludeBookingId = null): PromoRedemptionIdentity
+    {
+        if ($userId !== null) {
+            $accountEmail = User::find($userId)?->email;
+            $email = $accountEmail !== null ? strtolower(trim($accountEmail)) : null;
+        } else {
+            $email = $guestEmail !== null ? strtolower(trim($guestEmail)) : null;
+        }
+
+        return new PromoRedemptionIdentity(userId: $userId, guestEmail: $email, excludeBookingId: $excludeBookingId);
     }
 
     /**

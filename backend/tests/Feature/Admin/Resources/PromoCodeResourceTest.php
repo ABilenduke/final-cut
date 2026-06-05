@@ -19,11 +19,36 @@ test('admin can see the promo list', function (): void {
         ->assertCanSeeTableRecords($promos);
 });
 
-test('the promo form does not expose the unenforced per_user_limit field', function (): void {
-    // per_user_limit is unenforceable in v1 (no per-user redemption ledger).
-    // Hidden until enforcement ships so the control is not misleading.
+test('the promo form exposes per_user_limit now that enforcement ships', function (): void {
+    // per_user_limit is enforced by PromoCodeService (by account id or
+    // normalized guest email), so the control is no longer misleading.
     Livewire::test(CreatePromoCode::class)
-        ->assertFormFieldDoesNotExist('per_user_limit');
+        ->assertFormFieldExists('per_user_limit');
+});
+
+test('a per_user_limit set on the create form reaches the PromoCodeService payload', function (): void {
+    $expected = PromoCode::factory()->create(['code' => 'STUB-PUL']);
+
+    $captured = null;
+    $service = $this->mock(PromoCodeService::class);
+    $service->shouldReceive('create')
+        ->once()
+        ->andReturnUsing(function (array $data, ?User $actor) use (&$captured, $expected) {
+            $captured = $data;
+
+            return $expected;
+        });
+
+    Livewire::test(CreatePromoCode::class)
+        ->set('data.code', 'pul3')
+        ->set('data.discount_type', PromoCode::TYPE_PERCENTAGE)
+        ->set('data.amount', 20)
+        ->set('data.per_user_limit', 3)
+        ->call('create')
+        ->assertHasNoFormErrors();
+
+    // Loose compare: a numeric TextInput may dehydrate as a string.
+    expect($captured['per_user_limit'])->toEqual(3);
 });
 
 test('creating a promo routes through PromoCodeService with the admin actor', function (): void {

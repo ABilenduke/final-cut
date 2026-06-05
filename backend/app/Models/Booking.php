@@ -21,6 +21,7 @@ use Sqids\Sqids;
  * @property string $confirmation_code
  * @property string $showtime_id
  * @property string|null $user_id
+ * @property int|null $promo_code_id
  * @property string|null $guest_email
  * @property BookingStatus $status
  * @property CarbonInterface|null $flagged_at
@@ -34,9 +35,10 @@ use Sqids\Sqids;
  * @property string|null $idempotency_key
  * @property Showtime $showtime
  * @property User|null $user
+ * @property PromoCode|null $promoCode
  */
 #[Fillable([
-    'confirmation_code', 'showtime_id', 'user_id', 'guest_email',
+    'confirmation_code', 'showtime_id', 'user_id', 'promo_code_id', 'guest_email',
     'status', 'flagged_at', 'flag_reason', 'notes',
     'subtotal', 'discount', 'total', 'payment_method',
     'stripe_payment_intent_id', 'idempotency_key',
@@ -85,6 +87,11 @@ class Booking extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function promoCode(): BelongsTo
+    {
+        return $this->belongsTo(PromoCode::class);
     }
 
     public function seats(): HasMany
