@@ -67,3 +67,9 @@ test('returns 422 for invalid email', function () {
         ->assertUnprocessable()
         ->assertJsonValidationErrors(['email']);
 });
+
+test('contact email longer than 255 is rejected', function () {
+    postJson('/api/contact', validContactPayload(['email' => str_repeat('a', 250).'@example.com']))
+        ->assertStatus(422)
+        ->assertJsonValidationErrors(['email']);
+});

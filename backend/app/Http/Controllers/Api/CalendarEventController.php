@@ -9,16 +9,28 @@ use App\Services\ShowtimeCalendarProjector;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class CalendarEventController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
+        $allowedAccessibilityTags = ['sensory_friendly', 'open_caption', 'audio_described'];
+
         $validated = validator($request->query(), [
             'month' => ['nullable', 'integer', 'between:1,12'],
             'year' => ['nullable', 'integer', 'between:1900,2100'],
-            'type' => ['nullable', 'string'],
-            'accessibility' => ['nullable', 'string'],
+            'type' => ['nullable', Rule::enum(CalendarEventType::class)],
+            // CSV of accessibility tags. Empty segments (a trailing/leading
+            // comma) are skipped to preserve the previous tolerance — the
+            // downstream consume path trims each tag and matches nothing for ''.
+            'accessibility' => ['nullable', 'string', function (string $attribute, mixed $value, callable $fail) use ($allowedAccessibilityTags): void {
+                foreach (array_filter(array_map('trim', explode(',', (string) $value))) as $tag) {
+                    if (! in_array($tag, $allowedAccessibilityTags, true)) {
+                        $fail("The {$attribute} field contains an unsupported tag: {$tag}.");
+                    }
+                }
+            }],
         ])->validate();
 
         $locationSlug = $this->resolveOptionalLocationSlug($request);

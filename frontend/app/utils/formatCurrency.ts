@@ -5,7 +5,9 @@ const formatter = new Intl.NumberFormat('en-US', {
 
 /**
  * Format cents to a dollar string.
- * e.g. 1299 → "$12.99", 0 → "$0.00"
+ * e.g. 1299 → "$12.99", 0 → "$0.00". Negatives pass through deliberately
+ * (-500 → "-$5.00") so discount/refund line items keep their leading minus;
+ * clamp upstream (or use formatCurrencyParts) where a minus must never show.
  */
 export function formatCurrency(cents: number): string {
   return formatter.format(cents / 100)
@@ -13,10 +15,11 @@ export function formatCurrency(cents: number): string {
 
 /**
  * Split cents into the parts UI surfaces typically render in different type
- * styles — a small currency mark, a large whole number with thousands
- * separators, and a small decimal tail. Used by the gift-card visual and
- * order-summary total where currency / decimal are typeset smaller than the
- * dollar amount.
+ * styles — a whole number with thousands separators and a small decimal tail.
+ * Used by the gift-card visual and order-summary total where the decimal is
+ * typeset smaller than the dollar amount. (The "$" mark lives in the template,
+ * not here — this returns only { whole, dec }.) Clamps negatives to 0; its
+ * consumers never display a minus.
  */
 export function formatCurrencyParts(cents: number): { whole: string; dec: string } {
   const safe = Math.max(0, cents)

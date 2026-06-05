@@ -21,7 +21,9 @@ class RegisterRequest extends FormRequest
         return [
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'unique:users', 'max:255'],
-            'password' => ['required', 'confirmed', Password::defaults()],
+            // max:72 — bcrypt silently truncates past 72 bytes; cap it so an
+            // over-long password can't pass a hash-cost DoS or mislead the user.
+            'password' => ['required', 'confirmed', 'max:72', Password::defaults()],
         ];
     }
 

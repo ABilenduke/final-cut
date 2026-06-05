@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Enums\MovieStatus;
 use App\Http\Resources\MovieListResource;
 use App\Http\Resources\MovieResource;
 use App\Http\Resources\ShowtimeResource;
@@ -9,11 +10,19 @@ use App\Models\Location;
 use App\Models\Movie;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class MovieController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
+        // Validate query filters BEFORE resolving the location, so a bad ?status
+        // surfaces its own 422 instead of being masked by a bad-?location 422.
+        validator($request->query(), [
+            'status' => ['nullable', Rule::enum(MovieStatus::class)],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
+        ])->validate();
+
         $locationSlug = $this->resolveOptionalLocationSlug($request);
         if ($locationSlug instanceof JsonResponse) {
             return $locationSlug;

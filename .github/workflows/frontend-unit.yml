@@ -57,4 +57,6 @@ jobs:
         run: npx nuxi prepare
 
       - name: Run tests
-        run: npx vitest run --passWithNoTests
+        # No --passWithNoTests: an accidental zero-discovery (bad glob/config)
+        # must fail CI loudly rather than pass green. (P2 hardening)
+        run: npx vitest run

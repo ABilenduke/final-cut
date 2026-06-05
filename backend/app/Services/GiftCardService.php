@@ -123,6 +123,14 @@ class GiftCardService
         });
     }
 
+    /**
+     * CONTRACT: gift-card codes are case-SENSITIVE. They are generated uppercase
+     * (`GC-XXXXXXXX` via `strtoupper`) and matched verbatim here and in
+     * `GiftCardController::balance`. Do NOT add upper/lowercasing on EITHER side
+     * in isolation — generation and lookup must stay in the same case or codes
+     * stop resolving. If case-insensitive UX is wanted later, normalize BOTH the
+     * generator and every lookup together, and add a lowercase-input test.
+     */
     public function findByCode(string $code): ?GiftCard
     {
         return GiftCard::query()->where('code', $code)->first();

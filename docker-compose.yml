@@ -224,6 +224,15 @@ services:
       backend:
         condition: service_healthy
     restart: unless-stopped
+    # Liveness: the queue worker process is running. pgrep ships in the backend
+    # image (/usr/bin/pgrep); -f matches the full `php artisan queue:work` arg
+    # list. (P2 hardening)
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep -f 'queue:work' > /dev/null || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
 
   # ── Scheduler ────────────────────────────────
   # Runs `php artisan schedule:work` so cron-style entries from
@@ -261,6 +270,13 @@ services:
       backend:
         condition: service_healthy
     restart: unless-stopped
+    # Liveness: the schedule worker is running. (P2 hardening)
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep -f 'schedule:work' > /dev/null || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
 
 volumes:
   nginx-logs:

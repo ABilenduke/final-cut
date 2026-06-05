@@ -451,3 +451,27 @@ test('GET showtimes excludes showtimes from other locations', function () {
         ->assertOk()
         ->assertJsonCount(1, 'data');
 });
+
+test('an invalid ?status is rejected with 422', function () {
+    getJson('/api/movies?status=banana')
+        ->assertStatus(422)
+        ->assertJsonValidationErrors(['status']);
+});
+
+test('an out-of-range ?per_page is rejected with 422', function () {
+    getJson('/api/movies?per_page=999999')
+        ->assertStatus(422)
+        ->assertJsonValidationErrors(['per_page']);
+});
+
+test('a valid ?status still returns 200', function () {
+    getJson('/api/movies?status=coming_soon')->assertOk();
+});
+
+test('a bad ?status is rejected even when ?location is also invalid (validation runs first)', function () {
+    // Pins the ordering: the filter validator precedes location resolution, so
+    // the status 422 is not masked by a bad-location 422.
+    getJson('/api/movies?status=banana&location=nonexistent')
+        ->assertStatus(422)
+        ->assertJsonValidationErrors(['status']);
+});

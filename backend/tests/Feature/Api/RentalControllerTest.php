@@ -101,3 +101,15 @@ test('returns 422 for guest count below 1', function () {
         ->assertUnprocessable()
         ->assertJsonValidationErrors(['guestCount']);
 });
+
+test('rental guestCount above the upper bound is rejected', function () {
+    postJson('/api/rentals/inquiry', validRentalPayload(['guestCount' => 100000]))
+        ->assertStatus(422)
+        ->assertJsonValidationErrors(['guestCount']);
+});
+
+test('rental email longer than 255 is rejected', function () {
+    postJson('/api/rentals/inquiry', validRentalPayload(['email' => str_repeat('a', 250).'@example.com']))
+        ->assertStatus(422)
+        ->assertJsonValidationErrors(['email']);
+});

@@ -117,3 +117,21 @@ test('whitespace-padded CIDR entries are trimmed before matching', function (): 
     expect(fn () => runIpAllowlistMiddleware('203.0.113.50'))->not->toThrow(HttpException::class);
     expect(fn () => runIpAllowlistMiddleware('198.51.100.10'))->not->toThrow(HttpException::class);
 });
+
+test('a request with no resolvable client IP fails closed under a non-empty allowlist', function (): void {
+    // A NON-empty allowlist routes execution PAST the empty-allowlist abort to
+    // the null-IP guard (:69) — asserting the specific warning proves we hit
+    // that branch, not the empty-allowlist one. Pins the fail-closed property.
+    Log::spy();
+    config()->set('admin.ip_allowlist', '203.0.113.0/24');
+
+    $middleware = new AdminIpAllowlist;
+    $request = Request::create('/admin', 'GET');
+    $request->server->remove('REMOTE_ADDR'); // ->ip() resolves to null
+
+    expect(fn () => $middleware->handle($request, fn () => response('ok')))
+        ->toThrow(HttpException::class, 'Access denied');
+
+    Log::shouldHaveReceived('warning')
+        ->withArgs(fn ($message) => str_contains($message, 'no resolvable client IP'));
+});

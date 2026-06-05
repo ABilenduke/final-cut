@@ -806,3 +806,33 @@ test('synthesized event start_time renders the venue-local wall-clock value', fu
     expect($response->json('data.0.startTime'))->not->toContain('02:00');
     expect($response->json('data.0.date'))->toBe('2026-06-15');
 });
+
+test('an unknown ?type is rejected with 422', function () {
+    getJson('/api/calendar/events?month=6&year=2026&type=not_a_type')
+        ->assertStatus(422)
+        ->assertJsonValidationErrors(['type']);
+});
+
+test('a valid ?type still returns 200', function () {
+    getJson('/api/calendar/events?month=6&year=2026&type=special_event')->assertOk();
+});
+
+test('an unknown ?accessibility tag is rejected with 422', function () {
+    getJson('/api/calendar/events?month=6&year=2026&accessibility=sensory_friendly,teleportation')
+        ->assertStatus(422)
+        ->assertJsonValidationErrors(['accessibility']);
+});
+
+test('a valid CSV of ?accessibility tags returns 200', function () {
+    getJson('/api/calendar/events?month=6&year=2026&accessibility=sensory_friendly,open_caption')->assertOk();
+});
+
+test('a trailing comma in ?accessibility is tolerated (empty segment skipped)', function () {
+    getJson('/api/calendar/events?month=6&year=2026&accessibility=sensory_friendly,')->assertOk();
+});
+
+test('whitespace around ?accessibility tags is tolerated', function () {
+    getJson('/api/calendar/events?'.http_build_query([
+        'month' => 6, 'year' => 2026, 'accessibility' => ' sensory_friendly , open_caption ',
+    ]))->assertOk();
+});

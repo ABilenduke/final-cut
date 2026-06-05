@@ -18,9 +18,9 @@ class RentalInquiryRequest extends FormRequest
         return [
             'eventType' => ['required', Rule::enum(RentalEventType::class)],
             'preferredDate' => ['required', 'date', 'after:today'],
-            'guestCount' => ['required', 'integer', 'min:1'],
+            'guestCount' => ['required', 'integer', 'min:1', 'max:1000'],
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'email'],
+            'email' => ['required', 'email', 'max:255'],
             'phone' => ['nullable', 'string', 'max:50'],
             'message' => ['nullable', 'string', 'max:5000'],
         ];

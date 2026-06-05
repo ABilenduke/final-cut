@@ -109,9 +109,12 @@ services:
   mailpit:
     image: axllent/mailpit:v1.29.6
     container_name: mailpit
+    # Bind to loopback so the dev mail UI / SMTP capture isn't exposed to other
+    # hosts on the LAN. In-network access (mailpit:1025 via the service name) is
+    # unaffected by host port mapping. (P2 hardening)
     ports:
-      - "8025:8025"
-      - "1025:1025"
+      - "127.0.0.1:8025:8025"
+      - "127.0.0.1:1025:1025"
     environment:
       MP_SMTP_AUTH_ACCEPT_ANY: 1
       MP_SMTP_AUTH_ALLOW_INSECURE: 1
