@@ -151,5 +151,26 @@ Baseline before any change: **1001 backend tests passing** (after `optimize:clea
 
 ---
 
+## Step 7b: Adversarial review fixes (payment-path hardening)
+**Status:** ✅ Complete
+**Started:** 2026-06-04 **Completed:** 2026-06-04
+
+An 18-agent adversarial review of the Step 7 rewrite surfaced 15 findings; verified + fixed the real ones:
+- **CRITICAL — `Held` booking leak**: store() Phase A bail cases (`return $this->errorResponse(...)` for depleted gift card / missing payment method) *committed* the transaction, leaking the Held booking + seats. New `BookingNotAllowedException` thrown instead → rolls back; caught outside Phase A to shape the error.
+- **CRITICAL — missing `UniqueConstraintViolationException` import** (Pint had stripped it): concurrent same-key insert → fatal 500. Re-added.
+- **HIGH — poisoned retry**: confirm() Phase C refund paths (gift/promo/throwable) left the pending cache alive → retry hit the refunded PI → raw Stripe 400. Now `Cache::forget()` on every refund path (retry → clean 410).
+- **HIGH — concurrent confirm() double-booking**: added a unique index on `bookings.stripe_payment_intent_id` + a dedicated `UniqueConstraintViolationException` catch in confirm() Phase C that replays the winner's booking **without** refunding.
+- **MEDIUM — stale gift-card sizing**: store() Phase A gift-card read now `lockForUpdate()` (lock order showtime → gift_card).
+- **MEDIUM — replay returns unpaid Held as 201**: store() replay (pre-check + unique-violation branch) now filters to `Confirmed`; an in-flight/leaked Held returns 409 "being processed", never a false success.
+- **Compensating control — `bookings:expire-held`** command (scheduled every 10 min) sweeps abandoned Held bookings older than 20 min, self-healing any crash-leak.
+
+**Refuted (no change):** replay-during-3DS double-charge, confirm()-idempotency-pre-check (both refuted by both verifiers). **Deferred to P1:** partial unique index on `booking_seats(showtime_id,seat_id)` — a Postgres partial-index predicate can't reference `bookings.status`, so it needs a trigger/denormalized flag (tracked).
+
+Verification: 4 new tests in `BookingHeldLifecycleTest` (leak, concurrent-key replay, poisoned-retry, sweeper). **Full backend suite: 1020 passed.** Pint clean (381 files).
+
+Files: `BookingController.php`, new `Exceptions/BookingNotAllowedException.php`, new `Console/Commands/ExpireHeldBookings.php`, `routes/console.php`, migration `...200009` (unique stripe_payment_intent_id), `tests/Feature/Api/BookingHeldLifecycleTest.php`.
+
+---
+
 ## Summary
-All 7 P0 steps complete. Backend **1016 passed**, frontend **885 passed**, Pint clean. Steps 1–6 committed at `2ee19a6`; Step 7 follows.
+All 7 P0 steps + adversarial-review hardening complete. Backend **1020 passed**, frontend **885 passed**, Pint clean. Steps 1–6 → `2ee19a6`, Step 7 → `bfe8c26`, review fixes → next commit.

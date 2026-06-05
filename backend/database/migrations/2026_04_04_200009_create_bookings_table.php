@@ -30,7 +30,11 @@ return new class extends Migration
             $table->unsignedInteger('discount')->default(0);
             $table->unsignedInteger('total');
             $table->string('payment_method')->nullable();
-            $table->string('stripe_payment_intent_id')->nullable();
+            // Unique: one booking per captured PaymentIntent. Backstops a
+            // concurrent confirm() of the same intent — the second INSERT fails
+            // and replays the winner's booking instead of double-booking +
+            // refunding a live charge. (Postgres allows many NULLs.)
+            $table->string('stripe_payment_intent_id')->nullable()->unique();
             // Client-supplied request key for booking-store idempotency. Nullable
             // (Postgres allows many NULLs under a unique index) so legacy/keyless
             // requests still insert; a retry that reuses the key replays the

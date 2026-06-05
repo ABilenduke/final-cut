@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Enums\BookingStatus;
 use App\Enums\GiftCardStatus;
 use App\Enums\PaymentMethod;
+use App\Exceptions\BookingNotAllowedException;
 use App\Exceptions\GiftCardBalanceChangedException;
 use App\Exceptions\PromoCodeNotConsumableException;
 use App\Exceptions\SeatConflictException;
@@ -22,6 +23,7 @@ use App\Services\LoyaltyService;
 use App\Services\PromoCodeService;
 use App\Services\SeatAvailabilityService;
 use App\Services\StripeService;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -50,7 +52,13 @@ class BookingController extends Controller
         // instead of creating a second one / capturing a second charge.
         $idempotencyKey = $request->input('idempotencyKey');
         if ($idempotencyKey) {
-            $replay = Booking::where('idempotency_key', $idempotencyKey)->first();
+            // Replay only a COMPLETED booking. A leaked/in-flight Held booking
+            // with this key must NOT be returned as a successful purchase — the
+            // request falls through and hits the unique index, which the catch
+            // below resolves.
+            $replay = Booking::where('idempotency_key', $idempotencyKey)
+                ->where('status', BookingStatus::Confirmed)
+                ->first();
             if ($replay) {
                 $replay->load(self::BOOKING_RELATIONS);
 
@@ -164,21 +172,28 @@ class BookingController extends Controller
                     ? $this->promoCodeService->calculateDiscount($promo, $subtotal)
                     : 0;
 
-                // Read the gift-card balance to size the PaymentIntent. The
-                // actual redemption (and a locked re-validation) happens in
+                // Read the gift-card balance to size the PaymentIntent. Lock the
+                // row (the showtime is already locked, so lock order is always
+                // showtime → gift_card) so a concurrent redemption can't size the
+                // PI against a stale balance. The redemption itself happens in
                 // Phase C after payment succeeds.
                 $giftCard = null;
                 $giftCardAmount = 0;
                 if ($giftCardCode) {
                     $giftCard = GiftCard::where('code', $giftCardCode)
                         ->where('status', GiftCardStatus::Active)
+                        ->lockForUpdate()
                         ->first();
 
+                    // Bail cases below MUST throw (not return): a `return` from a
+                    // DB::transaction closure COMMITS, which would leak the Held
+                    // booking + booking_seats written above. Throwing rolls back.
                     if (! $giftCard || $giftCard->current_balance <= 0) {
-                        return $this->errorResponse([[
-                            'field' => 'giftCardCode',
-                            'message' => 'Gift card is no longer valid or has been depleted.',
-                        ]], 409);
+                        throw new BookingNotAllowedException(
+                            'giftCardCode',
+                            'Gift card is no longer valid or has been depleted.',
+                            409,
+                        );
                     }
 
                     $giftCardAmount = min($giftCard->current_balance, $subtotal - $promoDiscount);
@@ -189,10 +204,11 @@ class BookingController extends Controller
                 $total = $subtotal - $discount;
 
                 if ($cardAmount > 0 && ! $paymentMethodId) {
-                    return $this->errorResponse([[
-                        'field' => 'paymentMethodId',
-                        'message' => 'A payment method is required when the gift card does not cover the full amount.',
-                    ]], 422);
+                    throw new BookingNotAllowedException(
+                        'paymentMethodId',
+                        'A payment method is required when the gift card does not cover the full amount.',
+                        422,
+                    );
                 }
 
                 // Persist the real provisional amounts on the Held booking so
@@ -215,15 +231,24 @@ class BookingController extends Controller
                     'promo_code_id' => $promo?->id,
                 ];
             });
+        } catch (BookingNotAllowedException $e) {
+            // Thrown from Phase A after the Held booking/seats were written — the
+            // transaction has rolled them back. Shape the HTTP error.
+            return $this->errorResponse([['field' => $e->field, 'message' => $e->reason]], $e->status);
         } catch (UniqueConstraintViolationException $e) {
             // Concurrent double-submit of the same Idempotency-Key lost the race
-            // on the unique index — replay the winner's booking.
+            // on the unique index. Only replay a COMPLETED booking; a still-Held
+            // winner (in flight) means "processing" — never report an unpaid Held
+            // booking as a 201 success.
             if ($idempotencyKey) {
                 $existing = Booking::where('idempotency_key', $idempotencyKey)->first();
-                if ($existing) {
+                if ($existing && $existing->status === BookingStatus::Confirmed) {
                     $existing->load(self::BOOKING_RELATIONS);
 
                     return $this->successResponse(new BookingResource($existing), status: 201);
+                }
+                if ($existing) {
+                    return $this->errorResponse([['message' => 'A booking with this key is already being processed. Please wait a moment and try again.']], 409);
                 }
             }
 
@@ -557,24 +582,44 @@ class BookingController extends Controller
 
                 return $booking;
             });
+        } catch (UniqueConstraintViolationException $e) {
+            // A concurrent confirm() for this same PaymentIntent already created
+            // the booking (unique stripe_payment_intent_id). Replay it — do NOT
+            // refund: the charge backs a real, confirmed booking.
+            $existing = Booking::where('stripe_payment_intent_id', $paymentIntentId)->first();
+            if ($existing) {
+                $existing->load(self::BOOKING_RELATIONS);
+                Cache::forget($cacheKey);
+
+                return $this->successResponse(new BookingResource($existing), status: 201);
+            }
+
+            throw $e;
         } catch (GiftCardBalanceChangedException $e) {
             $this->refundOrReport($paymentIntentId);
+            // The captured PI is now refunded — a retry against it would fail at
+            // Stripe with a raw error. Drop the pending state so the customer
+            // gets a clean "session expired, start over" (410) instead.
+            Cache::forget($cacheKey);
 
             return $this->errorResponse([[
                 'field' => 'giftCardCode',
-                'message' => 'Gift card balance changed during payment. Please start over.',
+                'message' => 'Gift card balance changed during payment and your card was refunded. Please start over.',
             ]], 409);
         } catch (PromoCodeNotConsumableException $e) {
             $this->refundOrReport($paymentIntentId);
+            Cache::forget($cacheKey);
 
             return $this->errorResponse([[
                 'field' => 'promoCode',
-                'message' => 'This promo code is no longer redeemable. Please remove it and try again.',
+                'message' => 'This promo code is no longer redeemable and your card was refunded. Please start over.',
             ]], 409);
         } catch (\Throwable $e) {
             // Seat conflict (rare A→C window) or any other post-charge failure:
-            // refund and re-throw (SeatConflictException → global 409).
+            // refund, drop the (now-dead) pending state, and re-throw
+            // (SeatConflictException → global 409).
             $this->refundOrReport($paymentIntentId);
+            Cache::forget($cacheKey);
 
             throw $e;
         }
