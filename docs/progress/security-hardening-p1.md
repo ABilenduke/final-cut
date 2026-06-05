@@ -166,4 +166,19 @@ Grounded against **Filament 5.6.0** this is **refuted**:
 #### Batch E Files Changed
 - Migrations (in place): `..._create_booking_food_items_table.php`, `..._create_booking_seats_table.php`, `..._create_loyalty_adjustments_table.php`, `..._create_promo_codes_table.php`.
 - `backend/database/factories/{BookingFoodItemFactory,PromoCodeFactory}.php`; `backend/app/Models/PromoCode.php`; `backend/app/Services/PromoCodeService.php`; `backend/app/Filament/Resources/PromoCodeResource.php`.
-- Tests: `Database/BookingFoodItemForeignKeyTest.php` (new), `Database/CascadeDeleteProtectionTest.php` (new), `Unit/Admin/PromoCodeServiceTest.php`, `Admin/Services/PromoCodeServiceIntegrationTest.php`, `Admin/Resources/PromoCodeResourceTest.php`, `Api/BookingControllerTest.php`, `Api/BookingHeldLifecycleTest.php`.
+- Tests: `Database/BookingFoodItemForeignKeyTest.php` (new), `Database/CascadeDeleteProtectionTest.php` (new), `Unit/Admin/PromoCodeServiceTest.php`, `Admin/Services/PromoCodeServiceIntegrationTest.php`, `Admin/Resources/PromoCodeResourceTest.php`, `Api/BookingControllerTest.php`, `Api/BookingHeldLifecycleTest.php`, `Admin/LoyaltyAdjustmentTest.php` (existing cascade test rewritten to the new preserve contract).
+
+---
+
+## Batch F — Missing payment-path security tests (no production change)
+
+### Task F1: Non-3DS compensating-refund coverage
+**Status:** ✅ Complete — 2026-06-05
+- store() Phase C runs after capture; the compensating-refund path only had 3DS coverage. New `BookingCompensatingRefundTest`: a partial-gift-card booking (700 charged) with a container-stubbed `GiftCardService::redeemAgainstBooking` that throws → the generic `\Throwable` branch refunds the captured PI, discards the Held booking (Booking count 0), and writes no gift-card ledger entry. Asserts 500 + refund recorded.
+
+### Task F2: Gift-card double-spend (HTTP layer)
+**Status:** ✅ Complete — 2026-06-05
+- New `GiftCardDoubleSpendTest` (race modeled as sequential same-card requests — single connection can't truly parallelize). (a) A card with exactly one seat's balance: booking #1 depletes it; booking #2 with the same depleted code is refused (400 giftCardCode); exactly one redemption ledger row, balance never negative. (b) A 1500 card: booking #1 redeems 1200 (balance 300); booking #2 sizes the redemption against the LIVE 300, charging the remaining 900 on the card (mixed, two ledger rows summing to -1500, balance 0).
+
+#### Batch F Files Changed
+- Tests only: `tests/Feature/Api/BookingCompensatingRefundTest.php` (new), `tests/Feature/Api/GiftCardDoubleSpendTest.php` (new).
