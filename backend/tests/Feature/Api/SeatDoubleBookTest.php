@@ -11,8 +11,10 @@ use function Pest\Laravel\postJson;
  * End-to-end double-book coverage. The DB-level backstop (partial unique index)
  * is exercised by SeatOccupancyTriggerTest + SeatReservationConcurrencyTest;
  * here we prove the HTTP surface returns a clean 409 and — critically — that a
- * seat lost during a 3DS window refunds the capture and leaves no orphaned
- * Confirmed booking.
+ * seat lost during a 3DS window is caught by confirm()'s pre-capture re-check
+ * (409 with NO charge and NO orphaned Confirmed booking). The narrower
+ * post-capture A→C refund path is covered by the index→exception translation in
+ * SeatReservationConcurrencyTest plus the existing 3DS refund-on-409 tests.
  */
 uses(BookingTestHelper::class);
 

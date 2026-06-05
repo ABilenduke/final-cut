@@ -35,8 +35,8 @@ return new class extends Migration
     {
         // 1) Denormalised occupancy flag. NOT NULL (boolean()->default(false)
         //    is is_nullable=NO) so the partial index predicate is never silently
-        //    bypassed by a NULL. Empty at migration time (migrations run before
-        //    seeders), so no backfill is required. Guarded so up() is re-runnable.
+        //    bypassed by a NULL. Existing rows are backfilled below (step 5b).
+        //    Guarded so up() is re-runnable.
         if (! Schema::hasColumn('booking_seats', 'occupies_seat')) {
             Schema::table('booking_seats', function (Blueprint $table): void {
                 $table->boolean('occupies_seat')->default(false)->after('price');
@@ -128,6 +128,20 @@ return new class extends Migration
             CREATE TRIGGER trg_booking_resync_seat_occupies
             AFTER UPDATE OF status ON bookings
             FOR EACH ROW EXECUTE FUNCTION fc_booking_resync_seat_occupies()
+        SQL);
+
+        // 5b) Backfill existing rows so the index reflects reality the instant it
+        //     is created. A no-op on a fresh DB (migrations run before seeders),
+        //     but correct if this additive migration ever runs against a populated
+        //     table (post-launch). Trigger 1 fires on INSERT / UPDATE OF
+        //     booking_id only, so this UPDATE of occupies_seat does NOT recurse;
+        //     occupies_seat is set directly from the parent booking's status.
+        DB::statement(<<<'SQL'
+            UPDATE booking_seats AS bs
+               SET occupies_seat = fc_status_occupies(b.status)
+              FROM bookings AS b
+             WHERE b.id = bs.booking_id
+               AND bs.occupies_seat IS DISTINCT FROM fc_status_occupies(b.status)
         SQL);
 
         // 6) The authoritative TOCTOU backstop. Plain btree partial-unique —
