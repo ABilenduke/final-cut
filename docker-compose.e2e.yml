@@ -119,20 +119,23 @@ services:
     deploy:
       replicas: 0
 
-  # ── Don't let the worker/scheduler liveness healthchecks gate `up --wait` ──
-  # The pgrep healthchecks (docker-compose.yml) are a PRODUCTION liveness/restart
-  # control. They are not needed for the e2e run (the test suite never enqueues
-  # background work), and under the throwaway test config the worker may not stay
-  # continuously healthy — which would fail `--wait`. Disabling them here restores
-  # the pre-hardening behavior (these services had no healthcheck before). The
-  # production healthchecks are unchanged.
+  # ── Exclude the queue worker / scheduler from the e2e stack ────────────────
+  # The Playwright e2e suite drives the frontend against the running stack; it
+  # never depends on background-queue processing or scheduled commands (the
+  # original e2e passed with these running, unhealthchecked, against the
+  # throwaway test DB). The P2 production liveness healthchecks (pgrep) made
+  # `docker compose up --wait` gate on `backend-worker`, and a disabled
+  # healthcheck makes `--wait` error with "no healthcheck configured". Setting
+  # replicas to 0 removes them from the `--wait` set entirely (same pattern as
+  # fail2ban above). The production healthchecks in docker-compose.yml are
+  # unchanged.
   backend-worker:
-    healthcheck:
-      disable: true
+    deploy:
+      replicas: 0
 
   backend-scheduler:
-    healthcheck:
-      disable: true
+    deploy:
+      replicas: 0
 
   # ── Faster healthchecks + permissive rate limits ────
   nginx:
