@@ -6,6 +6,7 @@ use App\Enums\LoyaltyTier;
 use App\Models\AdminProfile;
 use App\Models\User;
 use App\Support\SeederUuid;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 
@@ -23,7 +24,7 @@ class DatabaseSeeder extends Seeder
         // duration of the seed (Model::unguarded restores guarding via finally,
         // so test isolation is preserved) lets the ids land. The global flag
         // also covers every sub-seeder invoked via $this->call() below.
-        \Illuminate\Database\Eloquent\Model::unguarded(fn () => $this->seedAll());
+        Model::unguarded(fn () => $this->seedAll());
     }
 
     private function seedAll(): void
