@@ -12,9 +12,22 @@ class CreateBookingRequest extends FormRequest
         return true;
     }
 
+    protected function prepareForValidation(): void
+    {
+        // Surface the Idempotency-Key header as a validatable field. Always
+        // present (null when the header is absent) so the uuid rule guards the
+        // format whenever a client does send one. The frontend always sends a
+        // fresh UUID per checkout attempt; a retry reusing it replays the
+        // original booking instead of double-charging. (ultrareview P0 #7)
+        $this->merge([
+            'idempotencyKey' => $this->header('Idempotency-Key'),
+        ]);
+    }
+
     public function rules(): array
     {
         return [
+            'idempotencyKey' => ['nullable', 'uuid'],
             'showtimeId' => ['required', 'uuid', 'exists:showtimes,id'],
             'seatIds' => ['required', 'array', 'min:1', 'max:10'],
             'seatIds.*' => ['required', 'uuid', 'distinct', 'exists:seats,id'],

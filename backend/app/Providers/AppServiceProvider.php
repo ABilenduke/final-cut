@@ -14,11 +14,15 @@ use Illuminate\Auth\Events\Failed;
 use Illuminate\Auth\Events\Login;
 use Illuminate\Auth\Events\Logout;
 use Illuminate\Auth\Notifications\ResetPassword;
+use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Contracts\Foundation\Application;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Support\Str;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -35,6 +39,39 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // ── Rate limiters (ultrareview P0 #1) ───────────────────────────────
+        // `auth` guards the unauthenticated, brute-forceable customer endpoints
+        // (login / register / forgot- / reset-password). Two limits compose:
+        // 5/min per ip+email throttles credential-stuffing of a single account,
+        // and 20/min per ip caps password-spraying across many accounts from one
+        // source. The nginx `auth` zone is the edge backstop; this is the
+        // app-layer defense that survives a proxy/topology change.
+        //
+        // The per-minute caps are config-overridable (config/throttle.php, which
+        // reads env so it survives config:cache) so the e2e suite — which logs in
+        // as the same test user many times from one CI IP — isn't throttled. The
+        // defaults are the production-secure values; only docker-compose.e2e.yml
+        // raises them.
+        $authPerEmail = (int) config('throttle.auth_per_email', 5);
+        $authPerIp = (int) config('throttle.auth_per_ip', 20);
+        $publicLookupPerIp = (int) config('throttle.public_lookup_per_ip', 30);
+
+        RateLimiter::for('auth', function (Request $request) use ($authPerEmail, $authPerIp): array {
+            $email = Str::lower((string) $request->input('email'));
+
+            return [
+                Limit::perMinute($authPerEmail)->by($request->ip().'|'.$email),
+                Limit::perMinute($authPerIp)->by((string) $request->ip()),
+            ];
+        });
+
+        // `public-lookup` throttles unauthenticated code-enumeration surfaces
+        // (gift-card balance, booking lookup) that return per-record data keyed
+        // by a guessable code.
+        RateLimiter::for('public-lookup', function (Request $request) use ($publicLookupPerIp): Limit {
+            return Limit::perMinute($publicLookupPerIp)->by((string) $request->ip());
+        });
+
         // Observe MenuItem to invalidate the cross-location food-menu cache on
         // save/delete. Pivot-level invalidation is handled by
         // LocationMenuItemPivot (saved/deleted hooks on the pivot model itself).

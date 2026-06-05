@@ -3,6 +3,7 @@
 namespace Tests\Helpers;
 
 use App\Services\StripeService;
+use Illuminate\Support\Facades\DB;
 use Stripe\Customer;
 use Stripe\Exception\ApiConnectionException;
 use Stripe\Exception\CardException;
@@ -44,6 +45,18 @@ class FakeStripeService extends StripeService
     private string $retrievedPmCustomerId = 'cus_fake_xxx';
 
     public int $createCallCount = 0;
+
+    /**
+     * DB transaction nesting level captured at each network call. The booking
+     * flow must call Stripe OUTSIDE any open transaction (level 0) so a row
+     * lock is never held across Stripe latency. (ultrareview P0 #3)
+     *
+     * @var int[]
+     */
+    public array $createTransactionLevels = [];
+
+    /** @var int[] */
+    public array $confirmTransactionLevels = [];
 
     public function shouldSucceed(): static
     {
@@ -99,6 +112,7 @@ class FakeStripeService extends StripeService
         ?string $receiptEmail = null,
     ): PaymentIntent {
         $this->createCallCount++;
+        $this->createTransactionLevels[] = DB::transactionLevel();
         $this->createdPaymentIntents[] = [
             'amount' => $amount,
             'paymentMethodId' => $paymentMethodId,
@@ -164,6 +178,7 @@ class FakeStripeService extends StripeService
     public function confirmPaymentIntent(string $paymentIntentId): PaymentIntent
     {
         $this->confirmedPaymentIntents[] = ['paymentIntentId' => $paymentIntentId];
+        $this->confirmTransactionLevels[] = DB::transactionLevel();
 
         if ($this->behavior === 'decline') {
             throw CardException::factory(

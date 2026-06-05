@@ -26,6 +26,14 @@ Schedule::command('outbox:dispatch')
 
 Schedule::command('outbox:prune')->daily();
 
+// Self-healing for the booking flow's reserve-then-charge design: sweep away
+// Held bookings whose checkout crashed between reserving seats and finalizing,
+// so leaked reservations can't permanently block seats. Held bookings normally
+// live only seconds, so a 20-minute floor never touches an in-flight checkout.
+Schedule::command('bookings:expire-held')
+    ->everyTenMinutes()
+    ->withoutOverlapping(2);
+
 // Daily floor on content-cache staleness. The version keys also bump on
 // admin writes (FeaturedSlideObserver, MenuItemObserver), and the entries
 // themselves carry a 5-minute TTL, so this is belt-and-suspenders against

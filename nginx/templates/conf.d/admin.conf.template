@@ -58,13 +58,23 @@ server {
     include /etc/nginx/snippets/*.conf;
 
     # ── Security headers ─────────────────────
-    # No CSP here — Filament ships its own inline scripts and asset URLs.
-    # A tight panel-side CSP is a later hardening pass (Plan 09).
     add_header X-Content-Type-Options "nosniff" always;
     add_header X-XSS-Protection       "1; mode=block" always;
     add_header Referrer-Policy        "strict-origin-when-cross-origin" always;
     add_header Permissions-Policy     "camera=(), microphone=(), geolocation=()" always;
     add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    # Enforced clickjacking protection for the admin panel.
+    add_header X-Frame-Options        "SAMEORIGIN" always;
+
+    # ── Content Security Policy (enforced, minimal) ─
+    # Deliberately NO default-src/script-src/style-src: Filament ships inline
+    # scripts and asset URLs, and a tight script policy is a later hardening
+    # pass. Omitting those directives leaves scripts/styles unrestricted (no
+    # default-src fallback to inherit from), so this CANNOT break the panel —
+    # while still ENFORCING the three framing/injection controls that matter
+    # most for an admin surface. `frame-ancestors` is not subject to the
+    # default-src fallback, so it is enforced here regardless.
+    add_header Content-Security-Policy "frame-ancestors 'self'; object-src 'none'; base-uri 'self'" always;
 
     # ── Fail2Ban banned IPs ───────────────────
     include /etc/nginx/banned/banned-ips.conf;
