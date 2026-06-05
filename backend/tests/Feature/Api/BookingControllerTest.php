@@ -1483,3 +1483,29 @@ test('a 3DS redemption that hits the cap during its window is refunded by the co
         ->where('status', BookingStatus::Confirmed)
         ->count())->toBe(0);
 });
+
+test('a prior authed redemption blocks a later guest redemption under the same email', function () {
+    // Reverse of the previous test, and the symmetry gap a security review
+    // flagged: an authed booking has guest_email = null, so a guest checkout
+    // under the same email must resolve the account to count it.
+    perUserPromo();
+    $fixture = $this->createShowtimeWithSeats();
+    $this->fakeStripe()->shouldSucceed();
+
+    $user = User::factory()->create(['email' => 'shared@example.com']);
+    actingAs($user)->postJson($this->bookingUrl($fixture['location']), [
+        'showtimeId' => $fixture['showtime']->id,
+        'seatIds' => [$fixture['seats'][0]->id],
+        'paymentMethodId' => 'pm_test_visa',
+        'promoCode' => 'ONEPER',
+    ])->assertStatus(201);
+
+    // Same person, now checking out as a guest with their account email, can't bypass.
+    postJson($this->bookingUrl($fixture['location']), [
+        'showtimeId' => $fixture['showtime']->id,
+        'seatIds' => [$fixture['seats'][1]->id],
+        'paymentMethodId' => 'pm_test_visa',
+        'promoCode' => 'ONEPER',
+        'email' => 'Shared@Example.com ',
+    ])->assertStatus(400)->assertJsonPath('errors.0.field', 'promoCode');
+});

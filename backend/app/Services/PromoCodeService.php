@@ -298,7 +298,11 @@ class PromoCodeService
                     $query->orWhere('user_id', $identity->userId);
                 }
                 if ($identity->guestEmail !== null) {
-                    $query->orWhereRaw('lower(guest_email) = ?', [mb_strtolower($identity->guestEmail)]);
+                    // strtolower (not mb_strtolower) to match Postgres lower() on the
+                    // stored guest_email — both ASCII-fold, and the identity email is
+                    // already lowercased upstream (CreateBookingRequest / the authed
+                    // account-email path), so this stays consistent end-to-end.
+                    $query->orWhereRaw('lower(guest_email) = ?', [strtolower($identity->guestEmail)]);
                 }
             })
             ->when($identity->excludeBookingId !== null, fn ($query) => $query->where('id', '!=', $identity->excludeBookingId))

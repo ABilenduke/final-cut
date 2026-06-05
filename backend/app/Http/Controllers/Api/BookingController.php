@@ -726,12 +726,18 @@ class BookingController extends Controller
     /**
      * Build the customer identity used to enforce a promo's per_user_limit.
      *
-     * For an authenticated user, the account email is ALSO carried (alongside
-     * the user id) so prior GUEST redemptions under the same email still count —
-     * a guest who later registers can't reset their cap. For a guest, the
-     * canonical guest email (already lowercased+trimmed by CreateBookingRequest)
-     * is the key. `$guestEmail` is ignored when `$userId` is present (the two are
-     * mutually exclusive on a booking row).
+     * The two directions must be SYMMETRIC, or the cap is trivially bypassed:
+     *  - Authenticated user: carry the user id AND the lowercased account email,
+     *    so prior GUEST redemptions under the same email still count (a guest who
+     *    later registers can't reset their cap).
+     *  - Guest: carry the canonical guest email (already lowercased+trimmed by
+     *    CreateBookingRequest) AND, if that email belongs to a registered
+     *    account, that account's user id — so prior AUTHED redemptions (whose
+     *    booking rows have a NULL guest_email) still count. Without this, a
+     *    logged-in redeemer bypasses the cap simply by checking out as a guest.
+     *
+     * `$guestEmail` is ignored when `$userId` is supplied (the two are mutually
+     * exclusive on a booking row).
      */
     private function promoRedemptionIdentity(?string $userId, ?string $guestEmail, ?string $excludeBookingId = null): PromoRedemptionIdentity
     {
@@ -740,6 +746,10 @@ class BookingController extends Controller
             $email = $accountEmail !== null ? strtolower(trim($accountEmail)) : null;
         } else {
             $email = $guestEmail !== null ? strtolower(trim($guestEmail)) : null;
+            if ($email !== null) {
+                // May be null (pure guest email) — then only the guest_email match applies.
+                $userId = User::whereRaw('lower(email) = ?', [$email])->value('id');
+            }
         }
 
         return new PromoRedemptionIdentity(userId: $userId, guestEmail: $email, excludeBookingId: $excludeBookingId);
