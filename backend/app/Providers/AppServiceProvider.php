@@ -57,20 +57,30 @@ class AppServiceProvider extends ServiceProvider
         // and 20/min per ip caps password-spraying across many accounts from one
         // source. The nginx `auth` zone is the edge backstop; this is the
         // app-layer defense that survives a proxy/topology change.
-        RateLimiter::for('auth', function (Request $request): array {
+        //
+        // The per-minute caps are config-overridable (config/throttle.php, which
+        // reads env so it survives config:cache) so the e2e suite — which logs in
+        // as the same test user many times from one CI IP — isn't throttled. The
+        // defaults are the production-secure values; only docker-compose.e2e.yml
+        // raises them.
+        $authPerEmail = (int) config('throttle.auth_per_email', 5);
+        $authPerIp = (int) config('throttle.auth_per_ip', 20);
+        $publicLookupPerIp = (int) config('throttle.public_lookup_per_ip', 30);
+
+        RateLimiter::for('auth', function (Request $request) use ($authPerEmail, $authPerIp): array {
             $email = Str::lower((string) $request->input('email'));
 
             return [
-                Limit::perMinute(5)->by($request->ip().'|'.$email),
-                Limit::perMinute(20)->by((string) $request->ip()),
+                Limit::perMinute($authPerEmail)->by($request->ip().'|'.$email),
+                Limit::perMinute($authPerIp)->by((string) $request->ip()),
             ];
         });
 
         // `public-lookup` throttles unauthenticated code-enumeration surfaces
         // (gift-card balance, booking lookup) that return per-record data keyed
         // by a guessable code.
-        RateLimiter::for('public-lookup', function (Request $request): Limit {
-            return Limit::perMinute(30)->by((string) $request->ip());
+        RateLimiter::for('public-lookup', function (Request $request) use ($publicLookupPerIp): Limit {
+            return Limit::perMinute($publicLookupPerIp)->by((string) $request->ip());
         });
 
         // Observe MenuItem to invalidate the cross-location food-menu cache on

@@ -128,7 +128,7 @@ useHead({
       </div>
     </section>
 
-    <!-- Showtimes + seat preview -->
+    <!-- Showtimes -->
     <section id="showtimes" class="bay movie-page__showtimes-bay">
       <div class="bay-inner">
         <!-- SSR-rendered cross-location showtime selector (Task 6).
@@ -136,7 +136,6 @@ useHead({
              geolocation starting as `idle` on the server (post-hydration it
              re-evaluates if the user has previously granted geolocation). -->
         <ShowtimeSelector :showtimes="showtimes" :movie-slug="movie.slug" />
-        <MovieSeatPreview :movie="movie" />
       </div>
     </section>
 

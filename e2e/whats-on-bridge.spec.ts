@@ -27,20 +27,34 @@ test.describe('What\'s On — Bridge Console', () => {
 
   test('clicking a day cell updates the detail rail', async ({ page }) => {
     const cells = page.locator('.bridge-day-cell:not(.bridge-day-cell--muted)')
-    const firstSelectedNum = await page
+    const initialNum = (await page
       .locator('.bridge-detail-rail .bridge-hero-card__day-num')
-      .textContent()
+      .textContent())?.trim()
 
-    // Click a different non-muted cell — the 5th in-month day.
-    await cells.nth(4).click()
+    // Click the first non-muted cell whose day number differs from the
+    // currently-selected day. A fixed index (e.g. nth(4)) is date-fragile: when
+    // "today" coincides with that index the click is a no-op and the rail never
+    // changes (e.g. on the 5th of a month whose grid starts on a Monday).
+    const count = await cells.count()
+    let clickedNum: string | undefined
+    for (let i = 0; i < count; i++) {
+      const num = (await cells.nth(i).locator('.bridge-day-cell__num').textContent())?.trim()
+      if (num && num !== initialNum) {
+        await cells.nth(i).click()
+        clickedNum = num
+        break
+      }
+    }
+    expect(clickedNum).toBeTruthy()
 
+    // The rail reflects the clicked day (stronger than "merely changed").
     await expect
       .poll(async () =>
         (await page
           .locator('.bridge-detail-rail .bridge-hero-card__day-num')
           .textContent())?.trim(),
       )
-      .not.toBe((firstSelectedNum ?? '').trim())
+      .toBe(clickedNum)
 
     await expect(page).toHaveURL(/[?&]date=\d{4}-\d{2}-\d{2}/)
   })

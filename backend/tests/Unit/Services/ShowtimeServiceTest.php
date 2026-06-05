@@ -355,20 +355,25 @@ test('update acquires a FOR UPDATE row lock on the showtime (TOCTOU guard runs u
         'start_time' => '2026-05-01 19:00:00',
     ]);
 
-    $captured = [];
-    DB::listen(function ($query) use (&$captured): void {
-        $captured[] = strtolower($query->sql);
-    });
+    // Use enableQueryLog (scoped, flushable) rather than DB::listen, which
+    // registers a global listener that can't be unregistered and leaks into
+    // later tests. Mirrors LoyaltyServiceConcurrencyTest.
+    DB::enableQueryLog();
 
-    $this->service->update($showtime, ['start_time' => '2026-05-01 20:00:00']);
+    try {
+        $this->service->update($showtime, ['start_time' => '2026-05-01 20:00:00']);
 
-    $lockedShowtimeReads = array_filter(
-        $captured,
-        fn (string $sql): bool => str_contains($sql, 'for update')
-            && str_contains($sql, 'showtimes'),
-    );
+        $lockedShowtimeReads = collect(DB::getQueryLog())
+            ->pluck('query')
+            ->map(fn (string $sql): string => strtolower($sql))
+            ->filter(fn (string $sql): bool => str_contains($sql, 'for update')
+                && str_contains($sql, 'showtimes'));
 
-    expect($lockedShowtimeReads)->not->toBeEmpty();
+        expect($lockedShowtimeReads)->not->toBeEmpty();
+    } finally {
+        DB::disableQueryLog();
+        DB::flushQueryLog();
+    }
 });
 
 /*

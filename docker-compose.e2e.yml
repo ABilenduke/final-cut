@@ -62,6 +62,12 @@ services:
       # drive SSR fetches from a single frontend-container IP; the 60 rpm
       # default otherwise throttles Nuxt renders and produces 429 pages.
       - API_THROTTLE=10000,1
+      # The named `auth`/`public-lookup` limiters (P0) are otherwise tripped by
+      # the e2e suite logging in as the same test user many times from one IP.
+      # Relaxed here only; production keeps the secure 5/20/30 defaults.
+      - THROTTLE_AUTH_PER_EMAIL=10000
+      - THROTTLE_AUTH_PER_IP=10000
+      - THROTTLE_PUBLIC_LOOKUP=10000
     depends_on:
       postgres:
         condition: service_healthy

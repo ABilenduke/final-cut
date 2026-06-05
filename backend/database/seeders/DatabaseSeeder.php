@@ -5,6 +5,8 @@ namespace Database\Seeders;
 use App\Enums\LoyaltyTier;
 use App\Models\AdminProfile;
 use App\Models\User;
+use App\Support\SeederUuid;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 
@@ -15,11 +17,24 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
+        // Seeders set explicit deterministic `id` values via SeederUuid. Those
+        // keys are NOT in the models' #[Fillable] allowlists, so mass-assignment
+        // would silently strip them and HasUuids would generate random ids —
+        // defeating the whole point of deterministic seeding. Unguarding for the
+        // duration of the seed (Model::unguarded restores guarding via finally,
+        // so test isolation is preserved) lets the ids land. The global flag
+        // also covers every sub-seeder invoked via $this->call() below.
+        Model::unguarded(fn () => $this->seedAll());
+    }
+
+    private function seedAll(): void
+    {
         // Test users — only in local/testing environments
         if (app()->environment('local', 'testing')) {
             User::firstOrCreate(
                 ['email' => 'test@finalcut.test'],
                 [
+                    'id' => SeederUuid::for('user:test@finalcut.test'),
                     'name' => 'Test User',
                     'password' => Hash::make('password'),
                     'email_verified_at' => now(),
@@ -32,6 +47,7 @@ class DatabaseSeeder extends Seeder
             User::firstOrCreate(
                 ['email' => 'member@finalcut.test'],
                 [
+                    'id' => SeederUuid::for('user:member@finalcut.test'),
                     'name' => 'Member User',
                     'password' => Hash::make('password'),
                     'email_verified_at' => now(),
@@ -88,6 +104,7 @@ class DatabaseSeeder extends Seeder
         $user = User::updateOrCreate(
             ['email' => $email],
             [
+                'id' => SeederUuid::for("user:{$email}"),
                 'name' => $name,
                 'password' => $password,
                 'email_verified_at' => now(),
