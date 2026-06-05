@@ -41,8 +41,8 @@ test('full purchase journey from registration to order verification', function (
     $registerResponse = postJson('/api/auth/register', [
         'name' => 'Integration Tester',
         'email' => 'integration@finalcut.test',
-        'password' => 'password123',
-        'password_confirmation' => 'password123',
+        'password' => 'Str0ng-Passw0rd!',
+        'password_confirmation' => 'Str0ng-Passw0rd!',
     ]);
 
     $registerResponse->assertStatus(201);

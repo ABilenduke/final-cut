@@ -23,6 +23,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rules\Password;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -39,6 +40,16 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // ── Password policy (ultrareview P1) ────────────────────────────────
+        // One shared default for every password-accepting surface (register,
+        // reset, profile). The breach check (->uncompromised(), a live HIBP
+        // lookup) runs only in production so tests/CI never hit the network.
+        Password::defaults(function () {
+            $rule = Password::min(12)->mixedCase()->numbers()->symbols();
+
+            return app()->isProduction() ? $rule->uncompromised() : $rule;
+        });
+
         // ── Rate limiters (ultrareview P0 #1) ───────────────────────────────
         // `auth` guards the unauthenticated, brute-forceable customer endpoints
         // (login / register / forgot- / reset-password). Two limits compose:

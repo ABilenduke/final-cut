@@ -66,3 +66,30 @@ Grounded against **Filament 5.6.0** this is **refuted**:
 - `backend/app/Http/Controllers/Api/{MovieController,MovieShowtimesController,ShowtimeController}.php` — error-envelope shape.
 - `backend/app/Http/Controllers/Api/{BookingController,GiftCardController,PaymentMethodController}.php` — Stripe message sanitisation.
 - Tests: `FileUploadValidationTest.php` (new), `LoginTest.php`, `MovieControllerTest.php`, `MovieShowtimesApiTest.php`, `ShowtimeControllerTest.php`, `BookingControllerTest.php`, `GiftCardControllerTest.php`, `PaymentMethodControllerTest.php`.
+
+---
+
+## Batch B — Auth / session hardening
+
+### Task B1: Strong password policy via Password::defaults() + HIBP
+**Status:** ✅ Complete — 2026-06-05
+- Configured one shared policy in `AppServiceProvider::boot()`: `Password::min(12)->mixedCase()->numbers()->symbols()`, with `->uncompromised()` (live HIBP) gated behind `app()->isProduction()` so tests/CI never hit the network. The three surfaces (`RegisterRequest`, `AuthController::resetPassword`, `UpdateProfileRequest`) now use `Password::defaults()` instead of bare `min:8`.
+- AuthController: aliased the rule import (`Password as PasswordRule`) to avoid the `Illuminate\Support\Facades\Password` broker collision; sequenced usage-before-import to dodge Pint's strip-on-unused.
+- Fixture churn: upgraded weak INPUT passwords (`password123`→`Str0ng-Passw0rd!`, `new-password-123`→`N3w-Str0ng-Pass!`, `new-password-456`→`N3w-Pr0file-Pass!`) in AuthControllerTest / AccountProfileTest / PurchaseFlowIntegrationTest. Login-only fixtures untouched (validation doesn't run on login).
+- Tests: 3 complexity-rejection cases (register/reset/profile) + 1 production HIBP case (forces `detectEnvironment('production')` + `Http::fake` on the pwnedpasswords range, computing the breached password's SHA1 suffix in-test).
+
+### Task B2: Password reset invalidates other devices (regression guard)
+**Status:** ✅ Complete — 2026-06-05 (test-only, no code change)
+- Finding partly mooted by reality: the reset callback already rotates `remember_token` AND changes the password hash. `Auth::logoutOtherDevices()` is NOT usable from the guest reset endpoint (no authenticated request). Remember-me cookies die via the token rotation; active sessions die lazily via Sanctum's `AuthenticateSession` hash-mismatch on their next request. No instant Redis sweep (verifier: escalate only if product requires).
+- Added a regression test asserting reset rotates `remember_token` and changes the password hash.
+
+### Task B3: Require current_password to change email
+**Status:** ✅ Complete — 2026-06-05
+- `UpdateProfileRequest`: `current_password` now `Rule::requiredIf(password change OR email change)`. Added `emailIsChanging()` (compares lowercased input vs current email so a pure case-change of the same address is not treated as a change, keeping "keep own email unchanged" green).
+- Tests: email change without current_password → 422; with correct current_password → OK; same-email submit needs none. Updated the two email-only happy-path tests to pass `current_password`.
+
+#### Batch B Files Changed
+- `backend/app/Providers/AppServiceProvider.php` — Password::defaults() policy.
+- `backend/app/Http/Requests/RegisterRequest.php`, `UpdateProfileRequest.php` — Password::defaults() + email current_password rule.
+- `backend/app/Http/Controllers/Api/AuthController.php` — reset uses Password::defaults() (aliased import).
+- Tests: `AuthControllerTest.php`, `AccountProfileTest.php`, `PurchaseFlowIntegrationTest.php`.

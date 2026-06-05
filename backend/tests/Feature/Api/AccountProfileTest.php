@@ -145,6 +145,7 @@ test('update profile updates email only', function () {
 
     $response = actingAs($user)->patchJson('/api/account/profile', [
         'email' => 'new@finalcut.test',
+        'current_password' => 'password',
     ]);
 
     $response->assertOk()
@@ -159,12 +160,36 @@ test('update profile allows keeping own email unchanged', function () {
         'email' => 'jane@finalcut.test',
     ]);
 
+    // Same email → not "changing" → no current_password required.
     $response = actingAs($user)->patchJson('/api/account/profile', [
         'email' => 'jane@finalcut.test',
     ]);
 
     $response->assertOk()
         ->assertJsonPath('data.email', 'jane@finalcut.test');
+});
+
+test('update profile requires current_password to change email (account-takeover hardening)', function () {
+    $user = User::factory()->create(['email' => 'jane@finalcut.test']);
+
+    actingAs($user)->patchJson('/api/account/profile', [
+        'email' => 'changed@finalcut.test',
+    ])->assertStatus(422)
+        ->assertJsonValidationErrors('current_password');
+
+    expect($user->fresh()->email)->toBe('jane@finalcut.test');
+});
+
+test('update profile changes email with the correct current_password', function () {
+    $user = User::factory()->create(['email' => 'jane@finalcut.test']); // factory password = 'password'
+
+    actingAs($user)->patchJson('/api/account/profile', [
+        'email' => 'changed@finalcut.test',
+        'current_password' => 'password',
+    ])->assertOk()
+        ->assertJsonPath('data.email', 'changed@finalcut.test');
+
+    expect($user->fresh()->email)->toBe('changed@finalcut.test');
 });
 
 test('update profile rejects email already taken by another user', function () {
@@ -196,6 +221,7 @@ test('update profile stores email as lowercase', function () {
 
     $response = actingAs($user)->patchJson('/api/account/profile', [
         'email' => 'User@FinalCut.Test',
+        'current_password' => 'password',
     ]);
 
     $response->assertOk();
@@ -267,26 +293,37 @@ test('update profile updates password when current_password is correct', functio
 
     $response = actingAs($user)->patchJson('/api/account/profile', [
         'current_password' => 'old-password-123',
-        'password' => 'new-password-456',
-        'password_confirmation' => 'new-password-456',
+        'password' => 'N3w-Pr0file-Pass!',
+        'password_confirmation' => 'N3w-Pr0file-Pass!',
     ]);
 
     $response->assertOk();
 
     $user->refresh();
-    expect(Hash::check('new-password-456', $user->password))->toBeTrue();
+    expect(Hash::check('N3w-Pr0file-Pass!', $user->password))->toBeTrue();
 });
 
 test('update profile rejects password change without current_password', function () {
     $user = User::factory()->create();
 
     $response = actingAs($user)->patchJson('/api/account/profile', [
-        'password' => 'new-password-456',
-        'password_confirmation' => 'new-password-456',
+        'password' => 'N3w-Pr0file-Pass!',
+        'password_confirmation' => 'N3w-Pr0file-Pass!',
     ]);
 
     $response->assertStatus(422)
         ->assertJsonValidationErrors('current_password');
+});
+
+test('update profile rejects a long but non-complex new password', function () {
+    $user = User::factory()->create(['password' => 'correct-password']);
+
+    actingAs($user)->patchJson('/api/account/profile', [
+        'current_password' => 'correct-password',
+        'password' => 'alllowercaseee',
+        'password_confirmation' => 'alllowercaseee',
+    ])->assertStatus(422)
+        ->assertJsonValidationErrors('password');
 });
 
 test('update profile rejects password change with wrong current_password', function () {
@@ -296,8 +333,8 @@ test('update profile rejects password change with wrong current_password', funct
 
     $response = actingAs($user)->patchJson('/api/account/profile', [
         'current_password' => 'wrong-password',
-        'password' => 'new-password-456',
-        'password_confirmation' => 'new-password-456',
+        'password' => 'N3w-Pr0file-Pass!',
+        'password_confirmation' => 'N3w-Pr0file-Pass!',
     ]);
 
     $response->assertStatus(422)
@@ -326,7 +363,7 @@ test('update profile requires password_confirmation when password provided', fun
 
     $response = actingAs($user)->patchJson('/api/account/profile', [
         'current_password' => 'old-password-123',
-        'password' => 'new-password-456',
+        'password' => 'N3w-Pr0file-Pass!',
     ]);
 
     $response->assertStatus(422)
