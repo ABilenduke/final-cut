@@ -458,10 +458,10 @@ test('an invalid ?status is rejected with 422', function () {
         ->assertJsonValidationErrors(['status']);
 });
 
-test('an out-of-range ?per_page is rejected with 422', function () {
-    getJson('/api/movies?per_page=999999')
-        ->assertStatus(422)
-        ->assertJsonValidationErrors(['per_page']);
+test('a large ?per_page is clamped, not 422 (internal callers like the sitemap rely on this)', function () {
+    // The sitemap source requests /api/movies?per_page=500; per_page is CLAMPED
+    // to 100, never 422'd, so the sitemap still gets its dynamic URLs.
+    getJson('/api/movies?per_page=500')->assertOk();
 });
 
 test('a valid ?status still returns 200', function () {

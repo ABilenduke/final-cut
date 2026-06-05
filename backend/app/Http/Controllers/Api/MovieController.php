@@ -16,11 +16,14 @@ class MovieController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        // Validate query filters BEFORE resolving the location, so a bad ?status
+        // Validate ?status BEFORE resolving the location, so a bad status
         // surfaces its own 422 instead of being masked by a bad-?location 422.
+        // NOTE: per_page is intentionally NOT validated here — it is CLAMPED
+        // below. Internal high-volume callers (the sitemap source requests
+        // per_page=500) rely on the long-standing clamp; 422-ing a large value
+        // would silently drop every dynamic URL from sitemap.xml.
         validator($request->query(), [
             'status' => ['nullable', Rule::enum(MovieStatus::class)],
-            'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
         ])->validate();
 
         $locationSlug = $this->resolveOptionalLocationSlug($request);
