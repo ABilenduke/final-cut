@@ -282,13 +282,18 @@ class BookingController extends Controller
                     $receiptEmail,
                 );
             } catch (CardException $e) {
+                // Stripe card-decline messages are designed to be surfaced to the
+                // cardholder (e.g. "Your card was declined"), so they pass through.
                 $this->discardHeldBooking($booking);
 
                 return $this->errorResponse([['field' => 'payment', 'message' => $e->getMessage()]], 402);
             } catch (InvalidRequestException $e) {
+                // Integration-facing message (param names, ids) — never leak to the
+                // client; log it for operators and return a generic error.
+                report($e);
                 $this->discardHeldBooking($booking);
 
-                return $this->errorResponse([['field' => 'payment', 'message' => $e->getMessage()]], 400);
+                return $this->errorResponse([['field' => 'payment', 'message' => 'We could not process your payment. Please try again or contact support.']], 400);
             } catch (ApiErrorException $e) {
                 $this->discardHeldBooking($booking);
                 report($e);
@@ -514,9 +519,12 @@ class BookingController extends Controller
                 return $this->errorResponse([['field' => 'payment', 'message' => 'Payment confirmation failed.']], 402);
             }
         } catch (CardException $e) {
+            // Card-decline messages are intended for the cardholder — pass through.
             return $this->errorResponse([['field' => 'payment', 'message' => $e->getMessage()]], 402);
         } catch (InvalidRequestException $e) {
-            return $this->errorResponse([['field' => 'payment', 'message' => $e->getMessage()]], 400);
+            report($e);
+
+            return $this->errorResponse([['field' => 'payment', 'message' => 'We could not process your payment. Please try again or contact support.']], 400);
         } catch (ApiErrorException $e) {
             report($e);
 

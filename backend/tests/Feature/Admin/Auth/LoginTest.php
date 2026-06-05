@@ -5,6 +5,7 @@ use App\Models\User;
 use Illuminate\Auth\Events\Login;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Str;
 
 beforeEach(function (): void {
     $this->adminHost = config('filament.admin_domain');
@@ -166,4 +167,38 @@ test('login listener does not stamp last_login on a disabled admin profile', fun
     $profile = $user->fresh()->adminProfile;
     expect($profile->disabled_at)->not->toBeNull();
     expect($profile->last_login_at)->toBeNull();
+});
+
+// Defense-in-depth: the admin provider must reject a non-admin / disabled-admin
+// at session resume (retrieveById) and remember-me (retrieveByToken), not only
+// at credential time. The canAccessPanel() per-request check is the primary
+// control; this scopes the provider layer too.
+test('admin provider retrieveById returns null for non-admins and disabled admins', function (): void {
+    $provider = Auth::guard('admin')->getProvider();
+
+    $customer = User::factory()->create();
+    expect($provider->retrieveById($customer->id))->toBeNull();
+
+    $admin = User::factory()->admin()->create();
+    expect($provider->retrieveById($admin->id))->not->toBeNull();
+
+    $disabled = User::factory()->admin()->disabled()->create();
+    expect($provider->retrieveById($disabled->id))->toBeNull();
+});
+
+test('admin provider retrieveByToken returns null for non-admins and disabled admins', function (): void {
+    $provider = Auth::guard('admin')->getProvider();
+    $token = Str::random(60);
+
+    $customer = User::factory()->create();
+    $customer->forceFill(['remember_token' => $token])->save();
+    expect($provider->retrieveByToken($customer->id, $token))->toBeNull();
+
+    $admin = User::factory()->admin()->create();
+    $admin->forceFill(['remember_token' => $token])->save();
+    expect($provider->retrieveByToken($admin->id, $token))->not->toBeNull();
+
+    $disabled = User::factory()->admin()->disabled()->create();
+    $disabled->forceFill(['remember_token' => $token])->save();
+    expect($provider->retrieveByToken($disabled->id, $token))->toBeNull();
 });

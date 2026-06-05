@@ -167,3 +167,63 @@ test('a user with only loyalty.adjust_tier cannot see adjust_points', function (
         ->assertActionVisible('upgrade_premier')
         ->assertActionHidden('revoke_premier');
 });
+
+/*
+|--------------------------------------------------------------------------
+| Privilege-escalation regression guards.
+|
+| The ultrareview P1 finding claimed loyalty header actions are gated by
+| ->visible() "which only hides; a direct Livewire call can still invoke".
+| Grounded against Filament 5.6.0 this is REFUTED: Action::isHidden()
+| folds the ->visible() predicate into the same gate as authorization, and
+| a hidden/unauthorized mounted action cannot be invoked. These tests prove
+| the enforcement holds even for the strongest attack — a crafted Livewire
+| payload that sets `mountedActions` directly and calls `callMountedAction`,
+| bypassing the polite mountAction handshake. They fail RED if anyone ever
+| weakens the ->visible() permission gate (e.g. to a record-state-only
+| predicate), so the escalation gap can never silently open.
+|--------------------------------------------------------------------------
+*/
+
+test('a users.view-only admin cannot run adjust_points via a crafted Livewire payload', function (): void {
+    /** @var User $actor */
+    $actor = User::factory()->admin()->create();
+    $actor->givePermissionTo(Permission::findByName('users.view', 'admin')); // no loyalty perms
+    $this->actingAs($actor, 'admin');
+
+    $member = User::factory()->create(['loyalty_points' => 100]);
+
+    Livewire::test(ViewUser::class, ['record' => $member->id])
+        ->set('mountedActions', [[
+            'name' => 'adjust_points',
+            'arguments' => [],
+            'context' => [],
+            'data' => ['points_delta' => 500, 'reason' => 'crafted escalation attempt!!'],
+        ]])
+        ->call('callMountedAction');
+
+    expect($member->fresh()->loyalty_points)->toBe(100);
+    expect(LoyaltyAdjustment::where('user_id', $member->id)->count())->toBe(0);
+});
+
+test('a points-only admin cannot run upgrade_premier via a crafted Livewire payload', function (): void {
+    /** @var User $actor */
+    $actor = User::factory()->admin()->create();
+    $actor->givePermissionTo(Permission::findByName('users.view', 'admin'));
+    $actor->givePermissionTo(Permission::findByName('loyalty.adjust_points', 'admin')); // points, NOT tier
+    $this->actingAs($actor, 'admin');
+
+    $member = User::factory()->create(['loyalty_tier' => LoyaltyTier::Member]);
+
+    Livewire::test(ViewUser::class, ['record' => $member->id])
+        ->set('mountedActions', [[
+            'name' => 'upgrade_premier',
+            'arguments' => [],
+            'context' => [],
+            'data' => ['expiry' => now()->addYear()->toDateString(), 'reason' => 'crafted tier escalation!!'],
+        ]])
+        ->call('callMountedAction');
+
+    expect($member->fresh()->loyalty_tier)->toBe(LoyaltyTier::Member);
+    expect(LoyaltyAdjustment::where('user_id', $member->id)->count())->toBe(0);
+});

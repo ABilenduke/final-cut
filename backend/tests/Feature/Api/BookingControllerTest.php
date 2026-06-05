@@ -12,7 +12,9 @@ use App\Models\MenuItem;
 use App\Models\PromoCode;
 use App\Models\User;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Exceptions;
 use Illuminate\Support\Str;
+use Stripe\Exception\InvalidRequestException;
 use Tests\Helpers\BookingTestHelper;
 
 use function Pest\Laravel\actingAs;
@@ -288,9 +290,10 @@ test('non-terminal payment status returns 402 and does not create booking', func
         ->where('status', BookingStatus::Confirmed)->count())->toBe(0);
 });
 
-test('invalid payment method returns 400', function () {
+test('invalid payment method returns a generic 400 without leaking the raw Stripe message', function () {
+    Exceptions::fake();
     $fixture = $this->createShowtimeWithSeats();
-    $this->fakeStripe()->shouldFailWithInvalidRequest('No such payment method: pm_expired');
+    $this->fakeStripe()->shouldFailWithInvalidRequest('No such payment method: pm_expired_secret_xyz');
 
     $response = postJson($this->bookingUrl($fixture['location']), [
         'showtimeId' => $fixture['showtime']->id,
@@ -301,10 +304,17 @@ test('invalid payment method returns 400', function () {
 
     $response->assertStatus(400);
     expect($response->json('errors.0.field'))->toBe('payment')
-        ->and($response->json('errors.0.message'))->toContain('No such payment method');
+        ->and($response->json('errors.0.message'))->not->toContain('No such payment method')
+        ->and($response->json('errors.0.message'))->not->toContain('pm_expired_secret_xyz')
+        ->and($response->json('errors.0.message'))->toContain('could not process your payment');
 
+    // The real error is logged for operators, not the customer.
+    Exceptions::assertReported(InvalidRequestException::class);
+
+    // Held booking discarded — no Confirmed booking, no orphaned Held.
     expect(Booking::where('showtime_id', $fixture['showtime']->id)
         ->where('status', BookingStatus::Confirmed)->count())->toBe(0);
+    expect(Booking::where('showtime_id', $fixture['showtime']->id)->count())->toBe(0);
 });
 
 test('stripe service unavailable returns 502', function () {

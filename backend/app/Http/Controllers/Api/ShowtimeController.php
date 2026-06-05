@@ -22,7 +22,7 @@ class ShowtimeController extends Controller
             ->find($id);
 
         if (! $showtime) {
-            return $this->errorResponse(['message' => 'Showtime not found'], 404);
+            return $this->errorResponse([['message' => 'Showtime not found']], 404);
         }
 
         // Single query: all seat IDs taken by an occupying booking on this

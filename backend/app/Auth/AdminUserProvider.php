@@ -21,6 +21,16 @@ class AdminUserProvider extends EloquentUserProvider
         return $this->scopeToActiveAdmin(parent::retrieveByCredentials($credentials));
     }
 
+    public function retrieveById($identifier)
+    {
+        return $this->scopeToActiveAdmin(parent::retrieveById($identifier));
+    }
+
+    public function retrieveByToken($identifier, $token)
+    {
+        return $this->scopeToActiveAdmin(parent::retrieveByToken($identifier, $token));
+    }
+
     private function scopeToActiveAdmin(?Authenticatable $user): ?User
     {
         if (! $user instanceof User) {

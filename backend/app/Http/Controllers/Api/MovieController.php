@@ -49,7 +49,7 @@ class MovieController extends Controller
         $movie = Movie::where('slug', $slug)->first();
 
         if (! $movie) {
-            return $this->errorResponse(['message' => 'Movie not found'], 404);
+            return $this->errorResponse([['message' => 'Movie not found']], 404);
         }
 
         return $this->successResponse(new MovieResource($movie));
@@ -60,7 +60,7 @@ class MovieController extends Controller
         $movie = Movie::where('slug', $slug)->first();
 
         if (! $movie) {
-            return $this->errorResponse(['message' => 'Movie not found'], 404);
+            return $this->errorResponse([['message' => 'Movie not found']], 404);
         }
 
         // Validate the optional date query param — without this an

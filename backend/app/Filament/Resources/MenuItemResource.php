@@ -67,8 +67,11 @@ class MenuItemResource extends BaseResource
                     Textarea::make('description')->rows(3),
                     FileUpload::make('image_url')
                         ->image()
+                        ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp'])
+                        ->maxSize(5120) // 5 MB; raster-only — SVG excluded (XML → stored XSS off the public disk)
                         ->directory('menu-items')
                         ->disk('public')
+                        ->visibility('public')
                         ->imageEditor(),
                     TextInput::make('price')
                         ->numeric()

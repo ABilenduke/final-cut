@@ -4,7 +4,9 @@ use App\Enums\GiftCardLedgerType;
 use App\Models\GiftCard;
 use App\Models\GiftCardLedgerEntry;
 use App\Services\StripeService;
+use Illuminate\Support\Facades\Exceptions;
 use Illuminate\Support\Str;
+use Stripe\Exception\InvalidRequestException;
 use Tests\Helpers\FakeStripeService;
 
 use function Pest\Laravel\getJson;
@@ -213,12 +215,24 @@ test('purchase returns 402 when card is declined', function () {
     expect(GiftCard::count())->toBe(0);
 });
 
-test('purchase returns 400 for invalid payment method', function () {
-    fakeGiftCardStripe()->shouldFailWithInvalidRequest();
+test('purchase returns a generic 400 for an invalid Stripe request and replays it sanitised', function () {
+    Exceptions::fake();
+    fakeGiftCardStripe()->shouldFailWithInvalidRequest('No such payment method: pm_secret_leak');
 
-    postJson('/api/gift-cards/purchase', validPurchasePayload(), idempotencyHeader())
+    $header = idempotencyHeader();
+    $first = postJson('/api/gift-cards/purchase', validPurchasePayload(), $header)
         ->assertStatus(400)
         ->assertJsonPath('errors.0.field', 'payment');
+    expect($first->json('errors.0.message'))->not->toContain('No such payment method')
+        ->and($first->json('errors.0.message'))->toContain('could not process your payment');
+
+    Exceptions::assertReported(InvalidRequestException::class);
+
+    // Idempotent replay must return the same SANITISED message from cache.
+    $replay = postJson('/api/gift-cards/purchase', validPurchasePayload(), $header)
+        ->assertStatus(400);
+    expect($replay->json('errors.0.message'))->not->toContain('No such payment method')
+        ->and($replay->json('errors.0.message'))->toContain('could not process your payment');
 
     expect(GiftCard::count())->toBe(0);
 });

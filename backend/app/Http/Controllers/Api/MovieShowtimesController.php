@@ -33,7 +33,7 @@ class MovieShowtimesController extends Controller
         $movie = Movie::where('slug', $slug)->first();
 
         if (! $movie) {
-            return $this->errorResponse(['message' => 'Movie not found'], 404);
+            return $this->errorResponse([['message' => 'Movie not found']], 404);
         }
 
         $validated = $request->validate([
