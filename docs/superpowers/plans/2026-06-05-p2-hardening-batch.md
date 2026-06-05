@@ -10,6 +10,9 @@
 > - **HSTS preload SHIPS** (the dossier marked "GROUP F1 — CUT"). The user explicitly chose the widest scope; the `preload` token is added to both vhosts, documented as inert until the manual hstspreload.org submission.
 > - **Healthchecks use `pgrep -f '[q]ueue:work'` / `'[s]chedule:work'`**, NOT the dossier's `pidof`. `pgrep` is BusyBox-provided in the php-alpine base (no `procps`), and the `[q]`/`[s]` bracket trick avoids the healthcheck shell self-matching. The prod healthchecks are disabled in the e2e overlay so they don't gate `up --wait`.
 > - **safeJsonLd test-matrix**: the `&` case asserts the ESCAPED output `{"x":"a & b"}` (the dossier's matrix line showed the pre-escape string).
+> - **`?per_page` is CLAMPED, not validated** (the dossier's A1 added a `per_page max:100` 422). The sitemap source (`frontend/server/api/__sitemap__/urls.get.ts`) fetches `/api/movies?per_page=500`; a 422 dropped every movie URL from sitemap.xml. MovieController validates ONLY `?status`; `per_page` keeps its long-standing clamp.
+>
+> Several embedded lines below (the "What SHIPS"/"CUT" summary, test-matrix, group descriptions) reflect the ORIGINAL dossier design, not the shipped code — they are kept as the design-history record; this note + `docs/progress/p2-hardening-batch.md` are authoritative for what actually shipped.
 
 ---
 
