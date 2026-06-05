@@ -224,9 +224,12 @@ services:
       backend:
         condition: service_healthy
     restart: unless-stopped
-    # Liveness: the queue worker process is running. pgrep ships in the backend
-    # image (/usr/bin/pgrep); -f matches the full `php artisan queue:work` arg
-    # list. The `[q]` bracket is REQUIRED: a bare 'queue:work' pattern would also
+    # Liveness: the queue worker process is running. `pgrep` is provided by
+    # BusyBox (v1.37+) in the php:*-alpine base of BOTH the production and
+    # development stages — no `procps` package is needed; verified
+    # `pgrep -f` works in a `--target production` build. -f matches the full
+    # `php artisan queue:work` arg list. The `[q]` bracket is REQUIRED: a bare
+    # 'queue:work' pattern would also
     # match this healthcheck's own shell (its argv contains the literal text), so
     # it could never report unhealthy. `[q]ueue:work` matches the real worker
     # cmdline but not the literal `[q]ueue:work` written here. (P2 hardening)

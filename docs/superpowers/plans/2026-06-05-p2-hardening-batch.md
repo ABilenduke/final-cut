@@ -6,6 +6,11 @@
 
 **Tech Stack:** Laravel 13 (PHP 8.4, Pest) · PostgreSQL 18 · Nuxt 4 (Vitest) · Docker Compose · Filament 5
 
+> **Implementation deviations from this dossier (authoritative = the shipped code + `docs/progress/p2-hardening-batch.md`):**
+> - **HSTS preload SHIPS** (the dossier marked "GROUP F1 — CUT"). The user explicitly chose the widest scope; the `preload` token is added to both vhosts, documented as inert until the manual hstspreload.org submission.
+> - **Healthchecks use `pgrep -f '[q]ueue:work'` / `'[s]chedule:work'`**, NOT the dossier's `pidof`. `pgrep` is BusyBox-provided in the php-alpine base (no `procps`), and the `[q]`/`[s]` bracket trick avoids the healthcheck shell self-matching. The prod healthchecks are disabled in the e2e overlay so they don't gate `up --wait`.
+> - **safeJsonLd test-matrix**: the `&` case asserts the ESCAPED output `{"x":"a & b"}` (the dossier's matrix line showed the pre-escape string).
+
 ---
 
 

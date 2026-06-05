@@ -119,6 +119,21 @@ services:
     deploy:
       replicas: 0
 
+  # ── Don't let the worker/scheduler liveness healthchecks gate `up --wait` ──
+  # The pgrep healthchecks (docker-compose.yml) are a PRODUCTION liveness/restart
+  # control. They are not needed for the e2e run (the test suite never enqueues
+  # background work), and under the throwaway test config the worker may not stay
+  # continuously healthy — which would fail `--wait`. Disabling them here restores
+  # the pre-hardening behavior (these services had no healthcheck before). The
+  # production healthchecks are unchanged.
+  backend-worker:
+    healthcheck:
+      disable: true
+
+  backend-scheduler:
+    healthcheck:
+      disable: true
+
   # ── Faster healthchecks + permissive rate limits ────
   nginx:
     volumes:

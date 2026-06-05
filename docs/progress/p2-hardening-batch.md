@@ -24,7 +24,7 @@ User scope decision: **widest** ("everything actionable + infra"). The design wo
 
 ### Infra / CI
 - **F2** — Mailpit host ports bound to `127.0.0.1` (in-network `mailpit:1025` unaffected).
-- **F4** — `backend-worker` / `backend-scheduler` healthchecks via `pgrep -f 'queue:work'` / `'schedule:work'` (verified `pgrep` ships in the backend image — the dossier's "no pgrep" concern was wrong for this image).
+- **F4** — `backend-worker` / `backend-scheduler` healthchecks via `pgrep -f '[q]ueue:work'` / `'[s]chedule:work'`. `pgrep` is **BusyBox-provided** in the php-alpine base (no `procps` needed; verified `pgrep -f` works in a `--target production` build). See the adversarial-review fixes below for the bracket-trick + e2e-overlay nuance.
 - **F5** — dropped `--passWithNoTests` from the frontend-unit CI step (zero-discovery now fails loudly).
 - **HSTS `preload`** — added the directive to both nginx vhosts (the user's explicit infra choice), documented as INERT until manual submission to hstspreload.org (the irreversible go-live step).
 
@@ -37,6 +37,7 @@ User scope decision: **widest** ("everything actionable + infra"). The design wo
 
 ### Adversarial-review fixes (post-PR)
 - **H1 (HIGH):** the F4 healthchecks used `pgrep -f 'queue:work'`, which self-matches the healthcheck shell's own argv → always healthy, never restarts a dead worker. Fixed with the `[q]ueue:work` / `[s]chedule:work` bracket trick (verified: matches the real cmdline, skips the shell).
+- **E2E `up --wait` regression:** the new worker healthcheck made `docker compose up --wait` gate on `backend-worker` liveness, and that container is not continuously healthy under the throwaway e2e config → `container backend-worker is unhealthy` failed CI. Fixed by disabling the worker/scheduler healthchecks in `docker-compose.e2e.yml` (the production healthchecks are unchanged; e2e never enqueues background work). Copilot's "`pgrep` absent (no `procps`)" was incorrect — it's BusyBox-provided and verified working in a `--target production` build.
 - **M2:** `MovieController` validated `$request->query()` but consumed `$request->input()` (a GET body could slip an unvalidated value past). Now consumes `query()`.
 - **M1:** corrected the `max:72` password comment — Laravel's `max` counts characters (`mb_strlen`), not bcrypt's 72 bytes; the cap is still a sound DoS bound.
 
