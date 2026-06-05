@@ -226,9 +226,12 @@ services:
     restart: unless-stopped
     # Liveness: the queue worker process is running. pgrep ships in the backend
     # image (/usr/bin/pgrep); -f matches the full `php artisan queue:work` arg
-    # list. (P2 hardening)
+    # list. The `[q]` bracket is REQUIRED: a bare 'queue:work' pattern would also
+    # match this healthcheck's own shell (its argv contains the literal text), so
+    # it could never report unhealthy. `[q]ueue:work` matches the real worker
+    # cmdline but not the literal `[q]ueue:work` written here. (P2 hardening)
     healthcheck:
-      test: ["CMD-SHELL", "pgrep -f 'queue:work' > /dev/null || exit 1"]
+      test: ["CMD-SHELL", "pgrep -f '[q]ueue:work' > /dev/null || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -270,9 +273,10 @@ services:
       backend:
         condition: service_healthy
     restart: unless-stopped
-    # Liveness: the schedule worker is running. (P2 hardening)
+    # Liveness: the schedule worker is running. `[s]` bracket avoids the
+    # healthcheck shell matching itself (see backend-worker). (P2 hardening)
     healthcheck:
-      test: ["CMD-SHELL", "pgrep -f 'schedule:work' > /dev/null || exit 1"]
+      test: ["CMD-SHELL", "pgrep -f '[s]chedule:work' > /dev/null || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 3

@@ -28,8 +28,11 @@ class MovieController extends Controller
             return $locationSlug;
         }
 
-        $status = $request->input('status', 'now_showing');
-        $perPage = min(max((int) $request->input('per_page', 20), 1), 100);
+        // Read from query() (the validated bag). input() would merge a GET body
+        // with precedence, letting an unvalidated body value slip past the
+        // query-bag validator above.
+        $status = $request->query('status', 'now_showing');
+        $perPage = min(max((int) $request->query('per_page', 20), 1), 100);
 
         $query = Movie::where('status', $status)->orderBy('title');
 

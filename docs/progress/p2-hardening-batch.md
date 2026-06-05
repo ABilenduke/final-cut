@@ -35,5 +35,10 @@ User scope decision: **widest** ("everything actionable + infra"). The design wo
 - **G2 (drop users.email plain index)** — used by case-sensitive `where('email', …)` lookups; not dead weight.
 - **F1-as-irreversible / Postgres `listen_addresses`** — `listen_addresses='*'` is the in-container interface (host already 127.0.0.1-locked); narrowing breaks every DB connection.
 
+### Adversarial-review fixes (post-PR)
+- **H1 (HIGH):** the F4 healthchecks used `pgrep -f 'queue:work'`, which self-matches the healthcheck shell's own argv → always healthy, never restarts a dead worker. Fixed with the `[q]ueue:work` / `[s]chedule:work` bracket trick (verified: matches the real cmdline, skips the shell).
+- **M2:** `MovieController` validated `$request->query()` but consumed `$request->input()` (a GET body could slip an unvalidated value past). Now consumes `query()`.
+- **M1:** corrected the `max:72` password comment — Laravel's `max` counts characters (`mb_strlen`), not bcrypt's 72 bytes; the cap is still a sound DoS bound.
+
 ### Verification
 `make fresh` survives; `docker compose config` valid (dev + prod); full backend suite green; Pint + PHPStan clean (no `env()` introduced). Frontend tests verified by the `frontend-unit` CI job (local Deno vitest is environmentally broken — known caveat).
