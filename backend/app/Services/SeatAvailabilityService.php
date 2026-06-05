@@ -9,6 +9,7 @@ use App\Models\Booking;
 use App\Models\BookingSeat;
 use App\Models\Seat;
 use App\Models\Showtime;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -110,20 +111,47 @@ class SeatAvailabilityService
 
         $total = 0;
 
-        foreach ($seatIds as $seatId) {
-            $seat = $seats->get($seatId);
+        try {
+            foreach ($seatIds as $seatId) {
+                $seat = $seats->get($seatId);
 
-            $price = self::priceForSeat($showtime, $seat);
+                $price = self::priceForSeat($showtime, $seat);
 
-            BookingSeat::create([
-                'booking_id' => $booking->id,
-                'showtime_id' => $showtime->id,
-                'seat_id' => $seatId,
-                'section' => $seat->section !== null ? $seat->section->name : $seat->type->value,
-                'price' => $price,
-            ]);
+                BookingSeat::create([
+                    'booking_id' => $booking->id,
+                    'showtime_id' => $showtime->id,
+                    'seat_id' => $seatId,
+                    'section' => $seat->section !== null ? $seat->section->name : $seat->type->value,
+                    'price' => $price,
+                ]);
 
-            $total += $price;
+                $total += $price;
+            }
+        } catch (UniqueConstraintViolationException $e) {
+            // The partial unique index `booking_seats_one_occupant_per_seat`
+            // (migration 2026_06_05_000000) is the authoritative TOCTOU backstop
+            // behind the caller's lockForUpdate(showtime): a racing booking
+            // grabbed a seat in the gap between checkAvailability() above and
+            // this INSERT.
+            //
+            // CONSTRAINT-SPECIFIC: only translate the seat-occupancy index. The
+            // other unique constraints reachable here keep their own meaning —
+            // booking_seats unique(booking_id, seat_id), and in the confirm()
+            // path the bookings stripe_payment_intent_id / idempotency_key
+            // uniques handled at the controller — so anything else re-throws.
+            // $e->index is populated by Laravel's PostgresConnection regex.
+            if ($e->index !== 'booking_seats_one_occupant_per_seat') {
+                throw $e;
+            }
+
+            // NO DB READ HERE: the 23505 has aborted the caller's open
+            // transaction, so any SELECT now throws SQLSTATE 25P02
+            // ("transaction is aborted"). We cannot recompute availability —
+            // report the requested seats; the client re-selects. Throwing a
+            // SeatConflictException (a RuntimeException, not a
+            // UniqueConstraintViolationException) also keeps confirm() Phase C
+            // from mis-routing this into its stripe_payment_intent_id catch.
+            throw new SeatConflictException($seatIds);
         }
 
         return $total;

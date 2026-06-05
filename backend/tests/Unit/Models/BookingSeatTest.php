@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\BookingStatus;
 use App\Models\Booking;
 use App\Models\BookingSeat;
 use App\Models\Seat;
@@ -22,7 +23,12 @@ it('belongs to a seat', function () {
     expect($bs->seat)->toBeInstanceOf(Seat::class);
 });
 
-it('allows multiple booking_seats for the same showtime and seat', function () {
+it('allows multiple booking_seats for the same showtime and seat across booking history', function () {
+    // booking_seats is a price/section snapshot: a seat accrues one row per
+    // booking that ever held it. The partial unique index
+    // (booking_seats_one_occupant_per_seat) forbids only more than one
+    // *occupying* row at a time (see SeatOccupancyTriggerTest) — a terminal
+    // cancelled snapshot coexists with a new occupying booking on the same seat.
     $showtime = Showtime::factory()->create();
     $seat = Seat::factory()->create([
         'auditorium_id' => $showtime->auditorium_id,
@@ -31,11 +37,22 @@ it('allows multiple booking_seats for the same showtime and seat', function () {
         'label' => 'A1',
     ]);
 
+    $cancelled = Booking::factory()->create([
+        'showtime_id' => $showtime->id,
+        'status' => BookingStatus::Cancelled,
+    ]);
     $bs1 = BookingSeat::factory()->create([
+        'booking_id' => $cancelled->id,
         'showtime_id' => $showtime->id,
         'seat_id' => $seat->id,
     ]);
+
+    $confirmed = Booking::factory()->create([
+        'showtime_id' => $showtime->id,
+        'status' => BookingStatus::Confirmed,
+    ]);
     $bs2 = BookingSeat::factory()->create([
+        'booking_id' => $confirmed->id,
         'showtime_id' => $showtime->id,
         'seat_id' => $seat->id,
     ]);

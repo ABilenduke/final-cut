@@ -18,6 +18,13 @@ enum BookingStatus: string
      * safety check can refuse honestly when the mechanisms that create them
      * land in a later plan.
      *
+     * DB COUPLING: this list is mirrored by the SQL helper `fc_status_occupies()`
+     * in migration 2026_06_05_000000_add_booking_seats_occupancy_guard, which
+     * drives the `booking_seats.occupies_seat` flag behind the
+     * `booking_seats_one_occupant_per_seat` partial unique index. The two lists
+     * MUST change together — a parity test (SeatOccupancyTriggerTest) fails CI
+     * on drift.
+     *
      * @return list<self>
      */
     public static function occupyingStatuses(): array
