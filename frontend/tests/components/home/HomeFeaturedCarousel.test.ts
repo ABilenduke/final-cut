@@ -9,10 +9,10 @@ function makeSlide(overrides: Partial<FeaturedSlide> = {}): FeaturedSlide {
   return {
     id: overrides.id ?? 1,
     headline: overrides.headline ?? 'Festival Week',
-    sub_headline: overrides.sub_headline ?? 'Seven films. Seven nights.',
-    image_url: overrides.image_url ?? 'https://example.com/slide.jpg',
-    cta_label: overrides.cta_label ?? 'Get Tickets',
-    cta_href: overrides.cta_href ?? '/movies',
+    subHeadline: overrides.subHeadline ?? 'Seven films. Seven nights.',
+    imageUrl: overrides.imageUrl ?? 'https://example.com/slide.jpg',
+    ctaLabel: overrides.ctaLabel ?? 'Get Tickets',
+    ctaHref: overrides.ctaHref ?? '/movies',
     ...overrides,
   }
 }
@@ -248,35 +248,51 @@ describe('HomeFeaturedCarousel', () => {
 
   // ── (g) CTA rendering ─────────────────────────────────────────────────────
 
-  it('(g1) renders a CTA link when cta_label and cta_href are present', async () => {
+  it('(g1) renders a CTA link when ctaLabel and ctaHref are present', async () => {
     const wrapper = await mountSuspended(HomeFeaturedCarousel, {
-      props: { slides: [makeSlide({ cta_label: 'Book Now', cta_href: '/purchase' })] },
+      props: { slides: [makeSlide({ ctaLabel: 'Book Now', ctaHref: '/purchase' })] },
     })
     const cta = wrapper.find('.carousel__cta')
     expect(cta.exists()).toBe(true)
     expect(cta.text()).toContain('Book Now')
   })
 
-  it('(g2) omits CTA when cta_label or cta_href is null', async () => {
+  it('(g2) omits CTA when ctaLabel or ctaHref is null', async () => {
     const wrapper = await mountSuspended(HomeFeaturedCarousel, {
-      props: { slides: [makeSlide({ cta_label: null, cta_href: null })] },
+      props: { slides: [makeSlide({ ctaLabel: null, ctaHref: null })] },
     })
     expect(wrapper.find('.carousel__cta').exists()).toBe(false)
   })
 
+  it('(g3) renders no CTA link for a javascript: URL (XSS guard)', async () => {
+    const wrapper = await mountSuspended(HomeFeaturedCarousel, {
+      props: { slides: [makeSlide({ ctaLabel: 'Click', ctaHref: 'javascript:alert(1)' })] },
+    })
+    expect(wrapper.find('.carousel__cta').exists()).toBe(false)
+  })
+
+  it('(g4) renders a CTA link for an https URL', async () => {
+    const wrapper = await mountSuspended(HomeFeaturedCarousel, {
+      props: { slides: [makeSlide({ ctaLabel: 'Click', ctaHref: 'https://example.com/movies' })] },
+    })
+    const cta = wrapper.find('.carousel__cta')
+    expect(cta.exists()).toBe(true)
+    expect(cta.attributes('href')).toContain('https://example.com/movies')
+  })
+
   // ── (h) Sub-headline ──────────────────────────────────────────────────────
 
-  it('(h1) renders sub_headline when present', async () => {
+  it('(h1) renders subHeadline when present', async () => {
     const wrapper = await mountSuspended(HomeFeaturedCarousel, {
-      props: { slides: [makeSlide({ sub_headline: 'Seven films, seven nights.' })] },
+      props: { slides: [makeSlide({ subHeadline: 'Seven films, seven nights.' })] },
     })
     expect(wrapper.find('.carousel__sub').exists()).toBe(true)
     expect(wrapper.find('.carousel__sub').text()).toBe('Seven films, seven nights.')
   })
 
-  it('(h2) omits sub-headline element when sub_headline is null', async () => {
+  it('(h2) omits sub-headline element when subHeadline is null', async () => {
     const wrapper = await mountSuspended(HomeFeaturedCarousel, {
-      props: { slides: [makeSlide({ sub_headline: null })] },
+      props: { slides: [makeSlide({ subHeadline: null })] },
     })
     expect(wrapper.find('.carousel__sub').exists()).toBe(false)
   })

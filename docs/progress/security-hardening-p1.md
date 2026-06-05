@@ -121,3 +121,26 @@ Grounded against **Filament 5.6.0** this is **refuted**:
 - `backend/database/migrations/2026_04_23_100000_create_auditorium_sections_table.php` — CHECK constraint.
 - `backend/app/Filament/Resources/AuditoriumResource.php` — minValue(0.01); `PromoCodeResource.php` — per_user_limit removed.
 - Tests: `BookingControllerTest.php`, `AuditoriumServiceIntegrationTest.php`, `PromoCodeResourceTest.php`.
+
+---
+
+## Batch D — Frontend contract, a11y, docs
+
+### Task D1: FeaturedSlide camelCase + safe cta_href (atomic)
+**Status:** ✅ Complete — 2026-06-05
+- Renamed the four FeaturedSlide API keys to camelCase (`subHeadline`/`imageUrl`/`ctaLabel`/`ctaHref`) in `FeaturedSlideResource` (the lone snake_case outlier), in lockstep with the frontend type, `HomeFeaturedCarousel.vue` (BRAND_FALLBACK + bindings), and both frontend test files. Backend asserts the legacy snake_case keys are gone.
+- Hardened `cta_href` both layers: frontend `safeCtaHref()` allowlist (http(s)/relative only → a `javascript:` URL renders no link) and the Filament validator now parses the scheme (`parse_url`) instead of `FILTER_VALIDATE_URL` (which accepts `javascript:`). Tests: carousel g3 (javascript: → no link) + g4 (https renders); Filament rejects javascript:, accepts https/relative.
+
+### Task D2: A11y — PaymentBay button-group + gift-card focus rings
+**Status:** ✅ Complete — 2026-06-05
+- `CheckoutPaymentBay`: demoted the invalid `role="tablist"` (1 enabled + 3 disabled, no tabpanel) to `role="group"`; dropped `role="tab"`/`aria-selected`; active method now via `aria-pressed`. `.method*` classes retained (existing tests green). New test asserts the button-group pattern + no `role="tab"`.
+- `GiftCardComposer.__custom-input` and `GiftCardBalanceStrip.__input`/`__btn`: added the design-system gold double-ring `:focus-visible` (they stripped `outline` with no replacement → WCAG 2.4.7 fail). Source-level style-presence test guards them.
+
+### Task D3: nuxt-auth-utils doc reconciliation
+**Status:** ✅ Complete — 2026-06-05 (docs + guard test; module NOT installed)
+- `nuxt-auth-utils` is documented as the SSR auth-hydration layer but was never adopted (absent from package.json, nothing imports it). The real mechanism: `useState('auth:user')` + `localStorage` marker `fc:auth:session` gating the `/api/auth/me` probe, Sanctum cookie authoritative, protected routes `ssr: false`. Corrected the authoritative docs (CLAUDE.md, STATE_MANAGEMENT.md, SITE_ARCHITECTURE.md incl. the NUXT_SESSION_PASSWORD env note, DATA_MODELS.md). Did NOT install the module. New `frontend/tests/architecture/auth-mechanism.test.ts` pins the invariant (no nuxt-auth-utils dep, no auth module).
+
+#### Batch D Files Changed
+- Backend: `app/Http/Resources/FeaturedSlideResource.php`, `app/Filament/Resources/FeaturedSlideResource.php`, tests `FeaturedSlideApiTest.php` + `Admin/Resources/FeaturedSlideResourceTest.php`.
+- Frontend: `app/types/featured-slide.ts`, `app/components/home/HomeFeaturedCarousel.vue`, `app/components/booking/CheckoutPaymentBay.vue`, `app/components/content/GiftCardComposer.vue`, `app/components/content/GiftCardBalanceStrip.vue`; tests `HomeFeaturedCarousel.test.ts`, `CheckoutPaymentBay.test.ts`, `design-system/gift-card-focus-rings.test.ts` (new), `architecture/auth-mechanism.test.ts` (new).
+- Docs: `CLAUDE.md`, `docs/architecture/{STATE_MANAGEMENT,SITE_ARCHITECTURE,DATA_MODELS}.md`.

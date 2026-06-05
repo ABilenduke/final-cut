@@ -49,6 +49,17 @@ describe('CheckoutPaymentBay', () => {
     expect(disabledTabs[0].attributes('disabled')).toBeDefined()
   })
 
+  it('exposes the payment methods as a button group, not a broken tab widget', async () => {
+    const wrapper = await mountSuspended(CheckoutPaymentBay, {
+      props: { email: '', isAuthenticated: false },
+    })
+    // role="group" (not tablist) — a 1-of-4 tablist with no tabpanel is invalid ARIA.
+    expect(wrapper.find('[role="group"][aria-label="Payment method"]').exists()).toBe(true)
+    expect(wrapper.findAll('[role="tab"]')).toHaveLength(0)
+    // Active method is conveyed via aria-pressed on the enabled (card) button.
+    expect(wrapper.find('.method--active').attributes('aria-pressed')).toBe('true')
+  })
+
   it('shows the billing country selector with US default', async () => {
     const wrapper = await mountSuspended(CheckoutPaymentBay, {
       props: { email: '', isAuthenticated: false },

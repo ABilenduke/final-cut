@@ -22,10 +22,10 @@ class FeaturedSlideResource extends JsonResource
         return [
             'id' => $this->id,
             'headline' => $this->headline,
-            'sub_headline' => $this->sub_headline,
-            'image_url' => AssetUrl::resolve($this->image_url),
-            'cta_label' => $this->cta_label,
-            'cta_href' => $this->cta_href,
+            'subHeadline' => $this->sub_headline,
+            'imageUrl' => AssetUrl::resolve($this->image_url),
+            'ctaLabel' => $this->cta_label,
+            'ctaHref' => $this->cta_href,
         ];
     }
 }
