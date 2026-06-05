@@ -62,6 +62,7 @@ Plan 09 admin surfaces and hardening:
 - **Admin login rate limit** at nginx (`admin_login` zone, 5 r/min, burst 3) on `location = /login`. Excess returns 429.
 - **Fail2ban admin-login jail** matches Monolog `JsonFormatter` output from the dedicated `admin_auth_events` channel via `<HOST>` capture inside `context.ip`. 5 fails / 10 min → 24h ban via the existing `nginx-deny` action. CI regenerates the sample log on every run and fails if the regex stops matching.
 - **Dispatch outbox** ships now: `App\Outbox\OutboxDispatcher` maps `event_type` → job, `outbox:dispatch` runs every minute (`withoutOverlapping(2)` + `runInBackground()`), `outbox:prune` runs daily (14-day retention aligned with activity_log). `backend-worker` and `backend-scheduler` compose services reuse the backend image — no separate Dockerfile.
+- **`bookings:expire-held`** (P0 booking-reliability) is a scheduled compensating control: it sweeps abandoned `Held` bookings older than 20 minutes (runs every 10 min via the scheduler), self-healing any seat reservation orphaned by a crash between the booking's Phase A (reserve as `Held`) and Phase C (finalize to `Confirmed`) — the 3-phase store/confirm flow that keeps the Stripe call outside the DB transaction/lock.
 - **Production env**: `docker-compose.prod.yml` layers admin env vars onto the existing `backend` service (no new admin service). Single Let's Encrypt cert with SAN covers primary domain + admin subdomain. `backend/.env.production.example` is the canonical inventory of every variable the backend reads in prod.
 
 ### Email (Mailpit)
@@ -105,6 +106,8 @@ Root `.env` holds Docker Compose variables (`APP_DOMAIN`, database/Redis credent
 
 Backend env vars worth knowing:
 
+- `FRONTEND_URL` (prod, e.g. `https://finalcut.com`) is the SPA origin `config/cors.php` allows for credentialed fetches — omitting it in prod silently falls back to the dev origin and CORS blocks every request. `SANCTUM_STATEFUL_DOMAINS` (e.g. `finalcut.com`) lists the domains Sanctum treats as first-party for cookie/session auth. Both are in `backend/.env.production.example` (the canonical prod inventory).
+- `THROTTLE_AUTH_PER_EMAIL` (default `5`), `THROTTLE_AUTH_PER_IP` (default `20`), `THROTTLE_PUBLIC_LOOKUP` (default `30`) override the per-minute caps of the named `auth` / `public-lookup` rate limiters in `AppServiceProvider`. Production keeps the secure defaults; only `docker-compose.e2e.yml` raises them (the e2e suite logs in as one test user many times from a single CI IP). Mirrors `API_THROTTLE` (read in `bootstrap/app.php`).
 - `BOOST_ENABLED=false` keeps browser-facing Laravel Boost routes disabled in local API development
 - `BOOST_BROWSER_LOGS_WATCHER=false` keeps the browser logs watcher off unless intentionally enabled
 - `DEFAULT_LOCATION_TIMEZONE` seeds the IANA timezone applied to newly created `Location` rows when the admin form leaves the field blank. Read through `config('app.default_location_timezone')`; falls back to `config('app.timezone')` (then UTC) when unset. Existing locations are never mutated — this only affects defaults at create-time
