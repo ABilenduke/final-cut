@@ -36,10 +36,12 @@ return new class extends Migration
         // 1) Denormalised occupancy flag. NOT NULL (boolean()->default(false)
         //    is is_nullable=NO) so the partial index predicate is never silently
         //    bypassed by a NULL. Empty at migration time (migrations run before
-        //    seeders), so no backfill is required.
-        Schema::table('booking_seats', function (Blueprint $table): void {
-            $table->boolean('occupies_seat')->default(false)->after('price');
-        });
+        //    seeders), so no backfill is required. Guarded so up() is re-runnable.
+        if (! Schema::hasColumn('booking_seats', 'occupies_seat')) {
+            Schema::table('booking_seats', function (Blueprint $table): void {
+                $table->boolean('occupies_seat')->default(false)->after('price');
+            });
+        }
 
         // 2) IMMUTABLE status→occupancy helper. COALESCE(p,'') so a missing/NULL
         //    parent status yields FALSE (not NULL) — keeps the NOT NULL column
@@ -110,7 +112,8 @@ return new class extends Migration
         SQL);
 
         // 5) Wire the triggers. DROP IF EXISTS before each CREATE so the
-        //    migration is re-runnable.
+        //    trigger/function CREATEs are re-runnable (the column add and index
+        //    below are existence-guarded for the same reason).
         //    `OR UPDATE OF booking_id` is currently DEAD (no app path repoints a
         //    booking_seats.booking_id) — kept defensively, documented as such.
         DB::statement('DROP TRIGGER IF EXISTS trg_booking_seat_set_occupies ON booking_seats');
@@ -134,7 +137,7 @@ return new class extends Migration
         //    snapshot row keeps occupies_seat=true but has a NULL seat_id and must
         //    not occupy an index slot.
         DB::statement(<<<'SQL'
-            CREATE UNIQUE INDEX booking_seats_one_occupant_per_seat
+            CREATE UNIQUE INDEX IF NOT EXISTS booking_seats_one_occupant_per_seat
             ON booking_seats (showtime_id, seat_id)
             WHERE occupies_seat AND seat_id IS NOT NULL
         SQL);
