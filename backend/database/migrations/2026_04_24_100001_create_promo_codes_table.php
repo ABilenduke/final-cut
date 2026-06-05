@@ -22,10 +22,13 @@ return new class extends Migration
             $table->unsignedInteger('per_user_limit')->nullable();
             $table->unsignedInteger('uses_count')->default(0);
             $table->timestamp('expires_at')->nullable();
-            $table->boolean('is_active')->default(true);
+            // Nullable-timestamp convention: NULL = active, set = when it was
+            // deactivated (event metadata the old boolean threw away). The
+            // PromoCode::is_active accessor derives the boolean for readers.
+            $table->timestamp('deactivated_at')->nullable();
             $table->timestamps();
 
-            $table->index(['is_active', 'expires_at']);
+            $table->index(['deactivated_at', 'expires_at']);
         });
     }
 

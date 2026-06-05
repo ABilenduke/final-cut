@@ -11,7 +11,9 @@ return new class extends Migration
         Schema::create('booking_food_items', function (Blueprint $table) {
             $table->uuid('id')->primary();
             $table->foreignUuid('booking_id')->constrained()->cascadeOnDelete();
-            $table->uuid('menu_item_id')->nullable();
+            // Snapshot line item: keep name/prices if the menu item is later
+            // deleted, but enforce referential integrity while it exists.
+            $table->foreignUuid('menu_item_id')->nullable()->constrained('menu_items')->nullOnDelete();
             $table->string('name');
             $table->unsignedSmallInteger('quantity');
             $table->unsignedInteger('unit_price');

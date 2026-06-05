@@ -144,3 +144,26 @@ Grounded against **Filament 5.6.0** this is **refuted**:
 - Backend: `app/Http/Resources/FeaturedSlideResource.php`, `app/Filament/Resources/FeaturedSlideResource.php`, tests `FeaturedSlideApiTest.php` + `Admin/Resources/FeaturedSlideResourceTest.php`.
 - Frontend: `app/types/featured-slide.ts`, `app/components/home/HomeFeaturedCarousel.vue`, `app/components/booking/CheckoutPaymentBay.vue`, `app/components/content/GiftCardComposer.vue`, `app/components/content/GiftCardBalanceStrip.vue`; tests `HomeFeaturedCarousel.test.ts`, `CheckoutPaymentBay.test.ts`, `design-system/gift-card-focus-rings.test.ts` (new), `architecture/auth-mechanism.test.ts` (new).
 - Docs: `CLAUDE.md`, `docs/architecture/{STATE_MANAGEMENT,SITE_ARCHITECTURE,DATA_MODELS}.md`.
+
+---
+
+## Batch E — Data-model migrations (edited in place → `make fresh`)
+
+### Task E1: booking_food_items.menu_item_id FK
+**Status:** ✅ Complete — 2026-06-05
+- Added `foreignUuid('menu_item_id')->nullable()->constrained('menu_items')->nullOnDelete()` (snapshot line item survives menu deletion, only the back-reference clears). **Critical companion:** `BookingFoodItemFactory` switched from a random `Str::uuid()` (would violate the new FK on every insert) to `MenuItem::factory()`. Tests: delete-nulls-FK-keeps-snapshot + non-existent-id-rejected. BookingSeeder already FK-safe.
+
+### Task E2: Cascade cluster (booking_seats.seat_id + loyalty_adjustments.user_id)
+**Status:** ✅ Complete — 2026-06-05
+- Both columns were NOT nullable, so made nullable + `nullOnDelete` (the audit's literal "nullOnDelete" couldn't apply as-is). `booking_seats.seat_id`: seat regeneration now nulls the reference instead of cascade-deleting the price/section snapshot. `loyalty_adjustments.user_id`: deleting a user no longer destroys the loyalty audit trail (mirrors the existing `admin_user_id` nullOnDelete). **Decision:** did NOT widen `getRegenerationBlockers` to count terminal bookings — nullOnDelete already preserves the snapshot, and blocking regeneration whenever any cancelled booking ever touched the auditorium would break the documented flow + seeder. Tests: seat-delete-nulls-snapshot, user-delete-keeps-audit.
+
+### Task E3: promo_codes.is_active boolean → deactivated_at timestamp
+**Status:** ✅ Complete — 2026-06-05
+- Per the nullable-timestamp convention (free WHEN metadata). Migration: `boolean('is_active')` → `timestamp('deactivated_at')->nullable()` + composite index rename. Model: fillable/casts swap + a derived `is_active` Attribute accessor (`deactivated_at === null`) so every existing `$promo->is_active` reader (service validateCode/consume, Filament IconColumn + action visibility) keeps working untouched. Service `deactivate()` stamps `now()`. Filament: dropped the create-time `is_active` toggle (new codes active by default; deactivation is the audit-logged action). Factory: `is_active` default/`inactive()` → `deactivated_at`. Fixed the two raw `update(['is_active' => false])` call sites + the form `.set('data.is_active')` + four factory `create(['is_active' => true])` sites. New assertion: deactivate stamps `deactivated_at` (today).
+
+`make fresh` re-ran all seeders cleanly against the new schema (validates FK/column changes end-to-end).
+
+#### Batch E Files Changed
+- Migrations (in place): `..._create_booking_food_items_table.php`, `..._create_booking_seats_table.php`, `..._create_loyalty_adjustments_table.php`, `..._create_promo_codes_table.php`.
+- `backend/database/factories/{BookingFoodItemFactory,PromoCodeFactory}.php`; `backend/app/Models/PromoCode.php`; `backend/app/Services/PromoCodeService.php`; `backend/app/Filament/Resources/PromoCodeResource.php`.
+- Tests: `Database/BookingFoodItemForeignKeyTest.php` (new), `Database/CascadeDeleteProtectionTest.php` (new), `Unit/Admin/PromoCodeServiceTest.php`, `Admin/Services/PromoCodeServiceIntegrationTest.php`, `Admin/Resources/PromoCodeResourceTest.php`, `Api/BookingControllerTest.php`, `Api/BookingHeldLifecycleTest.php`.

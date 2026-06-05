@@ -77,7 +77,7 @@ class PromoCodeService
     public function deactivate(PromoCode $promo, ?User $actor = null): void
     {
         DB::transaction(function () use ($promo, $actor): void {
-            $promo->is_active = false;
+            $promo->deactivated_at = now();
             $promo->save();
 
             $this->logIfAdmin(self::EVENT_DEACTIVATED, $promo, $actor, [

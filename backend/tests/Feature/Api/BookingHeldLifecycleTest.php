@@ -91,7 +91,7 @@ test('3DS confirm forgets pending state after a post-charge promo failure so ret
 
     // Promo deactivated during the 3DS window → Phase C consume() fails AFTER the
     // charge, so confirm() refunds and 409s.
-    PromoCode::where('code', 'OFF5')->update(['is_active' => false]);
+    PromoCode::where('code', 'OFF5')->update(['deactivated_at' => now()]);
     $fakeStripe->shouldSucceed();
 
     postJson($this->bookingUrl($fixture['location'], 'confirm'), [

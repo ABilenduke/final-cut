@@ -104,7 +104,9 @@ class PromoCodeResource extends BaseResource
                     // nullable column stays (harmless); the control is hidden
                     // until enforcement ships (deferred to v2).
                     DateTimePicker::make('expires_at')->nullable(),
-                    Toggle::make('is_active')->default(true),
+                    // No is_active toggle: new codes are active by default
+                    // (deactivated_at = NULL); deactivation is a deliberate,
+                    // audit-logged action (see the Deactivate table action).
                 ])
                 ->columns(2),
         ]);

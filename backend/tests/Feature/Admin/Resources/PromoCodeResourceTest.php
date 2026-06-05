@@ -48,7 +48,6 @@ test('creating a promo routes through PromoCodeService with the admin actor', fu
         ->set('data.code', 'new20')
         ->set('data.discount_type', PromoCode::TYPE_PERCENTAGE)
         ->set('data.amount', 20)
-        ->set('data.is_active', true)
         ->call('create')
         ->assertHasNoFormErrors();
 
@@ -79,7 +78,7 @@ test('editing a promo routes through PromoCodeService with the admin actor', fun
 });
 
 test('deactivate action routes through PromoCodeService', function (): void {
-    $promo = PromoCode::factory()->create(['is_active' => true]);
+    $promo = PromoCode::factory()->create(['deactivated_at' => null]);
 
     $service = $this->mock(PromoCodeService::class);
     $service->shouldReceive('deactivate')->once();

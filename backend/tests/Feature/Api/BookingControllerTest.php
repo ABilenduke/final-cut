@@ -1254,7 +1254,7 @@ test('3DS confirm refunds and returns 409 when promo was deactivated during the 
     $paymentIntentId = $response->json('data.paymentIntentId');
 
     // Admin deactivates the promo while 3DS is in flight.
-    PromoCode::where('code', 'OFF5')->update(['is_active' => false]);
+    PromoCode::where('code', 'OFF5')->update(['deactivated_at' => now()]);
 
     $fakeStripe->shouldSucceed();
     $confirmResponse = postJson($this->bookingUrl($fixture['location'], 'confirm'), [

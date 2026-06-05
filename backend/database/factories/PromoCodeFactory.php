@@ -21,7 +21,7 @@ class PromoCodeFactory extends Factory
             'per_user_limit' => null,
             'uses_count' => 0,
             'expires_at' => null,
-            'is_active' => true,
+            'deactivated_at' => null,
         ];
     }
 
@@ -48,7 +48,7 @@ class PromoCodeFactory extends Factory
 
     public function inactive(): static
     {
-        return $this->state(fn () => ['is_active' => false]);
+        return $this->state(fn () => ['deactivated_at' => now()]);
     }
 
     public function withUsage(int $count, ?int $limit = null): static
