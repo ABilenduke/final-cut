@@ -886,6 +886,41 @@ test('guest lookup with wrong code returns 404', function () {
     $response->assertStatus(404);
 });
 
+test('lookup finds a member booking via the account email', function () {
+    $fixture = $this->createShowtimeWithSeats();
+    $user = User::factory()->create(['email' => 'member@finalcut.test']);
+
+    // Member bookings carry user_id and a NULL guest_email, so the old
+    // guest_email-only match could never find them.
+    $booking = Booking::factory()->create([
+        'showtime_id' => $fixture['showtime']->id,
+        'user_id' => $user->id,
+        'guest_email' => null,
+    ]);
+
+    getJson('/api/bookings/lookup?'.http_build_query([
+        'confirmation_code' => $booking->confirmation_code,
+        'email' => 'member@finalcut.test',
+    ]))->assertOk()
+        ->assertJsonPath('data.id', $booking->id);
+});
+
+test('lookup with the wrong account email returns 404 for a member booking', function () {
+    $fixture = $this->createShowtimeWithSeats();
+    $user = User::factory()->create(['email' => 'member@finalcut.test']);
+
+    $booking = Booking::factory()->create([
+        'showtime_id' => $fixture['showtime']->id,
+        'user_id' => $user->id,
+        'guest_email' => null,
+    ]);
+
+    getJson('/api/bookings/lookup?'.http_build_query([
+        'confirmation_code' => $booking->confirmation_code,
+        'email' => 'someone-else@finalcut.test',
+    ]))->assertStatus(404);
+});
+
 /*
 |--------------------------------------------------------------------------
 | POST /api/locations/{location}/bookings/confirm — 3DS Confirmation
@@ -1010,6 +1045,49 @@ test('3DS confirm fails when gift card balance dropped during 3DS window', funct
     // Pending state preserved so the customer can retry
     $pendingData = Cache::get("pending_booking:{$paymentIntentId}");
     expect($pendingData)->not->toBeNull();
+});
+
+test('3DS confirm refunds and 409s when the promo discount changed during the 3DS window', function () {
+    $fixture = $this->createShowtimeWithSeats();
+    $fakeStripe = $this->fakeStripe();
+
+    // First request triggers 3DS with WELCOME5 ($5 off) applied.
+    $fakeStripe->shouldRequire3ds();
+
+    $response = postJson($this->bookingUrl($fixture['location']), [
+        'showtimeId' => $fixture['showtime']->id,
+        'seatIds' => [$fixture['seats'][0]->id],
+        'paymentMethodId' => 'pm_test_3ds',
+        'promoCode' => 'WELCOME5',
+        'email' => 'guest@example.com',
+    ]);
+
+    $response->assertOk();
+    $paymentIntentId = $response->json('data.paymentIntentId');
+
+    // An admin doubles the promo during the 3DS window. The PaymentIntent was
+    // already sized at the old $5 discount, so confirm() must refund + refuse
+    // rather than book at the stale figure.
+    PromoCode::where('code', 'WELCOME5')->update(['amount' => 1000]);
+
+    $fakeStripe->shouldSucceed();
+
+    $confirmResponse = postJson($this->bookingUrl($fixture['location'], 'confirm'), [
+        'paymentIntentId' => $paymentIntentId,
+    ]);
+
+    $confirmResponse->assertStatus(409);
+    expect($confirmResponse->json('errors.0.field'))->toBe('promoCode');
+
+    // Money was captured in Phase B, then compensating-refunded in Phase C.
+    expect($fakeStripe->confirmedPaymentIntents)->toHaveCount(1);
+    expect($fakeStripe->refundedPaymentIntents)->toHaveCount(1);
+
+    // No booking, promo not consumed, pending cache cleared for a clean retry.
+    expect(Booking::where('showtime_id', $fixture['showtime']->id)
+        ->where('status', BookingStatus::Confirmed)->count())->toBe(0);
+    expect(PromoCode::where('code', 'WELCOME5')->first()->uses_count)->toBe(0);
+    expect(Cache::get("pending_booking:{$paymentIntentId}"))->toBeNull();
 });
 
 test('3DS confirm succeeds when gift card balance unchanged', function () {

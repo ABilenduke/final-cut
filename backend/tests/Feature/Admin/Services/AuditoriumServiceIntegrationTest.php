@@ -3,6 +3,7 @@
 use App\Enums\BookingStatus;
 use App\Exceptions\AuditoriumHasBookingsException;
 use App\Exceptions\AuditoriumSectionInUseException;
+use App\Exceptions\InvalidPriceMultiplierException;
 use App\Exceptions\LocationHasBookingsException;
 use App\Models\Auditorium;
 use App\Models\AuditoriumSection;
@@ -13,6 +14,9 @@ use App\Models\Seat;
 use App\Models\Showtime;
 use App\Models\User;
 use App\Services\AuditoriumService;
+use Illuminate\Database\QueryException;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Spatie\Activitylog\Models\Activity;
 
 beforeEach(function (): void {
@@ -122,6 +126,53 @@ test('updateSectionConfig with actor writes a row per section change', function 
         ->count())->toBe(1);
 
     expect($auditorium->sections()->count())->toBe(2);
+});
+
+test('updateSectionConfig rejects a zero price_multiplier on create', function (): void {
+    $auditorium = Auditorium::factory()->create();
+
+    expect(fn () => $this->service->updateSectionConfig($auditorium, [
+        ['id' => null, 'name' => 'Free', 'price_multiplier' => 0, 'display_order' => 0],
+    ]))->toThrow(InvalidPriceMultiplierException::class);
+
+    expect($auditorium->sections()->count())->toBe(0); // rolled back
+});
+
+test('updateSectionConfig rejects a negative price_multiplier on create', function (): void {
+    $auditorium = Auditorium::factory()->create();
+
+    expect(fn () => $this->service->updateSectionConfig($auditorium, [
+        ['id' => null, 'name' => 'Negative', 'price_multiplier' => -1.50, 'display_order' => 0],
+    ]))->toThrow(InvalidPriceMultiplierException::class);
+
+    expect($auditorium->sections()->count())->toBe(0);
+});
+
+test('updateSectionConfig rejects updating an existing section to zero (and rolls back)', function (): void {
+    $auditorium = Auditorium::factory()->create();
+    $section = AuditoriumSection::factory()->for($auditorium)->standard()->create(['price_multiplier' => 1.00]);
+
+    expect(fn () => $this->service->updateSectionConfig($auditorium, [
+        ['id' => $section->id, 'name' => 'Standard', 'price_multiplier' => 0, 'display_order' => 0],
+    ]))->toThrow(InvalidPriceMultiplierException::class);
+
+    expect($section->fresh()->price_multiplier)->toEqual(1.00); // unchanged
+});
+
+test('the DB rejects a non-positive price_multiplier via CHECK constraint', function (): void {
+    $auditorium = Auditorium::factory()->create();
+
+    // Wrap in a nested transaction (savepoint) so the CHECK violation rolls back
+    // to the savepoint and leaves the outer RefreshDatabase transaction usable.
+    expect(fn () => DB::transaction(fn () => DB::table('auditorium_sections')->insert([
+        'id' => (string) Str::uuid(),
+        'auditorium_id' => $auditorium->id,
+        'name' => 'RawFree',
+        'price_multiplier' => 0,
+        'display_order' => 0,
+        'created_at' => now(),
+        'updated_at' => now(),
+    ])))->toThrow(QueryException::class);
 });
 
 test('updateSectionConfig refuses to delete a section that still has seats referencing it', function (): void {

@@ -93,3 +93,31 @@ Grounded against **Filament 5.6.0** this is **refuted**:
 - `backend/app/Http/Requests/RegisterRequest.php`, `UpdateProfileRequest.php` — Password::defaults() + email current_password rule.
 - `backend/app/Http/Controllers/Api/AuthController.php` — reset uses Password::defaults() (aliased import).
 - Tests: `AuthControllerTest.php`, `AccountProfileTest.php`, `PurchaseFlowIntegrationTest.php`.
+
+---
+
+## Batch C — API / data correctness
+
+### Task C1: Booking lookup matches the account email
+**Status:** ✅ Complete — 2026-06-05
+- `BookingController::lookup()` matched `guest_email` only, so member bookings (user_id set, guest_email NULL) were unfindable. Broadened to `guest_email = email OR user.email = email` via `orWhereHas('user', …)`. Email stays the shared secret. Tests: member lookup via account email (RED→GREEN), wrong account email → 404.
+
+### Task C2: 3DS confirm re-validates the promo discount
+**Status:** ✅ Complete — 2026-06-05
+- The PaymentIntent is sized in store(); confirm() Phase C wrote the cached discount verbatim and only re-checked promo redeemability, not amount → an admin editing a promo mid-3DS yielded a stale charge. Now Phase C re-derives `calculateDiscount(livePromo, subtotal)` under the lock and compares to the cached promo component (`discount - giftCardAmount`); on drift it throws new `PromoCodeNotConsumableException::REASON_AMOUNT_CHANGED`, which the existing catch refunds (compensating) + forgets the cache + 409 `promoCode`. Test asserts captured-then-refunded, no booking, promo not consumed, pending cleared.
+
+### Task C3: price_multiplier > 0 (service guard + DB CHECK)
+**Status:** ✅ Complete — 2026-06-05
+- `AuditoriumService::updateSectionConfig` now rejects `price_multiplier <= 0` (covers create + update branches) via new `App\Exceptions\InvalidPriceMultiplierException`. Edited `create_auditorium_sections` migration **in place** to add a `CHECK (price_multiplier > 0)` constraint (defense in depth). Tightened Filament `minValue(0)` → `minValue(0.01)`. Tests: service rejects 0 / negative / update-to-0 (rollback proof) + DB CHECK rejects a raw insert (savepoint-wrapped). 20 AuditoriumService tests pass (the DB CHECK test confirms RefreshDatabase applied the in-place migration).
+
+### Task C4: Hide the unenforced per_user_limit field
+**Status:** ✅ Complete — 2026-06-05 (decision: hide, not enforce)
+- Removed the `per_user_limit` `TextInput` from `PromoCodeResource` (no per-user redemption ledger exists in v1 → unenforceable; the nullable column stays, harmless). Test asserts the form field is absent.
+
+#### Batch C Files Changed
+- `backend/app/Http/Controllers/Api/BookingController.php` — lookup() user-email match + confirm() promo drift check.
+- `backend/app/Exceptions/PromoCodeNotConsumableException.php` — REASON_AMOUNT_CHANGED.
+- `backend/app/Exceptions/InvalidPriceMultiplierException.php` (new), `backend/app/Services/AuditoriumService.php` — multiplier guard.
+- `backend/database/migrations/2026_04_23_100000_create_auditorium_sections_table.php` — CHECK constraint.
+- `backend/app/Filament/Resources/AuditoriumResource.php` — minValue(0.01); `PromoCodeResource.php` — per_user_limit removed.
+- Tests: `BookingControllerTest.php`, `AuditoriumServiceIntegrationTest.php`, `PromoCodeResourceTest.php`.

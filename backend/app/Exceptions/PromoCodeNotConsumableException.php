@@ -27,6 +27,12 @@ class PromoCodeNotConsumableException extends DomainException
 
     public const REASON_LIMIT_REACHED = 'limit_reached';
 
+    /** The promo's discount amount changed (e.g. an admin edit) after the
+     *  PaymentIntent was already sized — the captured charge no longer matches
+     *  the live promo, so the booking is refused and refunded rather than booked
+     *  at the stale figure. */
+    public const REASON_AMOUNT_CHANGED = 'amount_changed';
+
     public function __construct(public readonly string $reason)
     {
         parent::__construct(match ($reason) {
@@ -34,6 +40,7 @@ class PromoCodeNotConsumableException extends DomainException
             self::REASON_INACTIVE => 'Promo code is no longer active.',
             self::REASON_EXPIRED => 'Promo code has expired.',
             self::REASON_LIMIT_REACHED => 'Promo code has reached its usage limit.',
+            self::REASON_AMOUNT_CHANGED => 'Promo code discount changed before the booking completed.',
             default => 'Promo code cannot be redeemed.',
         });
     }

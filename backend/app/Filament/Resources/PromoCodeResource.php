@@ -99,11 +99,10 @@ class PromoCodeResource extends BaseResource
                         ->nullable()
                         ->minValue(1)
                         ->helperText('Max total uses across all customers. Leave blank for unlimited.'),
-                    TextInput::make('per_user_limit')
-                        ->numeric()
-                        ->nullable()
-                        ->minValue(1)
-                        ->helperText('Max uses per user. Schema-level only in v1 — not yet enforced at checkout.'),
+                    // per_user_limit intentionally omitted: there is no per-user
+                    // redemption ledger in v1, so it cannot be enforced. The
+                    // nullable column stays (harmless); the control is hidden
+                    // until enforcement ships (deferred to v2).
                     DateTimePicker::make('expires_at')->nullable(),
                     Toggle::make('is_active')->default(true),
                 ])

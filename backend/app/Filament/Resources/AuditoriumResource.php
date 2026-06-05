@@ -120,7 +120,7 @@ class AuditoriumResource extends BaseResource
                             TextInput::make('price_multiplier')
                                 ->numeric()
                                 ->step(0.01)
-                                ->minValue(0)
+                                ->minValue(0.01)
                                 ->default(1.00)
                                 ->required()
                                 ->helperText('1.00 = base price; 1.25 = 25% premium; 0.85 = 15% discount.'),

@@ -433,9 +433,17 @@ class BookingController extends Controller
             'email' => 'required|email',
         ]);
 
+        // Email is the shared secret. Match it against the guest_email on guest
+        // bookings OR the account email on member bookings (which carry a NULL
+        // guest_email and so could never be found by the guest_email match alone).
+        $email = $request->query('email');
+
         $booking = Booking::with(self::BOOKING_RELATIONS)
             ->where('confirmation_code', $request->query('confirmation_code'))
-            ->where('guest_email', $request->query('email'))
+            ->where(function ($query) use ($email) {
+                $query->where('guest_email', $email)
+                    ->orWhereHas('user', fn ($u) => $u->where('email', $email));
+            })
             ->first();
 
         if (! $booking) {
@@ -560,6 +568,16 @@ class BookingController extends Controller
                     $promo = PromoCode::query()->find($pendingData['promo_code_id']);
                     if ($promo === null) {
                         throw new PromoCodeNotConsumableException(PromoCodeNotConsumableException::REASON_NOT_FOUND);
+                    }
+
+                    // Re-derive the discount from the LIVE promo. The PaymentIntent
+                    // was sized during store(), so an admin editing the promo amount
+                    // mid-3DS-window cannot change what was captured — detect the
+                    // drift and refund+409 rather than booking at the stale figure.
+                    $expectedPromoDiscount = $this->promoCodeService->calculateDiscount($promo, $pendingData['subtotal']);
+                    $cachedPromoDiscount = $pendingData['discount'] - $giftCardAmount;
+                    if ($cachedPromoDiscount !== $expectedPromoDiscount) {
+                        throw new PromoCodeNotConsumableException(PromoCodeNotConsumableException::REASON_AMOUNT_CHANGED);
                     }
                 }
 

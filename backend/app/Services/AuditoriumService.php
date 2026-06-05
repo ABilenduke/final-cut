@@ -7,6 +7,7 @@ use App\Enums\SeatType;
 use App\Exceptions\AuditoriumHasBookingsException;
 use App\Exceptions\AuditoriumSeatRegenerationBlockedException;
 use App\Exceptions\AuditoriumSectionInUseException;
+use App\Exceptions\InvalidPriceMultiplierException;
 use App\Exceptions\LocationHasBookingsException;
 use App\Models\Auditorium;
 use App\Models\AuditoriumSection;
@@ -217,6 +218,13 @@ class AuditoriumService
                     throw new \InvalidArgumentException(
                         "Section id [{$rowId}] does not belong to auditorium [{$auditorium->id}]."
                     );
+                }
+
+                // Strictly-positive price multiplier is a domain invariant: 0.00
+                // → free seats, negative → negative line price / Stripe error.
+                $multiplier = $row['price_multiplier'] ?? 1.00;
+                if ((float) $multiplier <= 0) {
+                    throw new InvalidPriceMultiplierException($row['name'] ?? '', $multiplier);
                 }
 
                 if ($rowId !== null) {

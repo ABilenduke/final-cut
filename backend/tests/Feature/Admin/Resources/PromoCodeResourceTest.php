@@ -19,6 +19,13 @@ test('admin can see the promo list', function (): void {
         ->assertCanSeeTableRecords($promos);
 });
 
+test('the promo form does not expose the unenforced per_user_limit field', function (): void {
+    // per_user_limit is unenforceable in v1 (no per-user redemption ledger).
+    // Hidden until enforcement ships so the control is not misleading.
+    Livewire::test(CreatePromoCode::class)
+        ->assertFormFieldDoesNotExist('per_user_limit');
+});
+
 test('creating a promo routes through PromoCodeService with the admin actor', function (): void {
     // The redirect after CreateRecord needs a real id; persist with a
     // different code so the form's unique() check doesn't flag a collision.
