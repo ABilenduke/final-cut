@@ -224,7 +224,7 @@ class AuditoriumService
                 // → free seats, negative → negative line price / Stripe error.
                 $multiplier = $row['price_multiplier'] ?? 1.00;
                 if ((float) $multiplier <= 0) {
-                    throw new InvalidPriceMultiplierException($row['name'] ?? '', $multiplier);
+                    throw new InvalidPriceMultiplierException($row['name'], $multiplier);
                 }
 
                 if ($rowId !== null) {

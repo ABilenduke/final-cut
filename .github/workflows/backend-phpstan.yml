@@ -102,3 +102,11 @@ jobs:
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: phpstan.sarif
+
+      # Gate the build on the analysis result. The step above keeps `|| true`
+      # so the SARIF/Code-Scanning upload always happens; this re-run (a cache
+      # hit, so cheap) carries the real exit code and FAILS the job on any error
+      # beyond phpstan-baseline.neon. Without this, PHPStan was purely advisory.
+      - name: Gate on PHPStan result
+        if: steps.changes.outputs.php_changed == 'true'
+        run: php -d memory_limit=512M vendor/bin/phpstan analyse --no-progress

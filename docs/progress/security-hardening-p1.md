@@ -182,3 +182,36 @@ Grounded against **Filament 5.6.0** this is **refuted**:
 
 #### Batch F Files Changed
 - Tests only: `tests/Feature/Api/BookingCompensatingRefundTest.php` (new), `tests/Feature/Api/GiftCardDoubleSpendTest.php` (new).
+
+---
+
+## Batch G — Infra / CI hardening (config; manual/CI verification)
+
+### Task G1: PHPStan gate (remove the swallow)
+**Status:** ✅ Complete — 2026-06-05
+- The `Run PHPStan` step keeps `|| true` so the SARIF/Code-Scanning upload always happens; added a **separate `Gate on PHPStan result` step** (after the upload, same `php_changed` condition) that re-runs `phpstan analyse` with a real exit code (a result-cache hit, so cheap) and fails the job on any error beyond baseline. **Caught a real one:** my C3 `$row['name'] ?? ''` introduced a `nullCoalesce.offset` error (the array shape guarantees `name`) — exactly what `|| true` would have silently swallowed. Fixed (`$row['name']`); PHPStan now clean, so the gate passes on the current tree.
+
+### Task G2: Require DB/REDIS passwords on the prod-facing compose
+**Status:** ✅ Complete — 2026-06-05
+- `docker-compose.yml` (used in prod) baked `${DB_PASSWORD:-secret}`/`${REDIS_PASSWORD:-redissecret}` into all three backend services. Changed to `:?` (fail-loud) on all six client lines. Dev/local-prod still boot because the root `.env` supplies both vars (Compose auto-loads it). `docker-compose.stack.yml` server defaults left as dev conveniences. Verified: dev `config` renders; blanked prod-facing `config` errors with the `must be set` message.
+
+### Task G3: Pin the :latest images
+**Status:** ✅ Complete — 2026-06-05
+- `crazymax/fail2ban:latest` → `1.1.0@sha256:a1476…` (version label confirmed; digest = the running image the jail config was verified against). `certbot/certbot:latest` → `@sha256:0107…` (digest-only; pulled to capture the current image). Both pin to exactly the running image → zero behavior change, full reproducibility.
+
+### Task G4: Recycle the queue worker
+**Status:** ✅ Complete — 2026-06-05
+- `queue:work` (defined once in the base compose) gained `--max-time=3600 --max-jobs=1000 --memory=256 --backoff=5` so the long-lived worker recycles cleanly (Stripe SDK / Mailable / TMDB state reclaimed). Covers dev/prod/local-prod via the single base definition. Scheduler unchanged.
+
+### Task G5: Mark the e2e APP_KEY as intentional
+**Status:** ✅ Complete — 2026-06-05
+- Added an inline comment to both `docker-compose.e2e.yml` APP_KEY lines marking the committed key as a fixed, intentionally-public test key (APP_ENV=testing, throwaway DB; never used where APP_ENV=production; CI may override). Kept the `:-` default so `make e2e` still boots without a hard prerequisite.
+
+#### Batch G Files Changed
+- `.github/workflows/backend-phpstan.yml` (gate step), `backend/app/Services/AuditoriumService.php` (PHPStan nullCoalesce fix), `docker-compose.yml` (password guards + image pin + queue flags), `docker-compose.prod.yml` (certbot pin), `docker-compose.e2e.yml` (APP_KEY comment).
+
+---
+
+## Summary
+
+All 7 batches (A–G) of P1 remediation complete. **One finding refuted** (A1 — Filament 5.6 `->visible()` enforces server-side; the audit's premise was false; replaced with regression guards). **Two items intentionally deferred** (booking_seats partial-unique-index → own stacked PR; `per_user_limit` enforcement → v2; the field was hidden). Backend **1020 → 1052 tests**, frontend **885 → 892**, Pint clean, PHPStan clean (gate now real), all compose configs valid.

@@ -96,7 +96,9 @@ services:
   # View all currently banned IPs:
   #   docker compose exec fail2ban fail2ban-client banned
   fail2ban:
-    image: crazymax/fail2ban:latest
+    # Pinned for reproducibility (was :latest). Digest = the v1.1.0 image this
+    # stack's jail/filter/action configs were verified against.
+    image: crazymax/fail2ban:1.1.0@sha256:a1476ec3587dd7c6756d8cdb448fb0a262c242042d8a71557da6b5aa7aecd911
     container_name: fail2ban
     volumes:
       - nginx-logs:/var/log/nginx:ro
@@ -163,14 +165,14 @@ services:
       - DB_PORT=${DB_PORT:-5432}
       - DB_DATABASE=${DB_DATABASE:-final_cut}
       - DB_USERNAME=${DB_USERNAME:-final_cut}
-      - DB_PASSWORD=${DB_PASSWORD:-secret}
+      - DB_PASSWORD=${DB_PASSWORD:?DB_PASSWORD must be set (no insecure default in the prod-facing compose)}
       - DB_TEST_DATABASE=${DB_TEST_DATABASE:-final_cut_test}
       - DB_SSLMODE=${DB_SSLMODE:-verify-full}
       - DB_SSLROOTCERT=${DB_SSLROOTCERT:-/tls/postgres/ca.pem}
       - REDIS_HOST=${REDIS_HOST:-redis}
       - REDIS_PORT=${REDIS_PORT:-6379}
       - REDIS_USERNAME=${REDIS_USERNAME:-app}
-      - REDIS_PASSWORD=${REDIS_PASSWORD:-redissecret}
+      - REDIS_PASSWORD=${REDIS_PASSWORD:?REDIS_PASSWORD must be set (no insecure default in the prod-facing compose)}
       - REDIS_SCHEME=${REDIS_SCHEME:-tls}
       - REDIS_TLS_CA_CERT=/tls/redis/ca.pem
     healthcheck:
@@ -192,7 +194,11 @@ services:
     build:
       context: ./backend
     container_name: backend-worker
-    command: ["php", "artisan", "queue:work", "--tries=3", "--timeout=60"]
+    # Recycle the worker periodically so long-running framework state (Stripe SDK,
+    # Mailables, TMDB enrichment) is reclaimed: --max-time exits hourly,
+    # --max-jobs caps work per process, --memory exits before the OOM killer.
+    # restart: unless-stopped relaunches a fresh process immediately.
+    command: ["php", "artisan", "queue:work", "--tries=3", "--timeout=60", "--max-time=3600", "--max-jobs=1000", "--memory=256", "--backoff=5"]
     volumes:
       - ./redis/certs/ca.pem:/tls/redis/ca.pem:ro
       - ./postgres/certs/ca.pem:/tls/postgres/ca.pem:ro
@@ -205,13 +211,13 @@ services:
       - DB_PORT=${DB_PORT:-5432}
       - DB_DATABASE=${DB_DATABASE:-final_cut}
       - DB_USERNAME=${DB_USERNAME:-final_cut}
-      - DB_PASSWORD=${DB_PASSWORD:-secret}
+      - DB_PASSWORD=${DB_PASSWORD:?DB_PASSWORD must be set (no insecure default in the prod-facing compose)}
       - DB_SSLMODE=${DB_SSLMODE:-verify-full}
       - DB_SSLROOTCERT=${DB_SSLROOTCERT:-/tls/postgres/ca.pem}
       - REDIS_HOST=${REDIS_HOST:-redis}
       - REDIS_PORT=${REDIS_PORT:-6379}
       - REDIS_USERNAME=${REDIS_USERNAME:-app}
-      - REDIS_PASSWORD=${REDIS_PASSWORD:-redissecret}
+      - REDIS_PASSWORD=${REDIS_PASSWORD:?REDIS_PASSWORD must be set (no insecure default in the prod-facing compose)}
       - REDIS_SCHEME=${REDIS_SCHEME:-tls}
       - REDIS_TLS_CA_CERT=/tls/redis/ca.pem
     depends_on:
@@ -242,13 +248,13 @@ services:
       - DB_PORT=${DB_PORT:-5432}
       - DB_DATABASE=${DB_DATABASE:-final_cut}
       - DB_USERNAME=${DB_USERNAME:-final_cut}
-      - DB_PASSWORD=${DB_PASSWORD:-secret}
+      - DB_PASSWORD=${DB_PASSWORD:?DB_PASSWORD must be set (no insecure default in the prod-facing compose)}
       - DB_SSLMODE=${DB_SSLMODE:-verify-full}
       - DB_SSLROOTCERT=${DB_SSLROOTCERT:-/tls/postgres/ca.pem}
       - REDIS_HOST=${REDIS_HOST:-redis}
       - REDIS_PORT=${REDIS_PORT:-6379}
       - REDIS_USERNAME=${REDIS_USERNAME:-app}
-      - REDIS_PASSWORD=${REDIS_PASSWORD:-redissecret}
+      - REDIS_PASSWORD=${REDIS_PASSWORD:?REDIS_PASSWORD must be set (no insecure default in the prod-facing compose)}
       - REDIS_SCHEME=${REDIS_SCHEME:-tls}
       - REDIS_TLS_CA_CERT=/tls/redis/ca.pem
     depends_on:
