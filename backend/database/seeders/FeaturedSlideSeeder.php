@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\FeaturedSlide;
+use App\Support\SeederUuid;
 use Carbon\Carbon;
 use Illuminate\Database\Seeder;
 
@@ -52,7 +53,10 @@ class FeaturedSlideSeeder extends Seeder
         foreach ($slides as $slide) {
             FeaturedSlide::firstOrCreate(
                 ['headline' => $slide['headline']],
-                $slide,
+                [
+                    'id' => SeederUuid::for("slide:{$slide['headline']}"),
+                    ...$slide,
+                ],
             );
         }
     }

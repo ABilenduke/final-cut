@@ -1,6 +1,13 @@
 <script setup lang="ts">
+type PickSeat = {
+  id: string
+  label: string
+  row: string
+  number: number
+}
+
 const props = defineProps<{
-  pickSeats: string[]
+  pickSeats: PickSeat[]
 }>()
 
 const emit = defineEmits<{
@@ -8,9 +15,10 @@ const emit = defineEmits<{
 }>()
 
 const label = computed(() => {
-  if (props.pickSeats.length < 2) return props.pickSeats[0] ?? ''
-  const row = props.pickSeats[0].match(/^([A-Z]+)/)?.[1] ?? ''
-  const nums = props.pickSeats.map(s => s.replace(/^[A-Z]+/, '')).join(' & ')
+  if (props.pickSeats.length === 0) return ''
+  if (props.pickSeats.length === 1) return `Seat ${props.pickSeats[0].label}`
+  const row = props.pickSeats[0].row
+  const nums = props.pickSeats.map(s => s.number).join(' & ')
   return `Row ${row} · seats ${nums}`
 })
 </script>

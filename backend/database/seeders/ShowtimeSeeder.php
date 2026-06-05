@@ -7,10 +7,12 @@ use App\Models\Location;
 use App\Models\Movie;
 use App\Models\Showtime;
 use App\Services\ShowtimeService;
+use App\Support\SeederUuid;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Str;
+use Random\Engine\Mt19937;
+use Random\Randomizer;
 
 class ShowtimeSeeder extends Seeder
 {
@@ -86,11 +88,26 @@ class ShowtimeSeeder extends Seeder
                 $occupiedByAuditorium = [];
 
                 // Shuffle the slate so the same film isn't always first to
-                // claim prime-time slots across days.
-                foreach ($slate->shuffle() as $movie) {
-                    $placed = 0;
+                // claim prime-time slots across days. Seeds are derived from
+                // stable inputs so every reseed produces the same orderings —
+                // critical for the deterministic-PK contract upheld by
+                // SeederUuid::for(...). Collection::shuffle($seed) calls
+                // mt_srand() but PHP 8.2+ `shuffle()` uses random_int from the
+                // OS entropy pool, so the seed has no effect. We build a
+                // seedable Mt19937 via Random\Randomizer instead.
+                $slateOrdered = $this->deterministicShuffle(
+                    $slate->all(),
+                    "slate:{$slug}:{$dayOffset}"
+                );
 
-                    foreach (collect($screenTimes)->shuffle() as $time) {
+                foreach ($slateOrdered as $movie) {
+                    $placed = 0;
+                    $timesOrdered = $this->deterministicShuffle(
+                        $screenTimes,
+                        "times:{$slug}:{$dayOffset}:{$movie->slug}"
+                    );
+
+                    foreach ($timesOrdered as $time) {
                         if ($placed >= self::TARGET_SHOWTIMES_PER_MOVIE_PER_DAY) {
                             break;
                         }
@@ -102,18 +119,21 @@ class ShowtimeSeeder extends Seeder
                             $movie,
                             $startTime,
                             $occupiedByAuditorium,
+                            "aud:{$slug}:{$dayOffset}:{$movie->slug}:{$time}"
                         );
 
                         if ($chosen === null) {
                             continue;
                         }
 
-                        [$auditoriumId, $endTime] = $chosen;
+                        [$auditoriumId, $auditoriumName, $endTime] = $chosen;
 
                         $occupiedByAuditorium[$auditoriumId][] = [$startTime, $endTime];
 
                         $rows[] = [
-                            'id' => (string) Str::uuid(),
+                            'id' => SeederUuid::for(
+                                "showtime:{$slug}:{$auditoriumName}:{$movie->slug}:{$startTime->toIso8601String()}"
+                            ),
                             'movie_id' => $movie->id,
                             'auditorium_id' => $auditoriumId,
                             'start_time' => $startTime,
@@ -143,16 +163,21 @@ class ShowtimeSeeder extends Seeder
     /**
      * Walk the location's auditoriums (in shuffled order) and return the first
      * one whose existing [start, end) intervals don't collide with the proposed
-     * showtime. Returns [auditoriumId, endTime] or null if every auditorium is
-     * busy at that minute.
+     * showtime. Returns [auditoriumId, auditoriumName, endTime] or null if every
+     * auditorium is busy at that minute. The auditorium name is returned because
+     * SeederUuid uses it as part of the deterministic natural key (the id alone
+     * is opaque and changes if the AuditoriumSeeder layout shifts).
      */
     private function findOpenAuditorium(
         $auditoriums,
         Movie $movie,
         CarbonInterface $startTime,
         array $occupiedByAuditorium,
+        string $shuffleKey,
     ): ?array {
-        foreach ($auditoriums->shuffle() as $auditorium) {
+        $ordered = $this->deterministicShuffle($auditoriums->all(), $shuffleKey);
+
+        foreach ($ordered as $auditorium) {
             $endTime = ShowtimeService::computeEndTime($movie, $auditorium, $startTime);
 
             $intervals = $occupiedByAuditorium[$auditorium->id] ?? [];
@@ -161,10 +186,28 @@ class ShowtimeSeeder extends Seeder
                 continue;
             }
 
-            return [$auditorium->id, $endTime];
+            return [$auditorium->id, $auditorium->name, $endTime];
         }
 
         return null;
+    }
+
+    /**
+     * Deterministic Fisher–Yates shuffle driven by a seedable Mt19937. Used in
+     * place of Collection::shuffle($seed) because PHP 8.2+'s `shuffle()` uses
+     * OS entropy (random_int) and ignores mt_srand — so the Collection helper's
+     * seed has no effect. crc32 of the natural key gives a stable 32-bit seed.
+     *
+     * @template T
+     *
+     * @param  array<int, T>  $items
+     * @return array<int, T>
+     */
+    private function deterministicShuffle(array $items, string $key): array
+    {
+        $randomizer = new Randomizer(new Mt19937((int) crc32($key)));
+
+        return $randomizer->shuffleArray(array_values($items));
     }
 
     /**
