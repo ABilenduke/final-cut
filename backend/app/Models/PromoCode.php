@@ -14,7 +14,7 @@ use Illuminate\Support\Carbon;
  * @property string $discount_type 'percentage' | 'fixed_cents'.
  * @property int $amount Percent (1-100) OR cents, per discount_type.
  * @property int|null $usage_limit Null = unlimited.
- * @property int|null $per_user_limit Reserved for v2 enforcement.
+ * @property int|null $per_user_limit Null = unlimited per customer; enforced by PromoCodeService (by account id or normalized guest email).
  * @property int $uses_count
  * @property Carbon|null $expires_at
  * @property Carbon|null $deactivated_at NULL = active; set = when deactivated.

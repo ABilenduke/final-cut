@@ -1267,3 +1267,245 @@ test('3DS confirm refunds and returns 409 when promo was deactivated during the 
     // The deactivated promo's uses_count must NOT have been incremented.
     expect(PromoCode::where('code', 'OFF5')->first()->uses_count)->toBe(0);
 });
+
+/*
+|--------------------------------------------------------------------------
+| promo_code_id persistence + email canonicalization (per-user-limit T2)
+|--------------------------------------------------------------------------
+*/
+
+test('a direct booking records the redeemed promo_code_id', function () {
+    $fixture = $this->createShowtimeWithSeats();
+    $this->fakeStripe()->shouldSucceed();
+    $promoId = PromoCode::where('code', 'WELCOME5')->value('id');
+
+    $response = postJson($this->bookingUrl($fixture['location']), [
+        'showtimeId' => $fixture['showtime']->id,
+        'seatIds' => [$fixture['seats'][0]->id],
+        'paymentMethodId' => 'pm_test_visa',
+        'promoCode' => 'WELCOME5',
+        'email' => 'guest@example.com',
+    ])->assertStatus(201);
+
+    expect(Booking::find($response->json('data.id'))->promo_code_id)->toBe($promoId);
+});
+
+test('a booking with no promo persists a null promo_code_id', function () {
+    $fixture = $this->createShowtimeWithSeats();
+    $this->fakeStripe()->shouldSucceed();
+
+    $response = postJson($this->bookingUrl($fixture['location']), [
+        'showtimeId' => $fixture['showtime']->id,
+        'seatIds' => [$fixture['seats'][0]->id],
+        'paymentMethodId' => 'pm_test_visa',
+        'email' => 'guest@example.com',
+    ])->assertStatus(201);
+
+    expect(Booking::find($response->json('data.id'))->promo_code_id)->toBeNull();
+});
+
+test('a 3DS-confirmed booking records the redeemed promo_code_id', function () {
+    $fixture = $this->createShowtimeWithSeats();
+    $fakeStripe = $this->fakeStripe();
+    $promoId = PromoCode::where('code', 'WELCOME5')->value('id');
+
+    $fakeStripe->shouldRequire3ds();
+    $store = postJson($this->bookingUrl($fixture['location']), [
+        'showtimeId' => $fixture['showtime']->id,
+        'seatIds' => [$fixture['seats'][0]->id],
+        'paymentMethodId' => 'pm_test_3ds',
+        'promoCode' => 'WELCOME5',
+        'email' => 'guest@example.com',
+    ])->assertOk();
+
+    $fakeStripe->shouldSucceed();
+    $confirm = postJson($this->bookingUrl($fixture['location'], 'confirm'), [
+        'paymentIntentId' => $store->json('data.paymentIntentId'),
+    ])->assertStatus(201);
+
+    expect(Booking::find($confirm->json('data.id'))->promo_code_id)->toBe($promoId);
+});
+
+test('a guest email is canonicalized (lowercased + trimmed) before it is stored', function () {
+    $fixture = $this->createShowtimeWithSeats();
+    $this->fakeStripe()->shouldSucceed();
+
+    $response = postJson($this->bookingUrl($fixture['location']), [
+        'showtimeId' => $fixture['showtime']->id,
+        'seatIds' => [$fixture['seats'][0]->id],
+        'paymentMethodId' => 'pm_test_visa',
+        'email' => 'Mixed@Case.com ',
+    ])->assertStatus(201);
+
+    expect(Booking::find($response->json('data.id'))->guest_email)->toBe('mixed@case.com');
+});
+
+/*
+|--------------------------------------------------------------------------
+| per_user_limit enforcement (per-user-limit T4)
+|--------------------------------------------------------------------------
+*/
+
+function perUserPromo(): PromoCode
+{
+    return PromoCode::factory()->create([
+        'code' => 'ONEPER',
+        'discount_type' => PromoCode::TYPE_FIXED_CENTS,
+        'amount' => 500,
+        'per_user_limit' => 1,
+    ]);
+}
+
+test('an authed user is blocked from a second redemption of a per_user_limit:1 promo', function () {
+    perUserPromo();
+    $user = User::factory()->create();
+    $fixture = $this->createShowtimeWithSeats();
+    $this->fakeStripe()->shouldSucceed();
+
+    actingAs($user)->postJson($this->bookingUrl($fixture['location']), [
+        'showtimeId' => $fixture['showtime']->id,
+        'seatIds' => [$fixture['seats'][0]->id],
+        'paymentMethodId' => 'pm_test_visa',
+        'promoCode' => 'ONEPER',
+    ])->assertStatus(201);
+
+    actingAs($user)->postJson($this->bookingUrl($fixture['location']), [
+        'showtimeId' => $fixture['showtime']->id,
+        'seatIds' => [$fixture['seats'][1]->id],
+        'paymentMethodId' => 'pm_test_visa',
+        'promoCode' => 'ONEPER',
+    ])->assertStatus(400)->assertJsonPath('errors.0.field', 'promoCode');
+
+    expect(PromoCode::where('code', 'ONEPER')->value('uses_count'))->toBe(1);
+});
+
+test('a guest is blocked from a second redemption keyed on the same canonical email', function () {
+    perUserPromo();
+    $fixture = $this->createShowtimeWithSeats();
+    $this->fakeStripe()->shouldSucceed();
+
+    postJson($this->bookingUrl($fixture['location']), [
+        'showtimeId' => $fixture['showtime']->id,
+        'seatIds' => [$fixture['seats'][0]->id],
+        'paymentMethodId' => 'pm_test_visa',
+        'promoCode' => 'ONEPER',
+        'email' => 'repeat@example.com',
+    ])->assertStatus(201);
+
+    // Case/whitespace variant must NOT bypass the cap.
+    postJson($this->bookingUrl($fixture['location']), [
+        'showtimeId' => $fixture['showtime']->id,
+        'seatIds' => [$fixture['seats'][1]->id],
+        'paymentMethodId' => 'pm_test_visa',
+        'promoCode' => 'ONEPER',
+        'email' => 'REPEAT@EXAMPLE.COM ',
+    ])->assertStatus(400)->assertJsonPath('errors.0.field', 'promoCode');
+});
+
+test('a different user can redeem the same per_user_limit:1 promo independently', function () {
+    perUserPromo();
+    $fixture = $this->createShowtimeWithSeats();
+    $this->fakeStripe()->shouldSucceed();
+
+    actingAs(User::factory()->create())->postJson($this->bookingUrl($fixture['location']), [
+        'showtimeId' => $fixture['showtime']->id,
+        'seatIds' => [$fixture['seats'][0]->id],
+        'paymentMethodId' => 'pm_test_visa',
+        'promoCode' => 'ONEPER',
+    ])->assertStatus(201);
+
+    actingAs(User::factory()->create())->postJson($this->bookingUrl($fixture['location']), [
+        'showtimeId' => $fixture['showtime']->id,
+        'seatIds' => [$fixture['seats'][1]->id],
+        'paymentMethodId' => 'pm_test_visa',
+        'promoCode' => 'ONEPER',
+    ])->assertStatus(201);
+
+    expect(PromoCode::where('code', 'ONEPER')->value('uses_count'))->toBe(2);
+});
+
+test('an authed user whose account email matches a prior guest redemption is blocked', function () {
+    perUserPromo();
+    $fixture = $this->createShowtimeWithSeats();
+    $this->fakeStripe()->shouldSucceed();
+
+    // Prior GUEST redemption under shared@example.com.
+    postJson($this->bookingUrl($fixture['location']), [
+        'showtimeId' => $fixture['showtime']->id,
+        'seatIds' => [$fixture['seats'][0]->id],
+        'paymentMethodId' => 'pm_test_visa',
+        'promoCode' => 'ONEPER',
+        'email' => 'shared@example.com',
+    ])->assertStatus(201);
+
+    // The same person, now registered with that email, can't re-redeem.
+    $user = User::factory()->create(['email' => 'shared@example.com']);
+    actingAs($user)->postJson($this->bookingUrl($fixture['location']), [
+        'showtimeId' => $fixture['showtime']->id,
+        'seatIds' => [$fixture['seats'][1]->id],
+        'paymentMethodId' => 'pm_test_visa',
+        'promoCode' => 'ONEPER',
+    ])->assertStatus(400)->assertJsonPath('errors.0.field', 'promoCode');
+});
+
+test('a 3DS redemption that hits the cap during its window is refunded by the consume backstop', function () {
+    $promo = perUserPromo();
+    $user = User::factory()->create();
+    $fixture = $this->createShowtimeWithSeats();
+    $fakeStripe = $this->fakeStripe();
+
+    // Start a 3DS redemption — store pre-check passes (0 prior redemptions).
+    $fakeStripe->shouldRequire3ds();
+    $store = actingAs($user)->postJson($this->bookingUrl($fixture['location']), [
+        'showtimeId' => $fixture['showtime']->id,
+        'seatIds' => [$fixture['seats'][0]->id],
+        'paymentMethodId' => 'pm_test_3ds',
+        'promoCode' => 'ONEPER',
+    ])->assertOk();
+    $paymentIntentId = $store->json('data.paymentIntentId');
+
+    // A concurrent redemption by the same user commits during the 3DS window.
+    Booking::factory()->create([
+        'user_id' => $user->id,
+        'promo_code_id' => $promo->id,
+        'status' => BookingStatus::Confirmed,
+    ]);
+
+    // confirm() captures, then consume() under lock sees the cap → refund + 409.
+    $fakeStripe->shouldSucceed();
+    actingAs($user)->postJson($this->bookingUrl($fixture['location'], 'confirm'), [
+        'paymentIntentId' => $paymentIntentId,
+    ])->assertStatus(409)->assertJsonPath('errors.0.field', 'promoCode');
+
+    expect($fakeStripe->refundedPaymentIntents)->toHaveCount(1);
+    expect($fakeStripe->refundedPaymentIntents[0]['paymentIntentId'])->toBe($paymentIntentId);
+    expect(Booking::where('stripe_payment_intent_id', $paymentIntentId)
+        ->where('status', BookingStatus::Confirmed)
+        ->count())->toBe(0);
+});
+
+test('a prior authed redemption blocks a later guest redemption under the same email', function () {
+    // Reverse of the previous test, and the symmetry gap a security review
+    // flagged: an authed booking has guest_email = null, so a guest checkout
+    // under the same email must resolve the account to count it.
+    perUserPromo();
+    $fixture = $this->createShowtimeWithSeats();
+    $this->fakeStripe()->shouldSucceed();
+
+    $user = User::factory()->create(['email' => 'shared@example.com']);
+    actingAs($user)->postJson($this->bookingUrl($fixture['location']), [
+        'showtimeId' => $fixture['showtime']->id,
+        'seatIds' => [$fixture['seats'][0]->id],
+        'paymentMethodId' => 'pm_test_visa',
+        'promoCode' => 'ONEPER',
+    ])->assertStatus(201);
+
+    // Same person, now checking out as a guest with their account email, can't bypass.
+    postJson($this->bookingUrl($fixture['location']), [
+        'showtimeId' => $fixture['showtime']->id,
+        'seatIds' => [$fixture['seats'][1]->id],
+        'paymentMethodId' => 'pm_test_visa',
+        'promoCode' => 'ONEPER',
+        'email' => 'Shared@Example.com ',
+    ])->assertStatus(400)->assertJsonPath('errors.0.field', 'promoCode');
+});
