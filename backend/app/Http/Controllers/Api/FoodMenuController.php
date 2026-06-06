@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api;
 
+use App\Enums\MenuCategory;
 use App\Http\Resources\CrossLocationMenuItemResource;
 use App\Http\Resources\MenuItemResource;
 use App\Models\Location;
@@ -12,6 +13,7 @@ use App\Observers\MenuItemObserver;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Validation\Rule;
 
 class FoodMenuController extends Controller
 {
@@ -61,14 +63,22 @@ class FoodMenuController extends Controller
      */
     public function index(Location $location, Request $request): JsonResponse
     {
+        validator($request->query(), [
+            'category' => ['nullable', Rule::enum(MenuCategory::class)],
+        ])->validate();
+
+        // Read from query() (the validated bag) — input() would merge a GET body
+        // with precedence and let an unvalidated body `category` slip past.
+        $category = $request->query('category');
+
         $query = $location->menuItems()
             ->currentlyAvailable()
             ->wherePivotNull('unavailable_at')
             ->orderBy('menu_items.category')
             ->orderBy('menu_items.name');
 
-        if ($request->filled('category')) {
-            $query->where('menu_items.category', $request->input('category'));
+        if (filled($category)) {
+            $query->where('menu_items.category', $category);
         }
 
         $items = $query->get();

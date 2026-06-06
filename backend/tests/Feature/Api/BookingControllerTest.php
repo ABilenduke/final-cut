@@ -1509,3 +1509,96 @@ test('a prior authed redemption blocks a later guest redemption under the same e
         'email' => 'Shared@Example.com ',
     ])->assertStatus(400)->assertJsonPath('errors.0.field', 'promoCode');
 });
+
+/*
+|--------------------------------------------------------------------------
+| P2 hardening: input length/count guards + PII / cross-location regression pins
+|--------------------------------------------------------------------------
+*/
+
+test('store rejects an over-long paymentMethodId', function () {
+    $fixture = $this->createShowtimeWithSeats();
+    $this->fakeStripe();
+
+    postJson($this->bookingUrl($fixture['location']), [
+        'showtimeId' => $fixture['showtime']->id,
+        'seatIds' => [$fixture['seats'][0]->id],
+        'paymentMethodId' => str_repeat('x', 600),
+        'email' => 'guest@example.com',
+    ])->assertStatus(422)->assertJsonValidationErrors(['paymentMethodId']);
+});
+
+test('store rejects more than 20 food line items', function () {
+    $fixture = $this->createShowtimeWithSeats();
+    $this->fakeStripe();
+
+    // 21 REAL menu items so foodItems.*.itemId exists: passes and the array
+    // max:20 is what fires (asserting on `foodItems`, not `foodItems.0.itemId`).
+    $foodItems = collect(range(1, 21))->map(function () use ($fixture) {
+        $item = MenuItem::factory()->forLocation($fixture['location'])->create(['price' => 599]);
+
+        return ['itemId' => $item->id, 'quantity' => 1];
+    })->all();
+
+    postJson($this->bookingUrl($fixture['location']), [
+        'showtimeId' => $fixture['showtime']->id,
+        'seatIds' => [$fixture['seats'][0]->id],
+        'paymentMethodId' => 'pm_test_visa',
+        'foodItems' => $foodItems,
+        'email' => 'guest@example.com',
+    ])->assertStatus(422)->assertJsonValidationErrors(['foodItems']);
+});
+
+test('confirm rejects an over-long paymentIntentId', function () {
+    $fixture = $this->createShowtimeWithSeats();
+    $this->fakeStripe();
+
+    postJson($this->bookingUrl($fixture['location'], 'confirm'), [
+        'paymentIntentId' => str_repeat('x', 600),
+    ])->assertStatus(422)->assertJsonValidationErrors(['paymentIntentId']);
+});
+
+test('lookup with a wrong email returns 404 and never leaks the real guest email', function () {
+    $fixture = $this->createShowtimeWithSeats();
+    $booking = Booking::factory()->guest()->create([
+        'showtime_id' => $fixture['showtime']->id,
+        'guest_email' => 'real@example.com',
+    ]);
+
+    getJson('/api/bookings/lookup?'.http_build_query([
+        'confirmation_code' => $booking->confirmation_code,
+        'email' => 'wrong@example.com',
+    ]))
+        ->assertStatus(404)
+        ->assertJsonMissing(['guestEmail' => 'real@example.com']);
+});
+
+test('confirm against the wrong location returns 410 and creates no booking', function () {
+    $fixture = $this->createShowtimeWithSeats();
+    $fakeStripe = $this->fakeStripe();
+
+    $fakeStripe->shouldRequire3ds();
+    $store = postJson($this->bookingUrl($fixture['location']), [
+        'showtimeId' => $fixture['showtime']->id,
+        'seatIds' => [$fixture['seats'][0]->id],
+        'paymentMethodId' => 'pm_test_3ds',
+        'email' => 'guest@example.com',
+    ])->assertOk();
+    $paymentIntentId = $store->json('data.paymentIntentId');
+
+    $bookingCountBefore = Booking::count();
+    $otherLocation = Location::factory()->create();
+
+    $fakeStripe->shouldSucceed();
+    postJson($this->bookingUrl($otherLocation, 'confirm'), [
+        'paymentIntentId' => $paymentIntentId,
+    ])->assertStatus(410);
+
+    expect(Booking::count())->toBe($bookingCountBefore);
+
+    // Positive control: the 410 is location-specific — the CORRECT location
+    // confirms end-to-end (pending state was preserved for retry).
+    postJson($this->bookingUrl($fixture['location'], 'confirm'), [
+        'paymentIntentId' => $paymentIntentId,
+    ])->assertStatus(201);
+});

@@ -494,3 +494,27 @@ test('register → me → logout → login → me lifecycle', function () {
     $this->getJson('/api/auth/me')->assertOk()
         ->assertJsonPath('data.email', 'jane@finalcut.test');
 });
+
+test('register rejects an otherwise-valid password longer than 72 characters', function () {
+    // str_repeat('Aa1!', 25) = 100 chars and satisfies mixedCase+numbers+symbols,
+    // so max:72 is the ONLY firing rule (not a complexity rule).
+    $longValid = str_repeat('Aa1!', 25);
+
+    postJson('/api/auth/register', [
+        'name' => 'Too Long',
+        'email' => 'toolong@example.com',
+        'password' => $longValid,
+        'password_confirmation' => $longValid,
+    ])->assertStatus(422)->assertJsonValidationErrors(['password']);
+});
+
+test('reset-password rejects an otherwise-valid password longer than 72 characters', function () {
+    $longValid = str_repeat('Aa1!', 25);
+
+    postJson('/api/auth/reset-password', [
+        'token' => 'some-token',
+        'email' => 'someone@example.com',
+        'password' => $longValid,
+        'password_confirmation' => $longValid,
+    ])->assertStatus(422)->assertJsonValidationErrors(['password']);
+});

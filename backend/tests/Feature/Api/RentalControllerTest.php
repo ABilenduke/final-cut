@@ -101,3 +101,19 @@ test('returns 422 for guest count below 1', function () {
         ->assertUnprocessable()
         ->assertJsonValidationErrors(['guestCount']);
 });
+
+test('rental guestCount above the upper bound is rejected', function () {
+    postJson('/api/rentals/inquiry', validRentalPayload(['guestCount' => 100000]))
+        ->assertStatus(422)
+        ->assertJsonValidationErrors(['guestCount']);
+});
+
+test('rental email longer than 255 is rejected', function () {
+    // RFC-valid (local part <= 64, short domain labels) but 276 chars, so
+    // max:255 is the firing rule — not an RFC-invalidity that would mask it.
+    $longValidEmail = str_repeat('a', 64).'@'.str_repeat('sub.', 50).'example.com';
+
+    postJson('/api/rentals/inquiry', validRentalPayload(['email' => $longValidEmail]))
+        ->assertStatus(422)
+        ->assertJsonValidationErrors(['email']);
+});

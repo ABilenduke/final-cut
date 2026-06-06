@@ -60,24 +60,4 @@ describe('useShowtimes', () => {
       '/api/locations/downtown/showtimes/st-123',
     )
   })
-
-  // ── getShowtimes (legacy per-location list — kept for backward compat) ────
-
-  it('getShowtimes builds the legacy location-scoped list URL', () => {
-    const { getShowtimes } = useShowtimes()
-    getShowtimes('downtown', 'the-dark-knight')
-    expect(mockUseApiFetch).toHaveBeenCalledWith(
-      '/api/locations/downtown/movies/the-dark-knight/showtimes',
-      { query: {} },
-    )
-  })
-
-  it('getShowtimes passes date filter', () => {
-    const { getShowtimes } = useShowtimes()
-    getShowtimes('downtown', 'the-dark-knight', '2026-04-10')
-    expect(mockUseApiFetch).toHaveBeenCalledWith(
-      '/api/locations/downtown/movies/the-dark-knight/showtimes',
-      { query: { date: '2026-04-10' } },
-    )
-  })
 })

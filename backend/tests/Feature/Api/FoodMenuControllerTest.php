@@ -133,3 +133,17 @@ test('returns empty data when location has no menu items', function () {
     $response->assertOk();
     expect($response->json('data'))->toBeEmpty();
 });
+
+test('an invalid ?category is rejected with 422', function () {
+    $location = Location::factory()->create();
+
+    getJson(foodMenuUrl($location).'?category=caviar')
+        ->assertStatus(422)
+        ->assertJsonValidationErrors(['category']);
+});
+
+test('a valid ?category still returns 200', function () {
+    $location = Location::factory()->create();
+
+    getJson(foodMenuUrl($location).'?category=popcorn')->assertOk();
+});

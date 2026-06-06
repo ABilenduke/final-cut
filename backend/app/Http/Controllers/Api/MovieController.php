@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Enums\MovieStatus;
 use App\Http\Resources\MovieListResource;
 use App\Http\Resources\MovieResource;
 use App\Http\Resources\ShowtimeResource;
@@ -9,18 +10,32 @@ use App\Models\Location;
 use App\Models\Movie;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class MovieController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
+        // Validate ?status BEFORE resolving the location, so a bad status
+        // surfaces its own 422 instead of being masked by a bad-?location 422.
+        // NOTE: per_page is intentionally NOT validated here — it is CLAMPED
+        // below. Internal high-volume callers (the sitemap source requests
+        // per_page=500) rely on the long-standing clamp; 422-ing a large value
+        // would silently drop every dynamic URL from sitemap.xml.
+        validator($request->query(), [
+            'status' => ['nullable', Rule::enum(MovieStatus::class)],
+        ])->validate();
+
         $locationSlug = $this->resolveOptionalLocationSlug($request);
         if ($locationSlug instanceof JsonResponse) {
             return $locationSlug;
         }
 
-        $status = $request->input('status', 'now_showing');
-        $perPage = min(max((int) $request->input('per_page', 20), 1), 100);
+        // Read from query() (the validated bag). input() would merge a GET body
+        // with precedence, letting an unvalidated body value slip past the
+        // query-bag validator above.
+        $status = $request->query('status', 'now_showing');
+        $perPage = min(max((int) $request->query('per_page', 20), 1), 100);
 
         $query = Movie::where('status', $status)->orderBy('title');
 

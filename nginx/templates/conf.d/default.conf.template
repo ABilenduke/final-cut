@@ -62,7 +62,11 @@ server {
     add_header X-XSS-Protection       "1; mode=block" always;
     add_header Referrer-Policy        "strict-origin-when-cross-origin" always;
     add_header Permissions-Policy     "camera=(), microphone=(), geolocation=(self)" always;
-    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    # `preload` advertises eligibility for the browser HSTS preload list. The
+    # directive itself is INERT — the irreversible, apex-wide HTTPS commitment
+    # only happens when the domain is manually SUBMITTED to hstspreload.org
+    # (removal then takes months). Do that submission deliberately at go-live.
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload" always;
     # X-Frame-Options is the *enforced* clickjacking control while the CSP below
     # is still Report-Only (a Report-Only `frame-ancestors` only logs, it does
     # not block). Keep this header even after the CSP is promoted to enforcing —

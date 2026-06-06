@@ -473,7 +473,7 @@ class BookingController extends Controller
     public function confirm(Location $location, Request $request): JsonResponse
     {
         $request->validate([
-            'paymentIntentId' => 'required|string',
+            'paymentIntentId' => 'required|string|max:512',
         ]);
 
         $paymentIntentId = $request->input('paymentIntentId');

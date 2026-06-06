@@ -67,3 +67,13 @@ test('returns 422 for invalid email', function () {
         ->assertUnprocessable()
         ->assertJsonValidationErrors(['email']);
 });
+
+test('contact email longer than 255 is rejected', function () {
+    // RFC-valid (local part <= 64, short domain labels) but 276 chars, so
+    // max:255 is the firing rule — not an RFC-invalidity that would mask it.
+    $longValidEmail = str_repeat('a', 64).'@'.str_repeat('sub.', 50).'example.com';
+
+    postJson('/api/contact', validContactPayload(['email' => $longValidEmail]))
+        ->assertStatus(422)
+        ->assertJsonValidationErrors(['email']);
+});

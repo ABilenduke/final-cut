@@ -62,7 +62,9 @@ server {
     add_header X-XSS-Protection       "1; mode=block" always;
     add_header Referrer-Policy        "strict-origin-when-cross-origin" always;
     add_header Permissions-Policy     "camera=(), microphone=(), geolocation=()" always;
-    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    # `preload` advertises preload-list eligibility; it is INERT until the domain
+    # is manually submitted to hstspreload.org (the irreversible go-live step).
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload" always;
     # Enforced clickjacking protection for the admin panel.
     add_header X-Frame-Options        "SAMEORIGIN" always;
 

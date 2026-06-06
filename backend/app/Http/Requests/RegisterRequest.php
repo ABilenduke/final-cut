@@ -21,7 +21,11 @@ class RegisterRequest extends FormRequest
         return [
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'unique:users', 'max:255'],
-            'password' => ['required', 'confirmed', Password::defaults()],
+            // max:72 — a sane upper bound (bcrypt silently truncates past 72
+            // bytes, so anything longer is wasted input). Laravel's `max` counts
+            // CHARACTERS via mb_strlen, which equals bytes for ASCII and stays a
+            // reasonable DoS cap for multibyte input.
+            'password' => ['required', 'confirmed', 'max:72', Password::defaults()],
         ];
     }
 

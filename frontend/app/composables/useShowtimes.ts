@@ -36,17 +36,6 @@ export function useShowtimes() {
   }
 
   /**
-   * Per-location showtime list. Retained for any legacy callers;
-   * the public movie-detail page now uses `fetchByMovie`.
-   * @deprecated Use fetchByMovie for the public browse path.
-   */
-  const getShowtimes = (locationSlug: string, movieSlug: string, date?: string) =>
-    useApiFetch<ShowtimeListResponse>(
-      `/api/locations/${locationSlug}/movies/${movieSlug}/showtimes`,
-      { query: date ? { date } : {} },
-    )
-
-  /**
    * Per-location showtime + seat-map fetch.
    * Used by the booking flow (/purchase/:showtimeId).
    * The {location} segment is part of the showtime URL contract.
@@ -56,5 +45,5 @@ export function useShowtimes() {
       `/api/locations/${locationSlug}/showtimes/${id}`,
     )
 
-  return { fetchByMovie, getShowtimes, getShowtime }
+  return { fetchByMovie, getShowtime }
 }
