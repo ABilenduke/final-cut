@@ -27,6 +27,10 @@ class PromoCodeNotConsumableException extends DomainException
 
     public const REASON_LIMIT_REACHED = 'limit_reached';
 
+    /** This customer (by account id or normalized email) has already redeemed
+     *  the code up to its `per_user_limit`. */
+    public const REASON_PER_USER_LIMIT = 'per_user_limit';
+
     /** The promo's discount amount changed (e.g. an admin edit) after the
      *  PaymentIntent was already sized — the captured charge no longer matches
      *  the live promo, so the booking is refused and refunded rather than booked
@@ -40,6 +44,7 @@ class PromoCodeNotConsumableException extends DomainException
             self::REASON_INACTIVE => 'Promo code is no longer active.',
             self::REASON_EXPIRED => 'Promo code has expired.',
             self::REASON_LIMIT_REACHED => 'Promo code has reached its usage limit.',
+            self::REASON_PER_USER_LIMIT => 'You have already used this promo code the maximum number of times.',
             self::REASON_AMOUNT_CHANGED => 'Promo code discount changed before the booking completed.',
             default => 'Promo code cannot be redeemed.',
         });

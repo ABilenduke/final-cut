@@ -99,10 +99,11 @@ class PromoCodeResource extends BaseResource
                         ->nullable()
                         ->minValue(1)
                         ->helperText('Max total uses across all customers. Leave blank for unlimited.'),
-                    // per_user_limit intentionally omitted: there is no per-user
-                    // redemption ledger in v1, so it cannot be enforced. The
-                    // nullable column stays (harmless); the control is hidden
-                    // until enforcement ships (deferred to v2).
+                    TextInput::make('per_user_limit')
+                        ->numeric()
+                        ->nullable()
+                        ->minValue(1)
+                        ->helperText('Max uses per customer (by account, or by email for guests). Leave blank for unlimited.'),
                     DateTimePicker::make('expires_at')->nullable(),
                     // No is_active toggle: new codes are active by default
                     // (deactivated_at = NULL); deactivation is a deliberate,

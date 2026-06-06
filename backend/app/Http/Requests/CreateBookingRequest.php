@@ -22,6 +22,15 @@ class CreateBookingRequest extends FormRequest
         $this->merge([
             'idempotencyKey' => $this->header('Idempotency-Key'),
         ]);
+
+        // Canonicalize the guest email so it is the stable source of truth for
+        // per_user_limit enforcement: without this a guest defeats the cap with
+        // 'A@x.com' vs 'a@x.com' vs ' a@x.com '. The count also matches
+        // case-insensitively (PromoCodeService::countRedemptions), but the
+        // stored value must be canonical too. Mirrors RegisterRequest/LoginRequest.
+        if ($this->filled('email')) {
+            $this->merge(['email' => strtolower(trim((string) $this->input('email')))]);
+        }
     }
 
     public function rules(): array

@@ -19,6 +19,10 @@ class BookingSeat extends Model
     {
         return [
             'price' => 'integer',
+            // Trigger-maintained occupancy flag (migration
+            // 2026_06_05_000000_add_booking_seats_occupancy_guard). Read-only —
+            // intentionally NOT in #[Fillable]; the DB triggers own its value.
+            'occupies_seat' => 'boolean',
         ];
     }
 

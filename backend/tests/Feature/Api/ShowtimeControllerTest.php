@@ -138,8 +138,11 @@ test('bookings for a different showtime do NOT affect availability', function ()
 
     $seat = Seat::factory()->create(['auditorium_id' => $auditorium->id, 'row' => 'A', 'number' => 1, 'label' => 'A1']);
 
-    $showtime1 = Showtime::factory()->create(['movie_id' => $movie->id, 'auditorium_id' => $auditorium->id]);
-    $showtime2 = Showtime::factory()->create(['movie_id' => $movie->id, 'auditorium_id' => $auditorium->id]);
+    // Explicit start_times on different days: two factory showtimes in one
+    // auditorium with random times can overlap and trip the showtimes_no_overlap
+    // EXCLUDE constraint (a pre-existing flake surfaced by a full-suite run).
+    $showtime1 = Showtime::factory()->create(['movie_id' => $movie->id, 'auditorium_id' => $auditorium->id, 'start_time' => now()->addDays(3)->setTime(12, 0)]);
+    $showtime2 = Showtime::factory()->create(['movie_id' => $movie->id, 'auditorium_id' => $auditorium->id, 'start_time' => now()->addDays(4)->setTime(12, 0)]);
 
     // Book seat for showtime2
     $booking = Booking::factory()->create(['showtime_id' => $showtime2->id]);
