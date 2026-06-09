@@ -1,9 +1,19 @@
 <script setup lang="ts">
+import { computed, ref } from 'vue'
 import type { CalendarEvent } from '~/types/calendar-event'
+import { hashToHue, initialsFrom } from '~/utils/posterFallback'
 
-defineProps<{
+const props = defineProps<{
   event: CalendarEvent
 }>()
+
+// Branded fallback: a seeded image_path may have no on-disk binary (provisioned
+// via upload/CDN). On null or load failure, degrade to a hashed-hue gradient +
+// glyph instead of a broken-image icon.
+const imgFailed = ref(false)
+const showImage = computed(() => Boolean(props.event.imageUrl) && !imgFailed.value)
+const fallbackHue = computed(() => hashToHue(props.event.title))
+const fallbackMark = computed(() => initialsFrom(props.event.title))
 
 function truncate(text: string, maxLength: number): string {
   if (text.length <= maxLength) return text
@@ -27,13 +37,21 @@ const typeLabels: Record<string, string> = {
     <template #header>
       <div class="event-list-card__image-container">
         <img
-          v-if="event.imageUrl"
+          v-if="showImage"
           :src="event.imageUrl"
           :alt="event.title"
           class="event-list-card__image"
           loading="lazy"
+          @error="imgFailed = true"
         />
-        <div v-else class="event-list-card__image-placeholder" />
+        <div
+          v-else
+          class="event-list-card__image-fallback"
+          :style="{ '--fallback-hue': fallbackHue }"
+          aria-hidden="true"
+        >
+          <span class="event-list-card__image-mark">{{ fallbackMark }}</span>
+        </div>
       </div>
     </template>
 
@@ -71,10 +89,28 @@ const typeLabels: Record<string, string> = {
   display: block;
 }
 
-.event-list-card__image-placeholder {
+.event-list-card__image-fallback {
   width: 100%;
   height: 100%;
-  background-color: var(--surface-container-lowest);
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-start;
+  background: linear-gradient(
+    135deg,
+    hsl(var(--fallback-hue, 0) 40% 22%),
+    hsl(var(--fallback-hue, 0) 30% 8%)
+  );
+}
+
+.event-list-card__image-mark {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1.5rem;
+  letter-spacing: -0.02em;
+  color: var(--on-surface);
+  opacity: 0.85;
+  padding: var(--space-sm);
+  text-shadow: 0 0 0.75rem rgb(0 0 0 / 0.6);
 }
 
 .event-list-card__content {

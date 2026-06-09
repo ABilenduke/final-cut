@@ -1,40 +1,86 @@
 <script setup lang="ts">
-import { retrospectiveProgramme } from '~/data/homepage'
+import { computed, ref } from 'vue'
+import type { CalendarEvent } from '~/types/calendar-event'
+import { useCalendarEvents } from '~/composables/useCalendarEvents'
 
-const p = retrospectiveProgramme
+const { getEvents } = useCalendarEvents()
+
+// Next upcoming special event across the current + next month (mirrors events/index.vue).
+const now = new Date()
+const currentMonth = now.getMonth() + 1
+const currentYear = now.getFullYear()
+const nextMonth = currentMonth === 12 ? 1 : currentMonth + 1
+const nextYear = currentMonth === 12 ? currentYear + 1 : currentYear
+
+const { data: currentData } = getEvents(currentMonth, currentYear, 'special_event')
+const { data: nextData } = getEvents(nextMonth, nextYear, 'special_event')
+
+const todayKey = now.toISOString().slice(0, 10)
+
+const featured = computed<CalendarEvent | null>(() => {
+  const all = [
+    ...(currentData.value?.data ?? []),
+    ...(nextData.value?.data ?? []),
+  ].filter((e) => e.date >= todayKey)
+  all.sort((a, b) => a.startTime.localeCompare(b.startTime))
+  return all[0] ?? null
+})
+
+// Title split: first word plain, the remainder italicised ("Kubrick" + "in the grain").
+const titleLead = computed(() => featured.value?.title.split(' ')[0] ?? '')
+const titleRest = computed(() => (featured.value?.title.split(' ').slice(1).join(' ')) ?? '')
+const glyph = computed(() => (featured.value?.title.charAt(0) ?? '').toUpperCase())
+
+function monthLabel(iso: string): string {
+  // Date-only → month name; anchor to UTC noon to avoid TZ day-shift (matches formatDate).
+  return new Intl.DateTimeFormat('en-US', { month: 'long', timeZone: 'UTC' }).format(
+    new Date(`${iso}T12:00:00Z`),
+  )
+}
+const eyebrow = computed(() =>
+  featured.value ? `Feature Programme · ${monthLabel(featured.value.date)}` : '',
+)
+
+const imgFailed = ref(false)
+const showImage = computed(() => Boolean(featured.value?.imageUrl) && !imgFailed.value)
+
+const ctaHref = computed(() =>
+  featured.value?.slug ? `/events/${featured.value.slug}` : '/events',
+)
 </script>
 
 <template>
-  <section class="retro" aria-labelledby="retro-heading">
+  <section v-if="featured" class="retro" aria-labelledby="retro-heading">
     <div class="retro__inner">
       <div class="retro__split">
         <div class="retro__media" aria-hidden="true">
-          <div class="retro__glyph">{{ p.glyph }}</div>
+          <img
+            v-if="showImage"
+            :src="featured.imageUrl"
+            alt=""
+            class="retro__media-img"
+            loading="lazy"
+            @error="imgFailed = true"
+          >
+          <div v-if="showImage" class="retro__media-scrim" />
+          <div v-else class="retro__glyph">{{ glyph }}</div>
           <div class="retro__media-label">
-            <div class="retro__media-sm">{{ p.tag }}</div>
-            <div class="retro__media-big">{{ p.tagMeta }}</div>
+            <div class="retro__media-sm">Special Event</div>
+            <div class="retro__media-big">{{ formatDate(featured.date) }}</div>
           </div>
         </div>
 
         <div class="retro__body">
-          <div class="retro__eyebrow">{{ p.eyebrow }}</div>
+          <div class="retro__eyebrow">{{ eyebrow }}</div>
           <h2 id="retro-heading" class="retro__title">
-            {{ p.title }} <em>{{ p.titleEmphasis }}</em>
+            {{ titleLead }} <em v-if="titleRest">{{ titleRest }}</em>
           </h2>
-          <p class="retro__copy">{{ p.copy }}</p>
+          <p class="retro__copy">{{ featured.description }}</p>
 
-          <ol class="retro__schedule">
-            <li v-for="s in p.screenings" :key="`${s.day}-${s.title}`" class="retro__row">
-              <span class="retro__row-day">{{ s.day }}</span>
-              <div class="retro__row-body">
-                <b class="retro__row-title">{{ s.title }}</b>
-                <span class="retro__row-meta">{{ s.time }} · {{ s.screen }}</span>
-              </div>
-            </li>
-          </ol>
+          <p class="retro__when">Doors {{ formatWireTime(featured.startTime) }}</p>
 
-          <CvButton variant="primary" href="/events">
-            {{ p.cta }}
+          <CvButton variant="primary" :href="ctaHref">
+            View Event Details
             <template #icon-right>
               <span aria-hidden="true">&rarr;</span>
             </template>
@@ -193,55 +239,29 @@ const p = retrospectiveProgramme
   text-wrap: pretty;
 }
 
-/* Schedule list */
-.retro__schedule {
-  list-style: none;
-  padding: 0;
-  margin: 0 0 var(--space-xl);
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: var(--space-md) var(--space-xl);
-}
-
-@media (min-width: 40rem) {
-  .retro__schedule {
-    grid-template-columns: 1fr 1fr;
-  }
-}
-
-.retro__row {
-  display: flex;
-  gap: var(--space-md);
-  padding-block: 0.75rem;
-  border-top: var(--border-hairline) solid rgb(var(--outline-variant-rgb) / 0.25);
-}
-
-.retro__row-day {
+/* Showtime line (replaces the old hardcoded schedule list) */
+.retro__when {
   font-family: var(--font-display);
   color: var(--secondary);
-  font-size: 0.875rem;
-  letter-spacing: 0.1em;
-  flex-shrink: 0;
+  font-size: 1rem;
+  letter-spacing: 0.08em;
+  margin: 0 0 var(--space-xl);
 }
 
-.retro__row-body {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2xs);
-  min-width: 0;
+/* API banner image layered over the glyph fallback */
+.retro__media-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 1;
 }
 
-.retro__row-title {
-  font-family: var(--font-display);
-  font-size: 1.125rem;
-  font-weight: 500;
-  color: var(--on-surface);
-  letter-spacing: -0.01em;
-}
-
-.retro__row-meta {
-  font-family: var(--font-body);
-  color: var(--on-tertiary-fixed-variant);
-  font-size: 0.8125rem;
+.retro__media-scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: linear-gradient(to top, rgb(0 0 0 / 0.75), transparent 55%);
 }
 </style>

@@ -39,12 +39,15 @@ describe('EventListCard', () => {
     expect(img.attributes('src')).toBe('https://example.com/event.jpg')
   })
 
-  it('renders placeholder when no imageUrl', async () => {
+  it('renders a branded gradient fallback (initials glyph) when no imageUrl', async () => {
     const wrapper = await mountSuspended(EventListCard, {
       props: { event: makeEvent({ imageUrl: null }) },
     })
     expect(wrapper.find('.event-list-card__image').exists()).toBe(false)
-    expect(wrapper.find('.event-list-card__image-placeholder').exists()).toBe(true)
+    const fallback = wrapper.find('.event-list-card__image-fallback')
+    expect(fallback.exists()).toBe(true)
+    // initialsFrom("Director's Q&A Night") → "DQN"
+    expect(fallback.find('.event-list-card__image-mark').text()).toBe('DQN')
   })
 
   it('renders date badge', async () => {

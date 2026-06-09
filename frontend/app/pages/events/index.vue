@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { hashToHue } from '~/utils/posterFallback'
+
 const { getEvents } = useCalendarEvents()
 
 // Fetch special events for current and next month
@@ -20,6 +22,13 @@ const allEvents = computed(() => {
 const featuredEvent = computed(() => allEvents.value[0] ?? null)
 const upcomingEvents = computed(() => allEvents.value.slice(1))
 
+// Branded fallback for the featured hero when its seeded banner has no binary.
+const featuredImgFailed = ref(false)
+const showFeaturedImage = computed(
+  () => Boolean(featuredEvent.value?.imageUrl) && !featuredImgFailed.value,
+)
+const featuredHue = computed(() => hashToHue(featuredEvent.value?.title ?? ''))
+
 // SEO
 useHead({
   title: 'Events — Final Cut',
@@ -39,10 +48,17 @@ useHead({
       <div class="events-page__featured-inner">
         <div class="events-page__featured-bg">
           <img
-            v-if="featuredEvent.imageUrl"
+            v-if="showFeaturedImage"
             :src="featuredEvent.imageUrl"
             :alt="featuredEvent.title"
             class="events-page__featured-image"
+            @error="featuredImgFailed = true"
+          />
+          <div
+            v-else
+            class="events-page__featured-fallback"
+            :style="{ '--fallback-hue': featuredHue }"
+            aria-hidden="true"
           />
           <div class="events-page__featured-overlay" />
         </div>
@@ -107,6 +123,16 @@ useHead({
   height: 100%;
   object-fit: cover;
   display: block;
+}
+
+.events-page__featured-fallback {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    135deg,
+    hsl(var(--fallback-hue, 0) 40% 22%),
+    hsl(var(--fallback-hue, 0) 30% 8%)
+  );
 }
 
 .events-page__featured-overlay {
