@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { hashToHue, initialsFrom } from '~/utils/posterFallback'
 
 const props = withDefaults(defineProps<{
   title: string
@@ -10,24 +11,9 @@ const props = withDefaults(defineProps<{
   size: 'md',
 })
 
-function hashToHue(input: string): number {
-  let h = 0
-  for (let i = 0; i < input.length; i += 1) {
-    h = (h * 31 + input.charCodeAt(i)) % 360
-  }
-  return h
-}
-
 const hue = computed(() => hashToHue(props.title))
 
-const initials = computed(() => {
-  return props.title
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 3)
-    .map((w) => w[0]?.toUpperCase() ?? '')
-    .join('')
-})
+const initials = computed(() => initialsFrom(props.title))
 
 const gradientStyle = computed(() => ({
   '--bridge-poster-hue': `${hue.value}`,

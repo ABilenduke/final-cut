@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { FeaturedSlide } from '~/types/featured-slide'
+import { hashToHue, initialsFrom } from '~/utils/posterFallback'
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -25,6 +26,20 @@ const BRAND_FALLBACK: FeaturedSlide = {
 const resolvedSlides = computed<FeaturedSlide[]>(() =>
   props.slides.length > 0 ? props.slides : [BRAND_FALLBACK],
 )
+
+// Branded fallback: a seeded slide image_path may have no on-disk binary. Track
+// per-slide load failures so a 404 degrades to a hashed-hue gradient + glyph
+// instead of a broken-image icon. Slides with no imageUrl (e.g. the brand
+// fallback) keep their existing atmospheric-overlay treatment.
+const failedSlides = reactive(new Set<FeaturedSlide['id']>())
+
+function onSlideImageError(id: FeaturedSlide['id']) {
+  failedSlides.add(id)
+}
+
+function slideShowsImage(slide: FeaturedSlide): boolean {
+  return Boolean(slide.imageUrl) && !failedSlides.has(slide.id)
+}
 
 // ─── CTA href safety ──────────────────────────────────────────────────────────
 // cta_href is admin-supplied. Allow only http(s) absolute URLs or leading-slash
@@ -179,16 +194,25 @@ const ariaLive = computed<'polite' | 'off'>(() =>
           'carousel__slide--reduced-motion': prefersReducedMotion,
         }"
       >
-        <!-- Background image -->
+        <!-- Background image (with branded gradient fallback on load failure) -->
         <img
-          v-if="slide.imageUrl"
+          v-if="slideShowsImage(slide)"
           :src="slide.imageUrl"
           alt=""
           aria-hidden="true"
           class="carousel__slide-bg"
           :loading="index === 0 ? 'eager' : 'lazy'"
           :fetchpriority="index === 0 ? 'high' : 'auto'"
+          @error="onSlideImageError(slide.id)"
         />
+        <div
+          v-else-if="slide.imageUrl"
+          class="carousel__slide-fallback"
+          :style="{ '--fallback-hue': hashToHue(slide.headline) }"
+          aria-hidden="true"
+        >
+          <span class="carousel__slide-glyph">{{ initialsFrom(slide.headline) }}</span>
+        </div>
 
         <!-- Atmospheric overlay — vignette bloom from primary-container -->
         <div class="carousel__slide-overlay" aria-hidden="true" />
@@ -312,6 +336,31 @@ const ariaLive = computed<'polite' | 'off'>(() =>
   object-fit: cover;
   object-position: center 60%;
   z-index: var(--z-recessed);
+}
+
+/* Branded gradient fallback when a slide image fails to load */
+.carousel__slide-fallback {
+  position: absolute;
+  inset: 0;
+  z-index: var(--z-recessed);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(
+    135deg,
+    hsl(var(--fallback-hue, 0) 38% 20%),
+    hsl(var(--fallback-hue, 0) 30% 6%)
+  );
+}
+
+.carousel__slide-glyph {
+  font-family: var(--font-display);
+  font-size: clamp(6rem, 16vw, 12rem);
+  font-style: italic;
+  color: var(--primary-container);
+  opacity: 0.5;
+  letter-spacing: -0.04em;
+  line-height: 1;
 }
 
 /* Vignette bloom overlay: primary-container → transparent → surface */

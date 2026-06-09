@@ -1,5 +1,62 @@
 <script setup lang="ts">
-import { foodItems } from '~/data/homepage'
+import { computed } from 'vue'
+import type { MenuItem } from '~/types/menu-item'
+import { menuData } from '~/data/menu'
+import { useFoodMenu } from '~/composables/useFoodMenu'
+
+// Real cross-location catalog from /api/food-menu (SSR/ISR-safe via useApiFetch).
+const { fetchAll } = useFoodMenu()
+const { data } = fetchAll()
+
+interface FoodCard {
+  index: string
+  name: string
+  description: string
+  priceLabel: string
+  meta: string
+}
+
+const CATEGORY_LABELS: Record<string, string> = {
+  popcorn: 'Popcorn',
+  drinks: 'Drinks',
+  snacks: 'Snacks',
+  combos: 'Combos',
+  specials: 'Specials',
+}
+
+function categoryLabel(category: string): string {
+  return CATEGORY_LABELS[category] ?? (category.charAt(0).toUpperCase() + category.slice(1))
+}
+
+// Curate a trio: lead with popcorn, then a special, then a drink — top up from
+// the head of the list if a preferred category is missing, so it's never short.
+function curate(items: MenuItem[]): MenuItem[] {
+  if (items.length === 0) return []
+  const picks: MenuItem[] = []
+  for (const category of ['popcorn', 'specials', 'drinks']) {
+    const pick = items.find((i) => i.category === category)
+    if (pick && !picks.includes(pick)) picks.push(pick)
+  }
+  for (const item of items) {
+    if (picks.length >= 3) break
+    if (!picks.includes(item)) picks.push(item)
+  }
+  return picks.slice(0, 3)
+}
+
+const cards = computed<FoodCard[]>(() => {
+  const apiItems = data.value?.data ?? []
+  // Graceful fallback to the static editorial catalog when the API yields zero
+  // (cold ISR / backend down) — still real catalog data, not bespoke copy.
+  const source = apiItems.length > 0 ? apiItems : menuData
+  return curate(source).map((item, i) => ({
+    index: `No. 0${i + 1}`,
+    name: item.name,
+    description: item.description,
+    priceLabel: formatCurrency(item.price),
+    meta: categoryLabel(item.category),
+  }))
+})
 </script>
 
 <template>
@@ -17,7 +74,7 @@ import { foodItems } from '~/data/homepage'
 
       <div class="food__grid">
         <article
-          v-for="item in foodItems"
+          v-for="item in cards"
           :key="item.index"
           class="food__card"
         >

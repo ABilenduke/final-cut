@@ -11,9 +11,33 @@ use Illuminate\Support\Str;
 
 class CalendarEventSeeder extends Seeder
 {
+    // Banner paths reused from FeaturedSlideSeeder. The .webp binaries are
+    // provisioned out-of-band (upload/CDN) in real environments; the public
+    // surfaces degrade to a branded gradient fallback when a binary is absent.
+    private const BANNER_FESTIVAL = 'images/banners/final_cut_film_festival.webp';
+
+    private const BANNER_FEATURES = 'images/banners/final_cut_features.webp';
+
+    private const BANNER_MEMBERSHIP = 'images/banners/membership_card_banner.webp';
+
+    private const BANNER_FAMILY = 'images/banners/gift_cards_banner.webp';
+
     public function run(): void
     {
         $events = [
+            // Flagship — kept first and earliest (days_offset 2) so it sorts as the
+            // next upcoming special_event, surfacing in the home "Kubrick in the grain"
+            // retrospective and the /events featured hero.
+            [
+                'type' => CalendarEventType::SpecialEvent,
+                'title' => 'Kubrick in the grain',
+                'description' => 'Four films. Three nights. Preserved 70mm prints from the Warner Archives — with a post-screening conversation moderated by film critic Léa Ferrand.',
+                'days_offset' => 2,
+                'time' => '19:00',
+                'duration' => 200,
+                'accessibility_tags' => [],
+                'image' => self::BANNER_FESTIVAL,
+            ],
             [
                 'type' => CalendarEventType::SpecialEvent,
                 'title' => 'Classic Movie Marathon: Hitchcock Night',
@@ -22,6 +46,7 @@ class CalendarEventSeeder extends Seeder
                 'time' => '18:00',
                 'duration' => 360,
                 'accessibility_tags' => [],
+                'image' => self::BANNER_FESTIVAL,
             ],
             [
                 'type' => CalendarEventType::SpecialEvent,
@@ -31,6 +56,7 @@ class CalendarEventSeeder extends Seeder
                 'time' => '10:00',
                 'duration' => 150,
                 'accessibility_tags' => ['sensory_friendly'],
+                'image' => self::BANNER_FEATURES,
             ],
             [
                 'type' => CalendarEventType::LoyaltyExclusive,
@@ -40,6 +66,7 @@ class CalendarEventSeeder extends Seeder
                 'time' => '19:00',
                 'duration' => 180,
                 'accessibility_tags' => [],
+                'image' => self::BANNER_MEMBERSHIP,
             ],
             [
                 'type' => CalendarEventType::SpecialEvent,
@@ -49,6 +76,7 @@ class CalendarEventSeeder extends Seeder
                 'time' => '14:00',
                 'duration' => 150,
                 'accessibility_tags' => ['open_caption'],
+                'image' => self::BANNER_FEATURES,
             ],
             [
                 'type' => CalendarEventType::SpecialEvent,
@@ -58,6 +86,7 @@ class CalendarEventSeeder extends Seeder
                 'time' => '09:00',
                 'duration' => 480,
                 'accessibility_tags' => ['sensory_friendly'],
+                'image' => self::BANNER_FAMILY,
             ],
             [
                 'type' => CalendarEventType::PrivateScreeningBlackout,
@@ -67,6 +96,7 @@ class CalendarEventSeeder extends Seeder
                 'time' => '18:00',
                 'duration' => 240,
                 'accessibility_tags' => [],
+                'image' => self::BANNER_FEATURES,
             ],
             [
                 'type' => CalendarEventType::SpecialEvent,
@@ -76,6 +106,7 @@ class CalendarEventSeeder extends Seeder
                 'time' => '15:00',
                 'duration' => 140,
                 'accessibility_tags' => ['audio_described'],
+                'image' => self::BANNER_FEATURES,
             ],
             [
                 'type' => CalendarEventType::LoyaltyExclusive,
@@ -85,6 +116,7 @@ class CalendarEventSeeder extends Seeder
                 'time' => '19:30',
                 'duration' => 150,
                 'accessibility_tags' => [],
+                'image' => self::BANNER_MEMBERSHIP,
             ],
             [
                 'type' => CalendarEventType::SpecialEvent,
@@ -94,6 +126,7 @@ class CalendarEventSeeder extends Seeder
                 'time' => '19:00',
                 'duration' => 210,
                 'accessibility_tags' => ['open_caption'],
+                'image' => self::BANNER_FEATURES,
             ],
             [
                 'type' => CalendarEventType::SpecialEvent,
@@ -103,6 +136,7 @@ class CalendarEventSeeder extends Seeder
                 'time' => '22:00',
                 'duration' => 300,
                 'accessibility_tags' => [],
+                'image' => self::BANNER_FEATURES,
             ],
         ];
 
@@ -119,6 +153,7 @@ class CalendarEventSeeder extends Seeder
                 'start_time' => $startTime,
                 'end_time' => $startTime->copy()->addMinutes($event['duration']),
                 'description' => $event['description'],
+                'image_path' => $event['image'],
                 'slug' => $slug,
                 'loyalty_only' => $event['type'] === CalendarEventType::LoyaltyExclusive,
                 'accessibility_tags' => $event['accessibility_tags'],
