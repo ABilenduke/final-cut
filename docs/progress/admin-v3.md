@@ -5,6 +5,37 @@ loop iteration; each step lands as its own PR-sized branch.
 
 <!-- NOTE: this file accrues entries on parallel branches. On merge conflicts keep ALL step sections - they are disjoint. -->
 
+## Step 3.5: Gift card delivery email
+**Status:** ✅ Complete
+**Started:** 2026-06-10
+**Completed:** 2026-06-10
+
+### Work Done
+- [2026-06-10] Third audit pass caught that Plan 03's sale loop was never closed:
+  purchases stored `delivery_method`/`scheduled_send_at` and ignored both — recipients
+  never got their codes. Built the delivery vertical on the durable-outbox pattern:
+  `gift_card.delivery` row written inside the purchase transaction (scheduled sends ride
+  `available_at`), `SendGiftCardDelivery` job (Active-only guard — never email a code
+  voided before a scheduled send), recipient-facing `GiftCardDeliveryMail`. Print cards
+  write no row. Backend **1283 passed**, PHPStan + Pint clean.
+
+### Decisions
+- [2026-06-10] Scheduled sends use the outbox's `available_at` instead of a new
+  scheduler — the worker's existing dispatchable() scope implements "send later" for free.
+- [2026-06-10] Job guards on `status === Active` so voids between purchase and a
+  scheduled send can't deliver a dead code; the skip is logged for support.
+
+### Blockers
+- none
+
+### Files Changed
+- `backend/app/Services/GiftCardService.php` — `EVENT_DELIVERY` + outbox write in purchase()
+- `backend/app/Jobs/SendGiftCardDelivery.php`, `backend/app/Mail/GiftCardDeliveryMail.php`,
+  `backend/resources/views/mail/gift-card-delivery.blade.php` — new vertical
+- `backend/app/Outbox/OutboxDispatcher.php` — `gift_card.delivery` arm
+- `backend/tests/Feature/GiftCardDeliveryTest.php` — 7 tests
+- `docs/plans/admin/v3/05-gift-card-delivery.md` — step spec
+
 ## Step 3.4: Checkout cleanup
 **Status:** ✅ Complete
 **Started:** 2026-06-10
