@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { useScreeningPackages } from '~/composables/useScreeningPackages'
+
 useHead({
   title: 'Private Screenings & Events — Final Cut',
   meta: [
@@ -6,56 +8,9 @@ useHead({
   ],
 })
 
-const packages = [
-  {
-    name: 'Birthday Party',
-    description: 'Celebrate with a private screening for up to 30 guests. Perfect for kids and adults alike.',
-    startingPrice: 35000,
-    features: [
-      'Private auditorium for 2 hours',
-      'Custom birthday message on screen',
-      'Popcorn & drinks for all guests',
-      'Dedicated party host',
-      'Choice of current or classic film',
-    ],
-  },
-  {
-    name: 'Corporate Event',
-    description: 'Team building, product launches, client entertainment, or company milestones.',
-    startingPrice: 75000,
-    features: [
-      'Full auditorium rental',
-      'Presentation mode with HDMI input',
-      'AV equipment and microphone',
-      'Catering packages available',
-      'Flexible scheduling including weekdays',
-    ],
-  },
-  {
-    name: 'Proposal Package',
-    description: 'Pop the question on the big screen. An unforgettable moment in a one-of-a-kind setting.',
-    startingPrice: 50000,
-    features: [
-      'Private auditorium',
-      'Custom on-screen message or video',
-      'Champagne and chocolates',
-      'Professional photo opportunity',
-      'Choice of film or personal media',
-    ],
-  },
-  {
-    name: 'Custom Event',
-    description: 'Something else in mind? We can tailor a package to fit your vision.',
-    startingPrice: 40000,
-    features: [
-      'Flexible auditorium options',
-      'Custom AV setup',
-      'Food & beverage packages',
-      'Event coordination support',
-      'Pricing based on requirements',
-    ],
-  },
-]
+// Admin-managed packages (admin-v2 Plan 14).
+const { data: packagesData } = useScreeningPackages()
+const packages = computed(() => packagesData.value?.data ?? [])
 </script>
 
 <template>

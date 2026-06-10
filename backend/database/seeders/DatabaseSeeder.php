@@ -73,6 +73,7 @@ class DatabaseSeeder extends Seeder
             BlogPostSeeder::class,
             FaqItemSeeder::class,
             JobOpeningSeeder::class,
+            ScreeningPackageSeeder::class,
         ]);
 
         // Test-account-dependent seeders — only in local/testing

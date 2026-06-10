@@ -5,6 +5,34 @@ loop iteration; each step lands as its own PR-sized branch.
 
 <!-- NOTE: this file accrues entries on parallel branches. On merge conflicts keep ALL step sections - they are disjoint. -->
 
+## Step 2.4: Screening packages + contact/hours
+**Status:** ✅ Complete
+**Started:** 2026-06-10
+**Completed:** 2026-06-10
+
+### Work Done
+- [2026-06-10] `ScreeningPackage` vertical (cents `starting_price` — the live PackageCard
+  contract uses `startingPrice` in cents, not the plan's "price_label" — reality wins;
+  features as a reorderable simple Repeater) + the contact page now renders venue
+  hours/phone/email/map/LocalBusiness JSON-LD from `usePublicLocations` (per-venue hours
+  sections when more than one location). Suites: **backend 1243, frontend 929**. PHPStan +
+  Pint clean. Dev DB seeded.
+
+### Decisions
+- [2026-06-10] Contact/hours needed NO backend work — `LocationResource` already exposed
+  hours/phone/email/structured address (Plan 05 + the content-curation feature). Only the
+  page changed; directions/parking/accessibility prose stays editorial copy.
+- [2026-06-10] `/contact` and `/private-screenings` flipped prerender → `isr: 1800`.
+- [2026-06-10] Hours render from the `{day: {open, close} | null}` JSON with closed-day
+  handling; `DAY_LABELS` typed against `WeekdayKey` so the index is type-safe.
+
+### Files Changed
+- Backend: screening_packages migration, model/factory/observer, controller, Filament
+  resource (+3 pages), routes/registrations, `content.packages.*`, seeder (4 legacy
+  packages), ScreeningPackageTest (4)
+- Frontend: useScreeningPackages, private-screenings.vue + contact.vue rewritten,
+  route-rule flips, contact-private-screenings.test.ts (5)
+
 ## Step 2.3: FAQ + Careers CMS
 **Status:** ✅ Complete
 **Started:** 2026-06-10

@@ -64,6 +64,8 @@ class AdminRolesAndPermissionsSeeder extends Seeder
         'content.faq.update', 'content.faq.delete',
         'content.careers.view', 'content.careers.create',
         'content.careers.update', 'content.careers.delete',
+        'content.packages.view', 'content.packages.create',
+        'content.packages.update', 'content.packages.delete',
     ];
 
     public const MANAGER_PERMISSIONS = [
@@ -95,6 +97,8 @@ class AdminRolesAndPermissionsSeeder extends Seeder
         'content.faq.update', 'content.faq.delete',
         'content.careers.view', 'content.careers.create',
         'content.careers.update', 'content.careers.delete',
+        'content.packages.view', 'content.packages.create',
+        'content.packages.update', 'content.packages.delete',
     ];
 
     public const OPS_PERMISSIONS = [

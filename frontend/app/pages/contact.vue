@@ -1,5 +1,32 @@
 <script setup lang="ts">
-useHead({
+import { usePublicLocations } from '~/composables/usePublicLocations'
+import type { WeekdayKey } from '~/types/location'
+
+// Venue data is admin-managed via LocationResource (hours/phone/email/address);
+// directions/parking/accessibility prose below stays editorial page copy.
+const { fetchLocations } = usePublicLocations()
+const { data: locationsData } = fetchLocations()
+const locations = computed(() => locationsData.value?.data ?? [])
+const primary = computed(() => locations.value[0])
+
+const DAY_LABELS: Array<[WeekdayKey, string]> = [
+  ['monday', 'Monday'],
+  ['tuesday', 'Tuesday'],
+  ['wednesday', 'Wednesday'],
+  ['thursday', 'Thursday'],
+  ['friday', 'Friday'],
+  ['saturday', 'Saturday'],
+  ['sunday', 'Sunday'],
+]
+
+function formatHour(value: string): string {
+  const [h = 0, m = 0] = value.split(':').map(Number)
+  const suffix = h >= 12 ? 'PM' : 'AM'
+  const hour12 = h % 12 === 0 ? 12 : h % 12
+  return `${hour12}:${String(m).padStart(2, '0')} ${suffix}`
+}
+
+useHead(() => ({
   title: 'Visit Us — Final Cut',
   meta: [
     { name: 'description', content: 'Find directions, hours, and contact information for Final Cut theater.' },
@@ -7,30 +34,26 @@ useHead({
     { property: 'og:description', content: 'Find directions, hours, and contact information for Final Cut theater.' },
     { property: 'og:type', content: 'website' },
   ],
-  script: [
-    {
-      type: 'application/ld+json',
-      innerHTML: safeJsonLd({
-        '@context': 'https://schema.org',
-        '@type': 'LocalBusiness',
-        name: 'Final Cut',
-        description: 'A cinematic movie theater experience.',
-        address: {
-          '@type': 'PostalAddress',
-          streetAddress: '123 Cinema Boulevard',
-          addressLocality: 'New York',
-          addressRegion: 'NY',
-          postalCode: '10001',
-          addressCountry: 'US',
-        },
-        telephone: '+1-212-555-0199',
-        email: 'hello@finalcut.test',
-      }),
-    },
-  ],
-})
-
-const coordinates = { lat: 40.7128, lng: -73.9352 }
+  script: locations.value.map(location => ({
+    type: 'application/ld+json',
+    innerHTML: safeJsonLd({
+      '@context': 'https://schema.org',
+      '@type': 'LocalBusiness',
+      name: `Final Cut — ${location.name}`,
+      description: 'A cinematic movie theater experience.',
+      address: {
+        '@type': 'PostalAddress',
+        streetAddress: location.street,
+        addressLocality: location.city,
+        addressRegion: location.state,
+        postalCode: location.postal_code,
+        addressCountry: location.country,
+      },
+      telephone: location.phone,
+      email: location.email,
+    }),
+  })),
+}))
 </script>
 
 <template>
@@ -40,8 +63,9 @@ const coordinates = { lat: 40.7128, lng: -73.9352 }
       <div class="establishing-shot">
         <div class="establishing-shot__primary">
           <ContactMap
-            :coordinates="coordinates"
-            address="123 Cinema Boulevard, New York, NY 10001"
+            v-if="primary?.latitude != null && primary?.longitude != null"
+            :coordinates="{ lat: primary.latitude, lng: primary.longitude }"
+            :address="primary.address"
           />
 
           <section class="contact-page__info">
@@ -65,28 +89,29 @@ const coordinates = { lat: 40.7128, lng: -73.9352 }
         </div>
 
         <div class="establishing-shot__secondary">
-          <section class="contact-page__hours">
-            <h2 class="headline-sm">Hours</h2>
+          <section
+            v-for="location in locations"
+            :key="location.slug"
+            class="contact-page__hours"
+          >
+            <h2 class="headline-sm">{{ locations.length > 1 ? `Hours — ${location.name}` : 'Hours' }}</h2>
             <dl class="contact-page__hours-list">
-              <div class="contact-page__hours-row">
-                <dt class="body-md">Monday – Thursday</dt>
-                <dd class="body-md">11:00 AM – 11:00 PM</dd>
-              </div>
-              <div class="contact-page__hours-row">
-                <dt class="body-md">Friday – Saturday</dt>
-                <dd class="body-md">10:00 AM – 1:00 AM</dd>
-              </div>
-              <div class="contact-page__hours-row">
-                <dt class="body-md">Sunday</dt>
-                <dd class="body-md">10:00 AM – 10:00 PM</dd>
+              <div
+                v-for="[day, label] in DAY_LABELS"
+                :key="day"
+                class="contact-page__hours-row"
+              >
+                <dt class="body-md">{{ label }}</dt>
+                <dd class="body-md">
+                  <template v-if="location.hours?.[day]">
+                    {{ formatHour(location.hours[day]!.open) }} – {{ formatHour(location.hours[day]!.close) }}
+                  </template>
+                  <template v-else>Closed</template>
+                </dd>
               </div>
             </dl>
-          </section>
-
-          <section class="contact-page__details">
-            <h2 class="headline-sm">Contact</h2>
-            <p class="body-md"><strong>Phone:</strong> (212) 555-0199</p>
-            <p class="body-md"><strong>Email:</strong> hello@finalcut.test</p>
+            <p class="body-md"><strong>Phone:</strong> {{ location.phone }}</p>
+            <p class="body-md"><strong>Email:</strong> {{ location.email }}</p>
           </section>
 
           <ContactForm />
