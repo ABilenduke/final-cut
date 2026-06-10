@@ -12,6 +12,7 @@ deferrals) and surfaced four batches of remaining work, all user-approved.
 | 3.3 ✅ | [03](03-gift-card-payments.md) | Gift card payments: wire the purchase flow to Stripe end-to-end (composer → PaymentIntent → confirm → delivery email) |
 | 3.4 ✅ | [04](04-checkout-cleanup.md) | Checkout cleanup: remove/wire dead fields (loyalty opt-in, contact extras), hold-timer alignment test, defensive comments from the audit |
 | 3.5 ✅ | [05](05-gift-card-delivery.md) | Gift card delivery email (third-audit catch — closes Plan 03's sale loop: outbox-driven recipient email, scheduled sends via available_at) |
+| 3.6 ✅ | [06](06-initial-confirmation.md) | Initial booking confirmation email (delta-audit catch — only the admin resend existed; wired into finalizeBooking + walk-up) |
 
 ## Conventions
 

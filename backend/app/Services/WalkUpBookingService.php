@@ -37,6 +37,7 @@ class WalkUpBookingService
 
     public function __construct(
         private readonly SeatAvailabilityService $seatService,
+        private readonly BookingNotificationService $notificationService,
     ) {}
 
     /**
@@ -104,6 +105,10 @@ class WalkUpBookingService
                 'subtotal' => $booking->subtotal,
                 'total' => $booking->total,
             ]);
+
+            // Email the ticket when the counter captured an address —
+            // queueConfirmation no-ops when guest_email is null.
+            $this->notificationService->queueConfirmation($booking);
 
             return $booking;
         });

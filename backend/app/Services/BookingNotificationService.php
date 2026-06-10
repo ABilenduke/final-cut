@@ -22,6 +22,32 @@ class BookingNotificationService
 
     public const EVENT_CONFIRMATION_RESEND = 'booking.confirmation_resend';
 
+    public const EVENT_CONFIRMATION = 'booking.confirmation';
+
+    /**
+     * Queue the INITIAL confirmation email for a just-finalized booking
+     * (admin-v3 Plan 06 — until then only the admin resend existed).
+     * Called inside the finalize transaction so the outbox row commits
+     * atomically with the booking. Silently skips bookings with no
+     * recipient (walk-up sales where no email was captured).
+     */
+    public function queueConfirmation(Booking $booking): void
+    {
+        $recipient = $booking->user ? $booking->user->email : $booking->guest_email;
+        if ($recipient === null) {
+            return;
+        }
+
+        $now = now();
+        DispatchOutbox::create([
+            'event_type' => self::EVENT_CONFIRMATION,
+            'payload' => ['booking_id' => $booking->id],
+            'available_at' => $now,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+    }
+
     /**
      * Queue a (re-)send of the booking confirmation email.
      *

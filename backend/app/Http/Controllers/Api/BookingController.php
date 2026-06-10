@@ -18,6 +18,7 @@ use App\Models\Location;
 use App\Models\PromoCode;
 use App\Models\Showtime;
 use App\Models\User;
+use App\Services\BookingNotificationService;
 use App\Services\GiftCardService;
 use App\Services\LoyaltyService;
 use App\Services\PromoCodeService;
@@ -44,6 +45,7 @@ class BookingController extends Controller
         private readonly LoyaltyService $loyaltyService,
         private readonly PromoCodeService $promoCodeService,
         private readonly GiftCardService $giftCardService,
+        private readonly BookingNotificationService $bookingNotificationService,
     ) {}
 
     public function store(Location $location, CreateBookingRequest $request): JsonResponse
@@ -725,6 +727,10 @@ class BookingController extends Controller
         if ($user) {
             $this->loyaltyService->awardPointsForPurchase($user, $total);
         }
+
+        // Initial confirmation email — durable outbox row inside this
+        // transaction; the worker mails it after commit (admin-v3 Plan 06).
+        $this->bookingNotificationService->queueConfirmation($booking);
     }
 
     /**

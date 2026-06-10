@@ -49,7 +49,8 @@ class OutboxDispatcher
             GiftCardService::EVENT_VOIDED => $this->dispatchGiftCardVoided($row, $payload),
             GiftCardService::EVENT_DELIVERY => $this->dispatchGiftCardDelivery($row, $payload),
             BookingRefundService::EVENT_REFUNDED => $this->dispatchBookingRefunded($row, $payload),
-            BookingNotificationService::EVENT_CONFIRMATION_RESEND => $this->dispatchBookingConfirmationResend($row, $payload),
+            BookingNotificationService::EVENT_CONFIRMATION_RESEND,
+            BookingNotificationService::EVENT_CONFIRMATION => $this->dispatchBookingConfirmationResend($row, $payload),
             default => throw new InvalidArgumentException(
                 "Unknown outbox event_type: {$row->event_type}",
             ),
