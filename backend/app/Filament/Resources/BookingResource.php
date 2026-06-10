@@ -3,6 +3,9 @@
 namespace App\Filament\Resources;
 
 use App\Enums\BookingStatus;
+use App\Exceptions\BookingFlagException;
+use App\Exceptions\BookingNotRefundableException;
+use App\Exceptions\BookingNotResendableException;
 use App\Filament\Concerns\FormatsCurrency;
 use App\Filament\Concerns\TimestampColumns;
 use App\Filament\Resources\BookingResource\Pages;
@@ -12,10 +15,16 @@ use App\Models\BookingFoodItem;
 use App\Models\BookingSeat;
 use App\Models\Location;
 use App\Models\Showtime;
+use App\Services\BookingFlagService;
+use App\Services\BookingNotificationService;
+use App\Services\BookingRefundService;
 use BackedEnum;
+use Filament\Actions\Action;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Placeholder;
+use Filament\Forms\Components\Textarea;
+use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
@@ -25,13 +34,16 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\HtmlString;
+use Stripe\Exception\ApiErrorException;
 use UnitEnum;
 
 /**
- * Read-only resource for bookings. v1 intentionally has no cancel or refund
- * surfaces — those are deferred per Plan 07 spec § 4.4. Customer columns
- * synthesize display because authed bookings store `user_id` (UUID) while
- * guest bookings store `guest_email` instead of `customer_email`/`customer_name`.
+ * Booking resource: read-only list/view plus narrowly-scoped header actions
+ * (refund, resend confirmation, flag/unflag — admin-v2 Plan 03), each gated
+ * by its own permission and routed through a domain service. No edit/delete
+ * surfaces — bookings are financial records. Customer columns synthesize
+ * display because authed bookings store `user_id` (UUID) while guest bookings
+ * store `guest_email` instead of `customer_email`/`customer_name`.
  */
 class BookingResource extends BaseResource
 {
@@ -311,5 +323,211 @@ class BookingResource extends BaseResource
                 ])
                 ->columns(2),
         ]);
+    }
+
+    /**
+     * Human-readable preview of what `BookingRefundService::refund()` would
+     * move — shared by the view-page refund modal and the cancellation
+     * follow-up queue's issue_refund modal.
+     */
+    public static function refundSplitSummary(Booking $booking): string
+    {
+        $split = app(BookingRefundService::class)->previewSplit($booking);
+
+        if ($split['target_status'] === BookingStatus::Cancelled) {
+            return 'Releases this held booking and frees its seats. No money was captured, so nothing is refunded.';
+        }
+
+        $parts = ['Card refund: '.self::centsToDisplay($split['card_refund'])];
+
+        $giftTotal = array_sum(array_column($split['gift_restores'], 'amount'));
+        if ($giftTotal > 0) {
+            $parts[] = 'Gift card restore: '.self::centsToDisplay($giftTotal);
+        }
+
+        if ($split['loyalty_clawback'] > 0) {
+            $parts[] = "Loyalty clawback: {$split['loyalty_clawback']} points";
+        }
+
+        return implode(' · ', $parts).'. This issues a real Stripe refund and cannot be undone.';
+    }
+
+    public static function refundAction(): Action
+    {
+        return Action::make('refund')
+            ->label(fn (Booking $record): string => $record->status === BookingStatus::Held
+                ? 'Release hold'
+                : 'Refund booking')
+            ->icon('heroicon-o-receipt-refund')
+            ->color('danger')
+            ->visible(fn (Booking $record): bool => (auth('admin')->user()?->can('bookings.resolve_refund') ?? false)
+                && in_array($record->status, BookingStatus::occupyingStatuses(), true))
+            ->requiresConfirmation()
+            ->modalDescription(fn (Booking $record): string => self::refundSplitSummary($record))
+            ->schema([
+                Textarea::make('reason')
+                    ->label('Reason')
+                    ->required()
+                    ->minLength(10)
+                    ->rows(3)
+                    ->helperText('Required. Logged permanently and included in the audit trail.'),
+            ])
+            ->action(function (Booking $record, array $data): void {
+                try {
+                    app(BookingRefundService::class)->refund(
+                        $record,
+                        $data['reason'],
+                        auth('admin')->user(),
+                    );
+                } catch (BookingNotRefundableException $e) {
+                    Notification::make()
+                        ->title('Refund not possible')
+                        ->body($e->getMessage())
+                        ->danger()
+                        ->send();
+
+                    return;
+                } catch (ApiErrorException $e) {
+                    report($e);
+
+                    Notification::make()
+                        ->title('Stripe refund failed')
+                        ->body('No state was changed. Wait a moment and try again; the claim was released.')
+                        ->danger()
+                        ->send();
+
+                    return;
+                }
+
+                Notification::make()
+                    ->title($record->refresh()->status === BookingStatus::Cancelled
+                        ? 'Hold released'
+                        : 'Booking refunded')
+                    ->body('Seats released; the customer will be notified by email.')
+                    ->success()
+                    ->send();
+            });
+    }
+
+    public static function resendConfirmationAction(): Action
+    {
+        return Action::make('resend_confirmation')
+            ->label('Resend confirmation')
+            ->icon('heroicon-o-envelope')
+            ->color('gray')
+            ->visible(fn (Booking $record): bool => (auth('admin')->user()?->can('bookings.resend_confirmation') ?? false)
+                && $record->status === BookingStatus::Confirmed)
+            ->requiresConfirmation()
+            ->modalDescription(fn (Booking $record): string => sprintf(
+                'Sends the booking confirmation for %s to %s.',
+                $record->confirmation_code,
+                $record->user ? $record->user->email : ($record->guest_email ?? '—'),
+            ))
+            ->action(function (Booking $record): void {
+                try {
+                    app(BookingNotificationService::class)->resendConfirmation(
+                        $record,
+                        auth('admin')->user(),
+                    );
+                } catch (BookingNotResendableException $e) {
+                    Notification::make()
+                        ->title('Cannot resend confirmation')
+                        ->body($e->getMessage())
+                        ->danger()
+                        ->send();
+
+                    return;
+                }
+
+                Notification::make()
+                    ->title('Confirmation queued')
+                    ->body('The email will be delivered by the outbox worker within a minute.')
+                    ->success()
+                    ->send();
+            });
+    }
+
+    public static function flagAction(): Action
+    {
+        return Action::make('flag')
+            ->label('Flag booking')
+            ->icon('heroicon-o-flag')
+            ->color('warning')
+            ->visible(fn (Booking $record): bool => (auth('admin')->user()?->can('bookings.flag') ?? false)
+                && $record->flagged_at === null)
+            ->schema([
+                Textarea::make('reason')
+                    ->label('Flag reason')
+                    ->required()
+                    ->minLength(10)
+                    ->rows(3)
+                    // Defense at the form layer; BookingFlagService enforces
+                    // the same guard for any non-UI caller.
+                    ->rules(['not_regex:/^showtime_cancelled:/'])
+                    ->validationMessages([
+                        'not_regex' => "The 'showtime_cancelled:' prefix is reserved for automatic showtime-cancellation flags.",
+                    ])
+                    ->helperText('Shown on the booking and logged permanently.'),
+            ])
+            ->requiresConfirmation()
+            ->action(function (Booking $record, array $data): void {
+                try {
+                    app(BookingFlagService::class)->flag(
+                        $record,
+                        $data['reason'],
+                        auth('admin')->user(),
+                    );
+                } catch (BookingFlagException $e) {
+                    Notification::make()
+                        ->title('Cannot flag booking')
+                        ->body($e->getMessage())
+                        ->danger()
+                        ->send();
+
+                    return;
+                }
+
+                Notification::make()
+                    ->title('Booking flagged')
+                    ->success()
+                    ->send();
+            });
+    }
+
+    public static function unflagAction(): Action
+    {
+        return Action::make('unflag')
+            ->label('Remove flag')
+            ->icon('heroicon-o-flag')
+            ->color('gray')
+            ->visible(fn (Booking $record): bool => (auth('admin')->user()?->can('bookings.flag') ?? false)
+                && $record->flagged_at !== null)
+            ->requiresConfirmation()
+            ->modalDescription(fn (Booking $record): string => sprintf(
+                'Removes the flag ("%s") from %s. The previous reason stays in the activity log.',
+                $record->flag_reason,
+                $record->confirmation_code,
+            ))
+            ->action(function (Booking $record): void {
+                try {
+                    app(BookingFlagService::class)->unflag(
+                        $record,
+                        auth('admin')->user(),
+                    );
+                } catch (BookingFlagException $e) {
+                    Notification::make()
+                        ->title('Cannot remove flag')
+                        ->body($e->getMessage())
+                        ->danger()
+                        ->send();
+
+                    return;
+                }
+
+                Notification::make()
+                    ->title('Flag removed')
+                    ->success()
+                    ->send();
+            });
     }
 }
