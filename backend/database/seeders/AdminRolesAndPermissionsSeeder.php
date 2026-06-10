@@ -57,6 +57,9 @@ class AdminRolesAndPermissionsSeeder extends Seeder
         'marketing.featured_slides.update', 'marketing.featured_slides.delete',
         'marketing.ticker.view', 'marketing.ticker.create',
         'marketing.ticker.update', 'marketing.ticker.delete',
+        // Content — Blog
+        'content.blog.view', 'content.blog.create',
+        'content.blog.update', 'content.blog.delete',
     ];
 
     public const MANAGER_PERMISSIONS = [
@@ -81,6 +84,9 @@ class AdminRolesAndPermissionsSeeder extends Seeder
         'marketing.featured_slides.update', 'marketing.featured_slides.delete',
         'marketing.ticker.view', 'marketing.ticker.create',
         'marketing.ticker.update', 'marketing.ticker.delete',
+        // Content — Blog
+        'content.blog.view', 'content.blog.create',
+        'content.blog.update', 'content.blog.delete',
     ];
 
     public const OPS_PERMISSIONS = [

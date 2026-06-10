@@ -24,7 +24,13 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { blogPosts } from '../../app/data/blog'
+// Blog posts now come from the backend API (admin-v2 Plan 12).
+const BLOG_RESPONSE = {
+  data: [
+    { slug: 'summer-lineup-preview', date: '2026-04-05' },
+    { slug: 'grand-opening-announcement', date: '2026-03-15' },
+  ],
+}
 
 // ---------------------------------------------------------------------------
 // Mock $fetch — Nuxt global available in the Vitest nuxt environment
@@ -96,14 +102,15 @@ const LOCATIONS_RESPONSE = {
 // ---------------------------------------------------------------------------
 
 /**
- * Set up $fetch to return the three API responses in call order:
- * 1st call → movies, 2nd call → events, 3rd call → locations.
+ * Set up $fetch to return the four API responses in call order:
+ * movies, events, locations, blog posts.
  */
 function setupHappyPath() {
   mockFetch
     .mockResolvedValueOnce(MOVIES_RESPONSE)
     .mockResolvedValueOnce(EVENTS_RESPONSE)
     .mockResolvedValueOnce(LOCATIONS_RESPONSE)
+    .mockResolvedValueOnce(BLOG_RESPONSE)
 }
 
 // ---------------------------------------------------------------------------
@@ -205,7 +212,7 @@ describe('sitemap URL handler', () => {
     setupHappyPath()
     const urls = await buildUrls({} as any)
     const locs = urls.map((u) => (u as any).loc)
-    for (const post of blogPosts) {
+    for (const post of BLOG_RESPONSE.data) {
       expect(locs).toContain(`/blog/${post.slug}`)
     }
   })
@@ -213,7 +220,7 @@ describe('sitemap URL handler', () => {
   it('sets lastmod from blog post date field', async () => {
     setupHappyPath()
     const urls = await buildUrls({} as any)
-    const firstPost = blogPosts[0]
+    const firstPost = BLOG_RESPONSE.data[0]
     const postEntry = urls.find((u) => (u as any).loc === `/blog/${firstPost.slug}`)
     expect((postEntry as any).lastmod).toBe(firstPost.date)
   })
@@ -249,6 +256,7 @@ describe('sitemap URL handler', () => {
       .mockRejectedValueOnce(new Error('Network error'))
       .mockResolvedValueOnce(EVENTS_RESPONSE)
       .mockResolvedValueOnce(LOCATIONS_RESPONSE)
+      .mockResolvedValueOnce(BLOG_RESPONSE)
 
     const urls = await buildUrls({} as any)
     const locs = urls.map((u) => (u as any).loc)
@@ -260,8 +268,8 @@ describe('sitemap URL handler', () => {
     expect(locs).toContain('/events/ghibli-marathon')
     expect(locs).toContain('/locations/downtown')
 
-    // blog posts are static — always present
-    expect(locs).toContain(`/blog/${blogPosts[0].slug}`)
+    // blog posts come from their own fetch — unaffected by the movies failure
+    expect(locs).toContain(`/blog/${BLOG_RESPONSE.data[0].slug}`)
   })
 
   it('still returns movie and blog entries when the events fetch fails', async () => {
@@ -269,13 +277,14 @@ describe('sitemap URL handler', () => {
       .mockResolvedValueOnce(MOVIES_RESPONSE)
       .mockRejectedValueOnce(new Error('Events API down'))
       .mockResolvedValueOnce(LOCATIONS_RESPONSE)
+      .mockResolvedValueOnce(BLOG_RESPONSE)
 
     const urls = await buildUrls({} as any)
     const locs = urls.map((u) => (u as any).loc)
 
     expect(locs).toContain('/movies/the-dark-knight')
     expect(locs).toContain('/locations/downtown')
-    expect(locs).toContain(`/blog/${blogPosts[0].slug}`)
+    expect(locs).toContain(`/blog/${BLOG_RESPONSE.data[0].slug}`)
     expect(locs.filter((l: string) => l.startsWith('/events/'))).toHaveLength(0)
   })
 

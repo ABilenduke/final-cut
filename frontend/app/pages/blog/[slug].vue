@@ -1,18 +1,24 @@
 <script setup lang="ts">
-import { blogPosts } from '~/data/blog'
+import { useBlogPost, useBlogPosts } from '~/composables/useBlogPosts'
 
 const route = useRoute()
 const slug = computed(() => route.params.slug as string)
 
-const post = computed(() => blogPosts.find(p => p.slug === slug.value))
+// Detail (with body) + list (for the related strip) — both SSR-deduped.
+const { data: postData, error } = useBlogPost(slug.value)
+const { data: listData } = useBlogPosts()
+
+const post = computed(() => postData.value?.data)
 
 watchEffect(() => {
-  if (!post.value) {
+  if (error.value || (postData.value && !post.value)) {
     throw createError({ statusCode: 404, statusMessage: 'Post not found' })
   }
 })
 
-const relatedPosts = computed(() => blogPosts.filter(p => p.slug !== slug.value).slice(0, 3))
+const relatedPosts = computed(() =>
+  (listData.value?.data ?? []).filter(p => p.slug !== slug.value).slice(0, 3),
+)
 
 useHead(() => {
   if (!post.value) return {}
@@ -64,7 +70,7 @@ useHead(() => {
         </div>
 
         <div class="blog-post-page__body body-md">
-          <p v-for="(paragraph, i) in post.body.split('\n\n')" :key="i">
+          <p v-for="(paragraph, i) in (post.body ?? '').split('\n\n')" :key="i">
             {{ paragraph }}
           </p>
         </div>

@@ -70,6 +70,7 @@ class DatabaseSeeder extends Seeder
             MenuItemSeeder::class,
             FeaturedSlideSeeder::class,
             TickerItemSeeder::class,
+            BlogPostSeeder::class,
         ]);
 
         // Test-account-dependent seeders — only in local/testing

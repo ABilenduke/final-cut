@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { BlogPost } from '~/data/blog'
+import type { BlogPost } from '~/types/blog-post'
 
 defineProps<{
   post: Pick<BlogPost, 'title' | 'slug' | 'excerpt' | 'date' | 'author' | 'imageUrl'>

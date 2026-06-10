@@ -5,6 +5,44 @@ loop iteration; each step lands as its own PR-sized branch.
 
 <!-- NOTE: this file accrues entries on parallel branches. On merge conflicts keep ALL step sections - they are disjoint. -->
 
+## Step 2.2: Blog CMS
+**Status:** ✅ Complete
+**Started:** 2026-06-10
+**Completed:** 2026-06-10
+
+### Work Done
+- [2026-06-10] Replaced `frontend/app/data/blog.ts` (earmarked for this in CLAUDE.md since
+  v1) with the full admin vertical, cloning the 2.1 template. Suites: **backend 1234,
+  frontend 921**. PHPStan + Pint clean. Dev DB migrated + seeded.
+
+### Decisions
+- [2026-06-10] `body` stays PLAIN TEXT with blank-line paragraph breaks — the public page
+  has always rendered split-on-`\n\n`; no markdown engine introduced.
+- [2026-06-10] API keeps the static-era field contract (`date` = published ISO date,
+  `author`); list omits `body`, detail includes it and 404s drafts (scheduling enforced
+  server-side, not just hidden).
+- [2026-06-10] Slug auto-suggests from the title ONLY on create — editing a published
+  post's title never silently moves its URL.
+- [2026-06-10] The sitemap source (`server/api/__sitemap__/urls.get.ts`) gained a fourth
+  parallel fetch for `/api/blog-posts` — it previously imported the static file directly.
+  Per-post sitemap entries are therefore now LIVE-data driven (the static-era tests pinned
+  this; they now pin the API path).
+- [2026-06-10] `BlogPostSeeder` was GENERATED from the TS data file (script-parsed) so the
+  three legacy posts carry over byte-identical — no transcription drift.
+- [2026-06-10] Page tests mock `~/utils/api` with path-keyed fixtures (the composable-test
+  idiom extended to `mountSuspended` pages — first precedent for API-driven page tests).
+
+### Files Changed
+- Backend: `blog_posts` migration, `BlogPost` model+factory+observer, cached
+  `BlogPostController` (index+show), `Http/Resources/BlogPostResource`, Filament
+  `BlogPostResource` (+3 pages, Content group), routes, observer/cache-key registrations,
+  `content.blog.*` permissions, `BlogPostSeeder`, `BlogPostResourceTest` (6)
+- Frontend: `types/blog-post.ts`, `useBlogPosts.ts`, `pages/blog/{index,[slug]}.vue`
+  rewritten to the API, `BlogPostCard` type import, sitemap source 4th fetch,
+  `data/blog.ts` DELETED, `useBlogPosts.test.ts` (3) + `blog.test.ts` rewritten (8) +
+  sitemap test updated
+- `docs/plans/admin/v2/12-blog-cms.md` — implicit in this entry (spec folded here)
+
 ## Step 2.1: Neural Ticker CMS pilot (Phase 2 opener)
 **Status:** ✅ Complete
 **Started:** 2026-06-10

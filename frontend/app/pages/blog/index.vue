@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { blogPosts } from '~/data/blog'
+import { useBlogPosts } from '~/composables/useBlogPosts'
 
-const sortedPosts = [...blogPosts].sort((a, b) => b.date.localeCompare(a.date))
+// Published posts arrive newest-first from the API — no client-side sort.
+const { data } = useBlogPosts()
+const posts = computed(() => data.value?.data ?? [])
 
 useHead({
   title: 'Blog — Final Cut',
@@ -27,9 +29,9 @@ useHead({
     <div class="container">
       <h1 class="blog-page__title display-sm">Blog</h1>
 
-      <div v-if="sortedPosts.length > 0" class="ensemble">
+      <div v-if="posts.length > 0" class="ensemble">
         <BlogPostCard
-          v-for="post in sortedPosts"
+          v-for="post in posts"
           :key="post.slug"
           :post="post"
         />

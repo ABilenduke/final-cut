@@ -15,15 +15,12 @@
  * The sitemap module applies its own ISR-aligned caching on the /sitemap.xml
  * output; individual handler freshness is deliberate here.
  *
- * Blog posts come from the static TypeScript data file because the project
- * does not yet use @nuxt/content — blog posts are authored in ~/data/blog.ts.
- * When/if the project migrates to @nuxt/content, replace the import below
- * with a queryCollection call.
+ * Blog posts come from the backend API (admin-v2 Plan 12) — the static
+ * ~/data/blog.ts file was retired when posts became admin-authored.
  */
 
 import { defineEventHandler } from 'h3'
 import { useRuntimeConfig } from '#imports'
-import { blogPosts } from '~/data/blog'
 
 // Mirrors the shape @nuxtjs/sitemap accepts from a server source. Defining
 // locally because the module's runtime types are not in its public exports map.
@@ -48,6 +45,11 @@ interface EventItem {
 interface LocationItem {
   slug: string
   updated_at?: string
+}
+
+interface BlogPostItem {
+  slug: string
+  date?: string
 }
 
 interface ApiResponse<T> {
@@ -76,7 +78,7 @@ export default defineEventHandler(async (event): Promise<SitemapUrlInput[]> => {
   // Fan out the three backend reads in parallel — they are independent and
   // each is a separate HTTP round-trip. Sequential awaits would triple the
   // sitemap revalidation latency.
-  const [moviesResult, eventsResult, locationsResult] = await Promise.allSettled([
+  const [moviesResult, eventsResult, locationsResult, blogResult] = await Promise.allSettled([
     $fetch<ApiResponse<MovieItem>>('/api/movies', {
       baseURL: fetchBase,
       headers: { Accept: 'application/json' },
@@ -88,6 +90,10 @@ export default defineEventHandler(async (event): Promise<SitemapUrlInput[]> => {
       query: { per_page: 500 },
     }),
     $fetch<ApiResponse<LocationItem>>('/api/locations', {
+      baseURL: fetchBase,
+      headers: { Accept: 'application/json' },
+    }),
+    $fetch<ApiResponse<BlogPostItem>>('/api/blog-posts', {
       baseURL: fetchBase,
       headers: { Accept: 'application/json' },
     }),
@@ -136,15 +142,18 @@ export default defineEventHandler(async (event): Promise<SitemapUrlInput[]> => {
   }
 
   // ── Blog posts ───────────────────────────────────────────────────────────
-  // Blog data is static TypeScript — no API call needed. The `date` field
-  // is used as the lastmod since static content has no `updated_at`.
-  for (const post of blogPosts) {
-    urls.push({
-      loc: `/blog/${post.slug}`,
-      lastmod: post.date,
-      changefreq: 'monthly',
-      priority: 0.6,
-    })
+  // `date` is the published ISO date — used as lastmod.
+  if (blogResult.status === 'fulfilled') {
+    for (const post of blogResult.value.data ?? []) {
+      urls.push({
+        loc: `/blog/${post.slug}`,
+        lastmod: post.date,
+        changefreq: 'monthly',
+        priority: 0.6,
+      })
+    }
+  } else {
+    console.error('[sitemap] Failed to fetch blog posts:', blogResult.reason)
   }
 
   return urls
