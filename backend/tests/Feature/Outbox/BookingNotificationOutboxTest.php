@@ -169,6 +169,17 @@ test('a refunded booking flows through the outbox to the refund confirmation job
 
     app(BookingRefundService::class)->refund($booking, 'end to end', null);
 
+    // dispatchable() compares against Postgres NOW(), which is pinned to this
+    // test's wrapping RefreshDatabase transaction start — but the service
+    // stamps available_at from PHP's wall clock. On a slow run the fixture
+    // crosses a second boundary and the row lands "in the future" relative to
+    // the pinned NOW(), making this test timing-flaky (seen on CI). Rewind the
+    // stamp so visibility is deterministic; the production worker runs in its
+    // own fresh transactions where the two clocks agree.
+    DispatchOutbox::query()
+        ->where('event_type', BookingRefundService::EVENT_REFUNDED)
+        ->update(['available_at' => now()->subMinute()]);
+
     $this->artisan('outbox:dispatch')->assertExitCode(0);
 
     Bus::assertDispatched(
