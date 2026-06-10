@@ -47,6 +47,8 @@ class AdminRolesAndPermissionsSeeder extends Seeder
         'admin_users.view', 'admin_users.create', 'admin_users.update', 'admin_users.delete',
         // Activity log
         'activity.view',
+        // Dispatch outbox (admin-only ops surface — not granted to manager/ops)
+        'outbox.view', 'outbox.retry',
         // Marketing — Featured Slides
         'marketing.featured_slides.view', 'marketing.featured_slides.create',
         'marketing.featured_slides.update', 'marketing.featured_slides.delete',
