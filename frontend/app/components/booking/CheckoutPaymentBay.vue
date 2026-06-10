@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { loadStripe } from '@stripe/stripe-js'
 import type { Stripe, StripeCardElement } from '@stripe/stripe-js'
+import { apiFetch } from '~/utils/api'
 
 type Method = 'card' | 'paypal' | 'gift' | 'cash'
 
@@ -10,7 +11,7 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  submit: [payload: { paymentMethodId: string; email?: string; saveCard?: boolean }]
+  submit: [payload: { paymentMethodId: string; email?: string; saveCard?: boolean; usingSavedCard?: boolean }]
   error: [message: string]
 }>()
 
@@ -21,6 +22,39 @@ const billingCountry = ref('US')
 const formError = ref('')
 const cardError = ref('')
 const isSubmitting = ref(false)
+
+// Saved cards (admin-v5 Plan 03): authenticated users with stored cards get
+// a picker; the Elements mount stays in the DOM (v-show) so switching to
+// "a different card" needs no remount.
+interface SavedCard {
+  id: string
+  brand: string
+  last4: string
+  expMonth: number
+  expYear: number
+}
+
+const savedCards = ref<SavedCard[]>([])
+const selectedSavedId = ref<string | null>(null)
+const useNewCard = ref(false)
+
+const payingWithSaved = computed(() =>
+  props.isAuthenticated
+  && !useNewCard.value
+  && savedCards.value.length > 0
+  && selectedSavedId.value !== null,
+)
+
+onMounted(async () => {
+  if (!props.isAuthenticated) return
+  try {
+    const response = await apiFetch<{ data: SavedCard[] }>('/api/account/payment-methods')
+    savedCards.value = response.data
+    if (response.data.length > 0) selectedSavedId.value = response.data[0]!.id
+  } catch {
+    // Lookup failure degrades to the plain card element.
+  }
+})
 
 const cardMountRef = ref<HTMLElement | null>(null)
 let stripe: Stripe | null = null
@@ -115,6 +149,21 @@ function validate(): boolean {
 }
 
 async function submit(): Promise<void> {
+  if (payingWithSaved.value) {
+    if (isSubmitting.value) return
+    isSubmitting.value = true
+    formError.value = ''
+    try {
+      emit('submit', {
+        paymentMethodId: selectedSavedId.value as string,
+        usingSavedCard: true,
+      })
+    } finally {
+      isSubmitting.value = false
+    }
+    return
+  }
+
   if (!validate()) return
   if (isSubmitting.value) return
   if (!stripe || !cardElement) return
@@ -145,7 +194,7 @@ async function submit(): Promise<void> {
       return
     }
 
-    const payload: { paymentMethodId: string; email?: string; saveCard?: boolean } = {
+    const payload: { paymentMethodId: string; email?: string; saveCard?: boolean; usingSavedCard?: boolean } = {
       paymentMethodId: paymentMethod.id,
     }
 
@@ -240,7 +289,40 @@ defineExpose({ submit, isSubmitting, stripeReady })
     </div>
 
     <div v-show="activeMethod === 'card'" class="checkout-fields payment-bay__card">
-      <div class="payment-bay__card-field">
+      <fieldset
+        v-if="isAuthenticated && savedCards.length > 0"
+        class="payment-bay__saved"
+      >
+        <legend class="payment-bay__label">Your saved cards</legend>
+        <label
+          v-for="card in savedCards"
+          :key="card.id"
+          class="payment-bay__saved-card"
+        >
+          <input
+            v-model="selectedSavedId"
+            type="radio"
+            name="saved-card"
+            :value="card.id"
+            class="payment-bay__saved-radio"
+            @change="useNewCard = false"
+          >
+          <span class="payment-bay__saved-brand">{{ card.brand }}</span>
+          <span>···{{ card.last4 }}</span>
+          <span class="payment-bay__saved-exp">{{ card.expMonth }}/{{ card.expYear }}</span>
+        </label>
+        <button
+          type="button"
+          class="payment-bay__saved-new"
+          data-testid="pay-new-card"
+          :aria-pressed="useNewCard"
+          @click="useNewCard = true"
+        >
+          Use a different card
+        </button>
+      </fieldset>
+
+      <div v-show="!payingWithSaved" class="payment-bay__card-field">
         <label class="payment-bay__label">Card details <span class="payment-bay__req">*</span></label>
         <div
           v-if="stripeLoadError"
@@ -404,6 +486,45 @@ defineExpose({ submit, isSubmitting, stripeReady })
 .payment-bay__req {
   color: var(--secondary);
   margin-left: 0.2rem;
+}
+
+.payment-bay__saved {
+  display: grid;
+  gap: var(--space-sm);
+  margin: 0 0 var(--space-md);
+  padding: var(--space-md);
+  border: none;
+  background-color: var(--surface-container-low);
+  border-radius: var(--radius-sm);
+}
+
+.payment-bay__saved-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  color: var(--on-surface);
+  font-size: 0.9375rem;
+  cursor: pointer;
+}
+
+.payment-bay__saved-brand {
+  text-transform: capitalize;
+}
+
+.payment-bay__saved-exp {
+  color: var(--tertiary);
+  font-size: 0.8125rem;
+}
+
+.payment-bay__saved-new {
+  justify-self: start;
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--secondary);
+  font-size: 0.875rem;
+  cursor: pointer;
+  text-decoration: underline;
 }
 
 .payment-bay__card-mount {
