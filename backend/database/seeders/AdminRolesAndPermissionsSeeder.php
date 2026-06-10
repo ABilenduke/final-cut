@@ -49,6 +49,9 @@ class AdminRolesAndPermissionsSeeder extends Seeder
         'activity.view',
         // Dispatch outbox (admin-only ops surface — not granted to manager/ops)
         'outbox.view', 'outbox.retry',
+        // Inquiry inboxes
+        'rentals.view', 'rentals.update_status',
+        'contact.view', 'contact.resolve',
         // Marketing — Featured Slides
         'marketing.featured_slides.view', 'marketing.featured_slides.create',
         'marketing.featured_slides.update', 'marketing.featured_slides.delete',
@@ -66,6 +69,8 @@ class AdminRolesAndPermissionsSeeder extends Seeder
         'bookings.view', 'bookings.resolve_refund',
         'bookings.flag', 'bookings.resend_confirmation',
         'bookings.create_walkup',
+        'rentals.view', 'rentals.update_status',
+        'contact.view', 'contact.resolve',
         'gift_cards.view', 'gift_cards.void',
         'users.view',
         'loyalty.view', 'loyalty.adjust_points', 'loyalty.adjust_tier',
@@ -76,6 +81,7 @@ class AdminRolesAndPermissionsSeeder extends Seeder
 
     public const OPS_PERMISSIONS = [
         'bookings.view', 'users.view', 'loyalty.view', 'gift_cards.view',
+        'rentals.view', 'contact.view',
         'movies.view', 'showtimes.view', 'locations.view', 'auditoriums.view',
         'menu.view', 'promos.view',
         'activity.view',
