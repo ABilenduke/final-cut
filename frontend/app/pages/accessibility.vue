@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import { telHref } from '~/data/siteContacts'
-import { fallbackSiteContacts } from '~/data/siteContacts'
+import { telHref, fallbackSiteContacts } from '~/data/siteContacts'
 import { useSiteContacts, resolveSiteContacts } from '~/composables/useSiteContent'
 
 const { data: contactsData } = useSiteContacts()
