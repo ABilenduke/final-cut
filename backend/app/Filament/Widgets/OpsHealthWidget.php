@@ -30,13 +30,17 @@ class OpsHealthWidget extends StatsOverviewWidget
     public static function metrics(): array
     {
         return [
+            // Scoped to showtime-cancellation flags so the number always
+            // matches what the linked CancellationFollowupQueue shows.
             'flagged' => Booking::query()
                 ->whereNotNull('flagged_at')
+                ->where('flag_reason', 'like', CancellationFollowupQueue::SHOWTIME_CANCEL_FLAG_PREFIX.'%')
                 ->whereNotIn('status', [BookingStatus::Refunded, BookingStatus::Cancelled])
                 ->count(),
+            // dispatchable() keeps the KPI aligned with the worker contract
+            // (excludes future available_at and exhausted-attempt rows).
             'outbox_backlog' => DispatchOutbox::query()
-                ->whereNull('processed_at')
-                ->whereNull('failed_at')
+                ->dispatchable()
                 ->count(),
             'outbox_parked' => DispatchOutbox::query()
                 ->whereNotNull('failed_at')

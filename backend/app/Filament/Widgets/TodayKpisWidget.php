@@ -33,16 +33,20 @@ class TodayKpisWidget extends StatsOverviewWidget
     {
         [$dayStart, $dayEnd] = self::venueDayBounds();
 
+        // Half-open [$dayStart, $dayEnd): whereBetween's inclusive upper
+        // bound would double-count anything landing exactly on midnight.
         $confirmedToday = Booking::query()
             ->where('status', BookingStatus::Confirmed)
-            ->whereBetween('created_at', [$dayStart, $dayEnd]);
+            ->where('created_at', '>=', $dayStart)
+            ->where('created_at', '<', $dayEnd);
 
         return [
             'bookings' => (clone $confirmedToday)->count(),
             'revenue' => (int) (clone $confirmedToday)->sum('total'),
             'showtimes' => Showtime::query()
                 ->whereNull('cancelled_at')
-                ->whereBetween('start_time', [$dayStart, $dayEnd])
+                ->where('start_time', '>=', $dayStart)
+                ->where('start_time', '<', $dayEnd)
                 ->count(),
         ];
     }
@@ -67,13 +71,24 @@ class TodayKpisWidget extends StatsOverviewWidget
         ];
     }
 
-    /** @return array{0: CarbonInterface, 1: CarbonInterface} UTC instants bounding the venue day. */
+    /**
+     * Half-open app-timezone instants bounding the venue-local calendar day.
+     * Both bounds are computed IN the venue timezone before converting, so a
+     * DST transition day correctly spans 23 or 25 hours — adding a day after
+     * conversion would always yield 24h and drift an hour around changes.
+     *
+     * @return array{0: CarbonInterface, 1: CarbonInterface}
+     */
     public static function venueDayBounds(): array
     {
         $tz = config('app.default_location_timezone') ?? config('app.timezone');
 
-        $start = now($tz)->startOfDay()->setTimezone(config('app.timezone'));
+        $startLocal = now($tz)->startOfDay();
+        $endLocal = $startLocal->copy()->addDay();
 
-        return [$start, $start->copy()->addDay()];
+        return [
+            $startLocal->copy()->setTimezone(config('app.timezone')),
+            $endLocal->setTimezone(config('app.timezone')),
+        ];
     }
 }

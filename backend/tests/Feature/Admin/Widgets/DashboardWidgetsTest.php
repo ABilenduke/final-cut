@@ -13,7 +13,7 @@ use Tests\TestCase;
 
 uses(BookingTestHelper::class);
 
-/** A showtime safely inside the venue "today" plus one yesterday. */
+/** A single 5-seat showtime safely inside the venue "today". */
 function widgetFixture(): array
 {
     /** @var TestCase&BookingTestHelper $test */
@@ -55,6 +55,18 @@ test('today metrics count only today and only confirmed revenue', function (): v
         ->and($metrics['showtimes'])->toBe(1);
 });
 
+test('venue day bounds are computed in the configured venue timezone', function (): void {
+    config(['app.default_location_timezone' => 'America/New_York']);
+
+    [$dayStart, $dayEnd] = TodayKpisWidget::venueDayBounds();
+
+    // Start is venue-local midnight expressed in the app timezone…
+    expect($dayStart->copy()->setTimezone('America/New_York')->format('H:i'))->toBe('00:00');
+    // …and the window is half-open venue-midnight to venue-midnight.
+    expect($dayEnd->copy()->setTimezone('America/New_York')->format('H:i'))->toBe('00:00');
+    expect($dayEnd->greaterThan($dayStart))->toBeTrue();
+});
+
 test('the kpi widget renders for ops and is hidden from roleless admins', function (): void {
     $this->actingAsOps();
     expect(TodayKpisWidget::canView())->toBeTrue();
@@ -82,10 +94,21 @@ test('ops health counts flagged-pending bookings and outbox states', function ()
         'status' => BookingStatus::Refunded,
         'flagged_at' => now(),
     ]);
+    // Manually-flagged for another reason — outside the linked queue's
+    // scope, so outside this KPI too (the number must match the link).
+    Booking::factory()->guest()->create([
+        'showtime_id' => $ctx['showtime']->id,
+        'status' => BookingStatus::Confirmed,
+        'flagged_at' => now(),
+        'flag_reason' => 'fraud_hold:review',
+    ]);
 
     DispatchOutbox::create(['event_type' => 'x.pending', 'payload' => []]);
     DispatchOutbox::create(['event_type' => 'x.parked', 'payload' => [], 'failed_at' => now()]);
     DispatchOutbox::create(['event_type' => 'x.done', 'payload' => [], 'processed_at' => now()]);
+    // Not yet available to the worker — dispatchable() excludes it, so the
+    // backlog KPI must too.
+    DispatchOutbox::create(['event_type' => 'x.future', 'payload' => [], 'available_at' => now()->addHour()]);
 
     $metrics = OpsHealthWidget::metrics();
 

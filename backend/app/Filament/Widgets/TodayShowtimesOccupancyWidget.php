@@ -34,7 +34,9 @@ class TodayShowtimesOccupancyWidget extends TableWidget
             ->query(
                 Showtime::query()
                     ->whereNull('cancelled_at')
-                    ->whereBetween('start_time', [$dayStart, $dayEnd])
+                    // Half-open day window — see TodayKpisWidget::metrics().
+                    ->where('start_time', '>=', $dayStart)
+                    ->where('start_time', '<', $dayEnd)
                     ->with('movie', 'auditorium.location')
                     ->addSelect([
                         'occupied_seats_count' => BookingSeat::query()
