@@ -290,6 +290,161 @@ class ShowtimeService
     }
 
     /**
+     * Build a copy plan for an entire week's schedule (admin-v2 Plan 06):
+     * every non-cancelled showtime in `[sourceWeekStart 00:00, +7 days)` —
+     * window interpreted in the app timezone — shifted to the target week
+     * preserving the VENUE-LOCAL wall-clock time. `addDays` on a tz-aware
+     * Carbon keeps the local clock across DST transitions (the UTC instant
+     * absorbs the offset change), which is what a cinema schedule wants: the
+     * 19:00 show stays the 19:00 show.
+     *
+     * End times are recomputed via `computeEndTime` (runtime/cleanup may have
+     * changed since the source week); movies whose runtime went NULL are
+     * partitioned out rather than failing the plan. Conflicts against the
+     * target week come from `detectConflictsForBatch` per auditorium. A
+     * uniform wall-clock shift preserves the source week's non-overlap except
+     * in pathological DST edge cases — the DB EXCLUDE constraint stays the
+     * final guard at commit time.
+     *
+     * @return array{
+     *     rows: list<array{source: Showtime, start: CarbonInterface, end: CarbonInterface, conflicts: Collection<int, Showtime>}>,
+     *     skipped_missing_runtime: Collection<int, Showtime>,
+     * }
+     */
+    public function buildWeekCopyPlan(
+        CarbonInterface $sourceWeekStart,
+        CarbonInterface $targetWeekStart,
+        ?string $locationId = null,
+    ): array {
+        $sourceStart = $sourceWeekStart->copy()->startOfDay();
+        $targetStart = $targetWeekStart->copy()->startOfDay();
+
+        // DateInterval->days is an absolute whole-day count on any Carbon
+        // version; re-apply the sign from the comparison.
+        $daysDelta = $sourceStart->diff($targetStart)->days
+            * ($targetStart->greaterThanOrEqualTo($sourceStart) ? 1 : -1);
+
+        $sources = Showtime::query()
+            ->with('movie', 'auditorium.location')
+            ->whereNull('cancelled_at')
+            ->where('start_time', '>=', $sourceStart)
+            ->where('start_time', '<', $sourceStart->copy()->addDays(7))
+            ->when($locationId, fn ($q, $id) => $q->whereHas(
+                'auditorium',
+                fn ($a) => $a->where('location_id', $id),
+            ))
+            ->orderBy('start_time')
+            ->get();
+
+        [$copyable, $skippedMissingRuntime] = $sources->partition(
+            fn (Showtime $s) => $s->movie->runtime !== null,
+        );
+
+        /** @var list<array{source: Showtime, start: CarbonInterface, end: CarbonInterface, conflicts: Collection<int, Showtime>}> $rows */
+        $rows = [];
+        foreach ($copyable->values() as $showtime) {
+            $tz = $showtime->auditorium->location->timezone ?? config('app.timezone');
+
+            $start = $showtime->start_time->copy()
+                ->setTimezone($tz)
+                ->addDays($daysDelta)
+                ->setTimezone(config('app.timezone'));
+
+            $rows[] = [
+                'source' => $showtime,
+                'start' => $start,
+                'end' => self::computeEndTime($showtime->movie, $showtime->auditorium, $start),
+                'conflicts' => new Collection,
+            ];
+        }
+
+        // Conflict lookup is per-auditorium (detectConflictsForBatch's scope);
+        // group row indexes by auditorium, then write results back in place.
+        $byAuditorium = [];
+        foreach ($rows as $idx => $row) {
+            $byAuditorium[(string) $row['source']->auditorium_id][] = $idx;
+        }
+
+        foreach ($byAuditorium as $auditoriumId => $indexes) {
+            $intervals = new Collection(array_map(
+                fn (int $i): array => ['start' => $rows[$i]['start'], 'end' => $rows[$i]['end']],
+                $indexes,
+            ));
+
+            $conflicts = $this->detectConflictsForBatch($auditoriumId, $intervals);
+
+            foreach ($indexes as $position => $idx) {
+                $rows[$idx]['conflicts'] = $conflicts[$position];
+            }
+        }
+
+        return [
+            'rows' => $rows,
+            'skipped_missing_runtime' => $skippedMissingRuntime->values(),
+        ];
+    }
+
+    /**
+     * Create every row from a copy plan inside a single transaction
+     * (admin-v2 Plan 06). Unlike bulkCreate, rows span movies AND
+     * auditoriums. Any failure rolls back the whole batch; a TOCTOU conflict
+     * that committed after the preview trips the EXCLUDE constraint and
+     * surfaces as `ShowtimeConflictException`.
+     *
+     * @param  Collection<int, array{movie_id: int|string, auditorium_id: string, start_time: CarbonInterface, price_standard: int, price_premium: int, price_accessible: int}>  $rows
+     * @return Collection<int, Showtime>
+     */
+    public function copyWeek(Collection $rows, ?User $actor = null): Collection
+    {
+        try {
+            return DB::transaction(function () use ($rows, $actor) {
+                $created = new Collection;
+
+                foreach ($rows as $row) {
+                    [$movie, $auditorium, $start] = $this->resolveInputs([
+                        'movie_id' => $row['movie_id'],
+                        'auditorium_id' => $row['auditorium_id'],
+                        'start_time' => $row['start_time'],
+                    ]);
+                    $end = self::computeEndTime($movie, $auditorium, $start);
+
+                    $showtime = Showtime::create([
+                        'movie_id' => $movie->id,
+                        'auditorium_id' => $auditorium->id,
+                        'start_time' => $start,
+                        'end_time' => $end,
+                        'price_standard' => (int) $row['price_standard'],
+                        'price_premium' => (int) $row['price_premium'],
+                        'price_accessible' => (int) $row['price_accessible'],
+                    ]);
+
+                    $this->logIfAdmin(self::EVENT_CREATED, $showtime, $actor, [
+                        'movie_id' => $movie->id,
+                        'auditorium_id' => $auditorium->id,
+                        'start_time' => $start->toIso8601String(),
+                        'end_time' => $end->toIso8601String(),
+                        'via' => 'copy_week',
+                    ]);
+
+                    $created->push($showtime);
+                }
+
+                return $created;
+            });
+        } catch (QueryException $e) {
+            // No single interval to attribute — the translated exception
+            // carries an empty conflict list; the page shows the generic
+            // "re-run the preview" message.
+            throw $this->translateExclusionViolation(
+                $e,
+                (string) ($rows->first()['auditorium_id'] ?? ''),
+                null,
+                null,
+            );
+        }
+    }
+
+    /**
      * UX affordance only — not an authoritative guard. The DB's EXCLUDE
      * constraint is the source of truth; this method is for friendly
      * pre-submit errors. Half-open interval rule: intervals `[a.start, a.end)`
