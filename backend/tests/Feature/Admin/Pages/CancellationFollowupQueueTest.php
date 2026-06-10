@@ -10,6 +10,9 @@ use App\Models\Showtime;
 use App\Models\User;
 use Livewire\Livewire;
 use Spatie\Activitylog\Models\Activity;
+use Tests\Helpers\BookingTestHelper;
+
+uses(BookingTestHelper::class);
 
 beforeEach(function (): void {
     $this->location = Location::factory()->create();
@@ -53,11 +56,14 @@ test('queue lists only flagged bookings that are not yet refunded', function ():
 test('mark_resolved action requires 10+ character notes, flips status to refunded, and logs activity', function (): void {
     $admin = $this->actingAsAdmin();
 
+    // No PaymentIntent: mark_resolved only surfaces for rows with nothing to
+    // refund programmatically (admin-v2 Step 1.3) — money rows use issue_refund.
     $booking = Booking::factory()->guest()->create([
         'showtime_id' => $this->showtime->id,
         'flagged_at' => now()->subHour(),
         'flag_reason' => "showtime_cancelled:{$this->showtime->id}",
         'status' => BookingStatus::Confirmed,
+        'stripe_payment_intent_id' => null,
     ]);
 
     Livewire::test(CancellationFollowupQueue::class)
@@ -89,6 +95,7 @@ test('mark_resolved action rejects notes shorter than 10 characters', function (
         'flagged_at' => now()->subHour(),
         'flag_reason' => "showtime_cancelled:{$this->showtime->id}",
         'status' => BookingStatus::Confirmed,
+        'stripe_payment_intent_id' => null,
     ]);
 
     Livewire::test(CancellationFollowupQueue::class)
@@ -161,4 +168,84 @@ test('flagged bookings without a showtime_cancelled flag_reason stay out of the 
         ->assertCountTableRecords(1);
 
     expect(CancellationFollowupQueue::getNavigationBadge())->toBe('1');
+});
+
+// ── issue_refund (admin-v2 Step 1.3: real refunds through the service) ──────
+
+test('issue_refund issues a real stripe refund and the row leaves the queue', function (): void {
+    $stripe = $this->fakeStripe();
+    $admin = $this->actingAsAdmin();
+
+    $booking = Booking::factory()->guest()->create([
+        'showtime_id' => $this->showtime->id,
+        'flagged_at' => now()->subHour(),
+        'flag_reason' => "showtime_cancelled:{$this->showtime->id}",
+        'status' => BookingStatus::RefundPending,
+        'total' => 2500,
+        'stripe_payment_intent_id' => 'pi_queue_refund',
+    ]);
+
+    Livewire::test(CancellationFollowupQueue::class)
+        ->assertTableActionVisible('issue_refund', $booking)
+        ->mountTableAction('issue_refund', $booking)
+        ->set('mountedActions.0.data.reason', 'Showtime cancelled, refunding customer')
+        ->callMountedTableAction()
+        ->assertHasNoTableActionErrors();
+
+    $booking->refresh();
+    expect($booking->status)->toBe(BookingStatus::Refunded)
+        ->and($booking->stripe_refund_id)->not->toBeNull();
+    expect($stripe->refundedPaymentIntents)->toHaveCount(1);
+
+    // The refunded row drops out of the queue scope.
+    Livewire::test(CancellationFollowupQueue::class)
+        ->assertCountTableRecords(0);
+});
+
+test('mark_resolved is only offered when there is nothing to refund programmatically', function (): void {
+    $this->fakeStripe();
+    $this->actingAsAdmin();
+
+    $cardBooking = Booking::factory()->guest()->create([
+        'showtime_id' => $this->showtime->id,
+        'flagged_at' => now()->subHour(),
+        'flag_reason' => "showtime_cancelled:{$this->showtime->id}",
+        'status' => BookingStatus::RefundPending,
+        'stripe_payment_intent_id' => 'pi_has_money',
+    ]);
+
+    $manualBooking = Booking::factory()->guest()->create([
+        'showtime_id' => $this->showtime->id,
+        'flagged_at' => now()->subHour(),
+        'flag_reason' => "showtime_cancelled:{$this->showtime->id}",
+        'status' => BookingStatus::RefundPending,
+        'stripe_payment_intent_id' => null,
+    ]);
+
+    // Fresh component per record: per-record visibility evaluations must not
+    // reuse a cached result from a previous record on the same instance.
+    Livewire::test(CancellationFollowupQueue::class)
+        ->assertTableActionHidden('mark_resolved', $cardBooking);
+    Livewire::test(CancellationFollowupQueue::class)
+        ->assertTableActionVisible('issue_refund', $cardBooking);
+    Livewire::test(CancellationFollowupQueue::class)
+        ->assertTableActionVisible('mark_resolved', $manualBooking);
+    Livewire::test(CancellationFollowupQueue::class)
+        ->assertTableActionHidden('issue_refund', $manualBooking);
+});
+
+test('issue_refund is hidden without the resolve_refund permission', function (): void {
+    $this->fakeStripe();
+    $this->actingAsOps();
+
+    $booking = Booking::factory()->guest()->create([
+        'showtime_id' => $this->showtime->id,
+        'flagged_at' => now()->subHour(),
+        'flag_reason' => "showtime_cancelled:{$this->showtime->id}",
+        'status' => BookingStatus::RefundPending,
+        'stripe_payment_intent_id' => 'pi_perm_check',
+    ]);
+
+    Livewire::test(CancellationFollowupQueue::class)
+        ->assertTableActionHidden('issue_refund', $booking);
 });

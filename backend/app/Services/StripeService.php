@@ -117,18 +117,40 @@ class StripeService
     }
 
     /**
-     * Issues a full refund for a captured PaymentIntent.
+     * Issues a refund for a captured PaymentIntent — full by default, partial
+     * when `$amount` (cents) is given.
      *
      * Used as a compensating action when DB writes fail after payment has
-     * already been captured, preventing orphaned charges.
+     * already been captured, and by the admin refund flow
+     * (`BookingRefundService`).
+     *
+     * @param  ?string  $idempotencyKey  Deterministic Stripe idempotency key.
+     *                                   Pass one whenever a retry is possible:
+     *                                   on an ambiguous network failure Stripe
+     *                                   may have created the refund even though
+     *                                   the response was lost, and the key makes
+     *                                   the retry replay it instead of erroring
+     *                                   on an already-refunded charge.
      *
      * @throws ApiErrorException
      */
-    public function refundPaymentIntent(string $paymentIntentId): Refund
-    {
-        return $this->client()->refunds->create([
-            'payment_intent' => $paymentIntentId,
-        ]);
+    public function refundPaymentIntent(
+        string $paymentIntentId,
+        ?int $amount = null,
+        ?string $idempotencyKey = null,
+    ): Refund {
+        $params = ['payment_intent' => $paymentIntentId];
+
+        if ($amount !== null) {
+            $params['amount'] = $amount;
+        }
+
+        $options = [];
+        if ($idempotencyKey !== null) {
+            $options['idempotency_key'] = $idempotencyKey;
+        }
+
+        return $this->client()->refunds->create($params, $options);
     }
 
     /**
