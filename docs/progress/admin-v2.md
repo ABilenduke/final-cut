@@ -3,6 +3,54 @@
 Execution journal for [`docs/plans/admin/v2/`](../plans/admin/v2/00-index.md). One step per
 loop iteration; each step lands as its own PR-sized branch.
 
+## Step 1.3: BookingResource actions + real refunds in CancellationFollowupQueue
+**Status:** ✅ Complete
+**Started:** 2026-06-09
+**Completed:** 2026-06-09
+
+### Work Done
+- [2026-06-09] TDD: 12 new tests (`BookingResourceActionsTest`) + 3 added to
+  `CancellationFollowupQueueTest`; two existing queue tests updated (their fixtures now need
+  `stripe_payment_intent_id => null` because mark_resolved is manual-only). Full backend
+  suite green: **1173 passed / 4343 assertions**. PHPStan + Pint clean.
+- [2026-06-09] Branch `feat/admin-v2-booking-admin-actions` stacked on Step 1.2's branch.
+
+### Decisions
+- [2026-06-09] Action factories live as statics on `BookingResource`
+  (`refundAction()` etc.) per the `UserResource::adjustPointsAction()` precedent;
+  `ViewBooking::getHeaderActions()` consumes them. `refundSplitSummary()` is shared between
+  the view-page modal and the queue's issue_refund modal.
+- [2026-06-09] Reserved `showtime_cancelled:` flag prefix rejected at BOTH the form layer
+  (`not_regex` rule, immediate field error) and the service layer (`BookingFlagException`,
+  defense in depth for non-UI callers).
+- [2026-06-09] `mark_resolved` survives ONLY for rows with no PaymentIntent and no gift-card
+  redemption (`hasProgrammaticRefund()` gate) — everything else must use `issue_refund`.
+- [2026-06-09] New permissions `bookings.flag` + `bookings.resend_confirmation` seeded for
+  admin + manager; ops stays read-only. `RoleSeederTest` derives from the seeder constants,
+  so no separate matrix update needed.
+
+### Blockers (testing gotchas, resolved)
+- [2026-06-09] `callAction('x', data: [...])` does NOT bind modal-form data in this Filament
+  version — use the established `mountAction → set('mountedActions.0.data.…') → callMountedAction`
+  idiom (mirrors the existing queue test).
+- [2026-06-09] `assertHasActionErrors()` auto-prefixes `mountedActions.0.data.` — pass bare
+  field keys.
+- [2026-06-09] Per-record table-action visibility assertions on a single Livewire instance can
+  reuse a cached evaluation — use a fresh `Livewire::test()` per record.
+
+### Files Changed
+- `backend/app/Filament/Resources/BookingResource.php` — 4 action factories + refundSplitSummary
+- `backend/app/Filament/Resources/BookingResource/Pages/ViewBooking.php` — header actions wired
+- `backend/app/Filament/Pages/CancellationFollowupQueue.php` — issue_refund action;
+  mark_resolved gated to manual-only rows; docblock updated
+- `backend/app/Services/BookingFlagService.php` — new: flag/unflag with row locks + activity
+- `backend/app/Exceptions/BookingFlagException.php` — new
+- `backend/database/seeders/AdminRolesAndPermissionsSeeder.php` — bookings.flag,
+  bookings.resend_confirmation (admin + manager)
+- `backend/tests/Feature/Admin/Resources/BookingResourceActionsTest.php` — new: 12 tests
+- `backend/tests/Feature/Admin/Pages/CancellationFollowupQueueTest.php` — +3 tests, fixtures
+- `docs/plans/admin/v2/03-booking-admin-actions.md` — new: Step 1.3 spec
+
 ## Step 1.2: Refund + confirmation notifications via outbox
 **Status:** ✅ Complete
 **Started:** 2026-06-09
