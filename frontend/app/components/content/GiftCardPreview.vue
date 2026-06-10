@@ -69,10 +69,6 @@ async function handleSubmit(): Promise<void> {
       deliveryMethod: state.value.deliveryMethod,
       scheduledSendAt: composer.resolveScheduledSendAt(),
     })
-    useToast().show({
-      message: 'Payment integration coming soon. Gift card composer is wired through.',
-      type: 'info',
-    })
   } finally {
     loading.value = false
   }

@@ -5,6 +5,39 @@ loop iteration; each step lands as its own PR-sized branch.
 
 <!-- NOTE: this file accrues entries on parallel branches. On merge conflicts keep ALL step sections - they are disjoint. -->
 
+## Step 3.3: Gift card payments
+**Status:** ✅ Complete
+**Started:** 2026-06-10
+**Completed:** 2026-06-10
+
+### Work Done
+- [2026-06-10] Gift cards are sellable: new `GiftCardPaymentModal` (Stripe Elements card
+  collection per the CheckoutPaymentBay idiom; purchase → 3DS `handleCardAction` →
+  confirm, fresh Idempotency-Key per attempt) wired into `gift-cards.vue`
+  (`pendingPayload` → modal → success section + composer reset). The
+  "Payment integration coming soon" toast is gone. **Frontend-only** — the backend
+  purchase/confirm endpoints existed all along with full Fake-Stripe coverage.
+  Suites: **frontend 948 (+5 skipped)**, backend gift-card tests 92, Pint clean.
+
+### Decisions
+- [2026-06-10] Modal mounts fresh per attempt (`v-if="pendingPayload"`) — Elements
+  lifecycle stays trivially correct vs. keeping one long-lived element instance.
+- [2026-06-10] `useGiftCards.purchase` needed no change: it already passed the
+  idempotency key as the apiFetch header option, matching the backend's
+  `prepareForValidation` header read.
+- [2026-06-10] Gotcha: CvModal teleports to `<body>` — component tests must query
+  `document.body`, not the wrapper (CvModal.test.ts idiom).
+
+### Blockers
+- none
+
+### Files Changed
+- `frontend/app/components/content/GiftCardPaymentModal.vue` — new payment step
+- `frontend/app/pages/gift-cards.vue` — modal wiring + Order confirmed section
+- `frontend/app/components/content/GiftCardPreview.vue` — placeholder toast removed
+- `frontend/tests/components/content/GiftCardPaymentModal.test.ts` — 3 tests
+- `docs/plans/admin/v3/03-gift-card-payments.md` — step spec
+
 ## Step 3.2: Site contacts CMS
 **Status:** ✅ Complete
 **Started:** 2026-06-10
