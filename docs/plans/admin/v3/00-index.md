@@ -7,10 +7,10 @@ deferrals) and surfaced four batches of remaining work, all user-approved.
 
 | Step | Plan doc | Summary |
 | ---- | -------- | ------- |
-| 3.1 | 01 | Admin ops polish: refund timestamps in booking view; gift-card balance adjustment (service + action, uses the existing `GiftCardLedgerType::Adjustment` case); promo-code reactivate |
-| 3.2 | 02 | Site contacts CMS: footer address/phone + support emails (hello/privacy/careers/accessibility/concierge) into the `site_settings` store with an admin form; frontend surfaces consume with fallbacks |
-| 3.3 | 03 | Gift card payments: wire the purchase flow to Stripe end-to-end (composer → PaymentIntent → confirm → delivery email) |
-| 3.4 | 04 | Checkout cleanup: remove/wire dead fields (loyalty opt-in, contact extras), hold-timer alignment test, defensive comments from the audit |
+| 3.1 ✅ | [01](01-ops-polish.md) | Admin ops polish: refund timestamps in booking view; gift-card balance adjustment (service + action, uses the existing `GiftCardLedgerType::Adjustment` case); promo-code reactivate |
+| 3.2 ✅ | [02](02-site-contacts.md) | Site contacts CMS: footer address/phone + support emails (hello/privacy/careers/accessibility/concierge) into the `site_settings` store with an admin form; frontend surfaces consume with fallbacks |
+| 3.3 ✅ | [03](03-gift-card-payments.md) | Gift card payments: wire the purchase flow to Stripe end-to-end (composer → PaymentIntent → confirm → delivery email) |
+| 3.4 ✅ | [04](04-checkout-cleanup.md) | Checkout cleanup: remove/wire dead fields (loyalty opt-in, contact extras), hold-timer alignment test, defensive comments from the audit |
 
 ## Conventions
 
