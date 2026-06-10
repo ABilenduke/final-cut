@@ -8,6 +8,7 @@ use App\Models\Movie;
 use App\Models\User;
 use App\Services\Concerns\LogsAdminActivity;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Throwable;
 
 class MovieService
@@ -62,6 +63,41 @@ class MovieService
      *                                   be deleted; the FK cascade would otherwise silently destroy the payment
      *                                   intent IDs needed to issue refunds.
      */
+    /**
+     * Pin a movie as the home page hero feature. At most one movie carries
+     * the flag — the transaction clears any previous holder first, so the
+     * frontend's selectFeaturedMovie() never sees two flagged movies.
+     */
+    public function featureOnHome(Movie $movie, ?User $actor = null): Movie
+    {
+        DB::transaction(function () use ($movie, $actor): void {
+            // Serialize concurrent feature swaps: clearing-then-stamping has a
+            // phantom window (two transactions can both see no flagged row).
+            // The advisory lock releases automatically at commit/rollback.
+            DB::statement("SELECT pg_advisory_xact_lock(hashtext('movies.home_featured_at'))");
+
+            Movie::query()
+                ->whereKeyNot($movie->getKey())
+                ->whereNotNull('home_featured_at')
+                ->update(['home_featured_at' => null]);
+
+            $movie->forceFill(['home_featured_at' => now()])->save();
+
+            $this->logIfAdmin('movie.featured_on_home', $movie, $actor);
+        });
+
+        return $movie->refresh();
+    }
+
+    public function unfeatureFromHome(Movie $movie, ?User $actor = null): Movie
+    {
+        $movie->forceFill(['home_featured_at' => null])->save();
+
+        $this->logIfAdmin('movie.unfeatured_from_home', $movie, $actor);
+
+        return $movie;
+    }
+
     public function delete(Movie $movie, ?User $actor = null): void
     {
         if ($movie->showtimes()->whereHas('bookings')->exists()) {

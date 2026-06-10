@@ -8,6 +8,8 @@ export interface MenuItem {
   allergens: Allergen[]
   dietary: DietaryTag[]
   available: boolean
+  /** ISO timestamp when an admin flagged this item for the home food teaser; null/absent otherwise. */
+  featuredOnHomeAt?: string | null
   /**
    * Location slugs where this item is available. An empty array means the item
    * is not stocked anywhere (filter it out of public render). When the array

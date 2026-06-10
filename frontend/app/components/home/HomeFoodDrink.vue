@@ -33,6 +33,15 @@ function categoryLabel(category: string): string {
 function curate(items: MenuItem[]): MenuItem[] {
   if (items.length === 0) return []
   const picks: MenuItem[] = []
+  // Admin-flagged items lead (latest flag first), then the category
+  // algorithm tops the trio up — admin-v2 Plan 16.
+  const flagged = items
+    .filter((i) => i.featuredOnHomeAt)
+    .sort((a, b) => new Date(b.featuredOnHomeAt!).getTime() - new Date(a.featuredOnHomeAt!).getTime())
+  for (const item of flagged) {
+    if (picks.length >= 3) break
+    picks.push(item)
+  }
   for (const category of ['popcorn', 'specials', 'drinks']) {
     const pick = items.find((i) => i.category === category)
     if (pick && !picks.includes(pick)) picks.push(pick)

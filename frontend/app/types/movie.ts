@@ -13,6 +13,8 @@ export interface Movie {
   backdropUrl: string
   trailerKey: string | null
   status: 'now_showing' | 'coming_soon'
+  /** ISO timestamp when an admin pinned this movie as the home hero feature; null/absent otherwise. */
+  homeFeaturedAt?: string | null
 }
 
 export interface Genre {

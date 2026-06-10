@@ -3,7 +3,7 @@
 // grain.") sections are now API-backed — see HomeFoodDrink.vue / HomeRetrospectiveSplit.vue.
 // The membership pitch is admin-editable via /api/site-content/home (admin-v2
 // Plan 15); `membershipContent` below stays as the render fallback until the
-// first admin save. Only the hero's sample-showtime chips remain static.
+// first admin save. The hero's showtime chips are live data (Plan 16).
 
 export interface MembershipPerk {
   title: string
@@ -46,21 +46,3 @@ export const membershipContent: MembershipContent = {
     { title: 'Director evenings', detail: 'Post-screening conversations, four per year.' },
   ],
 }
-
-// Placeholder showtime slots rendered in the hero side panel when no live showtime data is available.
-export interface HeroShowtimeSlot {
-  time: string
-  meridiem: string
-  soldOut?: boolean
-}
-
-export const placeholderShowtimeSlots: HeroShowtimeSlot[] = [
-  { time: '1:15', meridiem: 'PM · Sold', soldOut: true },
-  { time: '3:45', meridiem: 'PM' },
-  { time: '6:30', meridiem: 'PM' },
-  { time: '9:15', meridiem: 'PM' },
-  { time: '10:45', meridiem: 'PM' },
-  { time: '12:30', meridiem: 'AM · 70mm' },
-  { time: '1:45', meridiem: 'AM · Sold', soldOut: true },
-  { time: '3:00', meridiem: 'AM' },
-]

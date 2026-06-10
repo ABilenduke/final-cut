@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import type { Movie } from '~/types/movie'
 import { formatRuntime } from '~/utils/formatRuntime'
-import { placeholderShowtimeSlots, type HeroShowtimeSlot } from '~/data/homepage'
+import { useShowtimes } from '~/composables/useShowtimes'
+import { buildHeroSlots, type HeroSlot } from '~/utils/buildHeroSlots'
 
 const props = defineProps<{
   movie: Movie
@@ -15,7 +16,16 @@ useHead(() => ({
     : [],
 }))
 
-const heroSlots = computed<HeroShowtimeSlot[]>(() => placeholderShowtimeSlots)
+// Real upcoming showtimes for the featured movie (admin-v2 Plan 16 —
+// replaces the hardcoded placeholder slots). The endpoint already filters
+// to the upcoming window and sorts by start time.
+const appTimeZone = String(useRuntimeConfig().public.appTimeZone || 'America/New_York')
+const { fetchByMovie } = useShowtimes()
+const { data: showtimesData, pending: showtimesPending } = fetchByMovie(props.movie.slug)
+
+const heroSlots = computed<HeroSlot[]>(() =>
+  buildHeroSlots(showtimesData.value?.data ?? [], appTimeZone),
+)
 
 // ——— Live telemetry clock ———
 const clock = ref('00:00:00')
@@ -159,32 +169,26 @@ const trailerHref = computed(() =>
       </div>
 
       <!-- Showtime side panel -->
-      <aside class="cinema-hero__panel" aria-label="Sample screening times">
+      <aside class="cinema-hero__panel" aria-label="Upcoming screening times">
         <div class="cinema-hero__panel-head">
-          <span class="cinema-hero__panel-label">Typical Programme</span>
+          <span class="cinema-hero__panel-label">This Week</span>
         </div>
         <div class="cinema-hero__panel-title">Find a Showtime</div>
-        <div class="cinema-hero__times">
-          <template v-for="(slot, i) in heroSlots" :key="i">
-            <NuxtLink
-              v-if="!slot.soldOut"
-              :to="ticketsHref"
-              class="cinema-hero__time"
-              :aria-label="`See showtimes for ${movie.title}`"
-            >
-              <span class="cinema-hero__time-value">{{ slot.time }}</span>
-              <span class="cinema-hero__time-mer">{{ slot.meridiem }}</span>
-            </NuxtLink>
-            <span
-              v-else
-              class="cinema-hero__time cinema-hero__time--sold"
-              aria-hidden="true"
-            >
-              <span class="cinema-hero__time-value">{{ slot.time }}</span>
-              <span class="cinema-hero__time-mer">{{ slot.meridiem }}</span>
-            </span>
-          </template>
+        <div v-if="heroSlots.length > 0" class="cinema-hero__times">
+          <NuxtLink
+            v-for="slot in heroSlots"
+            :key="slot.id"
+            :to="{ path: `/purchase/${slot.id}`, query: { loc: slot.locationSlug } }"
+            class="cinema-hero__time"
+            :aria-label="`Buy tickets for ${movie.title} at ${slot.time} ${slot.meridiem}`"
+          >
+            <span class="cinema-hero__time-value">{{ slot.time }}</span>
+            <span class="cinema-hero__time-mer">{{ slot.meridiem }}</span>
+          </NuxtLink>
         </div>
+        <p v-else-if="!showtimesPending" class="cinema-hero__times-empty">
+          Next screenings are being scheduled — check the calendar.
+        </p>
         <div class="cinema-hero__panel-foot">
           <span>Reserved seating · from $18.50</span>
           <NuxtLink to="/whats-on" class="cinema-hero__panel-link">View calendar &rarr;</NuxtLink>
@@ -579,13 +583,11 @@ const trailerHref = computed(() =>
   transform: translateY(-0.0625rem);
 }
 
-.cinema-hero__time--sold {
-  opacity: 0.35;
-  cursor: not-allowed;
-}
-
-.cinema-hero__time--sold .cinema-hero__time-value {
-  text-decoration: line-through;
+.cinema-hero__times-empty {
+  margin-top: 0.25rem;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: var(--tertiary);
 }
 
 .cinema-hero__time-value {

@@ -18,6 +18,8 @@ return new class extends Migration
             $table->json('allergens')->nullable();
             $table->json('dietary')->nullable();
             $table->timestamp('unavailable_at')->nullable();
+            // Home food teaser curation flag (admin-v2 Plan 16) — curate() prefers flagged.
+            $table->timestamp('featured_on_home_at')->nullable();
             $table->timestamps();
         });
     }

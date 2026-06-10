@@ -75,4 +75,23 @@ describe('HomeFoodDrink', () => {
     const wrapper = await mountSuspended(HomeFoodDrink)
     expect(wrapper.find('#food-heading').exists()).toBe(true)
   })
+
+  it('leads with admin-flagged items, topping up from the category algorithm', async () => {
+    mockMenu([
+      makeItem({ id: 'p1', name: 'Algorithm Popcorn', category: 'popcorn' }),
+      makeItem({ id: 's1', name: 'Algorithm Special', category: 'specials' }),
+      makeItem({ id: 'd1', name: 'Algorithm Drink', category: 'drinks' }),
+      makeItem({
+        id: 'x1',
+        name: 'Curated Sundae',
+        category: 'snacks',
+        featuredOnHomeAt: '2026-06-09T12:00:00Z',
+      }),
+    ])
+    const wrapper = await mountSuspended(HomeFoodDrink)
+
+    const names = wrapper.findAll('.food__card').map((c) => c.text())
+    expect(names[0]).toContain('Curated Sundae')
+    expect(names).toHaveLength(3)
+  })
 })

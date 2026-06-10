@@ -11,12 +11,25 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Support\Carbon;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
 
+/**
+ * @property string $id
+ * @property string $name
+ * @property string|null $description
+ * @property int $price
+ * @property MenuCategory $category
+ * @property string|null $image_url
+ * @property array|null $allergens
+ * @property array|null $dietary
+ * @property Carbon|null $unavailable_at
+ * @property Carbon|null $featured_on_home_at Home food-teaser curation flag — several items may carry it.
+ */
 #[Fillable([
     'name', 'description', 'price', 'category', 'image_url',
-    'allergens', 'dietary', 'unavailable_at',
+    'allergens', 'dietary', 'unavailable_at', 'featured_on_home_at',
 ])]
 class MenuItem extends Model
 {
@@ -26,7 +39,7 @@ class MenuItem extends Model
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()
-            ->logOnly(['name', 'description', 'price', 'category', 'image_url', 'allergens', 'dietary', 'unavailable_at'])
+            ->logOnly(['name', 'description', 'price', 'category', 'image_url', 'allergens', 'dietary', 'unavailable_at', 'featured_on_home_at'])
             ->setDescriptionForEvent(fn (string $eventName) => $eventName)
             ->logOnlyDirty()
             ->dontLogEmptyChanges()
@@ -43,6 +56,7 @@ class MenuItem extends Model
             'allergens' => 'array',
             'dietary' => 'array',
             'unavailable_at' => 'datetime',
+            'featured_on_home_at' => 'datetime',
         ];
     }
 

@@ -2,9 +2,11 @@
 
 namespace App\Http\Resources;
 
+use App\Models\Movie;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
+/** @mixin Movie */
 class MovieListResource extends JsonResource
 {
     public function toArray(Request $request): array
@@ -20,6 +22,7 @@ class MovieListResource extends JsonResource
             'genres' => $this->genres ?? [],
             'posterUrl' => $this->poster_url,
             'status' => $this->status->value,
+            'homeFeaturedAt' => $this->home_featured_at?->toIso8601String(),
         ];
     }
 }
