@@ -47,11 +47,11 @@ export default defineNuxtConfig({
     '/locations/**': { isr: 1800 },
     '/blog': { isr: 600 },
     '/blog/**': { isr: 600 },
-    '/contact': { prerender: true },
+    '/contact': { isr: 1800 },
     '/faq': { isr: 1800 },
     '/accessibility': { prerender: true },
     '/careers': { isr: 1800 },
-    '/private-screenings': { prerender: true },
+    '/private-screenings': { isr: 1800 },
     '/gift-cards': { isr: 1800 },
     '/gift-cards/bulk': { prerender: true },
     // X-Robots-Tag header keeps these out of search indices. The matching

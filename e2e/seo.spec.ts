@@ -99,7 +99,10 @@ test.describe('SEO', () => {
 
       expect(jsonLd).not.toBeNull()
       expect(jsonLd['@type']).toBe('LocalBusiness')
-      expect(jsonLd.name).toBe('Final Cut')
+      // Per-venue schemas since admin-v2 Plan 14: "Final Cut — {Location}".
+      // The brand prefix is the stable contract; the venue suffix varies.
+      expect(jsonLd.name).toContain('Final Cut')
+      expect(jsonLd.address?.['@type']).toBe('PostalAddress')
     })
 
     test('movie detail page has Movie schema', async ({ page }) => {

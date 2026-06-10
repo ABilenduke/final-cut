@@ -8,6 +8,7 @@ use App\Models\FaqItem;
 use App\Models\FeaturedSlide;
 use App\Models\JobOpening;
 use App\Models\MenuItem;
+use App\Models\ScreeningPackage;
 use App\Models\TickerItem;
 use App\Models\User;
 use App\Observers\BlogPostObserver;
@@ -15,6 +16,7 @@ use App\Observers\FaqItemObserver;
 use App\Observers\FeaturedSlideObserver;
 use App\Observers\JobOpeningObserver;
 use App\Observers\MenuItemObserver;
+use App\Observers\ScreeningPackageObserver;
 use App\Observers\TickerItemObserver;
 use Filament\Support\Assets\Css;
 use Filament\Support\Facades\FilamentAsset;
@@ -108,6 +110,7 @@ class AppServiceProvider extends ServiceProvider
         BlogPost::observe(BlogPostObserver::class);
         FaqItem::observe(FaqItemObserver::class);
         JobOpening::observe(JobOpeningObserver::class);
+        ScreeningPackage::observe(ScreeningPackageObserver::class);
 
         // Filament admin brand overlay — Cinematic Void.
         // Plain CSS layered on top of Filament's compiled stylesheet. Run
