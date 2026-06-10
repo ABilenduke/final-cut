@@ -5,9 +5,11 @@ namespace App\Providers;
 use App\Auth\AdminUserProvider;
 use App\Models\FeaturedSlide;
 use App\Models\MenuItem;
+use App\Models\TickerItem;
 use App\Models\User;
 use App\Observers\FeaturedSlideObserver;
 use App\Observers\MenuItemObserver;
+use App\Observers\TickerItemObserver;
 use Filament\Support\Assets\Css;
 use Filament\Support\Facades\FilamentAsset;
 use Illuminate\Auth\Events\Failed;
@@ -91,6 +93,10 @@ class AppServiceProvider extends ServiceProvider
         // Observe FeaturedSlide to invalidate the featured-slides public cache on
         // save/delete.
         FeaturedSlide::observe(FeaturedSlideObserver::class);
+
+        // Observe TickerItem to invalidate the ticker-items public cache on
+        // save/delete.
+        TickerItem::observe(TickerItemObserver::class);
 
         // Filament admin brand overlay — Cinematic Void.
         // Plain CSS layered on top of Filament's compiled stylesheet. Run

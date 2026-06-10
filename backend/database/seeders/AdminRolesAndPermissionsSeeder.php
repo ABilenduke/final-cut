@@ -55,6 +55,8 @@ class AdminRolesAndPermissionsSeeder extends Seeder
         // Marketing — Featured Slides
         'marketing.featured_slides.view', 'marketing.featured_slides.create',
         'marketing.featured_slides.update', 'marketing.featured_slides.delete',
+        'marketing.ticker.view', 'marketing.ticker.create',
+        'marketing.ticker.update', 'marketing.ticker.delete',
     ];
 
     public const MANAGER_PERMISSIONS = [
@@ -77,6 +79,8 @@ class AdminRolesAndPermissionsSeeder extends Seeder
         'activity.view',
         'marketing.featured_slides.view', 'marketing.featured_slides.create',
         'marketing.featured_slides.update', 'marketing.featured_slides.delete',
+        'marketing.ticker.view', 'marketing.ticker.create',
+        'marketing.ticker.update', 'marketing.ticker.delete',
     ];
 
     public const OPS_PERMISSIONS = [

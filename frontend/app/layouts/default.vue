@@ -1,5 +1,11 @@
 <script setup lang="ts">
-const tickerItems = [
+import { resolveTickerItems, useTickerItems } from '~/composables/useTickerItems'
+import type { TickerDisplayItem } from '~/composables/useTickerItems'
+
+// Brand fallback: rendered whenever the admin-curated list is empty or the
+// API is unreachable — the ticker must never run empty. The curated source
+// of truth lives in the admin panel (Marketing → Neural Ticker).
+const fallbackTickerItems: TickerDisplayItem[] = [
   { label: 'Now Showing', text: 'Dune: Part Three · Screen 01 · 7:30' },
   { label: 'Event', text: 'Kubrick Retrospective · Fri 9:00 PM' },
   { label: 'Members', text: 'Bar opens 60 min before all screenings' },
@@ -10,6 +16,11 @@ const tickerItems = [
   { label: 'Food', text: 'Director\u2019s Flight · paired nightly' },
   { label: 'Loyalty', text: 'Charter enrolment open through April' },
 ]
+
+const { data: tickerData } = useTickerItems()
+const tickerItems = computed(() =>
+  resolveTickerItems(tickerData.value?.data, fallbackTickerItems),
+)
 
 // Pages can suppress the global NeuralTicker via `definePageMeta({ hideTicker: true })`.
 // Used by /gift-cards, where a page-specific balance-lookup strip occupies the same

@@ -14,6 +14,7 @@ use App\Http\Controllers\Api\MovieShowtimesController;
 use App\Http\Controllers\Api\PaymentMethodController;
 use App\Http\Controllers\Api\RentalController;
 use App\Http\Controllers\Api\ShowtimeController;
+use App\Http\Controllers\Api\TickerItemController;
 use Illuminate\Support\Facades\Route;
 
 // Locations
@@ -32,6 +33,7 @@ Route::get('/food-menu', [FoodMenuController::class, 'crossLocation']);
 
 // Featured slides — admin-curated home hero carousel (public, no auth)
 Route::get('/featured-slides', [FeaturedSlideController::class, 'index']);
+Route::get('/ticker-items', [TickerItemController::class, 'index']);
 
 // Location-scoped resources
 Route::prefix('locations/{location}')->group(function () {
