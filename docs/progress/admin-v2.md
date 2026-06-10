@@ -5,6 +5,35 @@ loop iteration; each step lands as its own PR-sized branch.
 
 <!-- NOTE: this file accrues entries on parallel branches. On merge conflicts keep ALL step sections - they are disjoint. -->
 
+## Step 1.9: AdminUserResource (staff management)
+**Status:** ✅ Complete
+**Started:** 2026-06-10
+**Completed:** 2026-06-10
+
+### Work Done
+- [2026-06-10] TDD: 6 tests first, then `AdminUserService` + read-only `AdminUserResource`
+  (System group) with provision / change-role / disable / enable actions. Full backend
+  suite: **1217 passed**. PHPStan + Pint clean.
+
+### Decisions
+- [2026-06-10] **No migration needed** — the plan expected to add a deactivation column,
+  but `admin_profiles.disabled_at` has existed since v1 and is already enforced by
+  `User::isAdmin()` + `AdminUserProvider` (live sessions die on the next request). The
+  resource only drives the existing flag; the provider rejection is asserted in tests.
+- [2026-06-10] Rows are read-only: identity belongs to the shared customer account.
+  Provisioning mirrors `admin:create-user` create-or-promote semantics (promotion never
+  clobbers the customer password unless one is supplied); roles via `syncRoles` (replace).
+- [2026-06-10] Self-guards in the SERVICE (not just UI visibility): you cannot change your
+  own role or disable yourself — lockout safety + privilege changes need a second admin.
+- [2026-06-10] Admins are disabled, never deleted — audit-trail integrity.
+
+### Files Changed
+- `backend/app/Services/AdminUserService.php` — new
+- `backend/app/Exceptions/AdminUserException.php` — new
+- `backend/app/Filament/Resources/AdminUserResource.php` (+ ListAdminUsers page) — new
+- `backend/tests/Feature/Admin/Resources/AdminUserResourceTest.php` — new: 6 tests
+- `docs/plans/admin/v2/09-admin-users.md` — new: Step 1.9 spec
+
 ## Step 1.8: Dispatch-outbox ops surface
 **Status:** ✅ Complete
 **Started:** 2026-06-10
