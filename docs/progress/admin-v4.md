@@ -5,6 +5,41 @@ loop iteration; each step lands as its own PR-sized branch.
 
 <!-- NOTE: this file accrues entries on parallel branches. On merge conflicts keep ALL step sections - they are disjoint. -->
 
+## Step 4.3: Movie editorial CMS
+**Status:** ✅ Complete
+**Started:** 2026-06-10
+**Completed:** 2026-06-10
+
+### Work Done
+- [2026-06-10] Three nullable JSON columns on `movies` (in-place edit; `genres`/`cast`
+  precedent): `credits` (fixed crew fields), `press_quotes`, `clips`. Collapsed
+  **Editorial** section on the movie form (credit inputs + two reorderable Repeaters,
+  existing `movies.update` gate). Detail API exposes `credits`/`pressQuotes`/`clips`;
+  `MovieDetail` merges filled credits over the neutral dashes, `MoviePress` renders real
+  quotes (samples as fallback), `MovieTrailerEmbed` swaps decorative placeholders for
+  playable admin clips. `make fresh` run for the in-place migration.
+  Suites: **backend 1302, frontend 957 (+5 skipped)**, PHPStan + Pint clean.
+
+### Decisions
+- [2026-06-10] JSON columns over new tables — per-movie editorial copy, no relational
+  structure; identical to how `cast` already lives on the movie row.
+- [2026-06-10] Quotes stored as plain text (no emphasis runs); the sample quotes' italics
+  are presentational and not worth an editor-facing rich-text surface.
+- [2026-06-10] TMDB crew enrichment + score bars deliberately out of scope (plan doc).
+
+### Blockers
+- none
+
+### Files Changed
+- `backend/database/migrations/2026_04_04_200001_create_movies_table.php` — 3 JSON columns (in-place)
+- `backend/app/Models/Movie.php`, `backend/app/Http/Resources/MovieResource.php` — casts/docblock + API fields
+- `backend/app/Filament/Resources/MovieResource.php` — Editorial form section
+- `backend/tests/Feature/Admin/Resources/MovieEditorialTest.php` — 3 tests
+- `frontend/app/types/movie.ts` — `MovieCredits`/`PressQuoteData`/`MovieClipData`
+- `frontend/app/components/movie/{MovieDetail,MoviePress,MovieTrailerEmbed}.vue`, `frontend/app/pages/movies/[slug].vue` — consumption + wiring
+- `frontend/tests/components/movie/MoviePress.test.ts` (new) + `MovieDetail`/`MovieTrailerEmbed` test additions
+- `docs/plans/admin/v4/03-movie-editorial.md` — step spec
+
 ## Step 4.2: Saved payment methods
 **Status:** ✅ Complete
 **Started:** 2026-06-10

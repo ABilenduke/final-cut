@@ -1,7 +1,11 @@
 <script setup lang="ts">
+import type { MovieClipData } from '~/types/movie'
+
 const props = defineProps<{
   trailerKey: string | null
   title: string
+  /** Admin-authored clips (admin-v4 Plan 03); placeholders render when empty. */
+  extraClips?: MovieClipData[]
 }>()
 
 // TODO(backend): replace placeholder clips with real clip/featurette data when added
@@ -14,15 +18,9 @@ type Clip = {
   thumbGradient: string
 }
 
-const clips = computed<Clip[]>(() => [
-  {
-    id: 'trailer',
-    label: 'Official Trailer',
-    sub: 'Warner · Legendary',
-    duration: '2:38',
-    trailerKey: props.trailerKey,
-    thumbGradient: 'radial-gradient(ellipse at 40% 30%, #c47040, #5b2018 60%, #0f0604)',
-  },
+const TRAILER_GRADIENT = 'radial-gradient(ellipse at 40% 30%, #c47040, #5b2018 60%, #0f0604)'
+
+const PLACEHOLDER_CLIPS: Clip[] = [
   {
     id: 'teaser',
     label: 'Teaser — First Look',
@@ -55,7 +53,36 @@ const clips = computed<Clip[]>(() => [
     trailerKey: null,
     thumbGradient: 'radial-gradient(ellipse at 60% 40%, #3a4060, #141828 60%, #04060a)',
   },
-])
+]
+
+const clips = computed<Clip[]>(() => {
+  const trailer: Clip = {
+    id: 'trailer',
+    label: 'Official Trailer',
+    sub: 'Warner · Legendary',
+    duration: '2:38',
+    trailerKey: props.trailerKey,
+    thumbGradient: TRAILER_GRADIENT,
+  }
+
+  // Admin-authored clips (admin-v4 Plan 03) replace the decorative
+  // placeholders; each carries a playable YouTube key.
+  if (props.extraClips && props.extraClips.length > 0) {
+    return [
+      trailer,
+      ...props.extraClips.map((clip, i) => ({
+        id: `clip-${i}`,
+        label: clip.label,
+        sub: clip.sub ?? '',
+        duration: clip.duration ?? '',
+        trailerKey: clip.youtube_key,
+        thumbGradient: PLACEHOLDER_CLIPS[i % PLACEHOLDER_CLIPS.length]?.thumbGradient ?? TRAILER_GRADIENT,
+      })),
+    ]
+  }
+
+  return [trailer, ...PLACEHOLDER_CLIPS]
+})
 
 const activeClipId = ref<string>('trailer')
 const activeClip = computed(() => clips.value.find(c => c.id === activeClipId.value) ?? clips.value[0])

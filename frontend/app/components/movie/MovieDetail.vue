@@ -18,9 +18,9 @@ const synopsisParts = computed(() => {
   return { lead, body: paragraphs.length > 0 ? paragraphs : [remainder] }
 })
 
-// TODO(backend): replace with real crew fields when the Movie schema adds them.
-// Until then, render neutral placeholders instead of misleading hard-coded credits.
-const STUB_CREDITS = {
+// Admin-authored credits (admin-v4 Plan 03) merged over neutral dashes so
+// unfilled fields stay placeholders instead of misleading hard-coded names.
+const EMPTY_CREDITS = {
   director: '—',
   screenplay: '—',
   cinematography: '—',
@@ -29,6 +29,13 @@ const STUB_CREDITS = {
   aspect: '—',
   advisory: '—',
 }
+
+const credits = computed(() => {
+  const filled = Object.fromEntries(
+    Object.entries(props.movie.credits ?? {}).filter(([, v]) => typeof v === 'string' && v.trim() !== ''),
+  )
+  return { ...EMPTY_CREDITS, ...filled }
+})
 
 const genreLabel = computed(() =>
   props.movie.genres.length > 0
@@ -55,23 +62,23 @@ const genreLabel = computed(() =>
       <div class="movie-detail__rows">
         <div class="movie-detail__row">
           <span class="movie-detail__k">Director</span>
-          <span class="movie-detail__v">{{ STUB_CREDITS.director }}</span>
+          <span class="movie-detail__v">{{ credits.director }}</span>
         </div>
         <div class="movie-detail__row">
           <span class="movie-detail__k">Screenplay</span>
-          <span class="movie-detail__v">{{ STUB_CREDITS.screenplay }}</span>
+          <span class="movie-detail__v">{{ credits.screenplay }}</span>
         </div>
         <div class="movie-detail__row">
           <span class="movie-detail__k">Cinematography</span>
-          <span class="movie-detail__v">{{ STUB_CREDITS.cinematography }}</span>
+          <span class="movie-detail__v">{{ credits.cinematography }}</span>
         </div>
         <div class="movie-detail__row">
           <span class="movie-detail__k">Editor</span>
-          <span class="movie-detail__v">{{ STUB_CREDITS.editor }}</span>
+          <span class="movie-detail__v">{{ credits.editor }}</span>
         </div>
         <div class="movie-detail__row">
           <span class="movie-detail__k">Composer</span>
-          <span class="movie-detail__v">{{ STUB_CREDITS.composer }}</span>
+          <span class="movie-detail__v">{{ credits.composer }}</span>
         </div>
         <div class="movie-detail__row">
           <span class="movie-detail__k">Runtime</span>
@@ -83,11 +90,11 @@ const genreLabel = computed(() =>
         </div>
         <div class="movie-detail__row">
           <span class="movie-detail__k">Aspect</span>
-          <span class="movie-detail__v">{{ STUB_CREDITS.aspect }}</span>
+          <span class="movie-detail__v">{{ credits.aspect }}</span>
         </div>
         <div class="movie-detail__row">
           <span class="movie-detail__k">Advisory</span>
-          <span class="movie-detail__v">{{ STUB_CREDITS.advisory }}</span>
+          <span class="movie-detail__v">{{ credits.advisory }}</span>
         </div>
       </div>
     </div>

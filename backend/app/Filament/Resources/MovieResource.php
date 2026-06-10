@@ -136,6 +136,42 @@ class MovieResource extends BaseResource
                         ->defaultItems(0)
                         ->helperText('Usually populated by TMDB enrichment — edit manually only for custom entries.'),
                 ]),
+
+            Section::make('Editorial')
+                ->description('Crew credits, press quotes, and extra clips for the public movie page. All optional — the page renders neutral placeholders when empty.')
+                ->collapsed()
+                ->schema([
+                    TextInput::make('credits.director')->label('Director')->maxLength(120),
+                    TextInput::make('credits.screenplay')->label('Screenplay')->maxLength(120),
+                    TextInput::make('credits.cinematography')->label('Cinematography')->maxLength(120),
+                    TextInput::make('credits.editor')->label('Editor')->maxLength(120),
+                    TextInput::make('credits.composer')->label('Composer')->maxLength(120),
+                    TextInput::make('credits.aspect')->label('Aspect ratio')->maxLength(40),
+                    TextInput::make('credits.advisory')->label('Advisory')->maxLength(120),
+                    Repeater::make('press_quotes')
+                        ->label('Press quotes')
+                        ->schema([
+                            Textarea::make('quote')->required()->rows(2)->maxLength(500),
+                            TextInput::make('author')->required()->maxLength(120),
+                            TextInput::make('publication')->required()->maxLength(120),
+                        ])
+                        ->reorderable()
+                        ->collapsed()
+                        ->defaultItems(0),
+                    Repeater::make('clips')
+                        ->label('Clips')
+                        ->schema([
+                            TextInput::make('label')->required()->maxLength(120),
+                            TextInput::make('sub')->label('Caption')->maxLength(120),
+                            TextInput::make('duration')->maxLength(10)->helperText('Display string, e.g. 2:38'),
+                            TextInput::make('youtube_key')->label('YouTube key')->required()->maxLength(20),
+                        ])
+                        ->columns(4)
+                        ->reorderable()
+                        ->collapsed()
+                        ->defaultItems(0),
+                ])
+                ->columns(2),
         ]);
     }
 
