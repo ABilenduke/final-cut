@@ -1,6 +1,28 @@
 <script setup lang="ts">
 import { fallbackSiteContacts } from '~/data/siteContacts'
 import { useSiteContacts, resolveSiteContacts } from '~/composables/useSiteContent'
+import { useGiftCardComposer } from '~/composables/useGiftCardComposer'
+import { formatCurrency } from '~/utils/formatCurrency'
+import type { GiftCard, PurchaseGiftCardData } from '~/types/gift-card'
+
+// Payment step (admin-v3 Plan 03): the composer's Purchase button hands the
+// composed payload up here; the modal collects the card and completes the
+// Stripe purchase/3DS/confirm flow.
+type ComposedPayload = Omit<PurchaseGiftCardData, 'paymentMethodId' | 'idempotencyKey'>
+
+const pendingPayload = ref<ComposedPayload | null>(null)
+const purchasedCard = ref<GiftCard | null>(null)
+
+function onCompose(payload: ComposedPayload): void {
+  pendingPayload.value = payload
+}
+
+function onPurchased(card: GiftCard): void {
+  purchasedCard.value = card
+  pendingPayload.value = null
+  useGiftCardComposer().reset()
+  useToast().show({ message: 'Gift card purchased.', type: 'success' })
+}
 
 const { data: contactsData } = useSiteContacts()
 const contacts = computed(() =>
@@ -96,8 +118,33 @@ function toggleFaq(index: number): void {
       <!-- Composer + Preview -->
       <div class="gift-cards-page__grid">
         <GiftCardComposer />
-        <GiftCardPreview />
+        <GiftCardPreview @submit="onCompose" />
       </div>
+
+      <GiftCardPaymentModal
+        v-if="pendingPayload"
+        :payload="pendingPayload"
+        :amount-label="formatCurrency(pendingPayload.amount)"
+        @close="pendingPayload = null"
+        @purchased="onPurchased"
+      />
+
+      <section
+        v-if="purchasedCard"
+        class="gift-cards-page__purchased"
+        aria-live="polite"
+        data-testid="gc-purchased"
+      >
+        <p class="gift-cards-page__eyebrow">Order confirmed</p>
+        <h2 class="gift-cards-page__h2">It's on its <em>way.</em></h2>
+        <p class="gift-cards-page__purchased-detail">
+          {{ formatCurrency(purchasedCard.initialBalance ?? 0) }} gift card
+          <template v-if="purchasedCard.recipientEmail">
+            for {{ purchasedCard.recipientEmail }}
+          </template>
+          — a confirmation email is on the way to the recipient.
+        </p>
+      </section>
 
       <!-- Below the fold: corporate + FAQ -->
       <section class="gift-cards-page__below">
@@ -311,6 +358,20 @@ function toggleFaq(index: number): void {
 .gift-cards-page__h2 em {
   font-style: italic;
   color: var(--tertiary);
+}
+
+.gift-cards-page__purchased {
+  margin-top: var(--space-2xl);
+  padding: var(--space-xl);
+  background-color: var(--surface-container-low);
+  border-radius: var(--radius-sm);
+}
+
+.gift-cards-page__purchased-detail {
+  margin: 0;
+  color: var(--tertiary);
+  font-size: 1rem;
+  line-height: 1.6;
 }
 
 .gift-cards-page__below-lede {
