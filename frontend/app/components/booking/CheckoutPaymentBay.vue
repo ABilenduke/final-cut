@@ -10,7 +10,7 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  submit: [payload: { paymentMethodId: string; email?: string }]
+  submit: [payload: { paymentMethodId: string; email?: string; saveCard?: boolean }]
   error: [message: string]
 }>()
 
@@ -145,9 +145,13 @@ async function submit(): Promise<void> {
       return
     }
 
-    const payload: { paymentMethodId: string; email?: string } = {
+    const payload: { paymentMethodId: string; email?: string; saveCard?: boolean } = {
       paymentMethodId: paymentMethod.id,
     }
+
+    // Saved-card opt-in rides the booking POST (admin-v4 Plan 02); the
+    // backend attaches a Stripe Customer + setup_future_usage.
+    if (props.isAuthenticated && saveCard.value) payload.saveCard = true
 
     if (!props.isAuthenticated) {
       payload.email = props.email.trim()

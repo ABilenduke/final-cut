@@ -126,7 +126,7 @@ function buildConfirmationUrl(bookingData: Booking): string {
 
 const submitting = ref(false)
 
-async function handleCheckoutSubmit(payload: { paymentMethodId: string; email?: string }) {
+async function handleCheckoutSubmit(payload: { paymentMethodId: string; email?: string; saveCard?: boolean }) {
   if (submitting.value || !activeLocation.value || !cart.showtime.value) return
   submitting.value = true
 
@@ -139,6 +139,7 @@ async function handleCheckoutSubmit(payload: { paymentMethodId: string; email?: 
       promoCode: cart.promoCode.value,
       giftCardCode: cart.giftCardCode.value,
       email: payload.email ?? contactEmail.value ?? null,
+      ...(payload.saveCard ? { saveCard: true } : {}),
     }
 
     // Idempotency key for this submit attempt. apiFetch sends it as the

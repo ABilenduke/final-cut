@@ -280,6 +280,23 @@ class BookingController extends Controller
             $receiptEmail = $authedUser ? $authedUser->email : $request->input('email');
 
             try {
+                // Saved-card opt-in (admin-v4 Plan 02): authenticated users
+                // who tick "save this card" get a Stripe Customer attached to
+                // the intent with setup_future_usage, so Stripe retains the
+                // card for the account payment-methods page. Guests cannot
+                // save cards — there is no account to attach them to.
+                $saveCardCustomerId = null;
+                if ($request->user() && $request->boolean('saveCard')) {
+                    $customer = $this->stripeService->getOrCreateCustomer(
+                        $request->user()->email,
+                        $request->user()->stripe_customer_id,
+                    );
+                    if ($request->user()->stripe_customer_id !== $customer->id) {
+                        $request->user()->forceFill(['stripe_customer_id' => $customer->id])->save();
+                    }
+                    $saveCardCustomerId = $customer->id;
+                }
+
                 $paymentIntent = $this->stripeService->createPaymentIntent(
                     $cardAmount,
                     $paymentMethodId,
@@ -289,6 +306,8 @@ class BookingController extends Controller
                     $idempotencyKey ? "booking:{$idempotencyKey}" : null,
                     $this->buildStripeDescription($showtime),
                     $receiptEmail,
+                    $saveCardCustomerId,
+                    $saveCardCustomerId !== null ? 'on_session' : null,
                 );
             } catch (CardException $e) {
                 // Stripe card-decline messages are designed to be surfaced to the

@@ -122,12 +122,16 @@ class FakeStripeService extends StripeService
         ?string $idempotencyKey = null,
         ?string $description = null,
         ?string $receiptEmail = null,
+        ?string $customerId = null,
+        ?string $setupFutureUsage = null,
     ): PaymentIntent {
         $this->createCallCount++;
         $this->createTransactionLevels[] = DB::transactionLevel();
         $this->createdPaymentIntents[] = [
             'amount' => $amount,
             'paymentMethodId' => $paymentMethodId,
+            'customerId' => $customerId,
+            'setupFutureUsage' => $setupFutureUsage,
             'metadata' => $metadata,
             'idempotencyKey' => $idempotencyKey,
             'description' => $description,
