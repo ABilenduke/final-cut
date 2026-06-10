@@ -33,6 +33,10 @@ use Sqids\Sqids;
  * @property PaymentMethod|null $payment_method
  * @property string|null $stripe_payment_intent_id
  * @property string|null $idempotency_key
+ * @property string|null $stripe_refund_id
+ * @property CarbonInterface|null $refund_initiated_at
+ * @property CarbonInterface|null $refunded_at
+ * @property CarbonInterface|null $cancelled_at
  * @property Showtime $showtime
  * @property User|null $user
  * @property PromoCode|null $promoCode
@@ -42,8 +46,9 @@ use Sqids\Sqids;
     'status', 'flagged_at', 'flag_reason', 'notes',
     'subtotal', 'discount', 'total', 'payment_method',
     'stripe_payment_intent_id', 'idempotency_key',
+    'stripe_refund_id', 'refund_initiated_at', 'refunded_at', 'cancelled_at',
 ])]
-#[Hidden(['stripe_payment_intent_id'])]
+#[Hidden(['stripe_payment_intent_id', 'stripe_refund_id'])]
 class Booking extends Model
 {
     /** @use HasFactory<BookingFactory> */
@@ -73,6 +78,9 @@ class Booking extends Model
             'status' => BookingStatus::class,
             'payment_method' => PaymentMethod::class,
             'flagged_at' => 'datetime',
+            'refund_initiated_at' => 'datetime',
+            'refunded_at' => 'datetime',
+            'cancelled_at' => 'datetime',
             'subtotal' => 'integer',
             'discount' => 'integer',
             'total' => 'integer',
