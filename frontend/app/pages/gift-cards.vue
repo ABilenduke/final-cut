@@ -14,6 +14,11 @@ const pendingPayload = ref<ComposedPayload | null>(null)
 const purchasedCard = ref<GiftCard | null>(null)
 
 function onCompose(payload: ComposedPayload): void {
+  // Ignore repeat submits while a payment attempt is already open — the
+  // payload must not change mid-payment, and closing remounts Elements.
+  if (pendingPayload.value) return
+
+  purchasedCard.value = null
   pendingPayload.value = payload
 }
 

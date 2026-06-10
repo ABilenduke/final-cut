@@ -56,7 +56,13 @@ function inBody(selector: string): HTMLElement | null {
   return document.body.querySelector(selector)
 }
 
-function clickPay(): void {
+async function clickPay(): Promise<void> {
+  // Pay is disabled until Stripe Elements finishes mounting.
+  await vi.waitFor(() => {
+    const button = inBody('[data-testid="gc-pay-submit"]') as HTMLButtonElement | null
+    expect(button).not.toBeNull()
+    expect(button!.disabled).toBe(false)
+  })
   inBody('[data-testid="gc-pay-submit"]')!.dispatchEvent(
     new MouseEvent('click', { bubbles: true }),
   )
@@ -74,7 +80,7 @@ describe('GiftCardPaymentModal', () => {
     mockApiFetch.mockResolvedValue({ data: GIFT_CARD })
 
     const wrapper = await mountModal()
-    clickPay()
+    await clickPay()
     await vi.waitFor(() => expect(wrapper.emitted('purchased')).toBeTruthy())
 
     expect(fakeStripe.createPaymentMethod).toHaveBeenCalledWith(
@@ -99,7 +105,7 @@ describe('GiftCardPaymentModal', () => {
       .mockResolvedValueOnce({ data: GIFT_CARD })
 
     const wrapper = await mountModal()
-    clickPay()
+    await clickPay()
     await vi.waitFor(() => expect(wrapper.emitted('purchased')).toBeTruthy())
 
     expect(fakeStripe.handleCardAction).toHaveBeenCalledWith('cs_test')
@@ -113,7 +119,7 @@ describe('GiftCardPaymentModal', () => {
     mockApiFetch.mockRejectedValue({ status: 402, errors: [{ message: 'Card declined.' }] })
 
     const wrapper = await mountModal()
-    clickPay()
+    await clickPay()
     await vi.waitFor(() =>
       expect(inBody('[data-testid="gc-pay-error"]')).not.toBeNull(),
     )

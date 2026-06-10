@@ -178,12 +178,17 @@ async function pay(): Promise<void> {
         </div>
       </dl>
 
-      <p v-if="stripeLoadError" class="gc-pay__error" data-testid="gc-pay-error">
+      <p v-if="stripeLoadError" class="gc-pay__error" role="alert" data-testid="gc-pay-error">
         {{ stripeLoadError }}
       </p>
       <template v-else>
-        <label class="gc-pay__label" for="gc-pay-card">Card details</label>
-        <div id="gc-pay-card" ref="cardMountRef" class="gc-pay__card-mount" />
+        <p id="gc-pay-card-label" class="gc-pay__label" aria-hidden="true">Card details</p>
+        <div
+          ref="cardMountRef"
+          class="gc-pay__card-mount"
+          role="group"
+          aria-label="Card details"
+        />
         <p v-if="cardError" class="gc-pay__error" role="alert" data-testid="gc-pay-error">
           {{ cardError }}
         </p>
@@ -197,7 +202,7 @@ async function pay(): Promise<void> {
       <CvButton
         variant="primary"
         :loading="isSubmitting"
-        :disabled="Boolean(stripeLoadError)"
+        :disabled="Boolean(stripeLoadError) || !stripeReady"
         data-testid="gc-pay-submit"
         @click="pay"
       >
