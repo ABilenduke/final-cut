@@ -105,9 +105,19 @@ class BookingRefundService
         // ── PHASE B — Stripe, with NO transaction and NO row lock held ──────
         if ($split['card_refund'] > 0 && $locked->stripe_refund_id === null) {
             try {
-                $refund = $this->stripeService->refundPaymentIntent($locked->stripe_payment_intent_id);
+                // Deterministic idempotency key: on an ambiguous network
+                // failure Stripe may have created the refund even though the
+                // response was lost. Releasing the claim and retrying is safe
+                // because the key makes Stripe replay the original refund
+                // instead of erroring on an already-refunded charge.
+                $refund = $this->stripeService->refundPaymentIntent(
+                    $locked->stripe_payment_intent_id,
+                    null,
+                    "booking_refund:{$locked->id}",
+                );
             } catch (\Throwable $e) {
-                // Nothing moved at Stripe — release the claim so a retry can run.
+                // Nothing durable moved that a keyed retry can't replay —
+                // release the claim so a retry can run.
                 Booking::whereKey($locked->id)->update(['refund_initiated_at' => null]);
 
                 throw $e;

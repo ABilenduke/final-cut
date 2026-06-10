@@ -226,18 +226,36 @@ class FakeStripeService extends StripeService
         ]);
     }
 
-    public function refundPaymentIntent(string $paymentIntentId, ?int $amount = null): Refund
-    {
+    public function refundPaymentIntent(
+        string $paymentIntentId,
+        ?int $amount = null,
+        ?string $idempotencyKey = null,
+    ): Refund {
         $this->refundTransactionLevels[] = DB::transactionLevel();
 
         if ($this->behavior === 'fail_refund') {
             throw ApiConnectionException::factory(
-                $this->failureMessage,
+                $this->failureMessage !== '' ? $this->failureMessage : 'Stripe refunds are unavailable',
                 503,
             );
         }
 
-        $this->refundedPaymentIntents[] = ['paymentIntentId' => $paymentIntentId, 'amount' => $amount];
+        // Refunds also respect the global failure modes so code paths that
+        // trigger compensating refunds during a configured Stripe outage fail
+        // realistically instead of silently succeeding.
+        if ($this->behavior === 'api_error') {
+            throw ApiConnectionException::factory($this->failureMessage, 503);
+        }
+
+        if ($this->behavior === 'invalid_request') {
+            throw InvalidRequestException::factory($this->failureMessage, 400);
+        }
+
+        $this->refundedPaymentIntents[] = [
+            'paymentIntentId' => $paymentIntentId,
+            'amount' => $amount,
+            'idempotencyKey' => $idempotencyKey,
+        ];
 
         return Refund::constructFrom([
             'id' => 're_fake_xxx',
