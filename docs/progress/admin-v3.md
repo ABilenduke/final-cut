@@ -5,6 +5,38 @@ loop iteration; each step lands as its own PR-sized branch.
 
 <!-- NOTE: this file accrues entries on parallel branches. On merge conflicts keep ALL step sections - they are disjoint. -->
 
+## Step 3.6: Initial booking confirmation email
+**Status:** ✅ Complete
+**Started:** 2026-06-10
+**Completed:** 2026-06-10
+
+### Work Done
+- [2026-06-10] Second delta-audit catch: customers never received a booking confirmation
+  email — only the admin *resend* existed. New `booking.confirmation` event +
+  `BookingNotificationService::queueConfirmation()` (no-recipient no-op), called inside
+  `finalizeBooking()`'s Phase C transaction (covers immediate + 3DS paths) and from
+  walk-up sales when an email was captured; dispatcher maps it to the existing
+  `SendBookingConfirmation` job. Backend **1288 passed**, PHPStan + Pint clean.
+  (Also verified: `/api/account/payment-methods` endpoints exist — not a gap.)
+
+### Decisions
+- [2026-06-10] Reused the resend job/mailable via a shared dispatcher arm — one renderer
+  for initial + resend keeps the emails identical by construction.
+- [2026-06-10] Gotcha: `BookingConfirmationMail` is sent inline from the already-queued
+  job (not ShouldQueue) — round-trip tests use `Mail::assertSent`, unlike the gift-card
+  mailables which queue (`assertQueued`).
+
+### Blockers
+- none
+
+### Files Changed
+- `backend/app/Services/BookingNotificationService.php` — event + `queueConfirmation()`
+- `backend/app/Http/Controllers/Api/BookingController.php` — injection + finalize call
+- `backend/app/Services/WalkUpBookingService.php` — injection + call when email captured
+- `backend/app/Outbox/OutboxDispatcher.php` — shared arm for the new event
+- `backend/tests/Feature/BookingInitialConfirmationTest.php` — 5 tests
+- `docs/plans/admin/v3/06-initial-confirmation.md` — step spec
+
 ## Step 3.5: Gift card delivery email
 **Status:** ✅ Complete
 **Started:** 2026-06-10
