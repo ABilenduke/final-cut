@@ -5,6 +5,7 @@ namespace App\Filament\Resources;
 use App\Enums\GiftCardDeliveryMethod;
 use App\Enums\GiftCardEdition;
 use App\Enums\GiftCardStatus;
+use App\Exceptions\GiftCardNotAdjustableException;
 use App\Exceptions\GiftCardNotVoidableException;
 use App\Filament\Concerns\FormatsCurrency;
 use App\Filament\Concerns\TimestampColumns;
@@ -16,6 +17,7 @@ use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Section;
@@ -176,6 +178,45 @@ class GiftCardResource extends BaseResource
             ])
             ->recordActions([
                 ViewAction::make(),
+                Action::make('adjust_balance')
+                    ->label('Adjust balance')
+                    ->color('warning')
+                    ->icon('heroicon-o-scale')
+                    ->visible(fn ($record) => (auth('admin')->user()?->can('gift_cards.adjust') ?? false)
+                        && in_array($record->status, [GiftCardStatus::Active, GiftCardStatus::Depleted], true))
+                    ->schema([
+                        TextInput::make('amount_cents')
+                            ->label('Adjustment (cents)')
+                            ->numeric()
+                            ->integer()
+                            ->required()
+                            ->rule('not_in:0')
+                            ->helperText('Signed cents: 500 credits $5.00, -500 deducts $5.00. The balance can never go below zero.'),
+                        Textarea::make('reason')
+                            ->required()
+                            ->minLength(10)
+                            ->helperText('Required. Written to the balance ledger and the activity log.'),
+                    ])
+                    ->requiresConfirmation()
+                    ->modalDescription(fn ($record) => 'Current balance: '
+                        .self::centsToDisplay($record->current_balance)
+                        .'. The adjustment is recorded as a ledger entry attributed to you.')
+                    ->action(function ($record, array $data) {
+                        try {
+                            app(GiftCardService::class)
+                                ->adjust($record, (int) $data['amount_cents'], $data['reason'], auth('admin')->user());
+                            Notification::make()
+                                ->title('Balance adjusted to '.self::centsToDisplay($record->refresh()->current_balance))
+                                ->success()
+                                ->send();
+                        } catch (GiftCardNotAdjustableException $e) {
+                            Notification::make()
+                                ->title('Gift card cannot be adjusted')
+                                ->body($e->getMessage())
+                                ->danger()
+                                ->send();
+                        }
+                    }),
                 Action::make('void')
                     ->label('Void')
                     ->color('danger')

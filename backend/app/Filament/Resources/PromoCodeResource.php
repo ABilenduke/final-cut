@@ -149,6 +149,16 @@ class PromoCodeResource extends BaseResource
                     ->modalDescription('Deactivate this promo code? Customers will no longer be able to apply it at checkout, but usage history is preserved.')
                     ->action(fn ($record) => app(PromoCodeService::class)
                         ->deactivate($record, auth('admin')->user())),
+                Action::make('reactivate')
+                    ->label('Reactivate')
+                    ->icon('heroicon-o-play')
+                    ->color('success')
+                    ->visible(fn ($record) => ! $record->is_active
+                        && auth('admin')->user()?->can('promos.update'))
+                    ->requiresConfirmation()
+                    ->modalDescription('Reactivate this promo code? Customers will be able to apply it at checkout again (its expiry date still applies).')
+                    ->action(fn ($record) => app(PromoCodeService::class)
+                        ->reactivate($record, auth('admin')->user())),
                 DeleteAction::make()
                     ->visible(fn ($record) => $record->uses_count === 0
                         && auth('admin')->user()?->can('promos.delete'))

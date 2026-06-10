@@ -89,6 +89,25 @@ class PromoCodeService
     }
 
     /**
+     * Reverse of deactivate(): clears `deactivated_at` so the code validates
+     * at checkout again. Expiry is untouched — reactivating an expired promo
+     * leaves it active-but-expired, which validateCode() still rejects.
+     */
+    public function reactivate(PromoCode $promo, ?User $actor = null): void
+    {
+        if ($promo->deactivated_at === null) {
+            return;
+        }
+
+        $promo->deactivated_at = null;
+        $promo->save();
+
+        $this->logIfAdmin('promo_code.reactivated', $promo, $actor, [
+            'code' => $promo->code,
+        ]);
+    }
+
+    /**
      * Hard delete. Used codes must be deactivated (not deleted) to preserve
      * historical records. Throws `PromoCodeInUseException` when the service
      * layer sees `uses_count > 0`, independent of any UI guard.

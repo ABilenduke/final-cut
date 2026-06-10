@@ -40,7 +40,7 @@ class AdminRolesAndPermissionsSeeder extends Seeder
         // Promo codes
         'promos.view', 'promos.create', 'promos.update', 'promos.delete',
         // Gift cards
-        'gift_cards.view', 'gift_cards.void',
+        'gift_cards.view', 'gift_cards.void', 'gift_cards.adjust',
         // Calendar events
         'events.view', 'events.create', 'events.update', 'events.delete',
         // Admin users
@@ -84,7 +84,7 @@ class AdminRolesAndPermissionsSeeder extends Seeder
         'bookings.create_walkup',
         'rentals.view', 'rentals.update_status',
         'contact.view', 'contact.resolve',
-        'gift_cards.view', 'gift_cards.void',
+        'gift_cards.view', 'gift_cards.void', 'gift_cards.adjust',
         'users.view',
         'loyalty.view', 'loyalty.adjust_points', 'loyalty.adjust_tier',
         'activity.view',
