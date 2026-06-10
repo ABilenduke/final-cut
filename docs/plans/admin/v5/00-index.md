@@ -9,7 +9,7 @@ Follow-up to [admin v4](../v4/00-index.md). All previous rounds merged
 | 5.1 ✅ | [01](01-ci-reliability.md) | CI reliability: git in the composer-running Docker build stages (source fallback for packagist dist flakes) |
 | 5.2 ✅ | [02](02-tmdb-crew.md) | TMDB crew enrichment: auto-fill movie credits (admin values win, TMDB fills blanks) |
 | 5.3 ✅ | [03](03-pay-with-saved-card.md) | Pay with saved card: checkout picker + customer-attached intents |
-| 5.4 | 04 | Calendar Week/List views: enable the two disabled Bridge Console view modes |
+| 5.4 ✅ | [04](04-calendar-views.md) | Calendar Week/List views: BridgeWeekStrip + BridgeAgendaList, toolbar options enabled |
 
 ## Conventions
 

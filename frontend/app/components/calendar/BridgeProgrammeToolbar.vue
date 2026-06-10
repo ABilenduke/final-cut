@@ -20,8 +20,8 @@ const emit = defineEmits<{
 
 const viewOptions = [
   { value: 'month', label: 'Month' },
-  { value: 'week', label: 'Week', disabled: true, hint: 'Coming soon' },
-  { value: 'list', label: 'List', disabled: true, hint: 'Coming soon' },
+  { value: 'week', label: 'Week' },
+  { value: 'list', label: 'List' },
 ]
 
 function onViewChange(value: string) {
