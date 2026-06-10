@@ -11,6 +11,7 @@ deferrals) and surfaced four batches of remaining work, all user-approved.
 | 3.2 ✅ | [02](02-site-contacts.md) | Site contacts CMS: footer address/phone + support emails (hello/privacy/careers/accessibility/concierge) into the `site_settings` store with an admin form; frontend surfaces consume with fallbacks |
 | 3.3 ✅ | [03](03-gift-card-payments.md) | Gift card payments: wire the purchase flow to Stripe end-to-end (composer → PaymentIntent → confirm → delivery email) |
 | 3.4 ✅ | [04](04-checkout-cleanup.md) | Checkout cleanup: remove/wire dead fields (loyalty opt-in, contact extras), hold-timer alignment test, defensive comments from the audit |
+| 3.5 ✅ | [05](05-gift-card-delivery.md) | Gift card delivery email (third-audit catch — closes Plan 03's sale loop: outbox-driven recipient email, scheduled sends via available_at) |
 
 ## Conventions
 

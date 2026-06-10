@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\GiftCardDeliveryMethod;
 use App\Enums\GiftCardLedgerType;
 use App\Enums\GiftCardStatus;
 use App\Exceptions\GiftCardNotAdjustableException;
@@ -38,6 +39,8 @@ class GiftCardService
 
     public const EVENT_VOIDED = 'gift_card.voided';
 
+    public const EVENT_DELIVERY = 'gift_card.delivery';
+
     /**
      * Atomically create a gift card row + its opening ledger entry.
      *
@@ -73,6 +76,22 @@ class GiftCardService
                 'code' => $giftCard->code,
                 'initial_balance' => $giftCard->initial_balance,
             ]);
+
+            // Durable delivery handoff (admin-v3 Plan 05): email cards get a
+            // gift_card.delivery outbox row inside the purchase transaction.
+            // Scheduled sends ride available_at — the worker simply won't
+            // pick the row up until the requested send time. Print cards are
+            // fulfilled physically; no email.
+            if ($giftCard->delivery_method === GiftCardDeliveryMethod::Email) {
+                $now = now();
+                DispatchOutbox::create([
+                    'event_type' => self::EVENT_DELIVERY,
+                    'payload' => ['gift_card_id' => $giftCard->id],
+                    'available_at' => $giftCard->scheduled_send_at ?? $now,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ]);
+            }
 
             return $giftCard;
         });

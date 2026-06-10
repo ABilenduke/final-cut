@@ -6,6 +6,7 @@ use App\Jobs\NotifyCustomerOfShowtimeCancellation;
 use App\Jobs\NotifyFinanceOfGiftCardVoid;
 use App\Jobs\SendBookingConfirmation;
 use App\Jobs\SendBookingRefundConfirmation;
+use App\Jobs\SendGiftCardDelivery;
 use App\Models\DispatchOutbox;
 use App\Services\BookingNotificationService;
 use App\Services\BookingRefundService;
@@ -46,6 +47,7 @@ class OutboxDispatcher
         match ($row->event_type) {
             ShowtimeService::EVENT_CANCELLED => $this->dispatchShowtimeCancelled($row, $payload),
             GiftCardService::EVENT_VOIDED => $this->dispatchGiftCardVoided($row, $payload),
+            GiftCardService::EVENT_DELIVERY => $this->dispatchGiftCardDelivery($row, $payload),
             BookingRefundService::EVENT_REFUNDED => $this->dispatchBookingRefunded($row, $payload),
             BookingNotificationService::EVENT_CONFIRMATION_RESEND => $this->dispatchBookingConfirmationResend($row, $payload),
             default => throw new InvalidArgumentException(
@@ -83,6 +85,16 @@ class OutboxDispatcher
     {
         NotifyCustomerOfShowtimeCancellation::dispatch(
             (string) $this->requirePayloadValue($row, $payload, 'booking_id'),
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function dispatchGiftCardDelivery(DispatchOutbox $row, array $payload): void
+    {
+        SendGiftCardDelivery::dispatch(
+            (string) $this->requirePayloadValue($row, $payload, 'gift_card_id'),
         );
     }
 
