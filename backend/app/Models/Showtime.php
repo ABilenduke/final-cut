@@ -64,4 +64,14 @@ class Showtime extends Model
     {
         return $this->hasMany(Booking::class);
     }
+
+    /**
+     * Per-seat reservation rows for this showtime. `booking_seats` carries a
+     * denormalized `showtime_id` (it backs the occupancy guard's partial
+     * unique index), so occupancy reads don't need to hop through bookings.
+     */
+    public function bookingSeats(): HasMany
+    {
+        return $this->hasMany(BookingSeat::class);
+    }
 }

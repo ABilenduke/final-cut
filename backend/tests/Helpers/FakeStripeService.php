@@ -58,6 +58,9 @@ class FakeStripeService extends StripeService
     /** @var int[] */
     public array $confirmTransactionLevels = [];
 
+    /** @var int[] */
+    public array $refundTransactionLevels = [];
+
     public function shouldSucceed(): static
     {
         $this->behavior = 'succeed';
@@ -99,6 +102,15 @@ class FakeStripeService extends StripeService
     {
         $this->behavior = 'non_terminal';
         $this->failureMessage = $status;
+
+        return $this;
+    }
+
+    /** Fails ONLY refundPaymentIntent — create/confirm keep succeeding. */
+    public function shouldFailRefund(string $message = 'Stripe refunds are unavailable'): static
+    {
+        $this->behavior = 'fail_refund';
+        $this->failureMessage = $message;
 
         return $this;
     }
@@ -214,9 +226,36 @@ class FakeStripeService extends StripeService
         ]);
     }
 
-    public function refundPaymentIntent(string $paymentIntentId): Refund
-    {
-        $this->refundedPaymentIntents[] = ['paymentIntentId' => $paymentIntentId];
+    public function refundPaymentIntent(
+        string $paymentIntentId,
+        ?int $amount = null,
+        ?string $idempotencyKey = null,
+    ): Refund {
+        $this->refundTransactionLevels[] = DB::transactionLevel();
+
+        if ($this->behavior === 'fail_refund') {
+            throw ApiConnectionException::factory(
+                $this->failureMessage !== '' ? $this->failureMessage : 'Stripe refunds are unavailable',
+                503,
+            );
+        }
+
+        // Refunds also respect the global failure modes so code paths that
+        // trigger compensating refunds during a configured Stripe outage fail
+        // realistically instead of silently succeeding.
+        if ($this->behavior === 'api_error') {
+            throw ApiConnectionException::factory($this->failureMessage, 503);
+        }
+
+        if ($this->behavior === 'invalid_request') {
+            throw InvalidRequestException::factory($this->failureMessage, 400);
+        }
+
+        $this->refundedPaymentIntents[] = [
+            'paymentIntentId' => $paymentIntentId,
+            'amount' => $amount,
+            'idempotencyKey' => $idempotencyKey,
+        ];
 
         return Refund::constructFrom([
             'id' => 're_fake_xxx',

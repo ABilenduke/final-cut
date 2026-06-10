@@ -3,9 +3,14 @@
 namespace App\Filament\Pages;
 
 use App\Enums\BookingStatus;
+use App\Enums\GiftCardLedgerType;
+use App\Exceptions\BookingNotRefundableException;
 use App\Filament\Concerns\FormatsCurrency;
+use App\Filament\Resources\BookingResource;
 use App\Models\Booking;
+use App\Models\GiftCardLedgerEntry;
 use App\Models\User;
+use App\Services\BookingRefundService;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Textarea;
@@ -17,16 +22,19 @@ use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Stripe\Exception\ApiErrorException;
 use UnitEnum;
 
 /**
  * Operator follow-up queue for bookings flagged by a cancelled showtime.
- * Not a resource — this is a single-purpose ops page; staff work each row
- * out-of-band (refund via Stripe dashboard, etc.) and mark it resolved here.
+ * Not a resource — this is a single-purpose ops page.
  *
- * v1 does NOT issue Stripe refunds — that lands in a later plan. The
- * `mark_resolved` action writes the resolution note and moves status to
- * refunded so the row drops off this queue.
+ * The primary `issue_refund` action routes through `BookingRefundService`
+ * (admin-v2 Plan 03): real Stripe refund, gift-card restore, loyalty
+ * clawback, seat release, and the customer email via the outbox — in one go.
+ * The legacy `mark_resolved` action remains ONLY for rows with no
+ * PaymentIntent and no gift-card redemption (nothing to move
+ * programmatically; e.g. a comp booking refunded in cash).
  */
 class CancellationFollowupQueue extends Page implements HasTable
 {
@@ -74,6 +82,20 @@ class CancellationFollowupQueue extends Page implements HasTable
         $count = self::baseQuery()->count();
 
         return $count > 0 ? (string) $count : null;
+    }
+
+    /**
+     * Whether `BookingRefundService` has anything to move for this booking —
+     * a captured PaymentIntent or a gift-card redemption to restore. Rows
+     * without either are pure manual cases (mark_resolved).
+     */
+    private static function hasProgrammaticRefund(Booking $booking): bool
+    {
+        return $booking->stripe_payment_intent_id !== null
+            || GiftCardLedgerEntry::query()
+                ->where('booking_id', $booking->id)
+                ->where('type', GiftCardLedgerType::Redemption)
+                ->exists();
     }
 
     /** Base query used by both the navigation badge and the table. */
@@ -131,13 +153,63 @@ class CancellationFollowupQueue extends Page implements HasTable
                     ->query(fn (Builder $q) => $q->where('flagged_at', '>=', now()->subDays(30))),
             ])
             ->recordActions([
+                Action::make('issue_refund')
+                    ->label('Issue refund')
+                    ->icon('heroicon-o-receipt-refund')
+                    ->color('danger')
+                    ->visible(fn (Booking $record): bool => (auth('admin')->user()?->can('bookings.resolve_refund') ?? false)
+                        && self::hasProgrammaticRefund($record))
+                    ->requiresConfirmation()
+                    ->modalDescription(fn (Booking $record): string => BookingResource::refundSplitSummary($record))
+                    ->schema([
+                        Textarea::make('reason')
+                            ->label('Reason')
+                            ->required()
+                            ->minLength(10)
+                            ->rows(3)
+                            ->helperText('Required. Logged permanently and included in the audit trail.'),
+                    ])
+                    ->action(function (Booking $record, array $data): void {
+                        try {
+                            app(BookingRefundService::class)->refund(
+                                $record,
+                                $data['reason'],
+                                auth('admin')->user(),
+                            );
+                        } catch (BookingNotRefundableException $e) {
+                            Notification::make()
+                                ->title('Refund not possible')
+                                ->body($e->getMessage())
+                                ->danger()
+                                ->send();
+
+                            return;
+                        } catch (ApiErrorException $e) {
+                            report($e);
+
+                            Notification::make()
+                                ->title('Stripe refund failed')
+                                ->body('No state was changed. Wait a moment and try again; the claim was released.')
+                                ->danger()
+                                ->send();
+
+                            return;
+                        }
+
+                        Notification::make()
+                            ->title('Refund issued')
+                            ->body('Seats released; the customer will be notified by email.')
+                            ->success()
+                            ->send();
+                    }),
                 Action::make('mark_resolved')
                     ->label('Mark refunded (manual)')
                     ->icon('heroicon-o-check')
                     ->color('success')
-                    ->visible(fn () => auth('admin')->user()?->can('bookings.resolve_refund') ?? false)
+                    ->visible(fn (Booking $record): bool => (auth('admin')->user()?->can('bookings.resolve_refund') ?? false)
+                        && ! self::hasProgrammaticRefund($record))
                     ->requiresConfirmation()
-                    ->modalDescription('This records a manual refund. It does NOT issue a Stripe refund — v1 refunds are handled out-of-band.')
+                    ->modalDescription('This records a refund handled outside the system (no card payment or gift card to restore). Use "Issue refund" when there is money to move.')
                     ->schema([
                         Textarea::make('notes')
                             ->label('Resolution notes')

@@ -20,6 +20,11 @@ class ListShowtimes extends ListRecords
                 ->icon('heroicon-o-rectangle-stack')
                 ->visible(fn () => auth('admin')->user()?->can('showtimes.create') ?? false)
                 ->url(fn () => ShowtimeResource::getUrl('bulk_create')),
+            Action::make('copy_week')
+                ->label('Copy week')
+                ->icon('heroicon-o-document-duplicate')
+                ->visible(fn () => auth('admin')->user()?->can('showtimes.create') ?? false)
+                ->url(fn () => ShowtimeResource::getUrl('copy_week')),
         ];
     }
 }

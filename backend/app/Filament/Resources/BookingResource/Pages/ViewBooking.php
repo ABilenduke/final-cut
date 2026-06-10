@@ -12,7 +12,12 @@ class ViewBooking extends ViewRecord
 
     protected function getHeaderActions(): array
     {
-        return [];
+        return [
+            BookingResource::refundAction(),
+            BookingResource::resendConfirmationAction(),
+            BookingResource::flagAction(),
+            BookingResource::unflagAction(),
+        ];
     }
 
     /**
