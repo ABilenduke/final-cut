@@ -30,6 +30,7 @@ class AdminRolesAndPermissionsSeeder extends Seeder
         // Bookings
         'bookings.view', 'bookings.resolve_refund',
         'bookings.flag', 'bookings.resend_confirmation',
+        'bookings.create_walkup',
         // Customer users (read-only in v1)
         'users.view',
         // Loyalty (narrow, no broad `loyalty.adjust`)
@@ -62,6 +63,7 @@ class AdminRolesAndPermissionsSeeder extends Seeder
         'promos.view', 'promos.create', 'promos.update', 'promos.delete',
         'bookings.view', 'bookings.resolve_refund',
         'bookings.flag', 'bookings.resend_confirmation',
+        'bookings.create_walkup',
         'gift_cards.view', 'gift_cards.void',
         'users.view',
         'loyalty.view', 'loyalty.adjust_points', 'loyalty.adjust_tier',
