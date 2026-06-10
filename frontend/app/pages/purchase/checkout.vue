@@ -43,7 +43,8 @@ const changeSeatsHref = computed<string | null>(() => {
   return showtimeId ? `/purchase/${showtimeId}` : null
 })
 
-// Contact fields sent with the booking POST (email) / shown for receipts (name).
+// Contact fields: email rides the booking POST (guest receipts); name is
+// prefill/display only and is not transmitted anywhere yet.
 const contactName = ref('')
 const contactEmail = ref('')
 
