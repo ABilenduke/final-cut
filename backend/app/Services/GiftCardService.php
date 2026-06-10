@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Enums\GiftCardLedgerType;
 use App\Enums\GiftCardStatus;
+use App\Exceptions\GiftCardNotAdjustableException;
 use App\Exceptions\GiftCardNotVoidableException;
 use App\Models\Booking;
 use App\Models\DispatchOutbox;
@@ -139,6 +140,68 @@ class GiftCardService
     public function getBalance(GiftCard $giftCard): int
     {
         return $giftCard->current_balance;
+    }
+
+    /**
+     * Admin balance adjustment (support corrections, goodwill credits).
+     * Signed delta in cents: positive credits, negative deducts. Runs under
+     * a row lock; writes an `Adjustment` ledger entry and an activity-log
+     * row. Status follows the balance: a depleted card credited above zero
+     * re-activates, and a card deducted to exactly zero flips to Depleted.
+     * Voided and expired cards are never adjustable.
+     *
+     * @throws GiftCardNotAdjustableException
+     */
+    public function adjust(GiftCard $giftCard, int $deltaCents, string $reason, ?User $actor = null): void
+    {
+        if ($deltaCents === 0) {
+            throw new GiftCardNotAdjustableException(GiftCardNotAdjustableException::REASON_ZERO_DELTA);
+        }
+
+        DB::transaction(function () use ($giftCard, $deltaCents, $reason, $actor): void {
+            /** @var GiftCard $locked */
+            $locked = GiftCard::query()
+                ->whereKey($giftCard->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            match ($locked->status) {
+                GiftCardStatus::Active, GiftCardStatus::Depleted => null,
+                GiftCardStatus::Voided => throw new GiftCardNotAdjustableException(
+                    GiftCardNotAdjustableException::REASON_VOIDED,
+                ),
+                GiftCardStatus::Expired => throw new GiftCardNotAdjustableException(
+                    GiftCardNotAdjustableException::REASON_EXPIRED,
+                ),
+            };
+
+            $newBalance = $locked->current_balance + $deltaCents;
+            if ($newBalance < 0) {
+                throw new GiftCardNotAdjustableException(GiftCardNotAdjustableException::REASON_OVERDRAW);
+            }
+
+            $locked->current_balance = $newBalance;
+            $locked->status = $newBalance > 0 ? GiftCardStatus::Active : GiftCardStatus::Depleted;
+            $locked->save();
+
+            GiftCardLedgerEntry::create([
+                'gift_card_id' => $locked->id,
+                'type' => GiftCardLedgerType::Adjustment,
+                'amount_cents' => $deltaCents,
+                'balance_after_cents' => $newBalance,
+                'booking_id' => null,
+                'admin_user_id' => $actor?->id,
+                'reason' => $reason,
+                'created_at' => now(),
+            ]);
+
+            $this->logIfAdmin('gift_card.adjusted', $locked, $actor, [
+                'code' => $locked->code,
+                'delta' => $deltaCents,
+                'balance_after' => $newBalance,
+                'reason' => $reason,
+            ]);
+        });
     }
 
     /**

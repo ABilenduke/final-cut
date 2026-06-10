@@ -97,6 +97,25 @@ class PromoCodeService
      * customer-side `consume()` racing this admin action can't slip an
      * increment in between a stale-model pre-check and the actual delete.
      */
+    /**
+     * Reverse of deactivate(): clears `deactivated_at` so the code validates
+     * at checkout again. Expiry is untouched — reactivating an expired promo
+     * leaves it active-but-expired, which validateCode() still rejects.
+     */
+    public function reactivate(PromoCode $promo, ?User $actor = null): void
+    {
+        if ($promo->deactivated_at === null) {
+            return;
+        }
+
+        $promo->deactivated_at = null;
+        $promo->save();
+
+        $this->logIfAdmin('promo_code.reactivated', $promo, $actor, [
+            'code' => $promo->code,
+        ]);
+    }
+
     public function delete(PromoCode $promo, ?User $actor = null): void
     {
         DB::transaction(function () use ($promo, $actor): void {
