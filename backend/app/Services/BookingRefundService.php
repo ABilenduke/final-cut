@@ -7,6 +7,7 @@ use App\Enums\GiftCardLedgerType;
 use App\Enums\GiftCardStatus;
 use App\Exceptions\BookingNotRefundableException;
 use App\Models\Booking;
+use App\Models\DispatchOutbox;
 use App\Models\GiftCard;
 use App\Models\GiftCardLedgerEntry;
 use App\Models\User;
@@ -198,6 +199,26 @@ class BookingRefundService
                     'loyalty_clawback' => $split['loyalty_clawback'],
                 ],
             );
+
+            // Durable customer notification (outbox pattern): written inside
+            // this transaction so a finalized refund always has its email
+            // record. Held→Cancelled releases skip it — no money moved and
+            // the customer never completed checkout.
+            if ($target === BookingStatus::Refunded) {
+                $now = now();
+                DispatchOutbox::create([
+                    'event_type' => self::EVENT_REFUNDED,
+                    'payload' => [
+                        'booking_id' => $fresh->id,
+                        'card_refund' => $split['card_refund'],
+                        'gift_restored' => $restored,
+                        'refunded_by_admin_user_id' => $actor?->id,
+                    ],
+                    'available_at' => $now,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ]);
+            }
         });
 
         return $booking->refresh();
