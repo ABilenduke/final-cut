@@ -11,6 +11,7 @@
 FROM php:8.4.19-fpm-alpine3.23 AS vendor
 
 RUN apk add --no-cache \
+    git \
     libpq-dev \
     icu-dev \
     libzip-dev \
@@ -147,6 +148,11 @@ FROM production AS e2e-seeder
 USER root
 COPY --from=composer:2.9.5 /usr/bin/composer /usr/bin/composer
 
+# git enables composer's source fallback when a packagist dist download
+# flakes (observed in CI 2026-06-10: "git was not found in your PATH,
+# skipping source download" → build failure). Build-stage only.
+RUN apk add --no-cache git
+
 # Install dev dependencies on top of the production vendor dir.
 # --no-scripts skips Laravel's post-install hooks (package:discover
 # etc.) which would otherwise write bootstrap/cache/*.php as root
@@ -164,6 +170,10 @@ FROM production AS development
 USER root
 
 COPY --from=composer:2.9.5 /usr/bin/composer /usr/bin/composer
+
+# git enables composer's source fallback when a packagist dist download
+# flakes — same rationale as the e2e-seeder stage.
+RUN apk add --no-cache git
 
 # Re-enable timestamps for dev (file changes via volume mounts)
 RUN sed -i 's/opcache.validate_timestamps = 0/opcache.validate_timestamps = 1/' \
