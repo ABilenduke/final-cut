@@ -106,9 +106,12 @@ test('full split refund issues stripe refund, restores gift card, claws back poi
         ->and($booking->refunded_at)->not->toBeNull()
         ->and($booking->stripe_refund_id)->not->toBeNull();
 
-    // Stripe: full refund of the PI (card portion == total).
+    // Stripe: full refund of the PI (card portion == total — no partial
+    // amount) carrying the deterministic per-booking idempotency key.
     expect($this->stripe->refundedPaymentIntents)->toHaveCount(1)
-        ->and($this->stripe->refundedPaymentIntents[0]['paymentIntentId'])->toBe('pi_refund_test_001');
+        ->and($this->stripe->refundedPaymentIntents[0]['paymentIntentId'])->toBe('pi_refund_test_001')
+        ->and($this->stripe->refundedPaymentIntents[0]['amount'])->toBeNull()
+        ->and($this->stripe->refundedPaymentIntents[0]['idempotencyKey'])->toBe("booking_refund:{$booking->id}");
 
     // Gift card: balance restored with a Refund ledger entry tied to the booking.
     $card->refresh();
@@ -313,6 +316,20 @@ test('stripe refund failure leaves the booking untouched and releases the claim'
     expect($user->refresh()->loyalty_points)->toBe(100);
     expect(GiftCardLedgerEntry::where('type', GiftCardLedgerType::Refund)->count())->toBe(0);
     expect(BookingSeat::where('booking_id', $booking->id)->where('occupies_seat', true)->count())->toBe(2);
+});
+
+test('the global api-error mode also fails refunds', function (): void {
+    // Consistency with shouldFailWithApiError(): compensating-refund paths
+    // during a configured Stripe outage must fail realistically too.
+    ['booking' => $booking] = refundFixture();
+    $this->stripe->shouldFailWithApiError();
+
+    expect(fn () => $this->service->refund($booking, 'stripe outage', null))
+        ->toThrow(ApiErrorException::class);
+
+    $booking->refresh();
+    expect($booking->status)->toBe(BookingStatus::Confirmed)
+        ->and($booking->refund_initiated_at)->toBeNull();
 });
 
 // ── Attribution + preview ───────────────────────────────────────────────────
