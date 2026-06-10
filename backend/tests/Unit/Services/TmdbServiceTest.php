@@ -458,3 +458,73 @@ test('enrichMovie preserves local data when TMDB is unavailable', function () {
         ->and($movie->cast)->toHaveCount(1)
         ->and($movie->poster_url)->toBe('https://original-poster.jpg');
 });
+
+// --- crew credits enrichment (admin-v5 Plan 02) ---
+
+function tmdbCrewCredits(): array
+{
+    $credits = tmdbCredits();
+    $credits['crew'] = [
+        ['name' => 'David Fincher', 'job' => 'Director'],
+        ['name' => 'Jim Uhls', 'job' => 'Screenplay'],
+        ['name' => 'Jeff Cronenweth', 'job' => 'Director of Photography'],
+        ['name' => 'James Haygood', 'job' => 'Editor'],
+        ['name' => 'Dust Brothers', 'job' => 'Original Music Composer'],
+        ['name' => 'John Doe', 'job' => 'Original Music Composer'],
+        ['name' => 'Someone Else', 'job' => 'Gaffer'],
+    ];
+
+    return $credits;
+}
+
+test('enrichMovie fills crew credits from the TMDB crew payload', function () {
+    Http::fake([
+        'api.themoviedb.org/3/movie/550*' => Http::response(
+            tmdbCombinedResponse(tmdbCrewCredits(), tmdbVideos()),
+            200
+        ),
+    ]);
+    Cache::flush();
+
+    $movie = Movie::factory()->create([
+        'tmdb_id' => 550,
+        'credits' => null,
+        'tmdb_enriched_at' => null,
+    ]);
+
+    expect(app(TmdbService::class)->enrichMovie($movie))->toBeTrue();
+
+    $credits = $movie->refresh()->credits;
+    expect($credits['director'])->toBe('David Fincher')
+        ->and($credits['screenplay'])->toBe('Jim Uhls')
+        ->and($credits['cinematography'])->toBe('Jeff Cronenweth')
+        ->and($credits['editor'])->toBe('James Haygood')
+        // Multiple holders of one job join with a comma.
+        ->and($credits['composer'])->toBe('Dust Brothers, John Doe')
+        ->and($credits)->not->toHaveKey('gaffer');
+});
+
+test('admin-authored credit fields win over TMDB enrichment', function () {
+    Http::fake([
+        'api.themoviedb.org/3/movie/550*' => Http::response(
+            tmdbCombinedResponse(tmdbCrewCredits(), tmdbVideos()),
+            200
+        ),
+    ]);
+    Cache::flush();
+
+    $movie = Movie::factory()->create([
+        'tmdb_id' => 550,
+        'credits' => ['director' => 'Hand-Curated Name', 'aspect' => '2.39:1', 'composer' => ''],
+        'tmdb_enriched_at' => null,
+    ]);
+
+    expect(app(TmdbService::class)->enrichMovie($movie))->toBeTrue();
+
+    $credits = $movie->refresh()->credits;
+    // Admin-filled fields are preserved; blank/missing ones are enriched.
+    expect($credits['director'])->toBe('Hand-Curated Name')
+        ->and($credits['aspect'])->toBe('2.39:1')
+        ->and($credits['composer'])->toBe('Dust Brothers, John Doe')
+        ->and($credits['screenplay'])->toBe('Jim Uhls');
+});

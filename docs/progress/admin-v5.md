@@ -5,6 +5,30 @@ loop iteration; each step lands as its own PR-sized branch.
 
 <!-- NOTE: this file accrues entries on parallel branches. On merge conflicts keep ALL step sections - they are disjoint. -->
 
+## Step 5.2: TMDB crew enrichment
+**Status:** ✅ Complete
+**Started:** 2026-06-10
+**Completed:** 2026-06-10
+
+### Work Done
+- [2026-06-10] `TmdbService::mapCrewCredits()` maps the crew payload onto the editorial
+  credit fields (Director/Screenplay+Writer/DoP/Editor/Composer; comma-join for multiple
+  holders; unmapped jobs ignored; aspect/advisory stay admin-only). Merge rule on the
+  non-partial enrichment path: TMDB fills blanks, admin-authored values win (blank
+  strings count as unfilled). Backend **1307 passed**, PHPStan + Pint clean.
+
+### Decisions
+- [2026-06-10] Admin-wins merge (not TMDB-wins) — enrichment is backfill, the Editorial
+  form is the source of truth; matches the v4 Plan 03 division of ownership.
+
+### Blockers
+- none
+
+### Files Changed
+- `backend/app/Services/TmdbService.php` — `mapCrewCredits()` + merge in the update path
+- `backend/tests/Unit/Services/TmdbServiceTest.php` — 2 tests + crew fixture
+- `docs/plans/admin/v5/02-tmdb-crew.md` — step spec
+
 ## Step 5.1: CI reliability — composer source fallback
 **Status:** ✅ Complete
 **Started:** 2026-06-10
