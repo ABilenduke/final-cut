@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\AccountController;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\BlogPostController;
 use App\Http\Controllers\Api\BookingController;
 use App\Http\Controllers\Api\CalendarEventController;
 use App\Http\Controllers\Api\ContactController;
@@ -34,6 +35,8 @@ Route::get('/food-menu', [FoodMenuController::class, 'crossLocation']);
 // Featured slides — admin-curated home hero carousel (public, no auth)
 Route::get('/featured-slides', [FeaturedSlideController::class, 'index']);
 Route::get('/ticker-items', [TickerItemController::class, 'index']);
+Route::get('/blog-posts', [BlogPostController::class, 'index']);
+Route::get('/blog-posts/{slug}', [BlogPostController::class, 'show']);
 
 // Location-scoped resources
 Route::prefix('locations/{location}')->group(function () {

@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Observers\BlogPostObserver;
 use App\Observers\FeaturedSlideObserver;
 use App\Observers\MenuItemObserver;
 use App\Observers\TickerItemObserver;
@@ -38,6 +39,7 @@ class RefreshContentCacheVersions extends Command
             FeaturedSlideObserver::CACHE_VERSION_KEY,
             MenuItemObserver::CACHE_VERSION_KEY,
             TickerItemObserver::CACHE_VERSION_KEY,
+            BlogPostObserver::CACHE_VERSION_KEY,
         ];
 
         foreach ($keys as $key) {
