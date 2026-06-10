@@ -46,6 +46,16 @@ return new class extends Migration
             // requests still insert; a retry that reuses the key replays the
             // original booking instead of double-charging. (ultrareview P0 #7)
             $table->uuid('idempotency_key')->nullable()->unique();
+            // Admin refund flow (admin-v2 Plan 01). `refund_initiated_at` is a
+            // concurrency claim: set under row lock before the Stripe refund
+            // call so two admins can't double-refund; cleared on Stripe
+            // failure, left set on success. `stripe_refund_id` is persisted
+            // the moment Stripe confirms, BEFORE the finalize transaction, so
+            // a crashed run resumes idempotently instead of re-refunding.
+            $table->string('stripe_refund_id')->nullable();
+            $table->timestamp('refund_initiated_at')->nullable();
+            $table->timestamp('refunded_at')->nullable();
+            $table->timestamp('cancelled_at')->nullable();
             $table->timestamps();
 
             // Postgres does not auto-index FK columns. Both are hot read paths:
