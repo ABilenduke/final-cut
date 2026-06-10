@@ -8,6 +8,7 @@ use App\Observers\FeaturedSlideObserver;
 use App\Observers\JobOpeningObserver;
 use App\Observers\MenuItemObserver;
 use App\Observers\ScreeningPackageObserver;
+use App\Observers\SiteSettingObserver;
 use App\Observers\TickerItemObserver;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
@@ -46,6 +47,7 @@ class RefreshContentCacheVersions extends Command
             FaqItemObserver::CACHE_VERSION_KEY,
             JobOpeningObserver::CACHE_VERSION_KEY,
             ScreeningPackageObserver::CACHE_VERSION_KEY,
+            SiteSettingObserver::CACHE_VERSION_KEY,
         ];
 
         foreach ($keys as $key) {

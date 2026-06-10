@@ -5,6 +5,43 @@ loop iteration; each step lands as its own PR-sized branch.
 
 <!-- NOTE: this file accrues entries on parallel branches. On merge conflicts keep ALL step sections - they are disjoint. -->
 
+## Step 2.5: Site settings + home membership pitch
+**Status:** ✅ Complete
+**Started:** 2026-06-10
+**Completed:** 2026-06-10
+
+### Work Done
+- [2026-06-10] Generic keyed `site_settings` store (key PK, json value, `updated_by`) +
+  `SiteSettingsService` write boundary (transaction, actor stamp, `site_settings.updated`
+  activity) + `SiteSettingObserver` version bump + cached `GET /api/site-content/home`
+  (`membership: null` until first save) + `HomePageContent` Filament page (Content group,
+  schema-first form, perks Repeater, prefills `MEMBERSHIP_DEFAULTS` mirroring the
+  frontend copy). Frontend: `useSiteContent.ts` + `HomeMembership.vue` consumes the API
+  with `data/homepage.ts` `membershipContent` as the render fallback.
+
+### Decisions
+- [2026-06-10] One keyed jsonb store instead of a table per editorial blob — the value
+  shape is owned by the consuming frontend surface and passes through untransformed
+  (camelCase wire contract). Future blobs (hero copy, announcement bar) reuse it.
+- [2026-06-10] Single `content.site_settings.update` permission (admin + manager, no
+  separate `.view`) — the page is a write surface; seeing it implies saving rights.
+- [2026-06-10] Backend `MEMBERSHIP_DEFAULTS` duplicates the frontend copy so the form
+  never opens blank; the frontend remains the authoritative render fallback.
+
+### Files Changed
+- `backend/database/migrations/2026_06_10_050000_create_site_settings_table.php` — new table
+- `backend/app/Models/SiteSetting.php`, `backend/app/Observers/SiteSettingObserver.php`,
+  `backend/app/Services/SiteSettingsService.php` — store + write boundary + cache bump
+- `backend/app/Http/Controllers/Api/SiteContentController.php`, `backend/routes/api.php` — public endpoint
+- `backend/app/Filament/Pages/HomePageContent.php` + `backend/resources/views/filament/pages/home-page-content.blade.php` — admin form
+- `backend/app/Providers/AppServiceProvider.php`, `backend/app/Console/Commands/RefreshContentCacheVersions.php` — registrations
+- `backend/database/seeders/AdminRolesAndPermissionsSeeder.php` — `content.site_settings.update` (admin + manager)
+- `backend/tests/Feature/Admin/Services/SiteSettingsTest.php` — 7 tests
+- `frontend/app/composables/useSiteContent.ts` (new), `frontend/app/components/home/HomeMembership.vue`,
+  `frontend/app/data/homepage.ts` (header comment) — API consumption with fallback
+- `frontend/tests/composables/useSiteContent.test.ts`, `frontend/tests/components/home/HomeMembership.test.ts` — 5 tests
+- `docs/plans/admin/v2/15-site-settings.md` — step spec
+
 ## Step 2.4: Screening packages + contact/hours
 **Status:** ✅ Complete
 **Started:** 2026-06-10

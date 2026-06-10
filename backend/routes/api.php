@@ -18,6 +18,7 @@ use App\Http\Controllers\Api\PaymentMethodController;
 use App\Http\Controllers\Api\RentalController;
 use App\Http\Controllers\Api\ScreeningPackageController;
 use App\Http\Controllers\Api\ShowtimeController;
+use App\Http\Controllers\Api\SiteContentController;
 use App\Http\Controllers\Api\TickerItemController;
 use Illuminate\Support\Facades\Route;
 
@@ -43,6 +44,7 @@ Route::get('/blog-posts/{slug}', [BlogPostController::class, 'show']);
 Route::get('/faq', [FaqController::class, 'index']);
 Route::get('/job-openings', [JobOpeningController::class, 'index']);
 Route::get('/screening-packages', [ScreeningPackageController::class, 'index']);
+Route::get('/site-content/home', [SiteContentController::class, 'home']);
 
 // Location-scoped resources
 Route::prefix('locations/{location}')->group(function () {
