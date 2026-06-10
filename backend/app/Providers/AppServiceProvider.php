@@ -4,12 +4,16 @@ namespace App\Providers;
 
 use App\Auth\AdminUserProvider;
 use App\Models\BlogPost;
+use App\Models\FaqItem;
 use App\Models\FeaturedSlide;
+use App\Models\JobOpening;
 use App\Models\MenuItem;
 use App\Models\TickerItem;
 use App\Models\User;
 use App\Observers\BlogPostObserver;
+use App\Observers\FaqItemObserver;
 use App\Observers\FeaturedSlideObserver;
+use App\Observers\JobOpeningObserver;
 use App\Observers\MenuItemObserver;
 use App\Observers\TickerItemObserver;
 use Filament\Support\Assets\Css;
@@ -102,6 +106,8 @@ class AppServiceProvider extends ServiceProvider
 
         // Observe BlogPost to invalidate the blog public caches on save/delete.
         BlogPost::observe(BlogPostObserver::class);
+        FaqItem::observe(FaqItemObserver::class);
+        JobOpening::observe(JobOpeningObserver::class);
 
         // Filament admin brand overlay — Cinematic Void.
         // Plain CSS layered on top of Filament's compiled stylesheet. Run

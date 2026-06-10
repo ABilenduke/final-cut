@@ -5,6 +5,37 @@ loop iteration; each step lands as its own PR-sized branch.
 
 <!-- NOTE: this file accrues entries on parallel branches. On merge conflicts keep ALL step sections - they are disjoint. -->
 
+## Step 2.3: FAQ + Careers CMS
+**Status:** ✅ Complete
+**Started:** 2026-06-10
+**Completed:** 2026-06-10
+
+### Work Done
+- [2026-06-10] Two CMS verticals in one step (grouped per plan): `FaqItem` (free-string
+  category, grouped server-side into the static-era `[{category, items}]` contract) and
+  `JobOpening` (display-string employment type; careers JSON-LD now computed from API
+  data). Suites: **backend 1239, frontend 924**. PHPStan + Pint clean. Dev DB seeded.
+
+### Decisions
+- [2026-06-10] **Ground-truth correction**: the audit said "19 Q&A pairs" — the real count
+  is 18 (the 19th `question:` match was the TS interface line). Seeder generated from the
+  TS file (5 categories / 18 items, byte-identical).
+- [2026-06-10] `/faq` and `/careers` flipped prerender → `isr: 1800` in nuxt.config.ts —
+  they now depend on the API at runtime. NO architecture test pinned these rules (the plan
+  expected updates to site-manifest/footer-routes tests; neither pins rendering modes).
+- [2026-06-10] Careers benefits/intro/mailto stay editorial page copy — only openings are
+  data. FAQ categories are free strings with a datalist suggesting existing names, so
+  editors can add sections without code changes.
+
+### Files Changed
+- Backend: 2 migrations, FaqItem + JobOpening (models/factories/observers), FaqController
+  (grouped) + JobOpeningController, 2 Filament resources (+6 pages, Content group),
+  routes, registrations, `content.faq.*` + `content.careers.*` permissions, 2 seeders,
+  FaqCareersTest (5)
+- Frontend: types (faq, job-opening), useFaq + useJobOpenings, faq.vue + careers.vue
+  rewritten to the API (reactive JSON-LD), `data/faq.ts` DELETED, route-rule flips,
+  static-pages.test.ts updated + FAQ block added, useFaqCareers.test.ts (2)
+
 ## Step 2.2: Blog CMS
 **Status:** ✅ Complete
 **Started:** 2026-06-10
