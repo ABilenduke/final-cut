@@ -57,7 +57,7 @@ describe('PromoCode', () => {
 
   it('emits update:acceptTerms when terms checkbox toggles', async () => {
     const wrapper = await mountSuspended(PromoCode, {
-      props: { appliedCode: null, acceptTerms: false, subscribeReel: false },
+      props: { appliedCode: null, acceptTerms: false },
     })
     const [termsBox] = wrapper.findAll<HTMLInputElement>('.promo-bay__check-box')
     await termsBox.setValue(true)

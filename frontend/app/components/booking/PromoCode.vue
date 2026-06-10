@@ -3,14 +3,12 @@ const props = defineProps<{
   appliedCode: string | null
   discount?: number
   acceptTerms?: boolean
-  subscribeReel?: boolean
 }>()
 
 const emit = defineEmits<{
   apply: [code: string]
   remove: []
   'update:acceptTerms': [value: boolean]
-  'update:subscribeReel': [value: boolean]
 }>()
 
 const codeInput = ref('')
@@ -35,10 +33,6 @@ function handleRemove() {
 const termsModel = computed<boolean>({
   get: () => props.acceptTerms ?? false,
   set: (v) => emit('update:acceptTerms', v),
-})
-const subscribeModel = computed<boolean>({
-  get: () => props.subscribeReel ?? false,
-  set: (v) => emit('update:subscribeReel', v),
 })
 
 const showTerms = computed<boolean>(() => props.acceptTerms !== undefined)
@@ -90,13 +84,6 @@ const showTerms = computed<boolean>(() => props.acceptTerms !== undefined)
           I agree to the <a href="#" class="promo-bay__link">ticketing terms</a>
           and the <a href="#" class="promo-bay__link">auditorium policy</a>.
           No late entry after 10 minutes; phones silenced and stowed.
-        </span>
-      </label>
-      <label class="promo-bay__check">
-        <input v-model="subscribeModel" type="checkbox" class="promo-bay__check-box">
-        <span>
-          Email me a reel notice when a Final Cut programme matches my preferences.
-          <span class="promo-bay__check-muted">Low-volume, ~1 per month.</span>
         </span>
       </label>
     </div>

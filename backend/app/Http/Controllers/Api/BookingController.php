@@ -327,8 +327,12 @@ class BookingController extends Controller
                     'payment_method' => $this->determinePaymentMethod($cardAmount, $giftCardAmount),
                 ], now()->addMinutes(15));
 
-                // Release the seats during the 3DS wait: confirm() re-reserves
-                // them. Keeps 3DS seat-hold semantics identical to before.
+                // Release the seats during the 3DS wait — a deliberate
+                // trade-off: another customer MAY take them while the
+                // shopper completes the challenge. confirm() re-validates
+                // and re-reserves BEFORE capturing payment, so a lost race
+                // returns 409 with the card never charged and the pending
+                // cache intact for a clean retry on different seats.
                 $this->discardHeldBooking($booking);
 
                 return response()->json([

@@ -47,7 +47,6 @@ class CreateBookingRequest extends FormRequest
             'promoCode' => ['sometimes', 'nullable', 'string', 'max:20'],
             'giftCardCode' => ['sometimes', 'nullable', 'string', 'max:20'],
             'email' => ['nullable', 'email', 'max:255'],
-            'loyaltyOptIn' => ['sometimes', 'boolean'],
         ];
     }
 

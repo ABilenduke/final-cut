@@ -142,7 +142,7 @@ Enforce a reasonable maximum (e.g., 10 seats per transaction) to prevent abuse. 
 | Email | Required (manual input) | Pre-filled from account |
 | Saved cards | Not available | Available via Stripe Customer |
 | Loyalty points | Not earned (unless opt-in below) | Earned on purchase |
-| Loyalty opt-in | Checkbox: "Join [Theater] Rewards (free)" — does NOT create an account at checkout. Instead, after purchase, the confirmation email includes a "Claim your rewards" magic link. Clicking the link takes the user to `/auth/register` with their email pre-filled and the booking pre-associated. This proves email ownership before any account is created. Points from this purchase are retroactively awarded on registration. | N/A (already a member) |
+| Loyalty opt-in | **Deferred — not in the v1 UI.** The planned flow ("Join [Theater] Rewards" checkbox → post-purchase magic-link claim email → `/auth/register` with the booking pre-associated and points retroactively awarded) was never implemented backend-side, so the checkbox was removed from checkout rather than shipping a control that does nothing (admin-v3 Plan 04). | N/A (already a member) |
 | Order history | Accessible via booking URL only | Appears in `/account/orders` |
 | Receipt | Sent to provided email | Sent to account email |
 
@@ -162,7 +162,7 @@ On "Complete Purchase" click:
      promoCode: string | null
      giftCardCode: string | null
      email: string | null          // Guest only
-     loyaltyOptIn: boolean         // Guest only — triggers magic-link claim email post-purchase
+     // loyaltyOptIn — deferred; see the Guest vs Authenticated table above
    }
 4. Server validates:
    a. Showtime exists and is in the future

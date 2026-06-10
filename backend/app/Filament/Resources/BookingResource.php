@@ -368,6 +368,12 @@ class BookingResource extends BaseResource
         return implode(' · ', $parts).'. This issues a real Stripe refund and cannot be undone.';
     }
 
+    /**
+     * Full refunds only — bookings are atomic (all seats or none), so a
+     * partial amount would desync booking.total from the money actually
+     * returned and break the gift/loyalty clawback math. Per-seat refunds
+     * would need a booking-split model first.
+     */
     public static function refundAction(): Action
     {
         return Action::make('refund')

@@ -5,8 +5,6 @@ import CheckoutContactBay from '~/components/booking/CheckoutContactBay.vue'
 const baseProps = {
   fullName: '',
   email: '',
-  phone: '',
-  reelSocietyId: '',
 }
 
 describe('CheckoutContactBay', () => {

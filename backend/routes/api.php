@@ -89,6 +89,11 @@ Route::middleware('auth:sanctum')->prefix('account')->group(function () {
 });
 
 // Gift Cards
+// TODO(post-MVP hardening): POST /api/webhooks/stripe. Without it, a lost
+// response between PaymentIntent confirmation and the booking/gift-card
+// finalize leaves a charge with no record on our side — recovery is manual
+// via the Stripe dashboard. The synchronous confirm + idempotent replay
+// covers every in-band failure; the webhook closes the out-of-band window.
 Route::post('/gift-cards/purchase', [GiftCardController::class, 'purchase']);
 Route::post('/gift-cards/confirm', [GiftCardController::class, 'confirm']);
 Route::get('/gift-cards/balance', [GiftCardController::class, 'balance'])->middleware('throttle:public-lookup');

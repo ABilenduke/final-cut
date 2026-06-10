@@ -10,12 +10,11 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  submit: [payload: { paymentMethodId: string; email?: string; loyaltyOptIn?: boolean }]
+  submit: [payload: { paymentMethodId: string; email?: string }]
   error: [message: string]
 }>()
 
 const activeMethod = ref<Method>('card')
-const loyaltyOptIn = ref(false)
 const saveCard = ref(true)
 const billingZip = ref('')
 const billingCountry = ref('US')
@@ -146,13 +145,12 @@ async function submit(): Promise<void> {
       return
     }
 
-    const payload: { paymentMethodId: string; email?: string; loyaltyOptIn?: boolean } = {
+    const payload: { paymentMethodId: string; email?: string } = {
       paymentMethodId: paymentMethod.id,
     }
 
     if (!props.isAuthenticated) {
       payload.email = props.email.trim()
-      if (loyaltyOptIn.value) payload.loyaltyOptIn = true
     }
 
     emit('submit', payload)
@@ -282,11 +280,6 @@ defineExpose({ submit, isSubmitting, stripeReady })
         v-if="isAuthenticated"
         v-model="saveCard"
         label="Save this card to my Reel Society account for faster checkout next time."
-      />
-      <CvCheckbox
-        v-else
-        v-model="loyaltyOptIn"
-        label="Join Final Cut Rewards (free) — earn points on this purchase."
       />
     </div>
 
