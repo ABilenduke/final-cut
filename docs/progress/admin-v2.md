@@ -5,6 +5,35 @@ loop iteration; each step lands as its own PR-sized branch.
 
 <!-- NOTE: this file accrues entries on parallel branches. On merge conflicts keep ALL step sections - they are disjoint. -->
 
+## Step 1.8: Dispatch-outbox ops surface
+**Status:** ✅ Complete
+**Started:** 2026-06-10
+**Completed:** 2026-06-10
+
+### Work Done
+- [2026-06-10] TDD: 4 tests first, then `OutboxRetryService` + read-only
+  `DispatchOutboxResource` (System group, parked-count nav badge, status filter, payload
+  view page, Retry action on parked rows). Full backend suite: **1211 passed**. PHPStan +
+  Pint clean.
+
+### Decisions
+- [2026-06-10] **Admin-role only** (`outbox.view`/`outbox.retry` added to the master
+  PERMISSIONS list but to neither the manager nor ops lists): payloads expose customer
+  emails/ids and retrying is an ops-level call.
+- [2026-06-10] Retry = reset to a fresh retry budget (`attempts = 0`, clear
+  `failed_at`/`last_error`, `available_at = now()`) — the worker's `dispatchable()` scope
+  is untouched, so the next minute-tick re-attempts naturally. Only parked rows qualify
+  (`OutboxRetryException` otherwise); the end-to-end test proves a retried row flows
+  through `outbox:dispatch` to its mapped job.
+
+### Files Changed
+- `backend/app/Services/OutboxRetryService.php` — new
+- `backend/app/Exceptions/OutboxRetryException.php` — new
+- `backend/app/Filament/Resources/DispatchOutboxResource.php` (+ List/View pages) — new
+- `backend/database/seeders/AdminRolesAndPermissionsSeeder.php` — outbox.view, outbox.retry
+- `backend/tests/Feature/Admin/Resources/DispatchOutboxResourceTest.php` — new: 4 tests
+- `docs/plans/admin/v2/08-outbox-resource.md` — new: Step 1.8 spec
+
 ## Step 1.5: Walk-up / POS booking creation
 **Status:** ✅ Complete
 **Started:** 2026-06-10
