@@ -8,6 +8,7 @@ use App\Filament\Concerns\TimestampColumns;
 use App\Filament\Resources\MenuItemResource\Pages;
 use App\Models\MenuItem;
 use BackedEnum;
+use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\CheckboxList;
@@ -16,6 +17,7 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
+use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\IconColumn;
@@ -171,6 +173,28 @@ class MenuItemResource extends BaseResource
             ])
             ->recordActions([
                 EditAction::make(),
+                Action::make('feature_on_home')
+                    ->label('Feature on home')
+                    ->icon('heroicon-o-home-modern')
+                    ->visible(fn ($record) => $record->featured_on_home_at === null
+                        && (auth('admin')->user()?->can('menu.update') ?? false))
+                    ->action(function ($record) {
+                        // Several items may be flagged at once — the home food
+                        // teaser prefers flagged items and tops up to three.
+                        $record->update(['featured_on_home_at' => now()]);
+
+                        Notification::make()->title('Featured on home')->success()->send();
+                    }),
+                Action::make('unfeature_from_home')
+                    ->label('Remove from home')
+                    ->icon('heroicon-o-home-modern')
+                    ->visible(fn ($record) => $record->featured_on_home_at !== null
+                        && (auth('admin')->user()?->can('menu.update') ?? false))
+                    ->action(function ($record) {
+                        $record->update(['featured_on_home_at' => null]);
+
+                        Notification::make()->title('Removed from home')->success()->send();
+                    }),
                 DeleteAction::make(),
             ]);
     }

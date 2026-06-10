@@ -24,6 +24,7 @@ use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Support\Exceptions\Halt;
+use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
@@ -162,6 +163,12 @@ class MovieResource extends BaseResource
                 TextColumn::make('rating')
                     ->formatStateUsing(fn ($state) => $state !== null ? number_format((float) $state, 1) : '—')
                     ->sortable(),
+                IconColumn::make('home_featured_at')
+                    ->label('On home')
+                    ->boolean()
+                    ->trueIcon('heroicon-o-home-modern')
+                    ->falseIcon('heroicon-o-minus')
+                    ->sortable(),
                 TextColumn::make('tmdb_enriched_at')->label('Enriched')->since()->sortable(),
                 ...TimestampColumns::standardTimestamps(),
             ])
@@ -205,6 +212,28 @@ class MovieResource extends BaseResource
                             ->title($dispatched ? 'Enrichment queued' : 'Enrichment already in progress')
                             ->{$dispatched ? 'success' : 'warning'}()
                             ->send();
+                    }),
+                Action::make('feature_on_home')
+                    ->label('Feature on home')
+                    ->icon('heroicon-o-home-modern')
+                    ->visible(fn ($record) => $record->home_featured_at === null
+                        && (auth('admin')->user()?->can('movies.update') ?? false))
+                    ->requiresConfirmation()
+                    ->modalDescription('The home page hero shows one movie at a time — featuring this one unfeatures the current pick.')
+                    ->action(function ($record) {
+                        app(MovieService::class)->featureOnHome($record, auth('admin')->user());
+
+                        Notification::make()->title('Featured on home')->success()->send();
+                    }),
+                Action::make('unfeature_from_home')
+                    ->label('Remove from home')
+                    ->icon('heroicon-o-home-modern')
+                    ->visible(fn ($record) => $record->home_featured_at !== null
+                        && (auth('admin')->user()?->can('movies.update') ?? false))
+                    ->action(function ($record) {
+                        app(MovieService::class)->unfeatureFromHome($record, auth('admin')->user());
+
+                        Notification::make()->title('Removed from home')->success()->send();
                     }),
                 self::serviceDeleteAction(),
             ])

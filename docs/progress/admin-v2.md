@@ -5,6 +5,52 @@ loop iteration; each step lands as its own PR-sized branch.
 
 <!-- NOTE: this file accrues entries on parallel branches. On merge conflicts keep ALL step sections - they are disjoint. -->
 
+## Step 2.6: Home hero slots + curation flags
+**Status:** ✅ Complete
+**Started:** 2026-06-10
+**Completed:** 2026-06-10
+
+### Work Done
+- [2026-06-10] Hero side panel now renders the featured movie's real upcoming showtimes
+  (existing `/api/movies/{slug}/showtimes` + new pure `buildHeroSlots()` util, capped at 8,
+  chips link `/purchase/{id}?loc=` matching ShowtimeSelector); `placeholderShowtimeSlots`
+  deleted. Movie curation: `home_featured_at` (in-place migration edit) +
+  `MovieService::featureOnHome/unfeatureFromHome` (transactional single-holder invariant,
+  activity-logged) + MovieResource action pair + icon column; `selectFeaturedMovie()`
+  prefers the qualified flagged movie. Menu curation: `featured_on_home_at` (in-place,
+  audited via logOnly) + MenuItemResource action pair; `HomeFoodDrink.curate()` leads with
+  flagged items. Suites: **backend 1258, frontend 938 (+5 skipped)**, PHPStan + Pint clean.
+
+### Decisions
+- [2026-06-10] No new endpoints — flags ride the existing movies/food-menu payloads
+  (`homeFeaturedAt` on Movie list+detail resources, `featuredOnHomeAt` on the
+  cross-location menu resource); hero slots ride the existing showtimes endpoint.
+- [2026-06-10] No sold-out chips: the cross-location endpoint carries no occupancy, and
+  the purchase flow is authoritative — dead placeholder sold-out CSS removed.
+- [2026-06-10] PHPStan "undefined property" on the touched API resources was being
+  masked by stale baseline entries; fixed properly with `@mixin` (TickerItemResource
+  precedent) + model `@property` docblocks, baseline regenerated (−126 lines).
+
+### Blockers
+- [2026-06-10] Full-suite QueryException storm after `make fresh` → known config-cache
+  gotcha; `php artisan optimize:clear` before test runs resolved it.
+
+### Files Changed
+- `backend/database/migrations/2026_04_04_200001_create_movies_table.php`,
+  `...200006_create_menu_items_table.php` — in-place nullable curation timestamps
+- `backend/app/Models/Movie.php`, `backend/app/Models/MenuItem.php` — fillable/casts/docblocks
+- `backend/app/Services/MovieService.php` — featureOnHome/unfeatureFromHome
+- `backend/app/Filament/Resources/MovieResource.php`, `MenuItemResource.php` — action pairs + column
+- `backend/app/Http/Resources/{MovieResource,MovieListResource,CrossLocationMenuItemResource}.php` — flag fields + @mixin
+- `backend/phpstan-baseline.neon` — regenerated (stale suppressions dropped)
+- `backend/tests/Feature/Admin/Services/HomeCurationTest.php` — 8 tests
+- `frontend/app/utils/buildHeroSlots.ts` (new), `frontend/app/utils/selectFeaturedMovie.ts`,
+  `frontend/app/components/home/HomeCinemaHero.vue`, `HomeFoodDrink.vue`,
+  `frontend/app/types/{movie,menu-item}.ts`, `frontend/app/data/homepage.ts` (slots deleted)
+- `frontend/tests/utils/buildHeroSlots.test.ts` (new), `selectFeaturedMovie.test.ts`,
+  `frontend/tests/components/home/{HomeCinemaHero,HomeFoodDrink}.test.ts`
+- `docs/plans/admin/v2/16-home-curation.md` — step spec
+
 ## Step 2.5: Site settings + home membership pitch
 **Status:** ✅ Complete
 **Started:** 2026-06-10

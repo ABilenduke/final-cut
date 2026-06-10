@@ -131,4 +131,50 @@ describe('selectFeaturedMovie', () => {
     expect(result).not.toBeNull()
     expect(result!.id).toBe(10)
   })
+
+  it('prefers an admin-flagged movie over a newer release', () => {
+    const movies = [
+      makeMovie({ id: 1, title: 'Newest', releaseDate: '2026-05-01' }),
+      makeMovie({
+        id: 2,
+        title: 'Curated Pick',
+        releaseDate: '2026-01-01',
+        homeFeaturedAt: '2026-06-09T12:00:00Z',
+      }),
+    ]
+
+    const result = selectFeaturedMovie(movies)
+
+    expect(result).not.toBeNull()
+    expect(result!.id).toBe(2)
+  })
+
+  it('ignores the flag when the flagged movie has no backdrop', () => {
+    const movies = [
+      makeMovie({ id: 1, title: 'Algorithmic', releaseDate: '2026-05-01' }),
+      makeMovie({
+        id: 2,
+        title: 'Flagged But Broken',
+        backdropUrl: '',
+        homeFeaturedAt: '2026-06-09T12:00:00Z',
+      }),
+    ]
+
+    const result = selectFeaturedMovie(movies)
+
+    expect(result).not.toBeNull()
+    expect(result!.id).toBe(1)
+  })
+
+  it('breaks a multi-flag drift by latest homeFeaturedAt', () => {
+    const movies = [
+      makeMovie({ id: 1, title: 'Older Flag', homeFeaturedAt: '2026-06-01T12:00:00Z' }),
+      makeMovie({ id: 2, title: 'Newer Flag', homeFeaturedAt: '2026-06-09T12:00:00Z' }),
+    ]
+
+    const result = selectFeaturedMovie(movies)
+
+    expect(result).not.toBeNull()
+    expect(result!.id).toBe(2)
+  })
 })

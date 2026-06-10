@@ -25,6 +25,8 @@ return new class extends Migration
             $table->string('trailer_key')->nullable();
             $table->string('status')->default('now_showing');
             $table->timestamp('tmdb_enriched_at')->nullable();
+            // Home hero curation flag (admin-v2 Plan 16) — at most one movie set.
+            $table->timestamp('home_featured_at')->nullable();
             $table->timestamps();
 
             $table->index('status');

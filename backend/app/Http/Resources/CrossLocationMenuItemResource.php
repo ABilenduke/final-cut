@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Resources;
 
+use App\Models\MenuItem;
 use App\Support\AssetUrl;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -15,6 +16,7 @@ use Illuminate\Http\Resources\Json\JsonResource;
  * location-scoped endpoint). This resource includes `available_at: string[]`
  * (array of location slugs) and uses the item's base price only.
  */
+/** @mixin MenuItem */
 class CrossLocationMenuItemResource extends JsonResource
 {
     public function toArray(Request $request): array
@@ -28,6 +30,7 @@ class CrossLocationMenuItemResource extends JsonResource
             'imageUrl' => AssetUrl::resolve($this->image_url),
             'allergens' => $this->allergens ?? [],
             'dietary' => $this->dietary ?? [],
+            'featuredOnHomeAt' => $this->featured_on_home_at?->toIso8601String(),
             'available_at' => $this->whenLoaded(
                 'locations',
                 fn () => $this->locations->pluck('slug')->all(),
