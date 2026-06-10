@@ -89,15 +89,6 @@ class PromoCodeService
     }
 
     /**
-     * Hard delete. Used codes must be deactivated (not deleted) to preserve
-     * historical records. Throws `PromoCodeInUseException` when the service
-     * layer sees `uses_count > 0`, independent of any UI guard.
-     *
-     * The check happens AFTER taking `lockForUpdate` on the row so a
-     * customer-side `consume()` racing this admin action can't slip an
-     * increment in between a stale-model pre-check and the actual delete.
-     */
-    /**
      * Reverse of deactivate(): clears `deactivated_at` so the code validates
      * at checkout again. Expiry is untouched — reactivating an expired promo
      * leaves it active-but-expired, which validateCode() still rejects.
@@ -116,6 +107,15 @@ class PromoCodeService
         ]);
     }
 
+    /**
+     * Hard delete. Used codes must be deactivated (not deleted) to preserve
+     * historical records. Throws `PromoCodeInUseException` when the service
+     * layer sees `uses_count > 0`, independent of any UI guard.
+     *
+     * The check happens AFTER taking `lockForUpdate` on the row so a
+     * customer-side `consume()` racing this admin action can't slip an
+     * increment in between a stale-model pre-check and the actual delete.
+     */
     public function delete(PromoCode $promo, ?User $actor = null): void
     {
         DB::transaction(function () use ($promo, $actor): void {

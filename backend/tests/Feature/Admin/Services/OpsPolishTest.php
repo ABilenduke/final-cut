@@ -179,6 +179,23 @@ test('the booking view surfaces refund timestamps and the stripe refund id', fun
         ->assertSee('re_test_12345');
 });
 
+test('ops cannot see refund metadata even on refunded bookings', function (): void {
+    $this->actingAsOps();
+    ['showtime' => $showtime] = $this->createShowtimeWithSeats();
+
+    $booking = Booking::factory()->create([
+        'showtime_id' => $showtime->id,
+        'status' => BookingStatus::Refunded,
+        'refund_initiated_at' => now()->subMinutes(5),
+        'refunded_at' => now(),
+        'stripe_refund_id' => 're_test_67890',
+    ]);
+
+    Livewire::test(ViewBooking::class, ['record' => $booking->getKey()])
+        ->assertDontSee('Refund initiated')
+        ->assertDontSee('re_test_67890');
+});
+
 test('the refund fields stay hidden on bookings that were never refunded', function (): void {
     $this->actingAsAdmin();
     ['showtime' => $showtime] = $this->createShowtimeWithSeats();

@@ -324,15 +324,18 @@ class BookingResource extends BaseResource
                     Placeholder::make('refund_initiated_at')
                         ->label('Refund initiated')
                         ->content(fn (Booking $record): ?string => $record->refund_initiated_at?->toDateTimeString())
-                        ->visible(fn (Booking $record): bool => $record->refund_initiated_at !== null),
+                        ->visible(fn (Booking $record): bool => $record->refund_initiated_at !== null
+                            && (bool) auth('admin')->user()?->can('bookings.resolve_refund')),
                     Placeholder::make('refunded_at')
                         ->label('Refunded at')
                         ->content(fn (Booking $record): ?string => $record->refunded_at?->toDateTimeString())
-                        ->visible(fn (Booking $record): bool => $record->refunded_at !== null),
+                        ->visible(fn (Booking $record): bool => $record->refunded_at !== null
+                            && (bool) auth('admin')->user()?->can('bookings.resolve_refund')),
                     Placeholder::make('stripe_refund_id')
                         ->label('Stripe refund')
                         ->content(fn (Booking $record): ?string => $record->stripe_refund_id)
-                        ->visible(fn (Booking $record): bool => $record->stripe_refund_id !== null),
+                        ->visible(fn (Booking $record): bool => $record->stripe_refund_id !== null
+                            && (bool) auth('admin')->user()?->can('bookings.resolve_refund')),
                 ])
                 ->columns(2),
         ]);
