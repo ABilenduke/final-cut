@@ -81,7 +81,13 @@ class TodayKpisWidget extends StatsOverviewWidget
      */
     public static function venueDayBounds(): array
     {
-        $tz = config('app.default_location_timezone') ?? config('app.timezone');
+        // Blank-safe: an empty DEFAULT_LOCATION_TIMEZONE env var yields ''
+        // (not null), which `??` would pass straight to Carbon as an invalid
+        // timezone. Treat blank as unset.
+        $tz = config('app.default_location_timezone');
+        if (! is_string($tz) || trim($tz) === '') {
+            $tz = config('app.timezone');
+        }
 
         $startLocal = now($tz)->startOfDay();
         $endLocal = $startLocal->copy()->addDay();

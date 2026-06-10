@@ -67,6 +67,17 @@ test('venue day bounds are computed in the configured venue timezone', function 
     expect($dayEnd->greaterThan($dayStart))->toBeTrue();
 });
 
+test('a blank default_location_timezone falls back to the app timezone', function (): void {
+    // A present-but-empty DEFAULT_LOCATION_TIMEZONE env var yields '' (not
+    // null) — exactly how CI is configured; Carbon must never receive it.
+    config(['app.default_location_timezone' => '']);
+
+    [$dayStart, $dayEnd] = TodayKpisWidget::venueDayBounds();
+
+    expect($dayStart->format('H:i'))->toBe('00:00')
+        ->and($dayEnd->greaterThan($dayStart))->toBeTrue();
+});
+
 test('the kpi widget renders for ops and is hidden from roleless admins', function (): void {
     $this->actingAsOps();
     expect(TodayKpisWidget::canView())->toBeTrue();
