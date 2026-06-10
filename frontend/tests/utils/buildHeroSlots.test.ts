@@ -45,4 +45,14 @@ describe('buildHeroSlots', () => {
   it('returns an empty array for no showtimes', () => {
     expect(buildHeroSlots([], 'America/New_York')).toEqual([])
   })
+
+  it('drops showtimes without a location slug so chips never link loc=', () => {
+    const noLocation = makeShowtime({ id: 'st-broken' })
+    delete (noLocation as Record<string, unknown>).location
+
+    const slots = buildHeroSlots([noLocation, makeShowtime({ id: 'st-ok' })], 'America/New_York')
+
+    expect(slots).toHaveLength(1)
+    expect(slots[0]!.id).toBe('st-ok')
+  })
 })

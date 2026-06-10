@@ -71,6 +71,11 @@ class MovieService
     public function featureOnHome(Movie $movie, ?User $actor = null): Movie
     {
         DB::transaction(function () use ($movie, $actor): void {
+            // Serialize concurrent feature swaps: clearing-then-stamping has a
+            // phantom window (two transactions can both see no flagged row).
+            // The advisory lock releases automatically at commit/rollback.
+            DB::statement("SELECT pg_advisory_xact_lock(hashtext('movies.home_featured_at'))");
+
             Movie::query()
                 ->whereKeyNot($movie->getKey())
                 ->whereNotNull('home_featured_at')

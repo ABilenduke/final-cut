@@ -21,7 +21,7 @@ useHead(() => ({
 // to the upcoming window and sorts by start time.
 const appTimeZone = String(useRuntimeConfig().public.appTimeZone || 'America/New_York')
 const { fetchByMovie } = useShowtimes()
-const { data: showtimesData } = fetchByMovie(props.movie.slug)
+const { data: showtimesData, pending: showtimesPending } = fetchByMovie(props.movie.slug)
 
 const heroSlots = computed<HeroSlot[]>(() =>
   buildHeroSlots(showtimesData.value?.data ?? [], appTimeZone),
@@ -186,7 +186,7 @@ const trailerHref = computed(() =>
             <span class="cinema-hero__time-mer">{{ slot.meridiem }}</span>
           </NuxtLink>
         </div>
-        <p v-else class="cinema-hero__times-empty">
+        <p v-else-if="!showtimesPending" class="cinema-hero__times-empty">
           Next screenings are being scheduled — check the calendar.
         </p>
         <div class="cinema-hero__panel-foot">

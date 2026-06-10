@@ -53,12 +53,12 @@ function makeShowtime(id: string, startTime: string): Showtime {
   } as Showtime
 }
 
-function mockShowtimes(showtimes: Showtime[]) {
+function mockShowtimes(showtimes: Showtime[] | null, pending = false) {
   mockUseApiFetch.mockImplementation(((path: string) => {
     if (path === '/api/movies/blade-runner-2049/showtimes') {
       return {
-        data: ref({ data: showtimes }),
-        pending: ref(false),
+        data: ref(showtimes === null ? null : { data: showtimes }),
+        pending: ref(pending),
         error: ref(null),
         refresh: vi.fn(),
       }
@@ -118,6 +118,15 @@ describe('HomeCinemaHero', () => {
     expect(wrapper.find('.cinema-hero__times-empty').exists()).toBe(true)
     // Panel chrome and calendar link survive the empty state.
     expect(wrapper.find('.cinema-hero__panel-link').exists()).toBe(true)
+  })
+
+  it('does not flash the empty note while the showtimes fetch is pending', async () => {
+    mockShowtimes(null, true)
+    const wrapper = await mountSuspended(HomeCinemaHero, {
+      props: { movie: makeMovie() },
+    })
+    expect(wrapper.find('.cinema-hero__times-empty').exists()).toBe(false)
+    expect(wrapper.findAll('.cinema-hero__time')).toHaveLength(0)
   })
 
   it('labels the panel as real upcoming screenings, not sample data', async () => {

@@ -16,6 +16,15 @@ use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
 
 /**
+ * @property string $id
+ * @property string $name
+ * @property string|null $description
+ * @property int $price
+ * @property MenuCategory $category
+ * @property string|null $image_url
+ * @property array|null $allergens
+ * @property array|null $dietary
+ * @property Carbon|null $unavailable_at
  * @property Carbon|null $featured_on_home_at Home food-teaser curation flag — several items may carry it.
  */
 #[Fillable([

@@ -11,6 +11,22 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 
 /**
+ * @property int $id
+ * @property int|null $tmdb_id
+ * @property string $slug
+ * @property string $title
+ * @property string|null $tagline
+ * @property string|null $synopsis
+ * @property int|null $runtime
+ * @property float|null $rating
+ * @property Carbon|null $release_date
+ * @property array|null $genres
+ * @property array|null $cast
+ * @property string|null $poster_url
+ * @property string|null $backdrop_url
+ * @property string|null $trailer_key
+ * @property MovieStatus $status
+ * @property Carbon|null $tmdb_enriched_at
  * @property Carbon|null $home_featured_at Home hero curation flag — at most one movie carries it (MovieService::featureOnHome).
  */
 #[Fillable([
