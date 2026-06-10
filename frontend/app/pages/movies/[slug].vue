@@ -117,7 +117,7 @@ useHead({
       class="bay movie-page__trailer-bay"
     >
       <div class="bay-inner">
-        <MovieTrailerEmbed :trailer-key="movie.trailerKey" :title="movie.title" />
+        <MovieTrailerEmbed :trailer-key="movie.trailerKey" :title="movie.title" :extra-clips="movie.clips" />
       </div>
     </section>
 
@@ -142,7 +142,7 @@ useHead({
     <!-- Press quotes + scores -->
     <section class="bay">
       <div class="bay-inner">
-        <MoviePress />
+        <MoviePress :quotes="movie.pressQuotes" />
       </div>
     </section>
 

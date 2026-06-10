@@ -12,6 +12,13 @@ interface PressQuote {
   publication: string
 }
 
+import type { PressQuoteData } from '~/types/movie'
+
+const props = defineProps<{
+  /** Admin-authored quotes (admin-v4 Plan 03); the samples render when empty. */
+  quotes?: PressQuoteData[]
+}>()
+
 const QUOTES: readonly PressQuote[] = [
   {
     segments: [
@@ -38,6 +45,17 @@ const QUOTES: readonly PressQuote[] = [
   },
 ] as const
 
+const displayQuotes = computed<readonly PressQuote[]>(() => {
+  if (props.quotes && props.quotes.length > 0) {
+    return props.quotes.map((q) => ({
+      segments: [{ text: q.quote }],
+      author: q.author,
+      publication: q.publication,
+    }))
+  }
+  return QUOTES
+})
+
 const SCORES = [
   { source: 'Final Cut Critic', n: 94, denom: '/100', bar: 94, accent: true },
   { source: 'Aggregate Press', n: 91, denom: '/100', bar: 91, accent: false },
@@ -53,7 +71,7 @@ const SCORES = [
 
     <div class="movie-press__reviews">
       <blockquote
-        v-for="q in QUOTES"
+        v-for="q in displayQuotes"
         :key="q.author"
         class="movie-press__quote"
       >

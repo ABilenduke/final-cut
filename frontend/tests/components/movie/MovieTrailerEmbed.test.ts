@@ -59,4 +59,20 @@ describe('MovieTrailerEmbed', () => {
     expect(wrapper.find('.bay-title').text()).toContain('first look')
     expect(wrapper.text()).toContain('Dune')
   })
+
+  it('renders admin-authored clips instead of the decorative placeholders', async () => {
+    const wrapper = await mountSuspended(MovieTrailerEmbed, {
+      props: {
+        trailerKey: 'trailer123',
+        title: 'Test Movie',
+        extraClips: [
+          { label: 'Behind the Score', sub: 'With composer', duration: '6:02', youtube_key: 'clip456' },
+        ],
+      },
+    })
+
+    expect(wrapper.text()).toContain('Behind the Score')
+    // Placeholder clip labels are replaced by the real list.
+    expect(wrapper.text()).not.toContain('Teaser — First Look')
+  })
 })

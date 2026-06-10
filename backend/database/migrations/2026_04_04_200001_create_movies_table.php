@@ -27,6 +27,11 @@ return new class extends Migration
             $table->timestamp('tmdb_enriched_at')->nullable();
             // Home hero curation flag (admin-v2 Plan 16) — at most one movie set.
             $table->timestamp('home_featured_at')->nullable();
+            // Editorial CMS (admin-v4 Plan 03): crew credits object, press
+            // quote list, and clip list — admin-authored, optional.
+            $table->json('credits')->nullable();
+            $table->json('press_quotes')->nullable();
+            $table->json('clips')->nullable();
             $table->timestamps();
 
             $table->index('status');

@@ -108,4 +108,18 @@ describe('MovieDetail', () => {
       ]),
     )
   })
+
+  it('renders admin-authored credits and keeps dashes for unfilled fields', async () => {
+    const wrapper = await mountSuspended(MovieDetail, {
+      props: {
+        movie: makeMovie({
+          credits: { director: 'Greta Gerwig', composer: '' },
+        }),
+      },
+    })
+
+    expect(wrapper.text()).toContain('Greta Gerwig')
+    // Unfilled (and blank) fields stay neutral placeholders.
+    expect(wrapper.text()).toContain('—')
+  })
 })
