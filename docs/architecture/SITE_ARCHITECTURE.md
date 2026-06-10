@@ -165,10 +165,10 @@ Each route group is assigned a rendering strategy based on how frequently its da
 | `/blog/:slug` | Blog Post | ISR | 10 min | Content updates, SEO critical |
 | `/gift-cards` | Gift Cards (composer + live preview, balance lookup strip) | ISR | 30 min | Editorial content rarely changes; suppresses global `NeuralTicker` via `definePageMeta({ hideTicker: true })` so the balance strip can occupy the chrome slot |
 | `/gift-cards/bulk` | Bulk Gifting placeholder (corporate concierge CTA) | Prerendered | Build time | Static placeholder until the bulk-gifting form ships |
-| `/contact` | Contact Page | Prerendered | Build time | Static content |
-| `/faq` | FAQ | Prerendered | Build time | Static content |
-| `/accessibility` | Accessibility Statement | Prerendered | Build time | Static content |
-| `/careers` | Careers | Prerendered | Build time | Static content |
+| `/contact` | Contact Page | ISR | 30 min | Venue hours/contacts come from the locations API (admin-v2 Plan 14) |
+| `/faq` | FAQ | ISR | 30 min | FAQ items are admin-managed via `/api/faq` (admin-v2 Plan 13) |
+| `/accessibility` | Accessibility Statement | ISR | 30 min | Contact line is admin-managed via `/api/site-content/contacts` (admin-v3 Plan 02) |
+| `/careers` | Careers | ISR | 30 min | Openings + contact email are admin-managed (admin-v2 Plan 13 / admin-v3 Plan 02) |
 | `/purchase/**` | Seat Selection, Checkout | Client-only | — | Real-time seat data, auth context |
 | `/account/**` | Profile, Orders, Loyalty | Client-only | — | User-specific data |
 | `/auth/**` | Login, Register, Reset | Client-only | — | Auth forms, no SEO value |
@@ -191,10 +191,10 @@ export default defineNuxtConfig({
     '/blog/**':           { isr: 600 },
     '/gift-cards':        { isr: 1800 },
     '/gift-cards/bulk':   { prerender: true },
-    '/contact':           { prerender: true },
-    '/faq':               { prerender: true },
-    '/accessibility':     { prerender: true },
-    '/careers':           { prerender: true },
+    '/contact':           { isr: 1800 },
+    '/faq':               { isr: 1800 },
+    '/accessibility':     { isr: 1800 },
+    '/careers':           { isr: 1800 },
     '/purchase/**':       { ssr: false },
     '/account/**':        { ssr: false },
     '/auth/**':           { ssr: false },

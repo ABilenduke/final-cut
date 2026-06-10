@@ -1,5 +1,12 @@
 <script setup lang="ts">
 import { useJobOpenings } from '~/composables/useJobOpenings'
+import { fallbackSiteContacts } from '~/data/siteContacts'
+import { useSiteContacts, resolveSiteContacts } from '~/composables/useSiteContent'
+
+const { data: contactsData } = useSiteContacts()
+const contacts = computed(() =>
+  resolveSiteContacts(contactsData.value?.data?.contacts ?? null, fallbackSiteContacts),
+)
 
 // Admin-managed openings (admin-v2 Plan 13); benefits/intro stay editorial copy.
 const { data: openingsData } = useJobOpenings()
@@ -80,7 +87,7 @@ useHead(() => ({
         <h2 class="careers-page__section-heading headline-md">How to Apply</h2>
         <p class="careers-page__apply body-md">
           Send your resume and a brief note about why you'd be a good fit to
-          <a href="mailto:careers@finalcut.test" class="careers-page__link">careers@finalcut.test</a>.
+          <a :href="`mailto:${contacts.careersEmail}`" class="careers-page__link">{{ contacts.careersEmail }}</a>.
           Include the position title in your subject line.
         </p>
       </section>

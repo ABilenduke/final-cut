@@ -11,6 +11,14 @@ const emit = defineEmits<{
   submit: [payload: Omit<PurchaseGiftCardData, 'paymentMethodId' | 'idempotencyKey'>]
 }>()
 
+import { fallbackSiteContacts } from '~/data/siteContacts'
+import { useSiteContacts, resolveSiteContacts } from '~/composables/useSiteContent'
+
+const { data: contactsData } = useSiteContacts()
+const contacts = computed(() =>
+  resolveSiteContacts(contactsData.value?.data?.contacts ?? null, fallbackSiteContacts),
+)
+
 const composer = useGiftCardComposer()
 const { state } = composer
 
@@ -118,7 +126,7 @@ async function handleSubmit(): Promise<void> {
       <p class="gift-card-preview__fine">
         Cards never expire and are valid at all Final Cut cinemas. By proceeding you agree to our
         <NuxtLink to="/terms">gift card terms</NuxtLink>. Need help?
-        <a href="mailto:concierge@finalcut.test">Concierge · (555) 123-4567</a>.
+        <a :href="`mailto:${contacts.conciergeEmail}`">Concierge · {{ contacts.footerPhone }}</a>.
       </p>
     </div>
   </aside>

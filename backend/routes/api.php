@@ -45,6 +45,7 @@ Route::get('/faq', [FaqController::class, 'index']);
 Route::get('/job-openings', [JobOpeningController::class, 'index']);
 Route::get('/screening-packages', [ScreeningPackageController::class, 'index']);
 Route::get('/site-content/home', [SiteContentController::class, 'home']);
+Route::get('/site-content/contacts', [SiteContentController::class, 'contacts']);
 
 // Location-scoped resources
 Route::prefix('locations/{location}')->group(function () {

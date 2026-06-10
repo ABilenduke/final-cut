@@ -21,6 +21,9 @@ class SiteSettingsService
     /** The home-page membership pitch blob (frontend MembershipContent shape). */
     public const KEY_HOME_MEMBERSHIP = 'home_membership';
 
+    /** Site-wide contact details (frontend SiteContacts shape). */
+    public const KEY_SITE_CONTACTS = 'site_contacts';
+
     public function get(string $key, mixed $default = null): mixed
     {
         return SiteSetting::query()->find($key)->value ?? $default;

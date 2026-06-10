@@ -1,4 +1,12 @@
 <script setup lang="ts">
+import { fallbackSiteContacts } from '~/data/siteContacts'
+import { useSiteContacts, resolveSiteContacts } from '~/composables/useSiteContent'
+
+const { data: contactsData } = useSiteContacts()
+const contacts = computed(() =>
+  resolveSiteContacts(contactsData.value?.data?.contacts ?? null, fallbackSiteContacts),
+)
+
 useHead({
   title: 'Bulk Gifting — Final Cut',
   meta: [
@@ -44,7 +52,7 @@ useHead({
       <div class="bulk-page__cta">
         <a
           class="bulk-page__btn"
-          href="mailto:concierge@finalcut.test?subject=Bulk%20gift%20card%20enquiry"
+          :href="`mailto:${contacts.conciergeEmail}?subject=Bulk%20gift%20card%20enquiry`"
         >
           Speak to our concierge →
         </a>

@@ -1,4 +1,12 @@
 <script setup lang="ts">
+import { fallbackSiteContacts } from '~/data/siteContacts'
+import { useSiteContacts, resolveSiteContacts } from '~/composables/useSiteContent'
+
+const { data: contactsData } = useSiteContacts()
+const contacts = computed(() =>
+  resolveSiteContacts(contactsData.value?.data?.contacts ?? null, fallbackSiteContacts),
+)
+
 definePageMeta({
   hideTicker: true,
 })
@@ -104,7 +112,7 @@ function toggleFaq(index: number): void {
           <div class="gift-cards-page__corp-actions">
             <a
               class="gift-cards-page__btn-ghost"
-              href="mailto:concierge@finalcut.test?subject=Bulk%20gift%20card%20enquiry"
+              :href="`mailto:${contacts.conciergeEmail}?subject=Bulk%20gift%20card%20enquiry`"
             >
               Speak to our concierge →
             </a>
