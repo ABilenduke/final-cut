@@ -11,6 +11,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 
+/**
+ * @property array|null $hours Weekly opening hours keyed by lowercase weekday: {monday: {open, close}|null, ...}.
+ */
 #[Fillable([
     'name', 'slug',
     'phone', 'email',
