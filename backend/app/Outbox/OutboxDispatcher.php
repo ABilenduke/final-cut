@@ -2,6 +2,8 @@
 
 namespace App\Outbox;
 
+use App\Http\Controllers\Api\StripeWebhookController;
+use App\Jobs\CheckOrphanedCharge;
 use App\Jobs\NotifyCustomerOfShowtimeCancellation;
 use App\Jobs\NotifyFinanceOfGiftCardVoid;
 use App\Jobs\SendBookingConfirmation;
@@ -48,6 +50,7 @@ class OutboxDispatcher
             ShowtimeService::EVENT_CANCELLED => $this->dispatchShowtimeCancelled($row, $payload),
             GiftCardService::EVENT_VOIDED => $this->dispatchGiftCardVoided($row, $payload),
             GiftCardService::EVENT_DELIVERY => $this->dispatchGiftCardDelivery($row, $payload),
+            StripeWebhookController::EVENT_ORPHAN_CHECK => $this->dispatchOrphanCheck($row, $payload),
             BookingRefundService::EVENT_REFUNDED => $this->dispatchBookingRefunded($row, $payload),
             BookingNotificationService::EVENT_CONFIRMATION_RESEND,
             BookingNotificationService::EVENT_CONFIRMATION => $this->dispatchBookingConfirmationResend($row, $payload),
@@ -86,6 +89,18 @@ class OutboxDispatcher
     {
         NotifyCustomerOfShowtimeCancellation::dispatch(
             (string) $this->requirePayloadValue($row, $payload, 'booking_id'),
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function dispatchOrphanCheck(DispatchOutbox $row, array $payload): void
+    {
+        CheckOrphanedCharge::dispatch(
+            (string) $this->requirePayloadValue($row, $payload, 'payment_intent_id'),
+            (int) $this->requirePayloadValue($row, $payload, 'amount'),
+            (string) $this->requirePayloadValue($row, $payload, 'currency'),
         );
     }
 

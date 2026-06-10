@@ -19,6 +19,7 @@ use App\Http\Controllers\Api\RentalController;
 use App\Http\Controllers\Api\ScreeningPackageController;
 use App\Http\Controllers\Api\ShowtimeController;
 use App\Http\Controllers\Api\SiteContentController;
+use App\Http\Controllers\Api\StripeWebhookController;
 use App\Http\Controllers\Api\TickerItemController;
 use Illuminate\Support\Facades\Route;
 
@@ -89,11 +90,12 @@ Route::middleware('auth:sanctum')->prefix('account')->group(function () {
 });
 
 // Gift Cards
-// TODO(post-MVP hardening): POST /api/webhooks/stripe. Without it, a lost
-// response between PaymentIntent confirmation and the booking/gift-card
-// finalize leaves a charge with no record on our side — recovery is manual
-// via the Stripe dashboard. The synchronous confirm + idempotent replay
-// covers every in-band failure; the webhook closes the out-of-band window.
+// Stripe webhook (admin-v4 Plan 01) — signature-authenticated, closes the
+// out-of-band window where a charge succeeds but the API response is lost:
+// unmatched payment_intent.succeeded events trigger a deferred orphan check
+// that alerts finance instead of waiting for manual dashboard discovery.
+Route::post('/webhooks/stripe', [StripeWebhookController::class, 'handle']);
+
 Route::post('/gift-cards/purchase', [GiftCardController::class, 'purchase']);
 Route::post('/gift-cards/confirm', [GiftCardController::class, 'confirm']);
 Route::get('/gift-cards/balance', [GiftCardController::class, 'balance'])->middleware('throttle:public-lookup');
