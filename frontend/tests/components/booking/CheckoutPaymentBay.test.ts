@@ -11,6 +11,13 @@ vi.mock('@stripe/stripe-js', () => ({
   loadStripe: vi.fn(() => Promise.resolve(null)),
 }))
 
+// Saved-card lookup (admin-v5 Plan 03) — empty list keeps these UI tests
+// exercising the card-element layout.
+vi.mock('~/utils/api', () => ({
+  apiFetch: vi.fn(() => Promise.resolve({ data: [] })),
+  useApiFetch: vi.fn(),
+}))
+
 import CheckoutPaymentBay from '~/components/booking/CheckoutPaymentBay.vue'
 
 const elementsMock = vi.fn()

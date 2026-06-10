@@ -280,6 +280,25 @@ class BookingController extends Controller
             $receiptEmail = $authedUser ? $authedUser->email : $request->input('email');
 
             try {
+                // Paying WITH a saved card (admin-v5 Plan 03): a customer-
+                // attached PaymentMethod can only be charged on an intent that
+                // carries the same customer. Stripe itself rejects a PM that
+                // belongs to a different customer, so ownership needs no extra
+                // check here — but the path is auth-only and requires a
+                // customer to already exist.
+                $savedCustomerId = null;
+                if ($request->boolean('usingSavedCard')) {
+                    $savedCustomerId = $request->user()?->stripe_customer_id;
+                    if ($savedCustomerId === null) {
+                        $this->discardHeldBooking($booking);
+
+                        return $this->errorResponse([[
+                            'field' => 'payment',
+                            'message' => 'No saved cards are available on this account.',
+                        ]], 400);
+                    }
+                }
+
                 // Saved-card opt-in (admin-v4 Plan 02): authenticated users
                 // who tick "save this card" get a Stripe Customer attached to
                 // the intent with setup_future_usage, so Stripe retains the
@@ -306,7 +325,7 @@ class BookingController extends Controller
                     $idempotencyKey ? "booking:{$idempotencyKey}" : null,
                     $this->buildStripeDescription($showtime),
                     $receiptEmail,
-                    $saveCardCustomerId,
+                    $saveCardCustomerId ?? ($savedCustomerId ?? null),
                     $saveCardCustomerId !== null ? 'on_session' : null,
                 );
             } catch (CardException $e) {

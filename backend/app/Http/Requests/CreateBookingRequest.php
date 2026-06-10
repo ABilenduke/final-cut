@@ -45,6 +45,7 @@ class CreateBookingRequest extends FormRequest
             'foodItems.*.quantity' => ['required', 'integer', 'min:1', 'max:10'],
             'paymentMethodId' => ['required_without:giftCardCode', 'nullable', 'string', 'max:512'],
             'saveCard' => ['sometimes', 'boolean'],
+            'usingSavedCard' => ['sometimes', 'boolean'],
             'promoCode' => ['sometimes', 'nullable', 'string', 'max:20'],
             'giftCardCode' => ['sometimes', 'nullable', 'string', 'max:20'],
             'email' => ['nullable', 'email', 'max:255'],
