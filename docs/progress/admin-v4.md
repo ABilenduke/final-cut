@@ -5,6 +5,41 @@ loop iteration; each step lands as its own PR-sized branch.
 
 <!-- NOTE: this file accrues entries on parallel branches. On merge conflicts keep ALL step sections - they are disjoint. -->
 
+## Step 4.2: Saved payment methods
+**Status:** ✅ Complete
+**Started:** 2026-06-10
+**Completed:** 2026-06-10
+
+### Work Done
+- [2026-06-10] Finished the feature whose backend shipped in backend-v1: the account
+  page's Add button now opens `AddPaymentMethodModal` (SetupIntent → Stripe Elements →
+  `confirmCardSetup`) instead of a bare POST that could never attach a card; the
+  checkout "Save this card" checkbox now rides the booking POST and the backend
+  attaches a Stripe Customer + `setup_future_usage: 'on_session'` to the PaymentIntent
+  (persisting `users.stripe_customer_id`; guests ignored). Paying WITH a saved card
+  (picker UI) deliberately out of scope.
+
+### Decisions
+- [2026-06-10] `setup_future_usage` on the payment PI (not a separate SetupIntent at
+  checkout) — Stripe's recommended retain-on-payment path; one charge, one consent.
+- [2026-06-10] Removed `useAccount.addPaymentMethod()` — the SetupIntent POST belongs
+  inside the modal flow; a bare helper invites the old broken pattern back.
+- [2026-06-10] Gotcha (recurring): two parallel vitest `docker compose run` invocations
+  collided and hung silently — restart the frontend container, rerun serially.
+
+### Blockers
+- none
+
+### Files Changed
+- `backend/app/Services/StripeService.php`, `backend/tests/Helpers/FakeStripeService.php` — optional customer/setup_future_usage params
+- `backend/app/Http/Controllers/Api/BookingController.php`, `backend/app/Http/Requests/CreateBookingRequest.php` — saveCard handling
+- `backend/tests/Feature/Api/BookingSaveCardTest.php` — 4 tests
+- `frontend/app/components/account/AddPaymentMethodModal.vue` (new), `frontend/app/pages/account/payment-methods.vue` — real add-card flow
+- `frontend/app/components/booking/CheckoutPaymentBay.vue`, `frontend/app/pages/purchase/checkout.vue` — saveCard payload
+- `frontend/app/composables/useAccount.ts` (+ test) — bare helper removed
+- `frontend/tests/components/account/AddPaymentMethodModal.test.ts`, `frontend/tests/components/booking/CheckoutPaymentBaySubmit.test.ts` — new tests
+- `docs/plans/admin/v4/02-saved-payment-methods.md` — step spec
+
 ## Step 4.1: Stripe webhook
 **Status:** ✅ Complete
 **Started:** 2026-06-10

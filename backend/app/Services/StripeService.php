@@ -58,6 +58,8 @@ class StripeService
         ?string $idempotencyKey = null,
         ?string $description = null,
         ?string $receiptEmail = null,
+        ?string $customerId = null,
+        ?string $setupFutureUsage = null,
     ): PaymentIntent {
         $options = [];
 
@@ -83,6 +85,15 @@ class StripeService
 
         if ($receiptEmail !== null && $receiptEmail !== '') {
             $params['receipt_email'] = $receiptEmail;
+        }
+
+        // Saved-card support (admin-v4 Plan 02): attaching a customer plus
+        // setup_future_usage makes Stripe retain the card after this payment.
+        if ($customerId !== null) {
+            $params['customer'] = $customerId;
+        }
+        if ($setupFutureUsage !== null) {
+            $params['setup_future_usage'] = $setupFutureUsage;
         }
 
         return $this->client()->paymentIntents->create($params, $options);

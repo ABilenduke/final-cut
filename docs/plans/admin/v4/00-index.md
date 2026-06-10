@@ -7,7 +7,7 @@ backlog — all four items user-approved on 2026-06-10.
 | Step | Plan doc | Summary |
 | ---- | -------- | ------- |
 | 4.1 ✅ | [01](01-stripe-webhook.md) | Stripe webhook: signature-verified `POST /api/webhooks/stripe`; unmatched `payment_intent.succeeded` → deferred orphan check → finance alert |
-| 4.2 | 02 | Saved payment methods: wire the checkout save-card checkbox + account page via Stripe SetupIntent |
+| 4.2 ✅ | [02](02-saved-payment-methods.md) | Saved payment methods: real add-card Elements flow on the account page + checkout save-card via setup_future_usage |
 | 4.3 | 03 | Movie editorial CMS: press quotes / credits / clips models + admin resources (replaces the movie-page stubs) |
 | 4.4 | 04 | Live cinema readout: feed the what's-on telemetry panel from real data |
 

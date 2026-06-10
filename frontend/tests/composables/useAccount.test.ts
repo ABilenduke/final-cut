@@ -66,15 +66,6 @@ describe('useAccount', () => {
     expect(mockUseApiFetch).toHaveBeenCalledWith('/api/account/payment-methods')
   })
 
-  it('addPaymentMethod sends POST', async () => {
-    mockApiFetch.mockResolvedValue({ data: { clientSecret: 'cs_123' } })
-    const { addPaymentMethod } = useAccount()
-    await addPaymentMethod()
-    expect(mockApiFetch).toHaveBeenCalledWith('/api/account/payment-methods', {
-      method: 'POST',
-    })
-  })
-
   it('removePaymentMethod sends DELETE', async () => {
     mockApiFetch.mockResolvedValue({ data: { success: true } })
     const { removePaymentMethod } = useAccount()

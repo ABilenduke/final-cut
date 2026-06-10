@@ -5,19 +5,20 @@ useHead({
   meta: [{ name: 'robots', content: 'noindex' }],
 })
 
-const { paymentMethods, addPaymentMethod, removePaymentMethod } = useAccount()
+const { paymentMethods, removePaymentMethod } = useAccount()
 const { show } = useToast()
 
 const { data: methodsData, refresh } = await paymentMethods()
 
-async function handleAdd() {
-  try {
-    await addPaymentMethod()
-    await refresh()
-    show({ message: 'Payment method added', type: 'success' })
-  } catch {
-    show({ message: 'Failed to add payment method. Please try again.', type: 'error' })
-  }
+// Add-card flow (admin-v4 Plan 02): the modal mints the SetupIntent and
+// confirms the card via Stripe Elements; the bare POST alone could never
+// attach a card.
+const addingCard = ref(false)
+
+async function handleAdded() {
+  addingCard.value = false
+  await refresh()
+  show({ message: 'Payment method added', type: 'success' })
 }
 
 async function handleRemove(id: string) {
@@ -38,8 +39,14 @@ async function handleRemove(id: string) {
     <div class="payment-page__content">
       <SavedPaymentMethods
         :methods="methodsData?.data ?? []"
-        @add="handleAdd"
+        @add="addingCard = true"
         @remove="handleRemove"
+      />
+
+      <AddPaymentMethodModal
+        v-if="addingCard"
+        @close="addingCard = false"
+        @added="handleAdded"
       />
     </div>
   </div>

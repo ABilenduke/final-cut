@@ -47,11 +47,6 @@ export function useAccount() {
       '/api/account/payment-methods',
     )
 
-  const addPaymentMethod = () =>
-    apiFetch<{ data: { clientSecret: string } }>('/api/account/payment-methods', {
-      method: 'POST',
-    })
-
   const removePaymentMethod = (id: string) =>
     apiFetch<{ data: { success: true } }>(`/api/account/payment-methods/${id}`, {
       method: 'DELETE',
@@ -59,6 +54,6 @@ export function useAccount() {
 
   return {
     profile, updateProfile, orders, bookings,
-    loyalty, paymentMethods, addPaymentMethod, removePaymentMethod,
+    loyalty, paymentMethods, removePaymentMethod,
   }
 }
