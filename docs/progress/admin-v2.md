@@ -5,6 +5,39 @@ loop iteration; each step lands as its own PR-sized branch.
 
 <!-- NOTE: this file accrues entries on parallel branches. On merge conflicts keep ALL step sections - they are disjoint. -->
 
+## Step 1.10: Rental-inquiry + contact-message inboxes
+**Status:** ✅ Complete — **PHASE 1 COMPLETE** (all ten bookings/scheduling/ops steps done)
+**Started:** 2026-06-10
+**Completed:** 2026-06-10
+
+### Work Done
+- [2026-06-10] TDD: 6 tests first, then the two inboxes. Full backend suite: **1223
+  passed**. PHPStan + Pint clean.
+
+### Decisions
+- [2026-06-10] `ContactSubmission` is a NEW table (new migration — additive by nature);
+  `ContactController::store` now persists while keeping its log line for ops grep parity.
+- [2026-06-10] Rental status transitions use one explicit map
+  (`RentalInquiryService::allowedTransitions`) consumed by BOTH the service guard and the
+  Filament action's options — the UI cannot offer an illegal move; confirmed/declined are
+  terminal.
+- [2026-06-10] Permissions: admin + manager get all four (`rentals.*`, `contact.*`); ops
+  gets the two views only. (First pass missed the role lists — only the master list — which
+  the permission tests caught immediately; worth remembering the seeder has three lists.)
+
+### Files Changed
+- `backend/database/migrations/2026_06_10_000000_create_contact_submissions_table.php` — new
+- `backend/app/Models/ContactSubmission.php` + factory — new
+- `backend/app/Models/RentalInquiry.php` — property docblock (PHPStan enum-cast visibility)
+- `backend/app/Services/RentalInquiryService.php`, `ContactSubmissionService.php` — new
+- `backend/app/Exceptions/InquiryTransitionException.php`, `ContactSubmissionException.php` — new
+- `backend/app/Filament/Resources/RentalInquiryResource.php` (+ pages) — new
+- `backend/app/Filament/Resources/ContactSubmissionResource.php` (+ pages) — new
+- `backend/app/Http/Controllers/Api/ContactController.php` — persists submissions
+- `backend/database/seeders/AdminRolesAndPermissionsSeeder.php` — rentals.*, contact.*
+- `backend/tests/Feature/Admin/Resources/InquiryInboxesTest.php` — new: 6 tests
+- `docs/plans/admin/v2/10-inquiry-inboxes.md` — new: Step 1.10 spec
+
 ## Step 1.9: AdminUserResource (staff management)
 **Status:** ✅ Complete
 **Started:** 2026-06-10
