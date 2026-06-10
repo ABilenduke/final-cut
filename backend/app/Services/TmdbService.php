@@ -111,6 +111,14 @@ class TmdbService
         if (! $partial) {
             $fields['trailer_key'] = ! empty($data['trailerKey']) ? $data['trailerKey'] : $movie->trailer_key;
             $fields['cast'] = ! empty($data['cast']) ? $data['cast'] : $movie->cast;
+            // Crew credits: TMDB fills the blanks, admin-authored values win
+            // (admin-v5 Plan 02). Blank admin strings count as unfilled.
+            $adminCredits = array_filter(
+                $movie->credits ?? [],
+                fn ($value) => is_string($value) && trim($value) !== '',
+            );
+            $merged = array_merge($data['crewCredits'] ?? [], $adminCredits);
+            $fields['credits'] = $merged !== [] ? $merged : $movie->credits;
             $fields['tmdb_enriched_at'] = now();
         } else {
             // Partial: preserve existing cast/trailer, don't update timestamp so retry happens sooner
@@ -182,7 +190,41 @@ class TmdbService
             'posterUrl' => $this->buildImageUrl('w500', $detail['poster_path'] ?? null),
             'backdropUrl' => $this->buildImageUrl('w1280', $detail['backdrop_path'] ?? null),
             'trailerKey' => $trailer['key'] ?? null,
+            'crewCredits' => $this->mapCrewCredits($credits['crew'] ?? []),
         ];
+    }
+
+    /**
+     * Map the TMDB crew list onto the movie's editorial credit fields
+     * (admin-v5 Plan 02). Multiple holders of one job join with a comma;
+     * jobs outside the mapping are ignored. aspect/advisory have no TMDB
+     * source and stay admin-only.
+     *
+     * @param  array<int, array<string, mixed>>  $crew
+     * @return array<string, string>
+     */
+    private function mapCrewCredits(array $crew): array
+    {
+        $jobMap = [
+            'Director' => 'director',
+            'Screenplay' => 'screenplay',
+            'Writer' => 'screenplay',
+            'Director of Photography' => 'cinematography',
+            'Editor' => 'editor',
+            'Original Music Composer' => 'composer',
+        ];
+
+        $credits = [];
+        foreach ($crew as $member) {
+            $field = $jobMap[$member['job'] ?? ''] ?? null;
+            $name = $member['name'] ?? null;
+            if ($field === null || ! is_string($name) || $name === '') {
+                continue;
+            }
+            $credits[$field] = isset($credits[$field]) ? "{$credits[$field]}, {$name}" : $name;
+        }
+
+        return $credits;
     }
 
     private function cacheFailure(string $failKey): void
