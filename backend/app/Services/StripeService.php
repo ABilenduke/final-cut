@@ -117,18 +117,24 @@ class StripeService
     }
 
     /**
-     * Issues a full refund for a captured PaymentIntent.
+     * Issues a refund for a captured PaymentIntent — full by default, partial
+     * when `$amount` (cents) is given.
      *
      * Used as a compensating action when DB writes fail after payment has
-     * already been captured, preventing orphaned charges.
+     * already been captured, and by the admin refund flow
+     * (`BookingRefundService`).
      *
      * @throws ApiErrorException
      */
-    public function refundPaymentIntent(string $paymentIntentId): Refund
+    public function refundPaymentIntent(string $paymentIntentId, ?int $amount = null): Refund
     {
-        return $this->client()->refunds->create([
-            'payment_intent' => $paymentIntentId,
-        ]);
+        $params = ['payment_intent' => $paymentIntentId];
+
+        if ($amount !== null) {
+            $params['amount'] = $amount;
+        }
+
+        return $this->client()->refunds->create($params);
     }
 
     /**

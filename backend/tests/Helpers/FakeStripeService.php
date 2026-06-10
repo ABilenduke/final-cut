@@ -58,6 +58,9 @@ class FakeStripeService extends StripeService
     /** @var int[] */
     public array $confirmTransactionLevels = [];
 
+    /** @var int[] */
+    public array $refundTransactionLevels = [];
+
     public function shouldSucceed(): static
     {
         $this->behavior = 'succeed';
@@ -99,6 +102,15 @@ class FakeStripeService extends StripeService
     {
         $this->behavior = 'non_terminal';
         $this->failureMessage = $status;
+
+        return $this;
+    }
+
+    /** Fails ONLY refundPaymentIntent — create/confirm keep succeeding. */
+    public function shouldFailRefund(string $message = 'Stripe refunds are unavailable'): static
+    {
+        $this->behavior = 'fail_refund';
+        $this->failureMessage = $message;
 
         return $this;
     }
@@ -214,9 +226,18 @@ class FakeStripeService extends StripeService
         ]);
     }
 
-    public function refundPaymentIntent(string $paymentIntentId): Refund
+    public function refundPaymentIntent(string $paymentIntentId, ?int $amount = null): Refund
     {
-        $this->refundedPaymentIntents[] = ['paymentIntentId' => $paymentIntentId];
+        $this->refundTransactionLevels[] = DB::transactionLevel();
+
+        if ($this->behavior === 'fail_refund') {
+            throw ApiConnectionException::factory(
+                $this->failureMessage,
+                503,
+            );
+        }
+
+        $this->refundedPaymentIntents[] = ['paymentIntentId' => $paymentIntentId, 'amount' => $amount];
 
         return Refund::constructFrom([
             'id' => 're_fake_xxx',
