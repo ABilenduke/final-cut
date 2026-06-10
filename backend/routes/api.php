@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BlogPostController;
 use App\Http\Controllers\Api\BookingController;
 use App\Http\Controllers\Api\CalendarEventController;
+use App\Http\Controllers\Api\CinemaReadoutController;
 use App\Http\Controllers\Api\ContactController;
 use App\Http\Controllers\Api\FaqController;
 use App\Http\Controllers\Api\FeaturedSlideController;
@@ -47,6 +48,7 @@ Route::get('/job-openings', [JobOpeningController::class, 'index']);
 Route::get('/screening-packages', [ScreeningPackageController::class, 'index']);
 Route::get('/site-content/home', [SiteContentController::class, 'home']);
 Route::get('/site-content/contacts', [SiteContentController::class, 'contacts']);
+Route::get('/cinema-readout', [CinemaReadoutController::class, 'index']);
 
 // Location-scoped resources
 Route::prefix('locations/{location}')->group(function () {

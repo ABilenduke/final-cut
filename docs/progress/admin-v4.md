@@ -5,6 +5,39 @@ loop iteration; each step lands as its own PR-sized branch.
 
 <!-- NOTE: this file accrues entries on parallel branches. On merge conflicts keep ALL step sections - they are disjoint. -->
 
+## Step 4.4: Live cinema readout
+**Status:** ✅ Complete
+**Started:** 2026-06-10
+**Completed:** 2026-06-10
+
+### Work Done
+- [2026-06-10] `GET /api/cinema-readout` (5-min cache): screenings today, doors-open
+  (earliest `locations.hours` open for today's weekday), late showing (time +
+  auditorium), seats left tonight (slate capacity minus `occupies_seat` rows).
+  `BridgeCinemaReadout` consumes it (null stats omitted; static stub only as
+  unreachable-API fallback; explicit `stats` prop still overrides). The un-derivable
+  stub lines (Members tonight / Valet) are gone from the live path by design.
+  Suites: **backend 1305, frontend 960 (+5 skipped)**, PHPStan + Pint clean.
+
+### Decisions
+- [2026-06-10] Plain 5-minute cache, no version key — time-derived telemetry, not
+  editorial content; the next request after expiry recomputes "today".
+- [2026-06-10] Honest stats only: lines with no data source were dropped from the live
+  panel rather than admin-faked.
+- [2026-06-10] PHPStan typed `locations.hours` as string (no @property; cast not
+  honored) — fixed at the model with an explicit `array|null` docblock entry.
+
+### Blockers
+- none
+
+### Files Changed
+- `backend/app/Http/Controllers/Api/CinemaReadoutController.php` (new), `backend/routes/api.php` — endpoint
+- `backend/app/Models/Location.php` — `hours` @property
+- `backend/tests/Feature/Api/CinemaReadoutTest.php` — 3 tests
+- `frontend/app/components/calendar/BridgeCinemaReadout.vue` — live consumption + fallback
+- `frontend/tests/components/calendar/BridgeCinemaReadout.test.ts` — 3 tests
+- `docs/plans/admin/v4/04-cinema-readout.md` — step spec
+
 ## Step 4.3: Movie editorial CMS
 **Status:** ✅ Complete
 **Started:** 2026-06-10
