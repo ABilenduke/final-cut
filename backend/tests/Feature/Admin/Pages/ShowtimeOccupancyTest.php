@@ -93,6 +93,8 @@ test('admin-blocked seats render as unavailable', function (): void {
 
     Livewire::test(ShowtimeOccupancy::class, ['record' => $ctx['showtime']->id])
         ->assertSet('counts.unavailable', 1)
+        // Capacity means SELLABLE capacity — blocked seats leave the denominator.
+        ->assertSet('counts.capacity', 4)
         ->assertSet("seatStates.{$ctx['seats'][4]->id}.state", 'unavailable');
 });
 

@@ -106,8 +106,13 @@ class ShowtimeOccupancy extends Page
             ->orderBy('number')
             ->get();
 
+        // Capacity means SELLABLE capacity — the same semantics as
+        // auditorium.total_seats (which AuditoriumService recomputes
+        // excluding unavailable_at seats). Admin-blocked seats render on
+        // the grid and get their own count, but never inflate the
+        // "occupied / capacity" denominator.
         $counts = [
-            'capacity' => $seats->count(),
+            'capacity' => $seats->filter(fn ($seat) => $seat->unavailable_at === null)->count(),
             'sold' => 0,
             'held' => 0,
             'refund_pending' => 0,

@@ -423,8 +423,12 @@ class ShowtimeResource extends BaseResource
             ->with(['movie', 'auditorium.location'])
             ->withCount('bookings')
             // Feeds the list page's occupancy column off the occupancy
-            // guard's own flag, one aggregate per row.
-            ->withCount(['bookingSeats as occupied_seats_count' => fn (Builder $q) => $q->where('occupies_seat', true)]);
+            // guard's own flag, one aggregate per row. seat_id IS NOT NULL
+            // mirrors the guard's partial-index predicate — orphaned rows
+            // (seat deleted after booking) must not inflate the count.
+            ->withCount(['bookingSeats as occupied_seats_count' => fn (Builder $q) => $q
+                ->where('occupies_seat', true)
+                ->whereNotNull('seat_id')]);
     }
 
     /** Derive the badge status from persisted columns — shared by column + filter. */
