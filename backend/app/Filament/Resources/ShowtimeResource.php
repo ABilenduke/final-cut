@@ -151,6 +151,15 @@ class ShowtimeResource extends BaseResource
                     ->label('Access')
                     ->formatStateUsing(fn ($state) => self::centsToDisplay($state))
                     ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('occupancy')
+                    ->label('Occupancy')
+                    // `occupied_seats_count` + the eager-loaded auditorium come
+                    // from getEloquentQuery() — no per-row queries.
+                    ->getStateUsing(fn (Showtime $record): string => sprintf(
+                        '%d / %d',
+                        $record->occupied_seats_count ?? 0,
+                        $record->auditorium->total_seats,
+                    )),
                 TextColumn::make('status')
                     ->badge()
                     ->getStateUsing(fn (Showtime $record): string => self::deriveStatus($record))
@@ -400,6 +409,7 @@ class ShowtimeResource extends BaseResource
             'create' => Pages\CreateShowtime::route('/create'),
             'bulk_create' => Pages\BulkCreateShowtimes::route('/bulk-create'),
             'view' => Pages\ViewShowtime::route('/{record}'),
+            'occupancy' => Pages\ShowtimeOccupancy::route('/{record}/occupancy'),
             'edit' => Pages\EditShowtime::route('/{record}/edit'),
         ];
     }
@@ -411,7 +421,14 @@ class ShowtimeResource extends BaseResource
         // off the eager-loaded aggregate instead.
         return parent::getEloquentQuery()
             ->with(['movie', 'auditorium.location'])
-            ->withCount('bookings');
+            ->withCount('bookings')
+            // Feeds the list page's occupancy column off the occupancy
+            // guard's own flag, one aggregate per row. seat_id IS NOT NULL
+            // mirrors the guard's partial-index predicate — orphaned rows
+            // (seat deleted after booking) must not inflate the count.
+            ->withCount(['bookingSeats as occupied_seats_count' => fn (Builder $q) => $q
+                ->where('occupies_seat', true)
+                ->whereNotNull('seat_id')]);
     }
 
     /** Derive the badge status from persisted columns — shared by column + filter. */
