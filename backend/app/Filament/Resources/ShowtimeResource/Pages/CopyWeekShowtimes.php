@@ -149,8 +149,10 @@ class CopyWeekShowtimes extends Page implements HasForms
             } else {
                 $conflicting[] = [
                     'label' => $label,
+                    // Same venue timezone as the row label — mixing zones in
+                    // one preview line would mislead conflict diagnosis.
                     'conflicts' => $row['conflicts']
-                        ->map(fn (Showtime $s) => $s->movie->title.' @ '.$s->start_time->format('M j g:i A'))
+                        ->map(fn (Showtime $s) => $s->movie->title.' @ '.$s->start_time->copy()->setTimezone($tz)->format('M j g:i A'))
                         ->all(),
                 ];
             }
