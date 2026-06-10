@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Observers\FeaturedSlideObserver;
 use App\Observers\MenuItemObserver;
+use App\Observers\TickerItemObserver;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
 
@@ -36,6 +37,7 @@ class RefreshContentCacheVersions extends Command
         $keys = [
             FeaturedSlideObserver::CACHE_VERSION_KEY,
             MenuItemObserver::CACHE_VERSION_KEY,
+            TickerItemObserver::CACHE_VERSION_KEY,
         ];
 
         foreach ($keys as $key) {

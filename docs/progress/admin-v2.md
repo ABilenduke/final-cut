@@ -5,6 +5,44 @@ loop iteration; each step lands as its own PR-sized branch.
 
 <!-- NOTE: this file accrues entries on parallel branches. On merge conflicts keep ALL step sections - they are disjoint. -->
 
+## Step 2.1: Neural Ticker CMS pilot (Phase 2 opener)
+**Status:** ✅ Complete
+**Started:** 2026-06-10
+**Completed:** 2026-06-10
+
+### Work Done
+- [2026-06-10] First full-stack CMS vertical — the template every Phase-2 step copies:
+  model → observer-bumped versioned cache → Filament resource → public API → composable →
+  layout wiring with hardcoded fallback. TDD both sides: 5 backend + 5 frontend tests
+  first. Full suites: **backend 1228 passed, frontend 919 passed** (5 pre-existing skips).
+  PHPStan + Pint clean. Dev DB migrated + ticker/permission seeders applied.
+
+### Decisions
+- [2026-06-10] Field shape is `{label, text, href?}` matching the live NeuralTicker
+  contract (the plan index said `message` — reality won). Publish/window semantics cloned
+  from FeaturedSlide verbatim (`scopeActive`, `displayStatus`).
+- [2026-06-10] The fallback rule lives in a PURE function (`resolveTickerItems`) exported
+  from the composable so the layout stays dumb and the rule is unit-testable: API items
+  when non-empty, the hardcoded brand items otherwise — the ticker never renders empty,
+  even with an unreachable API on ISR pages.
+- [2026-06-10] `marketing.ticker.*` granted to admin + manager (mirrors featured_slides).
+- [2026-06-10] Testing gotcha (same family as callAction data): Filament v5 `fillForm()`
+  doesn't bind on page tests either — use `->set('data.field', …)`.
+
+### Files Changed
+- `backend/database/migrations/2026_06_10_010000_create_ticker_items_table.php` — new
+- `backend/app/Models/TickerItem.php` + factory + `TickerItemObserver` — new
+- `backend/app/Http/Controllers/Api/TickerItemController.php` + `Http/Resources/TickerItemResource.php` — new
+- `backend/app/Filament/Resources/TickerItemResource.php` (+ 3 pages) — new
+- `backend/routes/api.php` — GET /api/ticker-items
+- `backend/app/Providers/AppServiceProvider.php` — observer registration
+- `backend/app/Console/Commands/RefreshContentCacheVersions.php` — ticker version key
+- `backend/database/seeders/TickerItemSeeder.php` — new (9 legacy items); DatabaseSeeder wired
+- `backend/database/seeders/AdminRolesAndPermissionsSeeder.php` — marketing.ticker.*
+- `frontend/app/types/ticker-item.ts`, `app/composables/useTickerItems.ts` — new
+- `frontend/app/layouts/default.vue` — API-driven ticker with brand fallback
+- `backend/tests/.../TickerItemResourceTest.php` (5), `frontend/tests/composables/useTickerItems.test.ts` (5) — new
+
 ## Step 1.10: Rental-inquiry + contact-message inboxes
 **Status:** ✅ Complete — **PHASE 1 COMPLETE** (all ten bookings/scheduling/ops steps done)
 **Started:** 2026-06-10
