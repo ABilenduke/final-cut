@@ -1,7 +1,13 @@
 <script setup lang="ts">
 import { membershipContent } from '~/data/homepage'
+import { useHomeContent, resolveMembershipContent } from '~/composables/useSiteContent'
 
-const m = membershipContent
+// Admin-editable via the Home page content form (admin-v2 Plan 15); the
+// static copy stays as the fallback until the first admin save.
+const { data } = useHomeContent()
+const m = computed(() =>
+  resolveMembershipContent(data.value?.data?.membership ?? null, membershipContent),
+)
 </script>
 
 <template>

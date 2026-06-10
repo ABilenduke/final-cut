@@ -1,8 +1,9 @@
 // Static content for the Final Cut home page.
 // The food ("Provisions for the programme.") and retrospective ("Kubrick in the
 // grain.") sections are now API-backed — see HomeFoodDrink.vue / HomeRetrospectiveSplit.vue.
-// What remains here is editorial chrome with no API counterpart yet: the membership
-// pitch and the hero's sample-showtime chips.
+// The membership pitch is admin-editable via /api/site-content/home (admin-v2
+// Plan 15); `membershipContent` below stays as the render fallback until the
+// first admin save. Only the hero's sample-showtime chips remain static.
 
 export interface MembershipPerk {
   title: string

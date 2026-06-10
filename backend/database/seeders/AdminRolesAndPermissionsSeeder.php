@@ -66,6 +66,8 @@ class AdminRolesAndPermissionsSeeder extends Seeder
         'content.careers.update', 'content.careers.delete',
         'content.packages.view', 'content.packages.create',
         'content.packages.update', 'content.packages.delete',
+        // Content — Site settings (home page editorial blobs)
+        'content.site_settings.update',
     ];
 
     public const MANAGER_PERMISSIONS = [
@@ -99,6 +101,8 @@ class AdminRolesAndPermissionsSeeder extends Seeder
         'content.careers.update', 'content.careers.delete',
         'content.packages.view', 'content.packages.create',
         'content.packages.update', 'content.packages.delete',
+        // Content — Site settings (home page editorial blobs)
+        'content.site_settings.update',
     ];
 
     public const OPS_PERMISSIONS = [
