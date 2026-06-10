@@ -218,7 +218,12 @@ test('refundPaymentIntent calls Stripe refunds create with correct payment inten
 
     $refundService->shouldReceive('create')
         ->once()
-        ->with(Mockery::on(fn (array $params) => $params['payment_intent'] === 'pi_test_abc123'))
+        ->with(
+            // Full refund: no amount key; no idempotency key → empty options.
+            Mockery::on(fn (array $params) => $params['payment_intent'] === 'pi_test_abc123'
+                && ! array_key_exists('amount', $params)),
+            [],
+        )
         ->andReturn(Refund::constructFrom([
             'id' => 're_test_xyz',
             'object' => 'refund',
@@ -232,6 +237,32 @@ test('refundPaymentIntent calls Stripe refunds create with correct payment inten
     expect($result)->toBeInstanceOf(Refund::class)
         ->and($result->status)->toBe('succeeded')
         ->and($result->payment_intent)->toBe('pi_test_abc123');
+});
+
+test('refundPaymentIntent forwards a partial amount and idempotency key when given', function () {
+    [$client, $piService] = mockStripeClient();
+
+    $refundService = Mockery::mock(RefundService::class);
+    $client->refunds = $refundService;
+
+    $refundService->shouldReceive('create')
+        ->once()
+        ->with(
+            Mockery::on(fn (array $params) => $params['payment_intent'] === 'pi_test_abc123'
+                && $params['amount'] === 1250),
+            ['idempotency_key' => 'booking_refund:b-1'],
+        )
+        ->andReturn(Refund::constructFrom([
+            'id' => 're_test_partial',
+            'object' => 'refund',
+            'payment_intent' => 'pi_test_abc123',
+            'status' => 'succeeded',
+        ]));
+
+    $service = new StripeService(client: $client);
+    $result = $service->refundPaymentIntent('pi_test_abc123', 1250, 'booking_refund:b-1');
+
+    expect($result->id)->toBe('re_test_partial');
 });
 
 test('service reads stripe secret key from config when no key provided', function () {
