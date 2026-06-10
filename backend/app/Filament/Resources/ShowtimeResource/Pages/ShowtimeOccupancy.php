@@ -8,6 +8,7 @@ use App\Filament\Resources\ShowtimeResource;
 use App\Models\Booking;
 use App\Models\BookingSeat;
 use App\Models\Showtime;
+use App\Services\SeatAvailabilityService;
 use Filament\Resources\Pages\Page;
 use Illuminate\Contracts\Support\Htmlable;
 
@@ -89,8 +90,22 @@ class ShowtimeOccupancy extends Page
 
     protected function loadState(): void
     {
-        $showtime = $this->getRecord();
+        $derived = self::seatStatesFor($this->getRecord());
 
+        $this->seatStates = $derived['states'];
+        $this->counts = $derived['counts'];
+        $this->seatsPerRow = $derived['seatsPerRow'];
+    }
+
+    /**
+     * Shared seat-state derivation — used by this page and by the walk-up
+     * sale's seat picker (admin-v2 Plan 05) so both surfaces can never
+     * disagree about what is takeable.
+     *
+     * @return array{states: array<string, array<string, mixed>>, counts: array<string, int>, seatsPerRow: int}
+     */
+    public static function seatStatesFor(Showtime $showtime): array
+    {
         // The occupancy guard keeps occupies_seat in lockstep with the parent
         // booking's status — one row per (showtime, seat) can be true at most.
         $occupants = BookingSeat::query()
@@ -146,11 +161,16 @@ class ShowtimeOccupancy extends Page
                 'number' => $seat->number,
                 'state' => $state,
                 'confirmation_code' => $occupantBooking?->confirmation_code,
+                // Section-multiplied price — the walk-up picker's running
+                // total must match what reserveSeats() will charge.
+                'price' => SeatAvailabilityService::priceForSeat($showtime, $seat),
             ];
         }
 
-        $this->seatStates = $states;
-        $this->counts = $counts;
-        $this->seatsPerRow = (int) ($seats->max('number') ?? 0);
+        return [
+            'states' => $states,
+            'counts' => $counts,
+            'seatsPerRow' => (int) ($seats->max('number') ?? 0),
+        ];
     }
 }

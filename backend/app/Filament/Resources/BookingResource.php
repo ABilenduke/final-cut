@@ -84,6 +84,7 @@ class BookingResource extends BaseResource
     {
         return [
             'index' => Pages\ListBookings::route('/'),
+            'walkup' => Pages\CreateWalkUpBooking::route('/walk-up'),
             'view' => Pages\ViewBooking::route('/{record}'),
         ];
     }

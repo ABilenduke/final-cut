@@ -5,6 +5,46 @@ loop iteration; each step lands as its own PR-sized branch.
 
 <!-- NOTE: this file accrues entries on parallel branches. On merge conflicts keep ALL step sections - they are disjoint. -->
 
+## Step 1.5: Walk-up / POS booking creation
+**Status:** ✅ Complete
+**Started:** 2026-06-10
+**Completed:** 2026-06-10
+
+### Work Done
+- [2026-06-10] TDD: 9 tests first (service + page), then implementation. Full backend suite:
+  **1207 passed**. PHPStan + Pint clean. Built on merged main (all 6 prior PRs landed,
+  including #66's review-driven refund idempotency keys and two CI-caught fixes: the
+  transaction-pinned-NOW outbox test flake and the blank `DEFAULT_LOCATION_TIMEZONE` crash).
+
+### Decisions
+- [2026-06-10] Walk-up bookings go **straight to Confirmed** — no Held phase: there is no
+  Stripe wait, so the showtime lock is held for the entire short transaction (same lock the
+  customer checkout takes in Phase A; the occupancy guard remains the TOCTOU backstop).
+- [2026-06-10] `PaymentMethod` gains `Cash` / `Comp` / `PosCard` + `posMethods()`; the
+  service refuses non-POS methods. **Comp records the seat value as `discount` with
+  `total = 0`** so the dashboard revenue KPI (sum of `total`) stays honest.
+- [2026-06-10] Seat-state derivation extracted to `ShowtimeOccupancy::seatStatesFor()`
+  (now carrying section-multiplied per-seat prices) so the occupancy map and the walk-up
+  picker can never disagree about takeable seats.
+- [2026-06-10] v1 scope guard: seats only — no food, promo, gift cards, or Stripe Terminal.
+- [2026-06-10] Wire-contract note: `cash`/`comp`/`pos_card` values can reach the customer
+  lookup payload for walk-up bookings; the TS `Booking.paymentMethod` union is doc-level
+  and tolerant, but worth aligning when the frontend types are next touched.
+
+### Files Changed
+- `backend/app/Services/WalkUpBookingService.php` — new
+- `backend/app/Exceptions/WalkUpBookingException.php` — new
+- `backend/app/Enums/PaymentMethod.php` — POS cases + posMethods()
+- `backend/app/Filament/Resources/BookingResource/Pages/CreateWalkUpBooking.php` — new page
+- `backend/resources/views/filament/resources/booking-resource/pages/create-walk-up-booking.blade.php` — new
+- `backend/app/Filament/Resources/ShowtimeResource/Pages/ShowtimeOccupancy.php` — seatStatesFor() extraction
+- `backend/app/Filament/Resources/BookingResource.php` — walkup route
+- `backend/app/Filament/Resources/BookingResource/Pages/ListBookings.php` — Walk-up sale action
+- `backend/database/seeders/AdminRolesAndPermissionsSeeder.php` — bookings.create_walkup
+- `backend/tests/Feature/Admin/Services/WalkUpBookingServiceTest.php` — new: 5 tests
+- `backend/tests/Feature/Admin/Pages/CreateWalkUpBookingTest.php` — new: 4 tests
+- `docs/plans/admin/v2/05-walkup-bookings.md` — new: Step 1.5 spec
+
 ## Step 1.7: Dashboard KPI widgets
 **Status:** ✅ Complete
 **Started:** 2026-06-09
