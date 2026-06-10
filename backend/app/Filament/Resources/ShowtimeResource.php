@@ -408,6 +408,7 @@ class ShowtimeResource extends BaseResource
             'index' => Pages\ListShowtimes::route('/'),
             'create' => Pages\CreateShowtime::route('/create'),
             'bulk_create' => Pages\BulkCreateShowtimes::route('/bulk-create'),
+            'copy_week' => Pages\CopyWeekShowtimes::route('/copy-week'),
             'view' => Pages\ViewShowtime::route('/{record}'),
             'occupancy' => Pages\ShowtimeOccupancy::route('/{record}/occupancy'),
             'edit' => Pages\EditShowtime::route('/{record}/edit'),
