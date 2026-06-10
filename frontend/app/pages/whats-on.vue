@@ -255,11 +255,28 @@ useHead({
 
     <div class="whats-on-bridge__layout">
       <BridgeMonthGrid
+        v-if="view === 'month'"
         :events="visibleEvents"
         :selected-date="selectedDate"
         :today-date="todayDate"
         :month="month"
         :year="year"
+        @select-date="onSelectDate"
+      />
+      <BridgeWeekStrip
+        v-else-if="view === 'week'"
+        :events="visibleEvents"
+        :selected-date="selectedDate"
+        :today-date="todayDate"
+        :month="month"
+        :year="year"
+        @select-date="onSelectDate"
+      />
+      <BridgeAgendaList
+        v-else
+        :events="visibleEvents"
+        :selected-date="selectedDate"
+        :today-date="todayDate"
         @select-date="onSelectDate"
       />
 

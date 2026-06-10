@@ -5,6 +5,35 @@ loop iteration; each step lands as its own PR-sized branch.
 
 <!-- NOTE: this file accrues entries on parallel branches. On merge conflicts keep ALL step sections - they are disjoint. -->
 
+## Step 5.4: Calendar Week/List views
+**Status:** ✅ Complete
+**Started:** 2026-06-10
+**Completed:** 2026-06-10
+
+### Work Done
+- [2026-06-10] `BridgeWeekStrip` (Mon-start week of the selected date, uncapped per-day
+  listings, muted out-of-month days, same select-date/rail contract) and
+  `BridgeAgendaList` (chronological month agenda grouped by day, empty state) wired
+  into the page's existing `?view=` state; toolbar Week/List un-disabled and the stale
+  "disabled" pin inverted. Both consume page-provided `todayDate` (date-hydration rule).
+  Suites: **frontend 968 (+5 skipped), backend 1310**, PHPStan + Pint clean.
+
+### Decisions
+- [2026-06-10] Prev/today/next stay month-based in every view — the data window is the
+  month payload; week-stepping would need cross-month fetches for boundary weeks.
+- [2026-06-10] Out-of-month days in a boundary week render muted rather than fetching a
+  second month.
+
+### Blockers
+- none
+
+### Files Changed
+- `frontend/app/components/calendar/BridgeWeekStrip.vue`, `BridgeAgendaList.vue` — new views
+- `frontend/app/components/calendar/BridgeProgrammeToolbar.vue` — options enabled
+- `frontend/app/pages/whats-on.vue` — view switch
+- `frontend/tests/components/calendar/BridgeWeekStrip.test.ts`, `BridgeAgendaList.test.ts` (new), `BridgeProgrammeToolbar.test.ts` (pin inverted)
+- `docs/plans/admin/v5/04-calendar-views.md` — step spec
+
 ## Step 5.3: Pay with saved card
 **Status:** ✅ Complete
 **Started:** 2026-06-10

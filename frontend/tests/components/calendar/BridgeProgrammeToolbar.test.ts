@@ -52,12 +52,12 @@ describe('BridgeProgrammeToolbar', () => {
     expect(wrapper.emitted('next')).toHaveLength(1)
   })
 
-  it('renders Week and List as disabled in the segmented control', async () => {
+  it('renders Week and List as live options (enabled in admin-v5 Plan 04)', async () => {
     const wrapper = await mountSuspended(BridgeProgrammeToolbar, { props: baseProps })
     const buttons = wrapper.findAll('.cv-segmented__btn')
     const week = buttons.find((b) => b.text() === 'Week')!
     const list = buttons.find((b) => b.text() === 'List')!
-    expect(week.classes()).toContain('cv-segmented__btn--disabled')
-    expect(list.classes()).toContain('cv-segmented__btn--disabled')
+    expect(week.classes()).not.toContain('cv-segmented__btn--disabled')
+    expect(list.classes()).not.toContain('cv-segmented__btn--disabled')
   })
 })
