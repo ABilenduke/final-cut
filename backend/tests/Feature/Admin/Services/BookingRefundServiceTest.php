@@ -7,6 +7,7 @@ use App\Enums\PaymentMethod;
 use App\Exceptions\BookingNotRefundableException;
 use App\Models\Booking;
 use App\Models\BookingSeat;
+use App\Models\DispatchOutbox;
 use App\Models\GiftCard;
 use App\Models\GiftCardLedgerEntry;
 use App\Models\LoyaltyAdjustment;
@@ -366,6 +367,29 @@ test('previewSplit reports the split without mutating anything', function (): vo
         ->and($booking->refund_initiated_at)->toBeNull();
     expect($this->stripe->refundedPaymentIntents)->toBeEmpty();
     expect($user->refresh()->loyalty_points)->toBe(100);
+});
+
+// ── Outbox handoff (Step 1.2) ───────────────────────────────────────────────
+
+test('refund writes a booking.refunded outbox row with the split payload', function (): void {
+    ['booking' => $booking] = refundFixture(['discount' => 500, 'total' => 2500]);
+    redeemGiftAgainst($booking, 500);
+
+    $this->service->refund($booking, 'with notification', null);
+
+    $row = DispatchOutbox::where('event_type', BookingRefundService::EVENT_REFUNDED)->first();
+    expect($row)->not->toBeNull()
+        ->and($row->payload['booking_id'])->toBe($booking->id)
+        ->and($row->payload['card_refund'])->toBe(2500)
+        ->and($row->payload['gift_restored'])->toBe(500);
+});
+
+test('cancelling a held booking writes no outbox row', function (): void {
+    ['booking' => $booking] = refundFixture(['status' => BookingStatus::Held]);
+
+    $this->service->refund($booking, 'releasing hold', null);
+
+    expect(DispatchOutbox::count())->toBe(0);
 });
 
 test('fake stripe service is bound for this suite', function (): void {

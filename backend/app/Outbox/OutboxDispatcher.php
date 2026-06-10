@@ -4,7 +4,11 @@ namespace App\Outbox;
 
 use App\Jobs\NotifyCustomerOfShowtimeCancellation;
 use App\Jobs\NotifyFinanceOfGiftCardVoid;
+use App\Jobs\SendBookingConfirmation;
+use App\Jobs\SendBookingRefundConfirmation;
 use App\Models\DispatchOutbox;
+use App\Services\BookingNotificationService;
+use App\Services\BookingRefundService;
 use App\Services\GiftCardService;
 use App\Services\ShowtimeService;
 use InvalidArgumentException;
@@ -42,10 +46,34 @@ class OutboxDispatcher
         match ($row->event_type) {
             ShowtimeService::EVENT_CANCELLED => $this->dispatchShowtimeCancelled($row, $payload),
             GiftCardService::EVENT_VOIDED => $this->dispatchGiftCardVoided($row, $payload),
+            BookingRefundService::EVENT_REFUNDED => $this->dispatchBookingRefunded($row, $payload),
+            BookingNotificationService::EVENT_CONFIRMATION_RESEND => $this->dispatchBookingConfirmationResend($row, $payload),
             default => throw new InvalidArgumentException(
                 "Unknown outbox event_type: {$row->event_type}",
             ),
         };
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function dispatchBookingRefunded(DispatchOutbox $row, array $payload): void
+    {
+        SendBookingRefundConfirmation::dispatch(
+            (string) $this->requirePayloadValue($row, $payload, 'booking_id'),
+            (int) $this->requirePayloadValue($row, $payload, 'card_refund'),
+            (int) $this->requirePayloadValue($row, $payload, 'gift_restored'),
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function dispatchBookingConfirmationResend(DispatchOutbox $row, array $payload): void
+    {
+        SendBookingConfirmation::dispatch(
+            (string) $this->requirePayloadValue($row, $payload, 'booking_id'),
+        );
     }
 
     /**

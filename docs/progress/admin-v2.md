@@ -3,6 +3,50 @@
 Execution journal for [`docs/plans/admin/v2/`](../plans/admin/v2/00-index.md). One step per
 loop iteration; each step lands as its own PR-sized branch.
 
+## Step 1.2: Refund + confirmation notifications via outbox
+**Status:** ✅ Complete
+**Started:** 2026-06-09
+**Completed:** 2026-06-09
+
+### Work Done
+- [2026-06-09] TDD: 18 new tests (outbox round-trips, dispatcher arms, jobs with Mail::fake,
+  mailable rendering, resend service) + 2 added to `BookingRefundServiceTest`. Full backend
+  suite green: **1160 passed / 4252 assertions**. PHPStan + Pint clean.
+- [2026-06-09] Branch `feat/admin-v2-refund-notifications` stacked on Step 1.1's branch
+  (PR targets it — the refund service must never emit an event type the dispatcher can't map).
+
+### Decisions
+- [2026-06-09] `booking.refunded` outbox row written ONLY for Refunded targets — a
+  Held→Cancelled release moved no money and the customer never finished checkout, so no email.
+- [2026-06-09] Refund amounts ride in the outbox payload (not re-derived by the job) so the
+  email always states what the refund actually moved.
+- [2026-06-09] `BookingConfirmationMail` is the FIRST booking-confirmation email in the
+  system (customers previously got only Stripe's hosted receipt). Auto-sending it from the
+  customer checkout flow is deliberately out of scope here (no scope creep) — flagged as a
+  candidate follow-up step for the backlog.
+- [2026-06-09] `resendConfirmation` validates Confirmed status + recipient up front and throws
+  `BookingNotResendableException` so Filament (Step 1.3) gets immediate feedback instead of a
+  silently no-oping queued job.
+
+### Blockers
+- [2026-06-09] Pint PostToolUse hook strips imports added before their usages exist (two-edit
+  sequences) — bit twice (`BookingRefundService`, `OutboxDispatcher`); symptom is
+  `Class "App\Services\DispatchOutbox" not found` style errors or outbox rows cycling as
+  "retryable failures". Fix: re-add imports after the usage edit. (Known gotcha, reconfirmed.)
+
+### Files Changed
+- `backend/app/Services/BookingNotificationService.php` — new: resendConfirmation
+- `backend/app/Services/BookingRefundService.php` — Phase C writes booking.refunded outbox row
+- `backend/app/Outbox/OutboxDispatcher.php` — two new match arms
+- `backend/app/Jobs/SendBookingRefundConfirmation.php`, `SendBookingConfirmation.php` — new
+- `backend/app/Mail/BookingRefundedMail.php`, `BookingConfirmationMail.php` — new
+- `backend/resources/views/mail/booking-refunded.blade.php`, `booking-confirmation.blade.php` — new
+- `backend/app/Exceptions/BookingNotResendableException.php` — new
+- `backend/tests/Feature/Outbox/BookingNotificationOutboxTest.php` — new: 9 tests
+- `backend/tests/Feature/Admin/Services/BookingNotificationServiceTest.php` — new: 7 tests
+- `backend/tests/Feature/Admin/Services/BookingRefundServiceTest.php` — +2 outbox tests
+- `docs/plans/admin/v2/02-refund-notifications.md` — new: Step 1.2 spec
+
 ## Step 1.1: BookingRefundService
 **Status:** ✅ Complete
 **Started:** 2026-06-09
