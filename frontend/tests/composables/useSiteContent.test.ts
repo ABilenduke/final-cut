@@ -8,7 +8,8 @@ vi.mock('~/utils/api', () => ({
 }))
 
 import { useApiFetch } from '~/utils/api'
-import { useHomeContent, resolveMembershipContent } from '~/composables/useSiteContent'
+import { useHomeContent, resolveMembershipContent, useSiteContacts, resolveSiteContacts } from '~/composables/useSiteContent'
+import { fallbackSiteContacts } from '~/data/siteContacts'
 
 const mockUseApiFetch = vi.mocked(useApiFetch)
 
@@ -59,5 +60,35 @@ describe('resolveMembershipContent', () => {
   it('returns the admin-saved blob when present', () => {
     const saved: MembershipContent = { ...FALLBACK, copy: 'Saved in the admin.' }
     expect(resolveMembershipContent(saved, FALLBACK)).toBe(saved)
+  })
+})
+
+describe('useSiteContacts', () => {
+  it('fetches /api/site-content/contacts with an SSR-dedup key', () => {
+    mockUseApiFetch.mockReturnValue({
+      data: ref(null),
+      pending: ref(false),
+      error: ref(null),
+      refresh: vi.fn(),
+    } as any)
+
+    useSiteContacts()
+
+    expect(mockUseApiFetch).toHaveBeenCalledWith(
+      '/api/site-content/contacts',
+      expect.objectContaining({ key: 'site-content-contacts' }),
+    )
+  })
+})
+
+describe('resolveSiteContacts', () => {
+  it('returns the fallback when the API blob is null', () => {
+    expect(resolveSiteContacts(null, fallbackSiteContacts)).toBe(fallbackSiteContacts)
+    expect(resolveSiteContacts(undefined, fallbackSiteContacts)).toBe(fallbackSiteContacts)
+  })
+
+  it('returns the admin-saved blob when present', () => {
+    const saved = { ...fallbackSiteContacts, conciergeEmail: 'vip@finalcut.test' }
+    expect(resolveSiteContacts(saved, fallbackSiteContacts)).toBe(saved)
   })
 })

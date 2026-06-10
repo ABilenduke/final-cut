@@ -35,4 +35,25 @@ class SiteContentController extends Controller
 
         return $this->successResponse($data);
     }
+
+    /**
+     * GET /api/site-content/contacts
+     *
+     * Site-wide contact details (footer line, support emails). `contacts`
+     * is null until an admin saves the Site contacts form — the frontend
+     * renders its built-in fallback values. Versioned cache as elsewhere.
+     */
+    public function contacts(): JsonResponse
+    {
+        $version = (int) Cache::get(SiteSettingObserver::CACHE_VERSION_KEY, 0);
+        $cacheKey = "site_content_contacts:v{$version}";
+
+        $data = Cache::remember($cacheKey, 300, function () {
+            return [
+                'contacts' => $this->settings->get(SiteSettingsService::KEY_SITE_CONTACTS),
+            ];
+        });
+
+        return $this->successResponse($data);
+    }
 }

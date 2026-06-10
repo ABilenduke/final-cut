@@ -1,4 +1,12 @@
 <script setup lang="ts">
+import { fallbackSiteContacts } from '~/data/siteContacts'
+import { useSiteContacts, resolveSiteContacts } from '~/composables/useSiteContent'
+
+const { data: contactsData } = useSiteContacts()
+const contacts = computed(() =>
+  resolveSiteContacts(contactsData.value?.data?.contacts ?? null, fallbackSiteContacts),
+)
+
 useHead({
   title: 'Privacy — Final Cut',
   meta: [
@@ -45,7 +53,7 @@ useHead({
       <section class="legal-page__section">
         <h2 class="legal-page__heading headline-sm">Contact</h2>
         <p class="legal-page__text body-md">
-          Privacy questions can be sent to <a href="mailto:privacy@finalcut.test">privacy@finalcut.test</a>.
+          Privacy questions can be sent to <a :href="`mailto:${contacts.privacyEmail}`">{{ contacts.privacyEmail }}</a>.
         </p>
       </section>
     </div>

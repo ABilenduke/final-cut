@@ -49,7 +49,7 @@ export default defineNuxtConfig({
     '/blog/**': { isr: 600 },
     '/contact': { isr: 1800 },
     '/faq': { isr: 1800 },
-    '/accessibility': { prerender: true },
+    '/accessibility': { isr: 1800 }, // admin-v3 Plan 02: contacts are API-served now
     '/careers': { isr: 1800 },
     '/private-screenings': { isr: 1800 },
     '/gift-cards': { isr: 1800 },

@@ -47,6 +47,8 @@ beforeEach(() => {
   mockUseApiFetch.mockImplementation(((path: string) => {
     if (path === '/api/job-openings') return fetchTuple(OPENINGS)
     if (path === '/api/faq') return fetchTuple(FAQ)
+    // Site contacts (admin-v3 Plan 02): null → pages render fallback values.
+    if (path === '/api/site-content/contacts') return fetchTuple({ contacts: null })
     throw new Error(`Unexpected fetch: ${path}`)
   }) as any)
 })

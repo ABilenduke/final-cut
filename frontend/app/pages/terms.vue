@@ -1,4 +1,12 @@
 <script setup lang="ts">
+import { fallbackSiteContacts } from '~/data/siteContacts'
+import { useSiteContacts, resolveSiteContacts } from '~/composables/useSiteContent'
+
+const { data: contactsData } = useSiteContacts()
+const contacts = computed(() =>
+  resolveSiteContacts(contactsData.value?.data?.contacts ?? null, fallbackSiteContacts),
+)
+
 useHead({
   title: 'Terms — Final Cut',
   meta: [
@@ -45,7 +53,7 @@ useHead({
       <section class="legal-page__section">
         <h2 class="legal-page__heading headline-sm">Contact</h2>
         <p class="legal-page__text body-md">
-          Questions about these terms can be sent to <a href="mailto:hello@finalcut.test">hello@finalcut.test</a>.
+          Questions about these terms can be sent to <a :href="`mailto:${contacts.generalEmail}`">{{ contacts.generalEmail }}</a>.
         </p>
       </section>
     </div>

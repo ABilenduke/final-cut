@@ -1,4 +1,13 @@
 <script setup lang="ts">
+import { telHref } from '~/data/siteContacts'
+import { fallbackSiteContacts } from '~/data/siteContacts'
+import { useSiteContacts, resolveSiteContacts } from '~/composables/useSiteContent'
+
+const { data: contactsData } = useSiteContacts()
+const contacts = computed(() =>
+  resolveSiteContacts(contactsData.value?.data?.contacts ?? null, fallbackSiteContacts),
+)
+
 useHead({
   title: 'Accessibility — Final Cut',
   meta: [
@@ -91,11 +100,11 @@ useHead({
         <div class="accessibility-page__contact">
           <p class="body-md">
             <strong>Email:</strong>
-            <a href="mailto:accessibility@finalcut.test" class="accessibility-page__link">accessibility@finalcut.test</a>
+            <a :href="`mailto:${contacts.accessibilityEmail}`" class="accessibility-page__link">{{ contacts.accessibilityEmail }}</a>
           </p>
           <p class="body-md">
             <strong>Phone:</strong>
-            <a href="tel:+12125550199" class="accessibility-page__link">212-555-0199</a>
+            <a :href="telHref(contacts.accessibilityPhone)" class="accessibility-page__link">{{ contacts.accessibilityPhone }}</a>
           </p>
         </div>
       </section>

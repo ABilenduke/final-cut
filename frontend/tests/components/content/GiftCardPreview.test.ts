@@ -1,5 +1,19 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { mountSuspended } from '@nuxt/test-utils/runtime'
+import { ref } from 'vue'
+
+// The concierge contact line is admin-editable (admin-v3 Plan 02) — mock the
+// API transport; null → component renders the built-in fallback values.
+vi.mock('~/utils/api', () => ({
+  apiFetch: vi.fn(),
+  useApiFetch: vi.fn(() => ({
+    data: ref({ data: { contacts: null } }),
+    pending: ref(false),
+    error: ref(null),
+    refresh: vi.fn(),
+  })),
+}))
+
 import GiftCardPreview from '~/components/content/GiftCardPreview.vue'
 import { useGiftCardComposer } from '~/composables/useGiftCardComposer'
 

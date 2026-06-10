@@ -5,6 +5,41 @@ loop iteration; each step lands as its own PR-sized branch.
 
 <!-- NOTE: this file accrues entries on parallel branches. On merge conflicts keep ALL step sections - they are disjoint. -->
 
+## Step 3.2: Site contacts CMS
+**Status:** ✅ Complete
+**Started:** 2026-06-10
+**Completed:** 2026-06-10
+
+### Work Done
+- [2026-06-10] `site_contacts` blob in the keyed `site_settings` store + `SiteContacts`
+  Filament page (Content group, same `content.site_settings.update` gate) + cached
+  `GET /api/site-content/contacts`. Frontend: `useSiteContacts()` consumed by the footer
+  and seven contact surfaces (accessibility/terms/privacy/careers/gift-cards×3) with
+  `fallbackSiteContacts` as the render fallback; `/accessibility` flipped prerender→ISR.
+  Suites: **backend 1275, frontend 945 (+5 skipped)**, PHPStan + Pint clean.
+
+### Decisions
+- [2026-06-10] Flat single blob (not per-page keys) — one form, one fetch, one fallback;
+  the footer needs it on every page anyway so all consumers share the SSR-dedup key.
+- [2026-06-10] `telHref()` helper derives `tel:` links from display phones (US-format)
+  instead of storing a second href field per phone.
+- [2026-06-10] `BridgeCinemaReadout` left as v1 static stub — live-ops data, not CMS copy.
+
+### Blockers
+- none
+
+### Files Changed
+- `backend/app/Services/SiteSettingsService.php` — `KEY_SITE_CONTACTS`
+- `backend/app/Http/Controllers/Api/SiteContentController.php`, `backend/routes/api.php` — contacts endpoint
+- `backend/app/Filament/Pages/SiteContacts.php` + `backend/resources/views/filament/pages/site-contacts.blade.php` — admin form
+- `backend/tests/Feature/Admin/Services/SiteContactsTest.php` — 5 tests
+- `frontend/app/data/siteContacts.ts` (new) — interface + fallback + `telHref()`
+- `frontend/app/composables/useSiteContent.ts` — `useSiteContacts` + resolver
+- `frontend/app/components/layout/SiteFooter.vue`, `frontend/app/pages/{accessibility,terms,privacy,careers,gift-cards,gift-cards/bulk}.vue`, `frontend/app/components/content/GiftCardPreview.vue` — consumption
+- `frontend/nuxt.config.ts` — `/accessibility` ISR flip
+- `frontend/tests/components/layout/SiteFooter.test.ts` (new), `frontend/tests/composables/useSiteContent.test.ts`, mock updates in `static-pages` + `GiftCardPreview` tests
+- `docs/plans/admin/v3/02-site-contacts.md` — step spec
+
 ## Step 3.1: Admin ops polish
 **Status:** ✅ Complete
 **Started:** 2026-06-10

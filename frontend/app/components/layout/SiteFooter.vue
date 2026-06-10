@@ -1,4 +1,12 @@
 <script setup lang="ts">
+import { fallbackSiteContacts } from '~/data/siteContacts'
+import { useSiteContacts, resolveSiteContacts } from '~/composables/useSiteContent'
+
+const { data: contactsData } = useSiteContacts()
+const contacts = computed(() =>
+  resolveSiteContacts(contactsData.value?.data?.contacts ?? null, fallbackSiteContacts),
+)
+
 const currentYear = new Date().getFullYear()
 
 const navItems = [
@@ -31,7 +39,7 @@ const navItems = [
 
       <div class="site-footer__info">
         <address class="site-footer__address">
-          Final Cut Theatre &middot; 123 Cinema Boulevard &middot; (555) 123-4567
+          {{ contacts.footerVenueName }} &middot; {{ contacts.footerAddress }} &middot; {{ contacts.footerPhone }}
         </address>
       </div>
 
