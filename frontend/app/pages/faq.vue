@@ -1,7 +1,11 @@
 <script setup lang="ts">
-import { faqData } from '~/data/faq'
+import { useFaq } from '~/composables/useFaq'
 
-useHead({
+// Pre-grouped by category in display order — same shape the static file had.
+const { data } = useFaq()
+const faqData = computed(() => data.value?.data ?? [])
+
+useHead(() => ({
   title: 'FAQ — Final Cut',
   meta: [
     { name: 'description', content: 'Frequently asked questions about tickets, accessibility, food, and policies at Final Cut.' },
@@ -15,7 +19,7 @@ useHead({
       innerHTML: safeJsonLd({
         '@context': 'https://schema.org',
         '@type': 'FAQPage',
-        mainEntity: faqData.flatMap(category =>
+        mainEntity: faqData.value.flatMap(category =>
           category.items.map(item => ({
             '@type': 'Question',
             name: item.question,
@@ -28,7 +32,7 @@ useHead({
       }),
     },
   ],
-})
+}))
 </script>
 
 <template>

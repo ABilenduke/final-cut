@@ -6,9 +6,11 @@ use App\Http\Controllers\Api\BlogPostController;
 use App\Http\Controllers\Api\BookingController;
 use App\Http\Controllers\Api\CalendarEventController;
 use App\Http\Controllers\Api\ContactController;
+use App\Http\Controllers\Api\FaqController;
 use App\Http\Controllers\Api\FeaturedSlideController;
 use App\Http\Controllers\Api\FoodMenuController;
 use App\Http\Controllers\Api\GiftCardController;
+use App\Http\Controllers\Api\JobOpeningController;
 use App\Http\Controllers\Api\LocationController;
 use App\Http\Controllers\Api\MovieController;
 use App\Http\Controllers\Api\MovieShowtimesController;
@@ -37,6 +39,8 @@ Route::get('/featured-slides', [FeaturedSlideController::class, 'index']);
 Route::get('/ticker-items', [TickerItemController::class, 'index']);
 Route::get('/blog-posts', [BlogPostController::class, 'index']);
 Route::get('/blog-posts/{slug}', [BlogPostController::class, 'show']);
+Route::get('/faq', [FaqController::class, 'index']);
+Route::get('/job-openings', [JobOpeningController::class, 'index']);
 
 // Location-scoped resources
 Route::prefix('locations/{location}')->group(function () {

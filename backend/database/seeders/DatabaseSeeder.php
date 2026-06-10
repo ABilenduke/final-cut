@@ -71,6 +71,8 @@ class DatabaseSeeder extends Seeder
             FeaturedSlideSeeder::class,
             TickerItemSeeder::class,
             BlogPostSeeder::class,
+            FaqItemSeeder::class,
+            JobOpeningSeeder::class,
         ]);
 
         // Test-account-dependent seeders — only in local/testing

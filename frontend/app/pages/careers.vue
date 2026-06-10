@@ -1,24 +1,9 @@
 <script setup lang="ts">
-const openings = [
-  {
-    title: 'Projectionist',
-    department: 'Operations',
-    type: 'Full-time',
-    description: 'Maintain and operate laser projection and Dolby Atmos sound systems across all auditoriums.',
-  },
-  {
-    title: 'Front of House Team Member',
-    department: 'Guest Services',
-    type: 'Part-time',
-    description: 'Welcome guests, assist with ticketing, and ensure a great experience from lobby to seat.',
-  },
-  {
-    title: 'Kitchen & Bar Staff',
-    department: 'Food & Beverage',
-    type: 'Part-time',
-    description: 'Prepare and serve our chef-crafted menu items, craft cocktails, and specialty beverages.',
-  },
-]
+import { useJobOpenings } from '~/composables/useJobOpenings'
+
+// Admin-managed openings (admin-v2 Plan 13); benefits/intro stay editorial copy.
+const { data: openingsData } = useJobOpenings()
+const openings = computed(() => openingsData.value?.data ?? [])
 
 const benefits = [
   'Free movie tickets for you and a guest',
@@ -29,12 +14,12 @@ const benefits = [
   'A team that genuinely loves film',
 ]
 
-useHead({
+useHead(() => ({
   title: 'Careers — Final Cut',
   meta: [
     { name: 'description', content: 'Join the Final Cut team. Current openings in operations, guest services, and food & beverage.' },
   ],
-  script: openings.map(opening => ({
+  script: openings.value.map(opening => ({
     type: 'application/ld+json',
     innerHTML: safeJsonLd({
       '@context': 'https://schema.org',
@@ -48,7 +33,7 @@ useHead({
       },
     }),
   })),
-})
+}))
 </script>
 
 <template>
