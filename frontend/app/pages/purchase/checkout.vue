@@ -43,11 +43,10 @@ const changeSeatsHref = computed<string | null>(() => {
   return showtimeId ? `/purchase/${showtimeId}` : null
 })
 
-// Contact fields — rendered for design parity; not yet wired to the booking POST
+// Contact fields: email rides the booking POST (guest receipts); name is
+// prefill/display only and is not transmitted anywhere yet.
 const contactName = ref('')
 const contactEmail = ref('')
-const contactPhone = ref('')
-const contactReelId = ref('')
 
 // Prefill from authenticated user when available
 watchEffect(() => {
@@ -76,7 +75,6 @@ function handlePromoRemove() {
 
 // Terms consent — required before submit
 const acceptTerms = ref(false)
-const subscribeReel = ref(false)
 
 // Release seats link in hold timer
 function handleRelease() {
@@ -128,7 +126,7 @@ function buildConfirmationUrl(bookingData: Booking): string {
 
 const submitting = ref(false)
 
-async function handleCheckoutSubmit(payload: { paymentMethodId: string; email?: string; loyaltyOptIn?: boolean }) {
+async function handleCheckoutSubmit(payload: { paymentMethodId: string; email?: string }) {
   if (submitting.value || !activeLocation.value || !cart.showtime.value) return
   submitting.value = true
 
@@ -141,7 +139,6 @@ async function handleCheckoutSubmit(payload: { paymentMethodId: string; email?: 
       promoCode: cart.promoCode.value,
       giftCardCode: cart.giftCardCode.value,
       email: payload.email ?? contactEmail.value ?? null,
-      loyaltyOptIn: payload.loyaltyOptIn ?? false,
     }
 
     // Idempotency key for this submit attempt. apiFetch sends it as the
@@ -288,8 +285,6 @@ async function handleCheckoutSubmit(payload: { paymentMethodId: string; email?: 
       <CheckoutContactBay
         v-model:full-name="contactName"
         v-model:email="contactEmail"
-        v-model:phone="contactPhone"
-        v-model:reel-society-id="contactReelId"
         :is-authenticated="isAuthenticated"
         @sign-in="handleSignInClick"
       />
@@ -304,7 +299,6 @@ async function handleCheckoutSubmit(payload: { paymentMethodId: string; email?: 
 
       <PromoCode
         v-model:accept-terms="acceptTerms"
-        v-model:subscribe-reel="subscribeReel"
         :applied-code="cart.promoCode.value"
         :discount="cart.promoDiscount.value"
         @apply="handlePromoApply"

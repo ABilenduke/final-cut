@@ -2,16 +2,12 @@
 const props = defineProps<{
   fullName: string
   email: string
-  phone: string
-  reelSocietyId: string
   isAuthenticated?: boolean
 }>()
 
 const emit = defineEmits<{
   'update:fullName': [value: string]
   'update:email': [value: string]
-  'update:phone': [value: string]
-  'update:reelSocietyId': [value: string]
   'sign-in': []
 }>()
 
@@ -22,14 +18,6 @@ const fullNameModel = computed<string>({
 const emailModel = computed<string>({
   get: () => props.email,
   set: (v) => emit('update:email', v),
-})
-const phoneModel = computed<string>({
-  get: () => props.phone,
-  set: (v) => emit('update:phone', v),
-})
-const reelModel = computed<string>({
-  get: () => props.reelSocietyId,
-  set: (v) => emit('update:reelSocietyId', v),
 })
 </script>
 
@@ -90,22 +78,6 @@ const reelModel = computed<string>({
           placeholder="you@example.com"
           required
           autocomplete="email"
-        />
-      </div>
-      <div class="checkout-row-2">
-        <CvInput
-          v-model="phoneModel"
-          type="tel"
-          label="Phone"
-          placeholder="+1 (555) 000-0000"
-          help-text="For SMS show reminders. Reply STOP to opt out."
-          autocomplete="tel"
-        />
-        <CvInput
-          v-model="reelModel"
-          label="Reel Society ID (optional)"
-          placeholder="FC-000-0000"
-          help-text="Member? Discount applies at review."
         />
       </div>
     </div>

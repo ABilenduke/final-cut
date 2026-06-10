@@ -5,6 +5,46 @@ loop iteration; each step lands as its own PR-sized branch.
 
 <!-- NOTE: this file accrues entries on parallel branches. On merge conflicts keep ALL step sections - they are disjoint. -->
 
+## Step 3.4: Checkout cleanup
+**Status:** ✅ Complete
+**Started:** 2026-06-10
+**Completed:** 2026-06-10
+
+### Work Done
+- [2026-06-10] Removed the checkout controls that promised something the purchase never
+  did: the guest loyalty opt-in checkbox (body field + `CreateBookingRequest` rule too;
+  PURCHASE_FLOW.md marks the magic-link flow deferred), the phone/Reel-Society-ID inputs,
+  and the unsent newsletter checkbox. Added the cross-stack hold-timer guard (paired
+  8/20 pins: frontend architecture test + backend Pest test on the sweeper's option
+  default). Defensive docs: Stripe-webhook TODO with the exact failure window in
+  routes/api.php, partial-refund rationale on `refundAction()`, expanded 3DS
+  seat-release trade-off comment in `BookingController::store()`.
+  Suites: **backend 1276, frontend 950 (+5 skipped)**, PHPStan + Pint clean.
+
+### Decisions
+- [2026-06-10] Removed (not wired) the loyalty opt-in — wiring means building the whole
+  magic-link claim flow; shipping a checkbox that silently does nothing is worse than
+  no checkbox. The spec's design is preserved in PURCHASE_FLOW.md as deferred.
+- [2026-06-10] Kept the authenticated "save this card" checkbox — it fronts the planned
+  saved-payment-methods feature; flagged in the PR as currently unwired.
+- [2026-06-10] Hold-timer guard uses paired same-side pins (8/20 contract constants with
+  cross-references) because the test containers can't read across the mount boundary.
+
+### Blockers
+- none
+
+### Files Changed
+- `frontend/app/components/booking/{CheckoutPaymentBay,CheckoutContactBay,PromoCode}.vue`,
+  `frontend/app/pages/purchase/checkout.vue` — dead controls removed
+- `backend/app/Http/Requests/CreateBookingRequest.php` — loyaltyOptIn rule dropped
+- `backend/routes/api.php`, `backend/app/Filament/Resources/BookingResource.php`,
+  `backend/app/Http/Controllers/Api/BookingController.php` — defensive comments
+- `frontend/tests/architecture/hold-timer-alignment.test.ts` (new),
+  `backend/tests/Unit/HoldTimerContractTest.php` (new) — paired contract pins
+- `frontend/tests/components/booking/{CheckoutPaymentBay,CheckoutContactBay,PromoCode}.test.ts` — pins updated
+- `docs/specs/PURCHASE_FLOW.md` — loyalty opt-in marked deferred
+- `docs/plans/admin/v3/04-checkout-cleanup.md` — step spec
+
 ## Step 3.3: Gift card payments
 **Status:** ✅ Complete
 **Started:** 2026-06-10

@@ -68,11 +68,15 @@ describe('CheckoutPaymentBay', () => {
     expect(select.element.value).toBe('US')
   })
 
-  it('shows the loyalty checkbox for guests and save-card for authenticated users', async () => {
+  it('shows save-card for authenticated users only — the unwired loyalty opt-in is gone', async () => {
     const guestWrapper = await mountSuspended(CheckoutPaymentBay, {
       props: { email: '', isAuthenticated: false },
     })
-    expect(guestWrapper.text()).toContain('Final Cut Rewards')
+    // The "Join Final Cut Rewards" checkbox was removed (admin-v3 Plan 04):
+    // the backend never read it, so the checkbox promised something the
+    // purchase didn't do. Guests see no opt-in until the magic-link claim
+    // flow ships.
+    expect(guestWrapper.text()).not.toContain('Final Cut Rewards')
 
     const authWrapper = await mountSuspended(CheckoutPaymentBay, {
       props: { email: 'a@b.c', isAuthenticated: true },
