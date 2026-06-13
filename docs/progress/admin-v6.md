@@ -62,11 +62,22 @@ Each step is TDD'd (Pest), runs against the live stack (`docker compose exec -u 
 - `backend/database/seeders/AdminRolesAndPermissionsSeeder.php` (+2 perms)
 - `backend/tests/Feature/Admin/Services/BookingAmendmentServiceTest.php` — new; `.../Resources/BookingResourceActionsTest.php` — +6
 
-## Step 3: Scheduling ops (S2, S6)
-**Status:** 🔲 Not Started
+## Step 2b: Bookings ops — B7 activity timeline
+**Status:** ✅ Complete
+**Completed:** 2026-06-13
 
-## Step 3: Scheduling ops (S2, S6)
-**Status:** 🔲 Not Started
+### Work Done
+- [2026-06-13] Added a **History** section to the `BookingResource` view page — an inline newest-first activity timeline (refunds, flags, notes, email corrections), gated by `activity.view`, with an empty-state. New `BookingResource::recentActivityFor()` matches the morph subject directly (Booking doesn't use the `LogsActivity` trait; events are written explicitly by the services), ordered by `id` desc for a stable sort across same-second events. Cohesive with B2/B4 — the trail those now write is visible without leaving the booking.
+- [2026-06-13] TDD: 2 cases (newest-first ordering; the view renders the humanized event for a permitted admin). `BookingResourceActionsTest` now **18 passed (95 assertions)**.
+
+## Step 3: Scheduling ops — S2/S6 verified already-resolved
+**Status:** ✅ Complete (no code change needed)
+**Completed:** 2026-06-13
+
+### Findings (verify-before-acting closed both)
+- [2026-06-13] **S6 (silent skip of missing-runtime movies in bulk-create): already handled.** Single-movie bulk-create **blocks loudly** with a danger notification when the movie has no runtime (`BulkCreateShowtimes` ~L193); copy-week tracks and displays a `skipped_missing_runtime` count in its preview + confirmation (`CopyWeekShowtimes` L225–284). The audit's line reference was stale.
+- [2026-06-13] **S2 (no live conflict feedback on edit): premise inaccurate.** Both Create and Edit run `ShowtimeResource::validateAgainstConflicts()` at **submit** time through the same shared form; the only `->live()` element is the `computed_end_time` placeholder, which both pages share. There is no create-vs-edit asymmetry to fix.
+- Remaining scheduling gaps (S1 recurring series, S3 bulk pricing, S4 templates, S5 drag-drop, S7 section closure) are all **large features**, each warranting its own plan + iteration — not quick wins. Deferred.
 
 ## Step 4: CMS completion (G1–G6)
-**Status:** 🔲 Not Started
+**Status:** 🔲 Not Started — the next high-value sprint (header/footer nav, terms/privacy, accessibility statement, careers benefits, private-screenings editorial, contact directions). Reuses the `SiteSettings` keyed-store + versioned-cache pattern.

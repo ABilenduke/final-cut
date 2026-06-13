@@ -35,8 +35,10 @@ use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\HtmlString;
+use Spatie\Activitylog\Models\Activity;
 use Stripe\Exception\ApiErrorException;
 use UnitEnum;
 
@@ -341,7 +343,60 @@ class BookingResource extends BaseResource
                             && (bool) auth('admin')->user()?->can('bookings.resolve_refund')),
                 ])
                 ->columns(2),
+
+            // B7 — the audit trail for this booking (refunds, flags, notes,
+            // email corrections, …). Data already lives in activity_log; this
+            // just surfaces it inline so support doesn't need the separate log.
+            Section::make('History')
+                ->visible(fn (): bool => (bool) auth('admin')->user()?->can('activity.view'))
+                ->schema([
+                    Placeholder::make('activity_timeline')
+                        ->label('')
+                        ->content(function (Booking $record): HtmlString {
+                            $activities = self::recentActivityFor($record);
+
+                            if ($activities->isEmpty()) {
+                                return new HtmlString('<em>No recorded activity for this booking yet.</em>');
+                            }
+
+                            $rows = $activities->map(function (Activity $a): string {
+                                $event = str((string) $a->description)
+                                    ->replace('booking.', '')
+                                    ->headline()
+                                    ->toString();
+                                $who = $a->causer?->email ?? $a->causer?->name ?? 'system';
+                                $when = $a->created_at?->diffForHumans() ?? '';
+
+                                return sprintf('%s — %s · %s', e($event), e($who), e($when));
+                            })->all();
+
+                            return new HtmlString(
+                                '<ul class="list-disc pl-5 space-y-1"><li>'.implode('</li><li>', $rows).'</li></ul>'
+                            );
+                        }),
+                ]),
         ]);
+    }
+
+    /**
+     * B7 — the recent `admin` activity-log entries whose subject is this
+     * booking, newest first. Booking doesn't use the LogsActivity trait
+     * (events are written explicitly by the booking services), so this matches
+     * on the morph subject directly rather than via a relation.
+     *
+     * @return Collection<int, Activity>
+     */
+    public static function recentActivityFor(Booking $booking, int $limit = 25): Collection
+    {
+        return Activity::query()
+            ->where('subject_type', $booking->getMorphClass())
+            ->where('subject_id', $booking->getKey())
+            ->with('causer')
+            // id desc (monotonic insertion order) is a stable newest-first sort
+            // even when several events share a created_at second.
+            ->orderByDesc('id')
+            ->limit($limit)
+            ->get();
     }
 
     /**

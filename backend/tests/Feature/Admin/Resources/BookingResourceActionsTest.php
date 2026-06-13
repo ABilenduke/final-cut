@@ -2,6 +2,7 @@
 
 use App\Enums\BookingStatus;
 use App\Exceptions\BookingFlagException;
+use App\Filament\Resources\BookingResource;
 use App\Filament\Resources\BookingResource\Pages\ViewBooking;
 use App\Models\Booking;
 use App\Models\BookingSeat;
@@ -273,6 +274,31 @@ test('correct_guest_email rejects a malformed email at the form layer', function
         ->assertHasActionErrors(['email']);
 
     expect($booking->refresh()->guest_email)->toBe('g@example.com');
+});
+
+// ── Activity timeline on the booking view (B7) ───────────────────────────────
+
+test('recentActivityFor returns the booking activity newest-first', function (): void {
+    $this->actingAsAdmin();
+    $booking = actionBookingFixture(['user_id' => null, 'guest_email' => 'g@example.com']);
+    $actor = User::factory()->admin()->create();
+
+    app(BookingAmendmentService::class)->updateNotes($booking, 'first', $actor);
+    app(BookingAmendmentService::class)->correctGuestEmail($booking, 'second@example.com', $actor);
+
+    $activity = BookingResource::recentActivityFor($booking);
+
+    expect($activity)->toHaveCount(2)
+        ->and($activity->first()->description)->toBe(BookingAmendmentService::EVENT_GUEST_EMAIL_CORRECTED);
+});
+
+test('the booking view surfaces the activity timeline for a permitted admin', function (): void {
+    $this->actingAsAdmin();
+    $booking = actionBookingFixture(['notes' => null]);
+    app(BookingAmendmentService::class)->updateNotes($booking, 'Documented a comp', User::factory()->admin()->create());
+
+    Livewire::test(ViewBooking::class, ['record' => $booking->id])
+        ->assertSee('Notes Updated');
 });
 
 // ── BookingFlagService (service-layer guards) ───────────────────────────────
