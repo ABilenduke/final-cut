@@ -80,4 +80,27 @@ class SiteContentController extends Controller
 
         return $this->successResponse($data);
     }
+
+    /**
+     * GET /api/site-content/contact-info
+     *
+     * The contact-page "getting here" prose — By Car / By Transit /
+     * Accessibility (admin-v6 G6). Brand-level (the contact page is brand-led;
+     * per-venue detail lives on /locations/:slug). `contactInfo` is null until
+     * an admin saves the Contact content form — the frontend renders its
+     * built-in copy as the fallback. Versioned cache as elsewhere.
+     */
+    public function contactInfo(): JsonResponse
+    {
+        $version = (int) Cache::get(SiteSettingObserver::CACHE_VERSION_KEY, 0);
+        $cacheKey = "site_content_contact_info:v{$version}";
+
+        $data = Cache::remember($cacheKey, 300, function () {
+            return [
+                'contactInfo' => $this->settings->get(SiteSettingsService::KEY_CONTACT_INFO),
+            ];
+        });
+
+        return $this->successResponse($data);
+    }
 }

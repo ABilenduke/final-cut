@@ -92,3 +92,36 @@ export function resolveCareersBenefits(
 ): string[] {
   return saved && saved.length > 0 ? saved : fallback
 }
+
+/** Contact-page "getting here" prose. */
+export interface ContactInfo {
+  byCar: string
+  byTransit: string
+  accessibility: string
+}
+
+/** Wire shape of GET /api/site-content/contact-info. */
+export interface ContactInfoResponse {
+  data: {
+    /** Null until an admin saves the Contact content form. */
+    contactInfo: ContactInfo | null
+  }
+}
+
+/**
+ * SSR-friendly fetch wrapper for the admin-editable contact-page "getting
+ * here" prose (admin-v6 G6). Explicit key dedupes within one request graph.
+ */
+export function useContactInfo() {
+  return useApiFetch<ContactInfoResponse>('/api/site-content/contact-info', {
+    key: 'site-content-contact-info',
+  })
+}
+
+/** Prefer the admin-saved prose; fall back to the built-in copy. */
+export function resolveContactInfo(
+  saved: ContactInfo | null | undefined,
+  fallback: ContactInfo,
+): ContactInfo {
+  return saved ?? fallback
+}

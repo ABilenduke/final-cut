@@ -8,7 +8,7 @@ vi.mock('~/utils/api', () => ({
 }))
 
 import { useApiFetch } from '~/utils/api'
-import { useHomeContent, resolveMembershipContent, useSiteContacts, resolveSiteContacts, useCareersContent, resolveCareersBenefits } from '~/composables/useSiteContent'
+import { useHomeContent, resolveMembershipContent, useSiteContacts, resolveSiteContacts, useCareersContent, resolveCareersBenefits, useContactInfo, resolveContactInfo } from '~/composables/useSiteContent'
 import { fallbackSiteContacts } from '~/data/siteContacts'
 
 const mockUseApiFetch = vi.mocked(useApiFetch)
@@ -128,5 +128,39 @@ describe('resolveCareersBenefits', () => {
   it('returns the admin-saved benefits when present', () => {
     const saved = ['Curated perk', 'Another perk']
     expect(resolveCareersBenefits(saved, fallback)).toBe(saved)
+  })
+})
+
+describe('useContactInfo', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('fetches the contact-info endpoint with a dedupe key', () => {
+    mockUseApiFetch.mockReturnValue({
+      data: ref(null),
+      pending: ref(false),
+      error: ref(null),
+      refresh: vi.fn(),
+    } as any)
+
+    useContactInfo()
+
+    expect(mockUseApiFetch).toHaveBeenCalledWith(
+      '/api/site-content/contact-info',
+      expect.objectContaining({ key: 'site-content-contact-info' }),
+    )
+  })
+})
+
+describe('resolveContactInfo', () => {
+  const fallback = { byCar: 'car', byTransit: 'transit', accessibility: 'a11y' }
+
+  it('returns the fallback when nothing is saved', () => {
+    expect(resolveContactInfo(null, fallback)).toBe(fallback)
+    expect(resolveContactInfo(undefined, fallback)).toBe(fallback)
+  })
+
+  it('returns the admin-saved prose when present', () => {
+    const saved = { byCar: 'valet', byTransit: 'tram', accessibility: 'loops' }
+    expect(resolveContactInfo(saved, fallback)).toBe(saved)
   })
 })

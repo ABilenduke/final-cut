@@ -92,5 +92,11 @@ End-to-end vertical slice, mirroring the `site-content/home`+`/contacts` pattern
 - [2026-06-13] Simple `Repeater` (not `TagsInput`) for benefits — benefits are sentence-length, and `TagsInput` would split them on commas. Its Livewire state is a UUID-keyed `['benefit'=>…]` map; tests set that nested shape directly (`fillForm` with a flat array is a no-op on a simple repeater — verified by probe).
 - [2026-06-13] Gated on `content.careers.update` (careers domain), not `content.site_settings.update`, so it sits with JobOpeningResource under the careers permission. Both admin + manager have it.
 
-### Remaining (G1/G2/G3/G4/G6) — next loop iterations
-- G1 header/footer nav, G2 terms/privacy rich-text, G3 private-screenings editorial, G4 accessibility statement, G6 contact directions/parking. Each a vertical slice on the same SiteSettings pattern.
+### G6 — contact "getting here" prose (✅ Complete, 2026-06-13)
+- **Backend:** `KEY_CONTACT_INFO`; `SiteContentController::contactInfo()` → `GET /api/site-content/contact-info` (versioned cache, null until saved); `ContactContent` Filament page (Content group, `content.site_settings.update`-gated) with three required Textareas (By Car / By Transit / Accessibility), defaults mirroring the page, trim on save.
+- **Frontend:** `ContactInfo` type + `useContactInfo()` + `resolveContactInfo()`; `contact.vue` binds the three prose blocks to the API with the built-in copy as fallback.
+- **Tests:** backend `ContactContentTest` (6); frontend `useSiteContent.test` (+3) + `contact-private-screenings.test` (+1, admin prose replaces built-ins). Backend admin **596 passed**; frontend **982 passed**; route scoping passed.
+- **Decision:** modelled brand-level (one SiteSettings blob), NOT per-`Location` columns as the gap audit suggested — the contact page is brand-led and defers per-venue detail to `/locations/:slug`, so a per-location migration would be the wrong shape here. Recorded as a deliberate divergence.
+
+### Remaining (G1/G2/G3/G4) — next loop iterations
+- G1 header/footer nav (highest value, but in the layout shell → needs a bulletproof fallback; best for a fresh-context iteration), G2 terms/privacy rich-text, G3 private-screenings editorial, G4 accessibility statement. Each a vertical slice on the same SiteSettings pattern.

@@ -27,6 +27,9 @@ class SiteSettingsService
     /** Careers-page "why work here" benefits — { benefits: string[] }. */
     public const KEY_CAREERS_BENEFITS = 'careers_benefits';
 
+    /** Contact-page "getting here" prose — { byCar, byTransit, accessibility }. */
+    public const KEY_CONTACT_INFO = 'contact_info';
+
     public function get(string $key, mixed $default = null): mixed
     {
         return SiteSetting::query()->find($key)->value ?? $default;
