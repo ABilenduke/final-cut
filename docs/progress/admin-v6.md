@@ -89,7 +89,11 @@ Each step is TDD'd (Pest), runs against the live stack (`docker compose exec -u 
 ### Findings (verify-before-acting closed both)
 - [2026-06-13] **S6 (silent skip of missing-runtime movies in bulk-create): already handled.** Single-movie bulk-create **blocks loudly** with a danger notification when the movie has no runtime (`BulkCreateShowtimes` ~L193); copy-week tracks and displays a `skipped_missing_runtime` count in its preview + confirmation (`CopyWeekShowtimes` L225–284). The audit's line reference was stale.
 - [2026-06-13] **S2 (no live conflict feedback on edit): premise inaccurate.** Both Create and Edit run `ShowtimeResource::validateAgainstConflicts()` at **submit** time through the same shared form; the only `->live()` element is the `computed_end_time` placeholder, which both pages share. There is no create-vs-edit asymmetry to fix.
-- Remaining scheduling gaps (S1 recurring series, S3 bulk pricing, S4 templates, S5 drag-drop, S7 section closure) are all **large features**, each warranting its own plan + iteration — not quick wins. Deferred.
+- Remaining scheduling gaps (S1 recurring series, S4 templates, S5 drag-drop, S7 section closure) are large features, each warranting its own iteration.
+
+### S3 — bulk price updates (✅ Complete, 2026-06-13)
+- `ShowtimeResource::bulkUpdatePricingAction()` — a table `toolbarActions` `BulkAction` (gated `showtimes.update`, confirmation + three required cents inputs) that sets all three seat-tier prices on the selected showtimes by looping the existing `ShowtimeService::update()`. A price-only change is non-structural, so update() skips the booking-count guard (row-locked + activity-logged). Existing bookings keep their snapshot prices (`booking_seats.price`); only future bookings use the new prices. Reuses the B6 bulk-action + mounted-flow-test pattern. TDD: `ShowtimeBulkPricingTest` (3). Full admin suite **618 passed**; Pint clean.
+- `Collection` here is already `Illuminate\Support\Collection` (the B6 Eloquent-vs-Support type-hint trap didn't apply).
 
 ## Step 4: CMS completion (G1–G6)
 **Status:** 🟡 In Progress — G5 done; G1/G2/G3/G4/G6 remain.
