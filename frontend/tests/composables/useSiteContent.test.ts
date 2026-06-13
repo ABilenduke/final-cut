@@ -8,7 +8,7 @@ vi.mock('~/utils/api', () => ({
 }))
 
 import { useApiFetch } from '~/utils/api'
-import { useHomeContent, resolveMembershipContent, useSiteContacts, resolveSiteContacts, useCareersContent, resolveCareersBenefits, useContactInfo, resolveContactInfo } from '~/composables/useSiteContent'
+import { useHomeContent, resolveMembershipContent, useSiteContacts, resolveSiteContacts, useCareersContent, resolveCareersBenefits, useContactInfo, resolveContactInfo, usePrivateScreeningsCopy, resolvePrivateScreeningsCopy } from '~/composables/useSiteContent'
 import { fallbackSiteContacts } from '~/data/siteContacts'
 
 const mockUseApiFetch = vi.mocked(useApiFetch)
@@ -162,5 +162,39 @@ describe('resolveContactInfo', () => {
   it('returns the admin-saved prose when present', () => {
     const saved = { byCar: 'valet', byTransit: 'tram', accessibility: 'loops' }
     expect(resolveContactInfo(saved, fallback)).toBe(saved)
+  })
+})
+
+describe('usePrivateScreeningsCopy', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('fetches the private-screenings endpoint with a dedupe key', () => {
+    mockUseApiFetch.mockReturnValue({
+      data: ref(null),
+      pending: ref(false),
+      error: ref(null),
+      refresh: vi.fn(),
+    } as any)
+
+    usePrivateScreeningsCopy()
+
+    expect(mockUseApiFetch).toHaveBeenCalledWith(
+      '/api/site-content/private-screenings',
+      expect.objectContaining({ key: 'site-content-private-screenings' }),
+    )
+  })
+})
+
+describe('resolvePrivateScreeningsCopy', () => {
+  const fallback = { title: 'Default title', intro: 'Default intro' }
+
+  it('returns the fallback when nothing is saved', () => {
+    expect(resolvePrivateScreeningsCopy(null, fallback)).toBe(fallback)
+    expect(resolvePrivateScreeningsCopy(undefined, fallback)).toBe(fallback)
+  })
+
+  it('returns the admin-saved copy when present', () => {
+    const saved = { title: 'Premiere', intro: 'Book it' }
+    expect(resolvePrivateScreeningsCopy(saved, fallback)).toBe(saved)
   })
 })

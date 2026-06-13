@@ -71,6 +71,8 @@ beforeEach(() => {
     if (path === '/api/screening-packages') return fetchTuple(PACKAGES)
     // Contact "getting here" prose (admin-v6 G6): null → page renders built-in copy.
     if (path === '/api/site-content/contact-info') return fetchTuple({ contactInfo: null })
+    // Private-screenings intro (admin-v6 G3): null → page renders built-in copy.
+    if (path === '/api/site-content/private-screenings') return fetchTuple({ privateScreenings: null })
     throw new Error(`Unexpected fetch: ${path}`)
   }) as any)
 })
@@ -128,5 +130,26 @@ describe('Private Screenings Page', () => {
   it('renders package features', async () => {
     const wrapper = await mountSuspended(PrivateScreeningsPage)
     expect(wrapper.text()).toContain('Dedicated party host')
+  })
+
+  it('renders the built-in intro when none is admin-saved', async () => {
+    const wrapper = await mountSuspended(PrivateScreeningsPage)
+    expect(wrapper.find('.screenings-page__title').text()).toBe('Private Screenings & Events')
+    expect(wrapper.text()).toContain('From birthdays to boardrooms')
+  })
+
+  it('renders admin-saved intro copy over the built-in copy (G3)', async () => {
+    mockUseApiFetch.mockImplementation(((path: string) => {
+      if (path === '/api/screening-packages') return fetchTuple(PACKAGES)
+      if (path === '/api/site-content/private-screenings') {
+        return fetchTuple({ privateScreenings: { title: 'Host Your Premiere', intro: 'Book the whole house.' } })
+      }
+      throw new Error(`Unexpected fetch: ${path}`)
+    }) as any)
+
+    const wrapper = await mountSuspended(PrivateScreeningsPage)
+    expect(wrapper.find('.screenings-page__title').text()).toBe('Host Your Premiere')
+    expect(wrapper.text()).toContain('Book the whole house.')
+    expect(wrapper.text()).not.toContain('From birthdays to boardrooms')
   })
 })

@@ -103,4 +103,27 @@ class SiteContentController extends Controller
 
         return $this->successResponse($data);
     }
+
+    /**
+     * GET /api/site-content/private-screenings
+     *
+     * The private-screenings page intro copy — title + lead paragraph
+     * (admin-v6 G3). The packages themselves are admin-managed via
+     * ScreeningPackageResource; this is just the editorial header. Null until
+     * an admin saves the form — the frontend renders its built-in copy as the
+     * fallback. Versioned cache as elsewhere.
+     */
+    public function privateScreenings(): JsonResponse
+    {
+        $version = (int) Cache::get(SiteSettingObserver::CACHE_VERSION_KEY, 0);
+        $cacheKey = "site_content_private_screenings:v{$version}";
+
+        $data = Cache::remember($cacheKey, 300, function () {
+            return [
+                'privateScreenings' => $this->settings->get(SiteSettingsService::KEY_PRIVATE_SCREENINGS),
+            ];
+        });
+
+        return $this->successResponse($data);
+    }
 }

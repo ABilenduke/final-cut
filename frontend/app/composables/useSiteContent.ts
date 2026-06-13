@@ -125,3 +125,35 @@ export function resolveContactInfo(
 ): ContactInfo {
   return saved ?? fallback
 }
+
+/** Private-screenings page intro copy. */
+export interface PrivateScreeningsCopy {
+  title: string
+  intro: string
+}
+
+/** Wire shape of GET /api/site-content/private-screenings. */
+export interface PrivateScreeningsResponse {
+  data: {
+    /** Null until an admin saves the Private screenings content form. */
+    privateScreenings: PrivateScreeningsCopy | null
+  }
+}
+
+/**
+ * SSR-friendly fetch wrapper for the admin-editable private-screenings page
+ * intro (admin-v6 G3). Explicit key dedupes within one request graph.
+ */
+export function usePrivateScreeningsCopy() {
+  return useApiFetch<PrivateScreeningsResponse>('/api/site-content/private-screenings', {
+    key: 'site-content-private-screenings',
+  })
+}
+
+/** Prefer the admin-saved intro; fall back to the built-in copy. */
+export function resolvePrivateScreeningsCopy(
+  saved: PrivateScreeningsCopy | null | undefined,
+  fallback: PrivateScreeningsCopy,
+): PrivateScreeningsCopy {
+  return saved ?? fallback
+}

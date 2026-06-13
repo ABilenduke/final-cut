@@ -98,5 +98,11 @@ End-to-end vertical slice, mirroring the `site-content/home`+`/contacts` pattern
 - **Tests:** backend `ContactContentTest` (6); frontend `useSiteContent.test` (+3) + `contact-private-screenings.test` (+1, admin prose replaces built-ins). Backend admin **596 passed**; frontend **982 passed**; route scoping passed.
 - **Decision:** modelled brand-level (one SiteSettings blob), NOT per-`Location` columns as the gap audit suggested — the contact page is brand-led and defers per-venue detail to `/locations/:slug`, so a per-location migration would be the wrong shape here. Recorded as a deliberate divergence.
 
-### Remaining (G1/G2/G3/G4) — next loop iterations
-- G1 header/footer nav (highest value, but in the layout shell → needs a bulletproof fallback; best for a fresh-context iteration), G2 terms/privacy rich-text, G3 private-screenings editorial, G4 accessibility statement. Each a vertical slice on the same SiteSettings pattern.
+### G3 — private-screenings page intro (✅ Complete, 2026-06-13)
+The packages themselves were already admin-managed (`ScreeningPackageResource` + `/api/screening-packages`), so G3 reduced to the page's hardcoded title + lead paragraph.
+- **Backend:** `KEY_PRIVATE_SCREENINGS`; `SiteContentController::privateScreenings()` → `GET /api/site-content/private-screenings`; `PrivateScreeningsContent` Filament page (Content group, `content.site_settings.update`-gated) — title TextInput + intro Textarea, defaults mirroring the page, trim on save.
+- **Frontend:** `PrivateScreeningsCopy` type + `usePrivateScreeningsCopy()` + `resolvePrivateScreeningsCopy()`; `private-screenings.vue` binds the h1 + intro with the built-in copy as fallback, and derives the SEO `<title>` reactively from the editable title (`{title} — Final Cut`).
+- **Tests:** backend `PrivateScreeningsContentTest` (6); frontend `useSiteContent.test` (+3) + `contact-private-screenings.test` (+2). Backend admin **602 passed**; frontend **987 passed**; route scoping passed.
+
+### Remaining (G1/G2/G4) — next loop iterations
+- G1 header/footer nav (highest value, but in the layout shell → needs a bulletproof fallback; best for a fresh-context iteration), G2 terms/privacy rich-text (XSS-sanitization care), G4 accessibility statement. Each a vertical slice on the same SiteSettings pattern.

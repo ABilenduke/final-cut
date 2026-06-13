@@ -30,6 +30,9 @@ class SiteSettingsService
     /** Contact-page "getting here" prose — { byCar, byTransit, accessibility }. */
     public const KEY_CONTACT_INFO = 'contact_info';
 
+    /** Private-screenings page intro copy — { title, intro }. */
+    public const KEY_PRIVATE_SCREENINGS = 'private_screenings';
+
     public function get(string $key, mixed $default = null): mixed
     {
         return SiteSetting::query()->find($key)->value ?? $default;
