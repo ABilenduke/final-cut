@@ -27,6 +27,9 @@ return new class extends Migration
             $table->timestamp('tmdb_enriched_at')->nullable();
             // Home hero curation flag (admin-v2 Plan 16) — at most one movie set.
             $table->timestamp('home_featured_at')->nullable();
+            // Admin override for the now-showing reel tag (admin-v6 G9) — when
+            // set, replaces the client-computed "New"/"70mm"/"Select" tag.
+            $table->string('home_teaser_tag', 24)->nullable();
             // Editorial CMS (admin-v4 Plan 03): crew credits object, press
             // quote list, and clip list — admin-authored, optional.
             $table->json('credits')->nullable();

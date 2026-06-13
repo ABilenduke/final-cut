@@ -29,6 +29,7 @@ class MovieResource extends JsonResource
             'trailerKey' => $this->trailer_key,
             'status' => $this->status->value,
             'homeFeaturedAt' => $this->home_featured_at?->toIso8601String(),
+            'homeTeaserTag' => $this->home_teaser_tag,
             'credits' => $this->credits,
             'pressQuotes' => $this->press_quotes ?? [],
             'clips' => $this->clips ?? [],

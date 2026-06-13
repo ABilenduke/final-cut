@@ -110,6 +110,19 @@ test('GET /api/movies/{slug} returns movie detail for valid slug', function () {
         ->assertJsonCount(1, 'data.cast');
 });
 
+test('the movies API exposes homeTeaserTag — null by default, the admin override when set (G9)', function () {
+    Movie::factory()->nowShowing()->create(['slug' => 'plain', 'home_teaser_tag' => null]);
+    Movie::factory()->nowShowing()->create(['slug' => 'tagged', 'home_teaser_tag' => 'Final Week']);
+
+    getJson('/api/movies/plain')
+        ->assertOk()
+        ->assertJsonPath('data.homeTeaserTag', null);
+
+    getJson('/api/movies/tagged')
+        ->assertOk()
+        ->assertJsonPath('data.homeTeaserTag', 'Final Week');
+});
+
 test('GET /api/movies/{slug} returns 404 for unknown slug', function () {
     getJson('/api/movies/nonexistent-movie')
         ->assertNotFound()

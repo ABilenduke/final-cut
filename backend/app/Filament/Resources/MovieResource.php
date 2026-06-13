@@ -73,6 +73,10 @@ class MovieResource extends BaseResource
                     TextInput::make('tmdb_id')
                         ->numeric()
                         ->helperText('TMDB movie ID for metadata enrichment'),
+                    TextInput::make('home_teaser_tag')
+                        ->label('Home reel tag')
+                        ->maxLength(24)
+                        ->helperText('Optional override for the now-showing reel tag (e.g. "Final Week", "70mm"). Leave blank to auto-compute.'),
                 ])
                 ->columns(2),
 

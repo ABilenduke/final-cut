@@ -36,7 +36,7 @@ use Illuminate\Support\Carbon;
     'tmdb_id', 'slug', 'title', 'tagline', 'synopsis', 'runtime',
     'rating', 'release_date', 'genres', 'cast', 'poster_url', 'backdrop_url',
     'trailer_key', 'status', 'tmdb_enriched_at', 'home_featured_at',
-    'credits', 'press_quotes', 'clips',
+    'home_teaser_tag', 'credits', 'press_quotes', 'clips',
 ])]
 class Movie extends Model
 {
