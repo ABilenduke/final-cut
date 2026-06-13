@@ -51,6 +51,8 @@ beforeEach(() => {
     if (path === '/api/site-content/contacts') return fetchTuple({ contacts: null })
     // Careers benefits (admin-v6 G5): null → page renders its built-in list.
     if (path === '/api/site-content/careers') return fetchTuple({ benefits: null })
+    // Accessibility prose (admin-v6 G4): null → page renders its built-in copy.
+    if (path === '/api/site-content/accessibility') return fetchTuple({ accessibility: null })
     throw new Error(`Unexpected fetch: ${path}`)
   }) as any)
 })
@@ -127,9 +129,35 @@ describe('Accessibility Page', () => {
     expect(wrapper.find('.accessibility-page__title').text()).toBe('Accessibility')
   })
 
-  it('renders commitment statement', async () => {
+  it('renders the built-in commitment statement when none is admin-saved', async () => {
     const wrapper = await mountSuspended(AccessibilityPage)
     expect(wrapper.find('.accessibility-page__intro').text()).toContain('inclusive experience')
+  })
+
+  it('renders admin-saved prose over the built-in copy (G4)', async () => {
+    mockUseApiFetch.mockImplementation(((path: string) => {
+      if (path === '/api/site-content/contacts') return fetchTuple({ contacts: null })
+      if (path === '/api/site-content/accessibility') {
+        return fetchTuple({
+          accessibility: {
+            intro: 'We welcome every guest, every way.',
+            assistedListening: 'Loops in every room.',
+            wheelchairSeating: 'Front-and-center accessible seats.',
+            openCaption: 'Captions nightly.',
+            audioDescription: 'Described tracks on request.',
+            sensoryFriendly: 'Calm screenings weekly.',
+            serviceAnimals: 'Service animals always welcome.',
+          },
+        })
+      }
+      throw new Error(`Unexpected fetch: ${path}`)
+    }) as any)
+
+    const wrapper = await mountSuspended(AccessibilityPage)
+    expect(wrapper.find('.accessibility-page__intro').text()).toBe('We welcome every guest, every way.')
+    expect(wrapper.text()).toContain('Loops in every room.')
+    expect(wrapper.text()).toContain('Service animals always welcome.')
+    expect(wrapper.text()).not.toContain('inclusive experience')
   })
 
   it('renders all accessibility sections', async () => {

@@ -157,3 +157,40 @@ export function resolvePrivateScreeningsCopy(
 ): PrivateScreeningsCopy {
   return saved ?? fallback
 }
+
+/** Accessibility-page prose — intro + the six section paragraphs. */
+export interface AccessibilityStatement {
+  intro: string
+  assistedListening: string
+  wheelchairSeating: string
+  openCaption: string
+  audioDescription: string
+  sensoryFriendly: string
+  serviceAnimals: string
+}
+
+/** Wire shape of GET /api/site-content/accessibility. */
+export interface AccessibilityResponse {
+  data: {
+    /** Null until an admin saves the Accessibility content form. */
+    accessibility: AccessibilityStatement | null
+  }
+}
+
+/**
+ * SSR-friendly fetch wrapper for the admin-editable accessibility-page prose
+ * (admin-v6 G4). Explicit key dedupes within one request graph.
+ */
+export function useAccessibilityStatement() {
+  return useApiFetch<AccessibilityResponse>('/api/site-content/accessibility', {
+    key: 'site-content-accessibility',
+  })
+}
+
+/** Prefer the admin-saved prose; fall back to the built-in copy. */
+export function resolveAccessibilityStatement(
+  saved: AccessibilityStatement | null | undefined,
+  fallback: AccessibilityStatement,
+): AccessibilityStatement {
+  return saved ?? fallback
+}

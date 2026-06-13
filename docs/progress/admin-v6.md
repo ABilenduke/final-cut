@@ -104,5 +104,10 @@ The packages themselves were already admin-managed (`ScreeningPackageResource` +
 - **Frontend:** `PrivateScreeningsCopy` type + `usePrivateScreeningsCopy()` + `resolvePrivateScreeningsCopy()`; `private-screenings.vue` binds the h1 + intro with the built-in copy as fallback, and derives the SEO `<title>` reactively from the editable title (`{title} — Final Cut`).
 - **Tests:** backend `PrivateScreeningsContentTest` (6); frontend `useSiteContent.test` (+3) + `contact-private-screenings.test` (+2). Backend admin **602 passed**; frontend **987 passed**; route scoping passed.
 
-### Remaining (G1/G2/G4) — next loop iterations
-- G1 header/footer nav (highest value, but in the layout shell → needs a bulletproof fallback; best for a fresh-context iteration), G2 terms/privacy rich-text (XSS-sanitization care), G4 accessibility statement. Each a vertical slice on the same SiteSettings pattern.
+### G4 — accessibility statement (✅ Complete, 2026-06-13)
+- **Backend:** `KEY_ACCESSIBILITY_STATEMENT`; `SiteContentController::accessibility()` → `GET /api/site-content/accessibility`; `AccessibilityContent` Filament page (Content group, `content.site_settings.update`-gated) — 7 required Textareas (intro + the six section paragraphs), defaults mirroring the page, trim on save.
+- **Frontend:** `AccessibilityStatement` type + `useAccessibilityStatement()` + `resolveAccessibilityStatement()`; `accessibility.vue` binds the 7 paragraphs with built-in fallback. Headings, the three calendar links, and the contact block stay structural (contact email/phone already come from `SiteContacts`).
+- **Tests:** backend `AccessibilityContentTest` (6); frontend `useSiteContent.test` (+3) + `static-pages.test` (+1). Backend admin **608 passed**; frontend **991 passed**; route scoping passed.
+
+### Remaining (G1/G2) — next loop iterations
+- G1 header/footer nav (highest value, but in the layout shell → needs a bulletproof fallback + scheme-guard on hrefs; the nested label+href repeater is the one new wrinkle), G2 terms/privacy (currently structured pages with headings — rich-text would need XSS sanitization; a plain-text-per-section slice like G4 is the lower-risk path). The "page intro/prose" CMS pattern (`SiteContacts`/`CareersContent`/`ContactContent`/`PrivateScreeningsContent`/`AccessibilityContent`) is now well-trodden.

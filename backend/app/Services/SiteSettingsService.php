@@ -33,6 +33,9 @@ class SiteSettingsService
     /** Private-screenings page intro copy — { title, intro }. */
     public const KEY_PRIVATE_SCREENINGS = 'private_screenings';
 
+    /** Accessibility-page prose — intro + the six section paragraphs. */
+    public const KEY_ACCESSIBILITY_STATEMENT = 'accessibility_statement';
+
     public function get(string $key, mixed $default = null): mixed
     {
         return SiteSetting::query()->find($key)->value ?? $default;

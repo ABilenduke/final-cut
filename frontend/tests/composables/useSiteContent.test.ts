@@ -8,7 +8,7 @@ vi.mock('~/utils/api', () => ({
 }))
 
 import { useApiFetch } from '~/utils/api'
-import { useHomeContent, resolveMembershipContent, useSiteContacts, resolveSiteContacts, useCareersContent, resolveCareersBenefits, useContactInfo, resolveContactInfo, usePrivateScreeningsCopy, resolvePrivateScreeningsCopy } from '~/composables/useSiteContent'
+import { useHomeContent, resolveMembershipContent, useSiteContacts, resolveSiteContacts, useCareersContent, resolveCareersBenefits, useContactInfo, resolveContactInfo, usePrivateScreeningsCopy, resolvePrivateScreeningsCopy, useAccessibilityStatement, resolveAccessibilityStatement } from '~/composables/useSiteContent'
 import { fallbackSiteContacts } from '~/data/siteContacts'
 
 const mockUseApiFetch = vi.mocked(useApiFetch)
@@ -196,5 +196,42 @@ describe('resolvePrivateScreeningsCopy', () => {
   it('returns the admin-saved copy when present', () => {
     const saved = { title: 'Premiere', intro: 'Book it' }
     expect(resolvePrivateScreeningsCopy(saved, fallback)).toBe(saved)
+  })
+})
+
+describe('useAccessibilityStatement', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('fetches the accessibility endpoint with a dedupe key', () => {
+    mockUseApiFetch.mockReturnValue({
+      data: ref(null),
+      pending: ref(false),
+      error: ref(null),
+      refresh: vi.fn(),
+    } as any)
+
+    useAccessibilityStatement()
+
+    expect(mockUseApiFetch).toHaveBeenCalledWith(
+      '/api/site-content/accessibility',
+      expect.objectContaining({ key: 'site-content-accessibility' }),
+    )
+  })
+})
+
+describe('resolveAccessibilityStatement', () => {
+  const fallback = {
+    intro: 'i', assistedListening: 'al', wheelchairSeating: 'ws',
+    openCaption: 'oc', audioDescription: 'ad', sensoryFriendly: 'sf', serviceAnimals: 'sa',
+  }
+
+  it('returns the fallback when nothing is saved', () => {
+    expect(resolveAccessibilityStatement(null, fallback)).toBe(fallback)
+    expect(resolveAccessibilityStatement(undefined, fallback)).toBe(fallback)
+  })
+
+  it('returns the admin-saved statement when present', () => {
+    const saved = { ...fallback, intro: 'custom' }
+    expect(resolveAccessibilityStatement(saved, fallback)).toBe(saved)
   })
 })
