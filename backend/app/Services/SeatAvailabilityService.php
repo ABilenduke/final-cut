@@ -63,7 +63,16 @@ class SeatAvailabilityService
             ->pluck('id')
             ->all();
 
-        return array_values(array_unique(array_merge($missingOrForeign, $occupied, $adminUnavailable)));
+        // S7: seats whose section is temporarily closed for maintenance are
+        // unavailable too. Purely additive to the unavailable set — it can
+        // only ever remove seats from sale, never add them, so it cannot open
+        // a double-booking window.
+        $closedSectionSeats = Seat::whereIn('id', $seatIds)
+            ->whereHas('section', fn ($q) => $q->whereNotNull('closed_at'))
+            ->pluck('id')
+            ->all();
+
+        return array_values(array_unique(array_merge($missingOrForeign, $occupied, $adminUnavailable, $closedSectionSeats)));
     }
 
     /**

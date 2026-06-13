@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['auditorium_id', 'name', 'price_multiplier', 'display_order'])]
+#[Fillable(['auditorium_id', 'name', 'price_multiplier', 'display_order', 'closed_at'])]
 class AuditoriumSection extends Model
 {
     /** @use HasFactory<AuditoriumSectionFactory> */
@@ -23,7 +23,14 @@ class AuditoriumSection extends Model
         return [
             'price_multiplier' => 'decimal:2',
             'display_order' => 'integer',
+            'closed_at' => 'datetime',
         ];
+    }
+
+    /** Whether this section is temporarily closed for maintenance (admin-v6 S7). */
+    public function isClosed(): bool
+    {
+        return $this->closed_at !== null;
     }
 
     /** @return BelongsTo<Auditorium, $this> */

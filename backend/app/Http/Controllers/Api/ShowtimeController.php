@@ -41,8 +41,10 @@ class ShowtimeController extends Controller
         $showtime->auditorium->seats->each(function ($seat) use ($showtime, $takenSeatLookup) {
             $isOccupied = $takenSeatLookup->has($seat->id);
             $isOutOfService = $seat->unavailable_at !== null;
+            // S7: a seat in a temporarily-closed section also renders 'taken'.
+            $sectionClosed = $seat->section?->closed_at !== null;
 
-            $seat->computed_status = ($isOccupied || $isOutOfService) ? 'taken' : 'available';
+            $seat->computed_status = ($isOccupied || $isOutOfService || $sectionClosed) ? 'taken' : 'available';
             $seat->computed_price = SeatAvailabilityService::priceForSeat($showtime, $seat);
         });
 

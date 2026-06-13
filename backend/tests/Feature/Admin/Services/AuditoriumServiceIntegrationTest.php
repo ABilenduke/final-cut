@@ -410,3 +410,39 @@ test('saveAuditoriumWithSections is atomic — partial failure in section sync r
     // No activity_log row survives the rollback.
     expect(Activity::where('subject_type', Auditorium::class)->count())->toBe(0);
 });
+
+// ── Section closure (S7) ──────────────────────────────────────────────────
+
+test('closeSection sets closed_at, logs the event with the actor, and is idempotent', function (): void {
+    $admin = $this->actingAsAdmin();
+    $auditorium = Auditorium::factory()->create();
+    $section = AuditoriumSection::factory()->create(['auditorium_id' => $auditorium->id, 'closed_at' => null]);
+
+    $service = app(AuditoriumService::class);
+    $service->closeSection($section, 'HVAC repair', $admin);
+
+    expect($section->refresh()->closed_at)->not->toBeNull()
+        ->and($section->isClosed())->toBeTrue();
+
+    $activity = Activity::where('description', 'auditorium.section_closed')->latest('id')->first();
+    expect($activity)->not->toBeNull()
+        ->and($activity->causer_id)->toBe($admin->id)
+        ->and($activity->properties['section_id'] ?? null)->toBe($section->id);
+
+    // Idempotent: a second close does not re-stamp or log again.
+    $closedAt = $section->refresh()->closed_at;
+    $service->closeSection($section, 'again', $admin);
+    expect($section->refresh()->closed_at->equalTo($closedAt))->toBeTrue();
+    expect(Activity::where('description', 'auditorium.section_closed')->count())->toBe(1);
+});
+
+test('reopenSection clears closed_at and logs the event', function (): void {
+    $admin = $this->actingAsAdmin();
+    $auditorium = Auditorium::factory()->create();
+    $section = AuditoriumSection::factory()->create(['auditorium_id' => $auditorium->id, 'closed_at' => now()]);
+
+    app(AuditoriumService::class)->reopenSection($section, $admin);
+
+    expect($section->refresh()->closed_at)->toBeNull();
+    expect(Activity::where('description', 'auditorium.section_reopened')->count())->toBe(1);
+});
