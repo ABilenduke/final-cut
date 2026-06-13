@@ -262,7 +262,10 @@ All routes are served by the Laravel backend (`backend/routes/api.php`). Data co
 | ------ | ---- | ---- | ----------- | ------- | -------- |
 | GET | `/api/movies` | Public | PostgreSQL | `?status=now_showing\|coming_soon&per_page=20` | `{ data: Movie[], meta: { total, page, per_page } }` |
 | GET | `/api/movies/:slug` | Public | PostgreSQL | — | `{ data: Movie }` |
+| GET | `/api/movies/:slug/showtimes` | Public | PostgreSQL | `?date=YYYY-MM-DD` | `{ data: (Showtime & { location: { slug, name, latitude, longitude } })[] }` |
 | GET | `/api/locations/:location/movies/:slug/showtimes` | Public | PostgreSQL | `?date=YYYY-MM-DD` | `{ data: Showtime[] }` |
+
+The cross-location `/api/movies/:slug/showtimes` (no location segment, `MovieShowtimesController`) is the **public** path the movie-detail page uses — each entry carries an embedded `location` so the client can group by venue and compute distances. The per-location `/api/locations/:location/movies/:slug/showtimes` (`MovieController::showtimes`) is retained for the booking flow and admin/internal use. See `STATE_MANAGEMENT.md` § `useShowtimes` and `CONTENT_ARCHITECTURE.md`.
 
 Movies are created locally with title, slug, status, and optional `tmdb_id`. TMDB metadata (synopsis, cast, images, trailer, ratings) is backfilled offline by the `movies:enrich` scheduled command. API responses serve only database data.
 

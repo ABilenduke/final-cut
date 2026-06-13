@@ -41,7 +41,8 @@ class AuditoriumResource extends BaseResource
 
     protected static string|UnitEnum|null $navigationGroup = 'Operations';
 
-    protected static ?int $navigationSort = 30;
+    // Distinct within Operations (was 30, colliding with User + GiftCard).
+    protected static ?int $navigationSort = 34;
 
     public static function form(Schema $schema): Schema
     {
