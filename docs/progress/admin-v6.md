@@ -70,6 +70,18 @@ Each step is TDD'd (Pest), runs against the live stack (`docker compose exec -u 
 - [2026-06-13] Added a **History** section to the `BookingResource` view page — an inline newest-first activity timeline (refunds, flags, notes, email corrections), gated by `activity.view`, with an empty-state. New `BookingResource::recentActivityFor()` matches the morph subject directly (Booking doesn't use the `LogsActivity` trait; events are written explicitly by the services), ordered by `id` desc for a stable sort across same-second events. Cohesive with B2/B4 — the trail those now write is visible without leaving the booking.
 - [2026-06-13] TDD: 2 cases (newest-first ordering; the view renders the humanized event for a permitted admin). `BookingResourceActionsTest` now **18 passed (95 assertions)**.
 
+## Step 2c: Bookings ops — B6 bulk refunds
+**Status:** ✅ Complete
+**Completed:** 2026-06-13
+
+### Work Done
+- [2026-06-13] `BookingResource::bulkRefundAction()` — a table `toolbarActions` `BulkAction` (gated `bookings.resolve_refund`, confirmation + required reason) that loops the selected bookings through the existing idempotent `BookingRefundService::refund()`, catching `BookingNotRefundableException` (skip) and `\Throwable` (fail) per booking so one Stripe failure never rolls back the rest, then reports a refunded/skipped/failed tally. Reuses all the proven money logic — orchestration only.
+- [2026-06-13] TDD: `BookingBulkRefundTest` (4 — bulk refund several, skip already-terminal, required reason, admin-visible/ops-hidden). Full admin suite **615 passed**; Pint clean.
+
+### Decisions / gotchas
+- [2026-06-13] **Filament bulk-action-with-a-form test harness:** plain `callTableBulkAction($name, $records, $data)` did NOT drive a bulk action that has both `->schema()` and `requiresConfirmation()` — the closure never ran and `$data` never reached the form. The working pattern is the mounted flow: `->mountTableBulkAction($name, [$models])->set('mountedActions.0.data.<field>', $value)->callMountedTableBulkAction()->assertHasNoTableBulkActionErrors()`. Pass **model instances** (not raw ids) as records. (Cost me a long debug; recorded so it's a one-liner next time.)
+- [2026-06-13] Bulk money op de-risked by: confirmation modal, required reason, per-booking idempotent service + try/catch, and the admin's explicit row selection bounding the blast radius.
+
 ## Step 3: Scheduling ops — S2/S6 verified already-resolved
 **Status:** ✅ Complete (no code change needed)
 **Completed:** 2026-06-13

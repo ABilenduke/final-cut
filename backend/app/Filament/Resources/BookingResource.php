@@ -22,6 +22,7 @@ use App\Services\BookingNotificationService;
 use App\Services\BookingRefundService;
 use BackedEnum;
 use Filament\Actions\Action;
+use Filament\Actions\BulkAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Placeholder;
@@ -188,6 +189,9 @@ class BookingResource extends BaseResource
             ])
             ->recordActions([
                 ViewAction::make(),
+            ])
+            ->toolbarActions([
+                self::bulkRefundAction(),
             ])
             ->defaultSort('created_at', 'desc');
     }
@@ -689,5 +693,61 @@ class BookingResource extends BaseResource
                     ->success()
                     ->send();
             });
+    }
+
+    /**
+     * B6 — refund several bookings at once (e.g. recovering a whole cancelled
+     * showtime). Each booking goes through the same row-locked, idempotent
+     * `BookingRefundService::refund()` as the single-booking action, so
+     * already-refunded / cancelled / in-flight bookings are skipped cleanly
+     * and a Stripe failure on one booking never rolls back the others. The
+     * result is reported as a refunded / skipped / failed tally.
+     */
+    public static function bulkRefundAction(): BulkAction
+    {
+        return BulkAction::make('bulk_refund')
+            ->label('Refund selected')
+            ->icon('heroicon-o-receipt-refund')
+            ->color('danger')
+            ->visible(fn (): bool => auth('admin')->user()?->can('bookings.resolve_refund') ?? false)
+            ->requiresConfirmation()
+            ->modalHeading('Refund selected bookings')
+            ->modalDescription('Each refundable booking is refunded individually; already-refunded, cancelled, or in-flight bookings are skipped. This cannot be undone.')
+            ->schema([
+                Textarea::make('reason')
+                    ->label('Refund reason')
+                    ->required()
+                    ->minLength(10)
+                    ->rows(2)
+                    ->helperText('Applied to every refunded booking and logged.'),
+            ])
+            ->action(function (\Illuminate\Support\Collection $records, array $data): void {
+                $service = app(BookingRefundService::class);
+                $actor = auth('admin')->user();
+
+                $refunded = 0;
+                $skipped = 0;
+                $failed = 0;
+
+                foreach ($records as $record) {
+                    try {
+                        $service->refund($record, $data['reason'], $actor);
+                        $refunded++;
+                    } catch (BookingNotRefundableException) {
+                        $skipped++;
+                    } catch (\Throwable) {
+                        $failed++;
+                    }
+                }
+
+                $body = "Refunded {$refunded}, skipped {$skipped}".($failed > 0 ? ", failed {$failed}" : '').'.';
+
+                Notification::make()
+                    ->title($failed > 0 ? 'Bulk refund finished with errors' : 'Bulk refund complete')
+                    ->body($body)
+                    ->status($failed > 0 ? 'warning' : 'success')
+                    ->send();
+            })
+            ->deselectRecordsAfterCompletion();
     }
 }
