@@ -352,6 +352,22 @@ Session-based auth via Laravel Sanctum. Sessions stored server-side in Redis; th
 | POST | `/api/rentals/inquiry` | Public | Local | `RentalInquiry` fields | `{ data: { success: true, inquiryId } }` |
 | POST | `/api/contact` | Public | Local | `{ name, email, subject, message }` | `{ data: { success: true } }` |
 
+### Site Content (admin-managed editorial)
+
+Admin-editable page/site copy, served from the `SiteSettingsService` keyed store with a versioned Redis cache (5-minute TTL, key versioned by `SiteSettingObserver::CACHE_VERSION_KEY` so a save busts it). Each payload field is **`null` until an admin first saves** the matching Filament form under the **Content** nav group; the frontend renders a built-in fallback until then, so a surface never appears blank. The customer side reads these through `useSiteContent.ts` (`resolve*` helpers apply the fallback).
+
+| Method | Path | Auth | Data Source | Response |
+| ------ | ---- | ---- | ----------- | -------- |
+| GET | `/api/site-content/home` | Public | Local | `{ data: { membership: MembershipContent \| null } }` |
+| GET | `/api/site-content/contacts` | Public | Local | `{ data: { contacts: SiteContacts \| null } }` |
+| GET | `/api/site-content/navigation` | Public | Local | `{ data: { header: NavItem[] \| null, footer: NavItem[] \| null } }` — `NavItem = { label, href }`; hrefs are scheme-guarded (site path or http(s)) |
+| GET | `/api/site-content/careers` | Public | Local | `{ data: { benefits: string[] \| null } }` |
+| GET | `/api/site-content/contact-info` | Public | Local | `{ data: { contactInfo: { byCar, byTransit, accessibility } \| null } }` |
+| GET | `/api/site-content/private-screenings` | Public | Local | `{ data: { privateScreenings: { title, intro } \| null } }` |
+| GET | `/api/site-content/accessibility` | Public | Local | `{ data: { accessibility: { intro, assistedListening, wheelchairSeating, openCaption, audioDescription, sensoryFriendly, serviceAnimals } \| null } }` |
+
+Related admin-managed content lists (own resources, same versioned-cache pattern): `GET /api/featured-slides` (home hero carousel), `GET /api/job-openings` (careers), `GET /api/faq`, `GET /api/screening-packages` (private-screenings packages), `GET /api/cinema-readout` (calendar readout).
+
 ---
 
 ## 3. TMDB Integration
