@@ -48,6 +48,7 @@ Route::get('/job-openings', [JobOpeningController::class, 'index']);
 Route::get('/screening-packages', [ScreeningPackageController::class, 'index']);
 Route::get('/site-content/home', [SiteContentController::class, 'home']);
 Route::get('/site-content/contacts', [SiteContentController::class, 'contacts']);
+Route::get('/site-content/careers', [SiteContentController::class, 'careers']);
 Route::get('/cinema-readout', [CinemaReadoutController::class, 'index']);
 
 // Location-scoped resources

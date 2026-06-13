@@ -1,18 +1,24 @@
 <script setup lang="ts">
 import { useJobOpenings } from '~/composables/useJobOpenings'
 import { fallbackSiteContacts } from '~/data/siteContacts'
-import { useSiteContacts, resolveSiteContacts } from '~/composables/useSiteContent'
+import {
+  useSiteContacts,
+  resolveSiteContacts,
+  useCareersContent,
+  resolveCareersBenefits,
+} from '~/composables/useSiteContent'
 
 const { data: contactsData } = useSiteContacts()
 const contacts = computed(() =>
   resolveSiteContacts(contactsData.value?.data?.contacts ?? null, fallbackSiteContacts),
 )
 
-// Admin-managed openings (admin-v2 Plan 13); benefits/intro stay editorial copy.
+// Admin-managed openings (admin-v2 Plan 13); intro stays editorial copy.
 const { data: openingsData } = useJobOpenings()
 const openings = computed(() => openingsData.value?.data ?? [])
 
-const benefits = [
+// Built-in benefits — also the fallback when no admin edit exists yet (G5).
+const FALLBACK_BENEFITS = [
   'Free movie tickets for you and a guest',
   'Discounted food and beverages',
   'Flexible scheduling',
@@ -20,6 +26,12 @@ const benefits = [
   'Career development and training',
   'A team that genuinely loves film',
 ]
+
+// Admin-managed benefits (admin-v6 G5).
+const { data: careersData } = useCareersContent()
+const benefits = computed(() =>
+  resolveCareersBenefits(careersData.value?.data?.benefits ?? null, FALLBACK_BENEFITS),
+)
 
 useHead(() => ({
   title: 'Careers — Final Cut',

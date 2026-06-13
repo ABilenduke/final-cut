@@ -8,7 +8,7 @@ vi.mock('~/utils/api', () => ({
 }))
 
 import { useApiFetch } from '~/utils/api'
-import { useHomeContent, resolveMembershipContent, useSiteContacts, resolveSiteContacts } from '~/composables/useSiteContent'
+import { useHomeContent, resolveMembershipContent, useSiteContacts, resolveSiteContacts, useCareersContent, resolveCareersBenefits } from '~/composables/useSiteContent'
 import { fallbackSiteContacts } from '~/data/siteContacts'
 
 const mockUseApiFetch = vi.mocked(useApiFetch)
@@ -90,5 +90,43 @@ describe('resolveSiteContacts', () => {
   it('returns the admin-saved blob when present', () => {
     const saved = { ...fallbackSiteContacts, conciergeEmail: 'vip@finalcut.test' }
     expect(resolveSiteContacts(saved, fallbackSiteContacts)).toBe(saved)
+  })
+})
+
+describe('useCareersContent', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('fetches the careers endpoint with a dedupe key', () => {
+    mockUseApiFetch.mockReturnValue({
+      data: ref(null),
+      pending: ref(false),
+      error: ref(null),
+      refresh: vi.fn(),
+    } as any)
+
+    useCareersContent()
+
+    expect(mockUseApiFetch).toHaveBeenCalledWith(
+      '/api/site-content/careers',
+      expect.objectContaining({ key: 'site-content-careers' }),
+    )
+  })
+})
+
+describe('resolveCareersBenefits', () => {
+  const fallback = ['Free tickets', 'Discounts']
+
+  it('returns the fallback when nothing is saved', () => {
+    expect(resolveCareersBenefits(null, fallback)).toBe(fallback)
+    expect(resolveCareersBenefits(undefined, fallback)).toBe(fallback)
+  })
+
+  it('returns the fallback when the saved list is empty (never renders blank)', () => {
+    expect(resolveCareersBenefits([], fallback)).toBe(fallback)
+  })
+
+  it('returns the admin-saved benefits when present', () => {
+    const saved = ['Curated perk', 'Another perk']
+    expect(resolveCareersBenefits(saved, fallback)).toBe(saved)
   })
 })

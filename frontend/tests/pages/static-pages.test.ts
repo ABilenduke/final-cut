@@ -49,6 +49,8 @@ beforeEach(() => {
     if (path === '/api/faq') return fetchTuple(FAQ)
     // Site contacts (admin-v3 Plan 02): null → pages render fallback values.
     if (path === '/api/site-content/contacts') return fetchTuple({ contacts: null })
+    // Careers benefits (admin-v6 G5): null → page renders its built-in list.
+    if (path === '/api/site-content/careers') return fetchTuple({ benefits: null })
     throw new Error(`Unexpected fetch: ${path}`)
   }) as any)
 })
@@ -79,10 +81,27 @@ describe('Careers Page', () => {
     expect(wrapper.text()).toContain('Part-time')
   })
 
-  it('renders benefits list', async () => {
+  it('renders the built-in benefits list when none are admin-saved', async () => {
     const wrapper = await mountSuspended(CareersPage)
     expect(wrapper.text()).toContain('Free movie tickets')
     expect(wrapper.text()).toContain('Flexible scheduling')
+  })
+
+  it('renders admin-saved benefits over the built-in list (G5)', async () => {
+    mockUseApiFetch.mockImplementation(((path: string) => {
+      if (path === '/api/job-openings') return fetchTuple(OPENINGS)
+      if (path === '/api/site-content/contacts') return fetchTuple({ contacts: null })
+      if (path === '/api/site-content/careers') {
+        return fetchTuple({ benefits: ['Curated by an admin', 'Second admin perk'] })
+      }
+      throw new Error(`Unexpected fetch: ${path}`)
+    }) as any)
+
+    const wrapper = await mountSuspended(CareersPage)
+    expect(wrapper.text()).toContain('Curated by an admin')
+    expect(wrapper.text()).toContain('Second admin perk')
+    // The built-in defaults are replaced, not appended.
+    expect(wrapper.text()).not.toContain('Free movie tickets')
   })
 
   it('renders application instructions with email link', async () => {

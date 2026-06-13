@@ -56,4 +56,28 @@ class SiteContentController extends Controller
 
         return $this->successResponse($data);
     }
+
+    /**
+     * GET /api/site-content/careers
+     *
+     * The careers-page "why work here" benefits list (admin-v6 G5).
+     * `benefits` is null until an admin saves the Careers content form — the
+     * frontend renders its built-in list as the fallback. Versioned cache as
+     * elsewhere.
+     */
+    public function careers(): JsonResponse
+    {
+        $version = (int) Cache::get(SiteSettingObserver::CACHE_VERSION_KEY, 0);
+        $cacheKey = "site_content_careers:v{$version}";
+
+        $data = Cache::remember($cacheKey, 300, function () {
+            $saved = $this->settings->get(SiteSettingsService::KEY_CAREERS_BENEFITS);
+
+            return [
+                'benefits' => is_array($saved) ? ($saved['benefits'] ?? null) : null,
+            ];
+        });
+
+        return $this->successResponse($data);
+    }
 }

@@ -62,3 +62,33 @@ export function resolveSiteContacts(
 ): SiteContacts {
   return saved ?? fallback
 }
+
+/** Wire shape of GET /api/site-content/careers. */
+export interface CareersContentResponse {
+  data: {
+    /** Null until an admin saves the Careers content form. */
+    benefits: string[] | null
+  }
+}
+
+/**
+ * SSR-friendly fetch wrapper for the admin-editable careers "why work here"
+ * benefits (admin-v6 G5). Explicit key dedupes within one request graph.
+ */
+export function useCareersContent() {
+  return useApiFetch<CareersContentResponse>('/api/site-content/careers', {
+    key: 'site-content-careers',
+  })
+}
+
+/**
+ * Prefer the admin-saved benefits; fall back to the built-in list when nothing
+ * is saved yet, the API is unreachable, or the saved list is empty — so the
+ * "Why Work Here" section never renders blank.
+ */
+export function resolveCareersBenefits(
+  saved: string[] | null | undefined,
+  fallback: string[],
+): string[] {
+  return saved && saved.length > 0 ? saved : fallback
+}

@@ -24,6 +24,9 @@ class SiteSettingsService
     /** Site-wide contact details (frontend SiteContacts shape). */
     public const KEY_SITE_CONTACTS = 'site_contacts';
 
+    /** Careers-page "why work here" benefits — { benefits: string[] }. */
+    public const KEY_CAREERS_BENEFITS = 'careers_benefits';
+
     public function get(string $key, mixed $default = null): mixed
     {
         return SiteSetting::query()->find($key)->value ?? $default;

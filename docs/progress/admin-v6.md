@@ -80,4 +80,17 @@ Each step is TDD'd (Pest), runs against the live stack (`docker compose exec -u 
 - Remaining scheduling gaps (S1 recurring series, S3 bulk pricing, S4 templates, S5 drag-drop, S7 section closure) are all **large features**, each warranting its own plan + iteration — not quick wins. Deferred.
 
 ## Step 4: CMS completion (G1–G6)
-**Status:** 🔲 Not Started — the next high-value sprint (header/footer nav, terms/privacy, accessibility statement, careers benefits, private-screenings editorial, contact directions). Reuses the `SiteSettings` keyed-store + versioned-cache pattern.
+**Status:** 🟡 In Progress — G5 done; G1/G2/G3/G4/G6 remain.
+
+### G5 — careers benefits (✅ Complete, 2026-06-13)
+End-to-end vertical slice, mirroring the `site-content/home`+`/contacts` pattern:
+- **Backend:** `SiteSettingsService::KEY_CAREERS_BENEFITS`; `SiteContentController::careers()` → `GET /api/site-content/careers` (versioned cache; `benefits` null until saved); `CareersContent` Filament page (Content group, `content.careers.update`-gated) with a simple `Repeater` of benefit rows, defaults mirroring the frontend list, blank-row trim/drop on save.
+- **Frontend:** `useCareersContent()` + `resolveCareersBenefits()` (falls back on null/empty so the section never renders blank); `careers.vue` consumes the API, built-in list as fallback.
+- **Tests:** backend `CareersContentTest` (6 — api null default, role gating, prefill-roundtrip, custom save, trim/drop, reload+cache-bust); frontend `useSiteContent.test` (+4) + `static-pages.test` (+1, admin benefits replace the built-ins). Backend admin **586 passed**; route-scoping **4 passed**; frontend **978 passed**.
+
+### Decisions
+- [2026-06-13] Simple `Repeater` (not `TagsInput`) for benefits — benefits are sentence-length, and `TagsInput` would split them on commas. Its Livewire state is a UUID-keyed `['benefit'=>…]` map; tests set that nested shape directly (`fillForm` with a flat array is a no-op on a simple repeater — verified by probe).
+- [2026-06-13] Gated on `content.careers.update` (careers domain), not `content.site_settings.update`, so it sits with JobOpeningResource under the careers permission. Both admin + manager have it.
+
+### Remaining (G1/G2/G3/G4/G6) — next loop iterations
+- G1 header/footer nav, G2 terms/privacy rich-text, G3 private-screenings editorial, G4 accessibility statement, G6 contact directions/parking. Each a vertical slice on the same SiteSettings pattern.
