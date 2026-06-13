@@ -3,6 +3,7 @@
 namespace App\Filament\Resources;
 
 use App\Enums\BookingStatus;
+use App\Exceptions\BookingAmendmentException;
 use App\Exceptions\BookingFlagException;
 use App\Exceptions\BookingNotRefundableException;
 use App\Exceptions\BookingNotResendableException;
@@ -15,6 +16,7 @@ use App\Models\BookingFoodItem;
 use App\Models\BookingSeat;
 use App\Models\Location;
 use App\Models\Showtime;
+use App\Services\BookingAmendmentService;
 use App\Services\BookingFlagService;
 use App\Services\BookingNotificationService;
 use App\Services\BookingRefundService;
@@ -24,6 +26,7 @@ use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
@@ -548,6 +551,86 @@ class BookingResource extends BaseResource
 
                 Notification::make()
                     ->title('Flag removed')
+                    ->success()
+                    ->send();
+            });
+    }
+
+    /**
+     * B2 — edit the internal booking notes. Always available to permitted
+     * admins (notes are documentation, not a state-machine field).
+     */
+    public static function editNotesAction(): Action
+    {
+        return Action::make('edit_notes')
+            ->label('Edit notes')
+            ->icon('heroicon-o-pencil-square')
+            ->color('gray')
+            ->visible(fn (): bool => auth('admin')->user()?->can('bookings.edit_notes') ?? false)
+            ->fillForm(fn (Booking $record): array => ['notes' => $record->notes])
+            ->schema([
+                Textarea::make('notes')
+                    ->label('Internal notes')
+                    ->rows(4)
+                    ->maxLength(2000)
+                    ->helperText('Support-facing only — never shown to the customer. Logged on save.'),
+            ])
+            ->action(function (Booking $record, array $data): void {
+                app(BookingAmendmentService::class)->updateNotes(
+                    $record,
+                    $data['notes'] ?? null,
+                    auth('admin')->user(),
+                );
+
+                Notification::make()
+                    ->title('Notes updated')
+                    ->success()
+                    ->send();
+            });
+    }
+
+    /**
+     * B4 — correct a mistyped guest email. Guest bookings only; a registered
+     * user's contact email lives on the User and is corrected there.
+     */
+    public static function correctGuestEmailAction(): Action
+    {
+        return Action::make('correct_guest_email')
+            ->label('Correct guest email')
+            ->icon('heroicon-o-envelope')
+            ->color('gray')
+            ->visible(fn (Booking $record): bool => (auth('admin')->user()?->can('bookings.correct_email') ?? false)
+                && $record->user_id === null)
+            ->fillForm(fn (Booking $record): array => ['email' => $record->guest_email])
+            ->schema([
+                TextInput::make('email')
+                    ->label('Guest email')
+                    ->email()
+                    ->required()
+                    ->maxLength(255)
+                    ->helperText('Where the confirmation and any future notices are sent. The change is logged.'),
+            ])
+            ->requiresConfirmation()
+            ->modalDescription('Resend the confirmation afterwards if the customer needs a fresh copy.')
+            ->action(function (Booking $record, array $data): void {
+                try {
+                    app(BookingAmendmentService::class)->correctGuestEmail(
+                        $record,
+                        $data['email'],
+                        auth('admin')->user(),
+                    );
+                } catch (BookingAmendmentException $e) {
+                    Notification::make()
+                        ->title('Cannot correct email')
+                        ->body($e->getMessage())
+                        ->danger()
+                        ->send();
+
+                    return;
+                }
+
+                Notification::make()
+                    ->title('Guest email corrected')
                     ->success()
                     ->send();
             });

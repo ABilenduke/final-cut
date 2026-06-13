@@ -37,6 +37,32 @@ Each step is TDD'd (Pest), runs against the live stack (`docker compose exec -u 
 - `docs/architecture/DATA_MODELS.md` — cross-location showtimes row
 
 ## Step 2: Bookings ops (B2 notes, B4 guest-email)
+**Status:** ✅ Complete
+**Branch:** `feat/admin-v6-polish` (continued)
+**Started:** 2026-06-13
+**Completed:** 2026-06-13
+
+### Work Done
+- [2026-06-13] New `BookingAmendmentService` (mirrors `BookingFlagService`: row-lock + `LogsAdminActivity` + actor attribution) with `updateNotes()` (B2) and `correctGuestEmail()` (B4). Notes trim→null-on-empty; email trim+lowercase normalized; guest-email guarded to guest bookings only (throws `BookingAmendmentException` for registered-user bookings — their email lives on the `User`).
+- [2026-06-13] Two `BookingResource` header actions wired on `ViewBooking`: `edit_notes` (Textarea, prefilled, always available to permitted admins) and `correct_guest_email` (email TextInput, prefilled, visible only for guest bookings, confirmation + "resend afterwards" hint).
+- [2026-06-13] New permissions `bookings.edit_notes` + `bookings.correct_email` seeded to **admin + manager** (NOT ops). `RoleSeederTest` derives its expectations from the seeder constants, so it stayed green without edits.
+- [2026-06-13] TDD: `BookingAmendmentServiceTest` (6) + 6 new cases in `BookingResourceActionsTest` (visibility gating per role / guest-vs-registered, persistence, activity log, email validation).
+
+### Decisions
+- [2026-06-13] Notes/email edits granted to **admin + manager only**, matching the existing flag/refund/resend convention that keeps `ops` read-only on bookings. (The audit framed these as "support ROI"; if ops should write, that's a deliberate follow-up role change, not an inconsistency to slip in here.) The ops-hidden path is pinned by tests.
+- [2026-06-13] Hit the documented Pint gotcha **3×** — imports added before their usage edit get stripped; re-added `TextInput`, `BookingAmendmentService`, `BookingAmendmentException` (resource) and `BookingAmendmentService` (test) after the usages landed.
+
+### Verification
+- `BookingAmendmentServiceTest`: 6 passed. `BookingResourceActionsTest`: 16 passed (10 existing + 6 new).
+- **Full admin suite (`tests/Feature/Admin` + `tests/Unit/Admin`): 578 passed (2305 assertions)** — zero regressions.
+
+### Files Changed
+- `backend/app/Services/BookingAmendmentService.php`, `backend/app/Exceptions/BookingAmendmentException.php` — new
+- `backend/app/Filament/Resources/BookingResource.php` (+2 action builders, imports), `.../Pages/ViewBooking.php` (registration)
+- `backend/database/seeders/AdminRolesAndPermissionsSeeder.php` (+2 perms)
+- `backend/tests/Feature/Admin/Services/BookingAmendmentServiceTest.php` — new; `.../Resources/BookingResourceActionsTest.php` — +6
+
+## Step 3: Scheduling ops (S2, S6)
 **Status:** 🔲 Not Started
 
 ## Step 3: Scheduling ops (S2, S6)
