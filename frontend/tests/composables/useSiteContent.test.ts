@@ -8,7 +8,7 @@ vi.mock('~/utils/api', () => ({
 }))
 
 import { useApiFetch } from '~/utils/api'
-import { useHomeContent, resolveMembershipContent, useSiteContacts, resolveSiteContacts, useCareersContent, resolveCareersBenefits, useContactInfo, resolveContactInfo, usePrivateScreeningsCopy, resolvePrivateScreeningsCopy, useAccessibilityStatement, resolveAccessibilityStatement } from '~/composables/useSiteContent'
+import { useHomeContent, resolveMembershipContent, useSiteContacts, resolveSiteContacts, useCareersContent, resolveCareersBenefits, useContactInfo, resolveContactInfo, usePrivateScreeningsCopy, resolvePrivateScreeningsCopy, useAccessibilityStatement, resolveAccessibilityStatement, useNavigation, resolveNavItems } from '~/composables/useSiteContent'
 import { fallbackSiteContacts } from '~/data/siteContacts'
 
 const mockUseApiFetch = vi.mocked(useApiFetch)
@@ -233,5 +233,63 @@ describe('resolveAccessibilityStatement', () => {
   it('returns the admin-saved statement when present', () => {
     const saved = { ...fallback, intro: 'custom' }
     expect(resolveAccessibilityStatement(saved, fallback)).toBe(saved)
+  })
+})
+
+describe('useNavigation', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('fetches the navigation endpoint with a dedupe key', () => {
+    mockUseApiFetch.mockReturnValue({
+      data: ref(null),
+      pending: ref(false),
+      error: ref(null),
+      refresh: vi.fn(),
+    } as any)
+
+    useNavigation()
+
+    expect(mockUseApiFetch).toHaveBeenCalledWith(
+      '/api/site-content/navigation',
+      expect.objectContaining({ key: 'site-content-navigation' }),
+    )
+  })
+})
+
+describe('resolveNavItems', () => {
+  const fallback = [{ label: 'Home', href: '/' }, { label: 'Movies', href: '/movies' }]
+
+  it('returns the fallback when nothing is saved', () => {
+    expect(resolveNavItems(null, fallback)).toBe(fallback)
+    expect(resolveNavItems(undefined, fallback)).toBe(fallback)
+  })
+
+  it('returns the fallback when the saved list is empty', () => {
+    expect(resolveNavItems([], fallback)).toBe(fallback)
+  })
+
+  it('returns the admin-saved items when present', () => {
+    const saved = [{ label: 'Films', href: '/movies' }]
+    expect(resolveNavItems(saved, fallback)).toEqual(saved)
+  })
+
+  it('accepts absolute http(s) hrefs', () => {
+    const saved = [{ label: 'Blog', href: 'https://blog.finalcut.test' }]
+    expect(resolveNavItems(saved, fallback)).toEqual(saved)
+  })
+
+  it('drops malformed / unsafe items, keeping the safe ones', () => {
+    const saved = [
+      { label: 'Good', href: '/movies' },
+      { label: 'XSS', href: 'javascript:alert(1)' },
+      { label: '', href: '/blank-label' },
+      { label: 'Relative', href: 'movies' },
+    ] as any
+    expect(resolveNavItems(saved, fallback)).toEqual([{ label: 'Good', href: '/movies' }])
+  })
+
+  it('falls back when every saved item is unsafe', () => {
+    const saved = [{ label: 'XSS', href: 'javascript:alert(1)' }] as any
+    expect(resolveNavItems(saved, fallback)).toBe(fallback)
   })
 })

@@ -36,6 +36,9 @@ class SiteSettingsService
     /** Accessibility-page prose — intro + the six section paragraphs. */
     public const KEY_ACCESSIBILITY_STATEMENT = 'accessibility_statement';
 
+    /** Header + footer navigation — { header: [{label, href}], footer: [...] }. */
+    public const KEY_NAVIGATION = 'navigation';
+
     public function get(string $key, mixed $default = null): mixed
     {
         return SiteSetting::query()->find($key)->value ?? $default;

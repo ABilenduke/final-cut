@@ -149,4 +149,29 @@ class SiteContentController extends Controller
 
         return $this->successResponse($data);
     }
+
+    /**
+     * GET /api/site-content/navigation
+     *
+     * Admin-managed header + footer navigation items (admin-v6 G1). Each list
+     * is null until an admin saves the Navigation form — the frontend falls
+     * back to its built-in nav, so the shell never renders empty. Versioned
+     * cache as elsewhere.
+     */
+    public function navigation(): JsonResponse
+    {
+        $version = (int) Cache::get(SiteSettingObserver::CACHE_VERSION_KEY, 0);
+        $cacheKey = "site_content_navigation:v{$version}";
+
+        $data = Cache::remember($cacheKey, 300, function () {
+            $saved = $this->settings->get(SiteSettingsService::KEY_NAVIGATION);
+
+            return [
+                'header' => is_array($saved) ? ($saved['header'] ?? null) : null,
+                'footer' => is_array($saved) ? ($saved['footer'] ?? null) : null,
+            ];
+        });
+
+        return $this->successResponse($data);
+    }
 }

@@ -1,6 +1,11 @@
 <script setup lang="ts">
 import { fallbackSiteContacts } from '~/data/siteContacts'
-import { useSiteContacts, resolveSiteContacts } from '~/composables/useSiteContent'
+import {
+  useSiteContacts,
+  resolveSiteContacts,
+  useNavigation,
+  resolveNavItems,
+} from '~/composables/useSiteContent'
 
 const { data: contactsData } = useSiteContacts()
 const contacts = computed(() =>
@@ -9,7 +14,8 @@ const contacts = computed(() =>
 
 const currentYear = new Date().getFullYear()
 
-const navItems = [
+// Built-in secondary nav — also the fallback when no admin edit exists (G1).
+const FALLBACK_NAV = [
   { label: 'Our Cinemas', href: '/locations' },
   { label: 'Contact', href: '/contact' },
   { label: 'FAQ', href: '/faq' },
@@ -17,6 +23,12 @@ const navItems = [
   { label: 'Careers', href: '/careers' },
   { label: 'Private Screenings', href: '/private-screenings' },
 ]
+
+// Admin-managed secondary nav (admin-v6 G1); falls back to the built-in list.
+const { data: navData } = useNavigation()
+const navItems = computed(() =>
+  resolveNavItems(navData.value?.data?.footer ?? null, FALLBACK_NAV),
+)
 
 </script>
 

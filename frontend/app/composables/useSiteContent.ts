@@ -194,3 +194,56 @@ export function resolveAccessibilityStatement(
 ): AccessibilityStatement {
   return saved ?? fallback
 }
+
+/** A header/footer navigation entry. */
+export interface NavItem {
+  label: string
+  href: string
+}
+
+/** Wire shape of GET /api/site-content/navigation. */
+export interface NavigationResponse {
+  data: {
+    /** Null until an admin saves the Navigation form. */
+    header: NavItem[] | null
+    footer: NavItem[] | null
+  }
+}
+
+/**
+ * SSR-friendly fetch wrapper for the admin-editable header/footer nav
+ * (admin-v6 G1). The shared key dedupes the single fetch across the header
+ * and footer, which both consume it in the same request graph.
+ */
+export function useNavigation() {
+  return useApiFetch<NavigationResponse>('/api/site-content/navigation', {
+    key: 'site-content-navigation',
+  })
+}
+
+// A nav href is safe to render only if it's a site-relative path or an
+// absolute http(s) URL — never a javascript:/data: scheme. Defence-in-depth
+// alongside the admin form's save-time guard.
+function isSafeNavHref(href: unknown): href is string {
+  return typeof href === 'string' && (href.startsWith('/') || /^https?:\/\//.test(href))
+}
+
+/**
+ * Prefer the admin-saved nav; fall back to the built-in list when nothing is
+ * saved, the API is unreachable, or every saved item is malformed/unsafe — so
+ * the layout shell never renders an empty nav. Individual malformed/unsafe
+ * items are dropped.
+ */
+export function resolveNavItems(
+  saved: NavItem[] | null | undefined,
+  fallback: NavItem[],
+): NavItem[] {
+  if (!Array.isArray(saved)) return fallback
+
+  const safe = saved.filter(
+    (item): item is NavItem =>
+      Boolean(item) && typeof item.label === 'string' && item.label.length > 0 && isSafeNavHref(item.href),
+  )
+
+  return safe.length > 0 ? safe : fallback
+}
