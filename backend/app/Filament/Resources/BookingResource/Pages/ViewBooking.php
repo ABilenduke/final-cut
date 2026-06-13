@@ -17,6 +17,7 @@ class ViewBooking extends ViewRecord
             BookingResource::resendConfirmationAction(),
             BookingResource::editNotesAction(),
             BookingResource::correctGuestEmailAction(),
+            BookingResource::reassignSeatsAction(),
             BookingResource::flagAction(),
             BookingResource::unflagAction(),
         ];

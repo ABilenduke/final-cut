@@ -7,6 +7,7 @@ use App\Exceptions\BookingAmendmentException;
 use App\Exceptions\BookingFlagException;
 use App\Exceptions\BookingNotRefundableException;
 use App\Exceptions\BookingNotResendableException;
+use App\Exceptions\SeatConflictException;
 use App\Filament\Concerns\FormatsCurrency;
 use App\Filament\Concerns\TimestampColumns;
 use App\Filament\Resources\BookingResource\Pages;
@@ -15,15 +16,18 @@ use App\Models\Booking;
 use App\Models\BookingFoodItem;
 use App\Models\BookingSeat;
 use App\Models\Location;
+use App\Models\Seat;
 use App\Models\Showtime;
 use App\Services\BookingAmendmentService;
 use App\Services\BookingFlagService;
 use App\Services\BookingNotificationService;
 use App\Services\BookingRefundService;
+use App\Services\SeatAvailabilityService;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Actions\BulkAction;
 use Filament\Actions\ViewAction;
+use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Textarea;
@@ -39,6 +43,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\HtmlString;
+use Illuminate\Validation\ValidationException;
 use Spatie\Activitylog\Models\Activity;
 use Stripe\Exception\ApiErrorException;
 use UnitEnum;
@@ -693,6 +698,89 @@ class BookingResource extends BaseResource
                     ->success()
                     ->send();
             });
+    }
+
+    /**
+     * B3 — move a booking to different seats in the same showtime, money-neutral.
+     * The picker offers every seat in the auditorium that's currently selectable
+     * (available, in-service, in an open section) PLUS this booking's own current
+     * seats (so a partial move can keep some). The heavy lifting — availability
+     * re-check, occupancy-index TOCTOU guard, equal-price enforcement, and the
+     * atomic release+reserve — lives in BookingAmendmentService::reassignSeats;
+     * here we just surface its exceptions as notifications.
+     */
+    public static function reassignSeatsAction(): Action
+    {
+        return Action::make('reassign_seats')
+            ->label('Reassign seats')
+            ->icon('heroicon-o-arrows-right-left')
+            ->color('gray')
+            ->visible(fn (Booking $record): bool => (auth('admin')->user()?->can('bookings.reassign_seats') ?? false)
+                && in_array($record->status, [BookingStatus::Confirmed, BookingStatus::Held], true))
+            ->fillForm(fn (Booking $record): array => ['seat_ids' => $record->seats()->pluck('seat_id')->all()])
+            ->schema(fn (Booking $record): array => [
+                CheckboxList::make('seat_ids')
+                    ->label('Seats')
+                    ->options(static::selectableSeatOptions($record))
+                    ->required()
+                    ->columns(3)
+                    ->helperText('The new seats must cost exactly what the current seats cost — a price change needs a refund and rebooking instead. Seats taken by other bookings, flagged out of service, or in a closed section are not listed.'),
+            ])
+            ->action(function (Booking $record, array $data): void {
+                try {
+                    app(BookingAmendmentService::class)->reassignSeats(
+                        $record,
+                        array_values((array) ($data['seat_ids'] ?? [])),
+                        auth('admin')->user(),
+                    );
+                } catch (BookingAmendmentException|SeatConflictException|ValidationException $e) {
+                    Notification::make()
+                        ->title('Cannot reassign seats')
+                        ->body($e->getMessage())
+                        ->danger()
+                        ->send();
+
+                    return;
+                }
+
+                Notification::make()
+                    ->title('Seats reassigned')
+                    ->success()
+                    ->send();
+            });
+    }
+
+    /**
+     * Seats the admin may move this booking onto: every seat in the showtime's
+     * auditorium that's selectable right now, plus the booking's own current
+     * seats (which `checkAvailability` reports as taken — by this very booking).
+     * Labels carry the per-seat price so a price mismatch is self-explanatory.
+     *
+     * @return array<string, string> seat id => "A1 · $12.00 · Standard"
+     */
+    protected static function selectableSeatOptions(Booking $record): array
+    {
+        $showtime = $record->showtime;
+        $seats = Seat::with('section')
+            ->where('auditorium_id', $showtime->auditorium_id)
+            ->orderBy('row')
+            ->orderBy('number')
+            ->get();
+
+        $currentSeatIds = $record->seats()->pluck('seat_id')->all();
+        $unavailable = app(SeatAvailabilityService::class)
+            ->checkAvailability($showtime->id, $seats->pluck('id')->all());
+
+        return $seats
+            ->filter(fn ($seat): bool => ! in_array($seat->id, $unavailable, true)
+                || in_array($seat->id, $currentSeatIds, true))
+            ->mapWithKeys(function ($seat) use ($showtime): array {
+                $price = SeatAvailabilityService::priceForSeat($showtime, $seat);
+                $section = $seat->section?->name ?? $seat->type->value;
+
+                return [$seat->id => $seat->label.' · $'.number_format($price / 100, 2).' · '.$section];
+            })
+            ->all();
     }
 
     /**
