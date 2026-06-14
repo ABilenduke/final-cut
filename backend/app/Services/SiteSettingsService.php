@@ -39,6 +39,9 @@ class SiteSettingsService
     /** Header + footer navigation — { header: [{label, href}], footer: [...] }. */
     public const KEY_NAVIGATION = 'navigation';
 
+    /** Gift-cards page masthead copy — { eyebrow, lede }. */
+    public const KEY_GIFT_CARDS_EDITORIAL = 'gift_cards_editorial';
+
     public function get(string $key, mixed $default = null): mixed
     {
         return SiteSetting::query()->find($key)->value ?? $default;

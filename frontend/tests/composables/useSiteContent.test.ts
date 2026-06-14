@@ -8,7 +8,7 @@ vi.mock('~/utils/api', () => ({
 }))
 
 import { useApiFetch } from '~/utils/api'
-import { useHomeContent, resolveMembershipContent, useSiteContacts, resolveSiteContacts, useCareersContent, resolveCareersBenefits, useContactInfo, resolveContactInfo, usePrivateScreeningsCopy, resolvePrivateScreeningsCopy, useAccessibilityStatement, resolveAccessibilityStatement, useNavigation, resolveNavItems } from '~/composables/useSiteContent'
+import { useHomeContent, resolveMembershipContent, useSiteContacts, resolveSiteContacts, useCareersContent, resolveCareersBenefits, useContactInfo, resolveContactInfo, usePrivateScreeningsCopy, resolvePrivateScreeningsCopy, useAccessibilityStatement, resolveAccessibilityStatement, useNavigation, resolveNavItems, useGiftCardsEditorial, resolveGiftCardsEditorial } from '~/composables/useSiteContent'
 import { fallbackSiteContacts } from '~/data/siteContacts'
 
 const mockUseApiFetch = vi.mocked(useApiFetch)
@@ -196,6 +196,40 @@ describe('resolvePrivateScreeningsCopy', () => {
   it('returns the admin-saved copy when present', () => {
     const saved = { title: 'Premiere', intro: 'Book it' }
     expect(resolvePrivateScreeningsCopy(saved, fallback)).toBe(saved)
+  })
+})
+
+describe('useGiftCardsEditorial', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('fetches the gift-cards endpoint with a dedupe key', () => {
+    mockUseApiFetch.mockReturnValue({
+      data: ref(null),
+      pending: ref(false),
+      error: ref(null),
+      refresh: vi.fn(),
+    } as any)
+
+    useGiftCardsEditorial()
+
+    expect(mockUseApiFetch).toHaveBeenCalledWith(
+      '/api/site-content/gift-cards',
+      expect.objectContaining({ key: 'site-content-gift-cards' }),
+    )
+  })
+})
+
+describe('resolveGiftCardsEditorial', () => {
+  const fallback = { eyebrow: 'Default eyebrow', lede: 'Default lede' }
+
+  it('returns the fallback when nothing is saved', () => {
+    expect(resolveGiftCardsEditorial(null, fallback)).toBe(fallback)
+    expect(resolveGiftCardsEditorial(undefined, fallback)).toBe(fallback)
+  })
+
+  it('returns the admin-saved copy when present', () => {
+    const saved = { eyebrow: 'Holiday', lede: 'Give the dark' }
+    expect(resolveGiftCardsEditorial(saved, fallback)).toBe(saved)
   })
 })
 

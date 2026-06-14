@@ -247,3 +247,35 @@ export function resolveNavItems(
 
   return safe.length > 0 ? safe : fallback
 }
+
+/** Gift-cards page masthead copy — { eyebrow, lede }. */
+export interface GiftCardsEditorial {
+  eyebrow: string
+  lede: string
+}
+
+/** Wire shape of GET /api/site-content/gift-cards. */
+export interface GiftCardsEditorialResponse {
+  data: {
+    /** Null until an admin saves the Gift cards content form. */
+    giftCards: GiftCardsEditorial | null
+  }
+}
+
+/**
+ * SSR-friendly fetch wrapper for the admin-editable gift-cards masthead copy
+ * (admin-v6 G8). Explicit key dedupes within one request graph.
+ */
+export function useGiftCardsEditorial() {
+  return useApiFetch<GiftCardsEditorialResponse>('/api/site-content/gift-cards', {
+    key: 'site-content-gift-cards',
+  })
+}
+
+/** Prefer the admin-saved masthead copy; fall back to the built-in copy. */
+export function resolveGiftCardsEditorial(
+  saved: GiftCardsEditorial | null | undefined,
+  fallback: GiftCardsEditorial,
+): GiftCardsEditorial {
+  return saved ?? fallback
+}

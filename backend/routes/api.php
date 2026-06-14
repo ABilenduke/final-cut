@@ -53,6 +53,7 @@ Route::get('/site-content/contact-info', [SiteContentController::class, 'contact
 Route::get('/site-content/private-screenings', [SiteContentController::class, 'privateScreenings']);
 Route::get('/site-content/accessibility', [SiteContentController::class, 'accessibility']);
 Route::get('/site-content/navigation', [SiteContentController::class, 'navigation']);
+Route::get('/site-content/gift-cards', [SiteContentController::class, 'giftCards']);
 Route::get('/cinema-readout', [CinemaReadoutController::class, 'index']);
 
 // Location-scoped resources

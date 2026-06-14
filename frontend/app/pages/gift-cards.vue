@@ -1,6 +1,11 @@
 <script setup lang="ts">
 import { fallbackSiteContacts } from '~/data/siteContacts'
-import { useSiteContacts, resolveSiteContacts } from '~/composables/useSiteContent'
+import {
+  useSiteContacts,
+  resolveSiteContacts,
+  useGiftCardsEditorial,
+  resolveGiftCardsEditorial,
+} from '~/composables/useSiteContent'
 import { useGiftCardComposer } from '~/composables/useGiftCardComposer'
 import { formatCurrency } from '~/utils/formatCurrency'
 import type { GiftCard, PurchaseGiftCardData } from '~/types/gift-card'
@@ -32,6 +37,19 @@ function onPurchased(card: GiftCard): void {
 const { data: contactsData } = useSiteContacts()
 const contacts = computed(() =>
   resolveSiteContacts(contactsData.value?.data?.contacts ?? null, fallbackSiteContacts),
+)
+
+// Built-in masthead copy — also the fallback when no admin edit exists yet (G8).
+const FALLBACK_EDITORIAL = {
+  eyebrow: 'Vol. XXIII · Reel Society Gift Programme',
+  lede:
+    'A cinema gift card is a quiet, deliberate thing: redeemable on any film, any seat, any '
+    + 'provision from the bar. Delivered by email or printed on heavy stock and posted in a '
+    + 'black sleeve.',
+}
+const { data: editorialData } = useGiftCardsEditorial()
+const editorial = computed(() =>
+  resolveGiftCardsEditorial(editorialData.value?.data?.giftCards ?? null, FALLBACK_EDITORIAL),
 )
 
 definePageMeta({
@@ -103,15 +121,11 @@ function toggleFaq(index: number): void {
       <!-- Editorial masthead -->
       <section class="gift-cards-page__top">
         <div>
-          <p class="gift-cards-page__eyebrow">Vol. XXIII · Reel Society Gift Programme</p>
+          <p class="gift-cards-page__eyebrow">{{ editorial.eyebrow }}</p>
           <h1 class="gift-cards-page__title">
             The gift of <em>two hours</em><br>in the <span class="gift-cards-page__title-accent">dark.</span>
           </h1>
-          <p class="gift-cards-page__lede">
-            A cinema gift card is a quiet, deliberate thing: redeemable on any film, any seat, any
-            provision from the bar. Delivered by email or printed on heavy stock and posted in a
-            black sleeve.
-          </p>
+          <p class="gift-cards-page__lede">{{ editorial.lede }}</p>
         </div>
         <div class="gift-cards-page__meta">
           <span class="gift-cards-page__meta-pill">In stock · Ships same day</span>

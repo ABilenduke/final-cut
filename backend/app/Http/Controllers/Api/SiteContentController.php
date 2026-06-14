@@ -174,4 +174,27 @@ class SiteContentController extends Controller
 
         return $this->successResponse($data);
     }
+
+    /**
+     * GET /api/site-content/gift-cards
+     *
+     * Gift-cards page masthead copy — { eyebrow, lede } (admin-v6 G8). The
+     * stylized <h1> title stays structural (it carries brand typography); only
+     * the eyebrow kicker and the lede paragraph are editable. Null until an
+     * admin saves the form — the frontend renders its built-in copy as the
+     * fallback. Versioned cache as elsewhere.
+     */
+    public function giftCards(): JsonResponse
+    {
+        $version = (int) Cache::get(SiteSettingObserver::CACHE_VERSION_KEY, 0);
+        $cacheKey = "site_content_gift_cards:v{$version}";
+
+        $data = Cache::remember($cacheKey, 300, function () {
+            return [
+                'giftCards' => $this->settings->get(SiteSettingsService::KEY_GIFT_CARDS_EDITORIAL),
+            ];
+        });
+
+        return $this->successResponse($data);
+    }
 }
