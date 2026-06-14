@@ -140,8 +140,15 @@ The packages themselves were already admin-managed (`ScreeningPackageResource` +
 ### G9 — now-showing reel tag override (✅ Complete, 2026-06-13)
 - Movies gain optional `home_teaser_tag` (added **in-place** to the movies create migration per the pre-launch convention — so `migrate:fresh --seed` was needed, which reseeded the **dev** DB; the test DB rebuilds from migrations per-run). Fillable + MovieResource form field + exposed as `homeTeaserTag` on the movie API. The home now-showing reel renders the curated tag (gold) over the computed New/70mm/IMAX/Select; blank/null → computed. TDD: MovieControllerTest case + `HomeNowShowingReel.test` (3). Backend Movie suite 123 passed; full frontend 998 passed/5 skipped.
 
+### G8 — gift-cards masthead copy (✅ Complete, 2026-06-14)
+The last enumerated home/site CMS gap. Same vertical slice as G3/G6, eyebrow + lede only.
+- **Backend:** `KEY_GIFT_CARDS_EDITORIAL`; `SiteContentController::giftCards()` → `GET /api/site-content/gift-cards` (versioned cache, null until saved); `GiftCardsContent` Filament Content page (`content.site_settings.update`-gated) — eyebrow TextInput + lede Textarea, defaults mirror `gift-cards.vue`, trim on save. The stylized `<h1>` title stays structural (brand typography — `<em>`/styled `<span>` markup an admin shouldn't free-edit).
+- **Frontend:** `GiftCardsEditorial` type + `useGiftCardsEditorial()` + `resolveGiftCardsEditorial()`; `gift-cards.vue` binds eyebrow + lede with the built-in copy as fallback so the masthead never renders blank.
+- **Tests:** backend `GiftCardsContentTest` (6); frontend `useSiteContent.test` (+5). Backend GiftCardsContent **6 passed**; route-scoping + site-content regression **23 passed**; affected frontend suite **64 passed**. Commit `ee5d5f7`.
+- **Process miss (recorded):** I launched `make test-frontend` in the **background** and waited passively for hours — a KNOWN hang (vitest zombie in the shared container late in a session). Recovery is `docker compose restart frontend` then re-run targeted. **Rule going forward: never passively wait on a backgrounded `make test-frontend`; run targeted foreground with an explicit `timeout`, and if a frontend run produces no output within a couple minutes, restart the container immediately rather than waiting.**
+
 ### Remaining (G2) — optional
-- G2 terms/privacy: deliberately **deferred / arguably out-of-scope** — legal text is better kept version-controlled + PR-reviewed than freely editable by a manager in a CMS (compliance/audit). If pursued, do plain-text-per-section like G4 (NOT rich-text). **CMS sprint complete (G1, G3, G4, G5, G6, G9 done); ~95%+ of customer-visible content is now admin-editable.**
+- G2 terms/privacy: deliberately **deferred / arguably out-of-scope** — legal text is better kept version-controlled + PR-reviewed than freely editable by a manager in a CMS (compliance/audit). If pursued, do plain-text-per-section like G4 (NOT rich-text). **CMS sprint complete (G1, G3, G4, G5, G6, G8, G9 done); essentially all customer-visible editorial content is now admin-editable.**
 
 ## Step 5: Bookings — B3 seat reassignment (✅ Complete, 2026-06-13)
 
