@@ -45,14 +45,34 @@ test-backend-unit:
 test-backend-feature:
 	docker compose exec -u 1000 backend php artisan test --testsuite=Feature
 
-# Use `run --rm` (not `exec`) so each test invocation gets a fresh,
-# disposable container. Vitest workers under Deno's npm shim leak child
-# processes that, in the long-lived dev container, accumulate as zombies
-# and deadlock future runs. An ephemeral container is destroyed on exit
-# along with any leaked workers. --no-deps keeps backend/postgres/redis
-# untouched; -T disables TTY so output streams cleanly to the host.
+# Frontend tests run in a fresh, disposable container (`run --rm`, not `exec`)
+# with their OWN isolated cache + .nuxt volumes — never the live dev server's.
+#
+# Root cause of the historical hangs: `docker compose run frontend` auto-loads
+# docker-compose.override.yml, so the ephemeral test container used to mount the
+# SAME `frontend-deno-cache` and `frontend-nuxt` volumes that the running dev
+# server (`deno task dev`) is actively writing. vitest's vite/esbuild pipeline
+# then contended with the dev server over the shared esbuild service and the
+# vite optimize-deps lock inside .nuxt — and deadlocked indefinitely (observed:
+# a backgrounded run held a container for 12h). Restarting the dev container
+# "fixed" it only by clearing the contended state — a workaround, not a fix.
+#
+# The fix: `-v frontend-test-*` shadows both shared volumes with dedicated,
+# persistent test-only volumes, so the test run shares NO mutable state with the
+# dev server and the contention is structurally impossible. `nuxt prepare`
+# populates the isolated .nuxt (the `environment: 'nuxt'` vitest env needs it;
+# an empty .nuxt makes every file fail in environment setup). The named volumes
+# persist, so only the very first run is cold; steady-state is ~25s.
+#
+# vitest.config.ts already forces `pool: 'forks'` so the parent exits cleanly
+# (Deno's npm-vitest shim doesn't fire tinypool's worker unref under the default
+# threads pool). --no-deps keeps backend/postgres/redis untouched; -T streams
+# output cleanly. ALWAYS run this foreground with a timeout — never background it.
+FE_TEST_VOLS = -v frontend-test-deno-cache:/home/devuser/.cache/deno -v frontend-test-nuxt:/app/.nuxt
+
 test-frontend:
-	docker compose run --rm --no-deps -T frontend deno run -A npm:vitest run
+	docker compose run --rm --no-deps -T $(FE_TEST_VOLS) frontend \
+		sh -c 'deno run -A npm:nuxt prepare && deno run -A npm:vitest run $(FE_ARGS)'
 
 PROD_COMPOSE = APP_ENV=production APP_DEBUG=false NODE_ENV=production docker compose -f docker-compose.yml -f docker-compose.prod.yml
 LOCAL_PROD_COMPOSE = APP_ENV=production APP_DEBUG=false NODE_ENV=production docker compose -f docker-compose.yml -f docker-compose.local-prod.yml -f docker-compose.stack.yml
