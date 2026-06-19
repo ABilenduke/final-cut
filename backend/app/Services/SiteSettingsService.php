@@ -24,6 +24,24 @@ class SiteSettingsService
     /** Site-wide contact details (frontend SiteContacts shape). */
     public const KEY_SITE_CONTACTS = 'site_contacts';
 
+    /** Careers-page "why work here" benefits — { benefits: string[] }. */
+    public const KEY_CAREERS_BENEFITS = 'careers_benefits';
+
+    /** Contact-page "getting here" prose — { byCar, byTransit, accessibility }. */
+    public const KEY_CONTACT_INFO = 'contact_info';
+
+    /** Private-screenings page intro copy — { title, intro }. */
+    public const KEY_PRIVATE_SCREENINGS = 'private_screenings';
+
+    /** Accessibility-page prose — intro + the six section paragraphs. */
+    public const KEY_ACCESSIBILITY_STATEMENT = 'accessibility_statement';
+
+    /** Header + footer navigation — { header: [{label, href}], footer: [...] }. */
+    public const KEY_NAVIGATION = 'navigation';
+
+    /** Gift-cards page masthead copy — { eyebrow, lede }. */
+    public const KEY_GIFT_CARDS_EDITORIAL = 'gift_cards_editorial';
+
     public function get(string $key, mixed $default = null): mixed
     {
         return SiteSetting::query()->find($key)->value ?? $default;

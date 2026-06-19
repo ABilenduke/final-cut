@@ -17,6 +17,7 @@ use BackedEnum;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Filament\Actions\Action;
+use Filament\Actions\BulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DateTimePicker;
@@ -216,6 +217,9 @@ class ShowtimeResource extends BaseResource
                 EditAction::make()
                     ->visible(fn (Showtime $record) => $record->cancelled_at === null && $record->start_time->isFuture()),
                 self::cancelAction(),
+            ])
+            ->toolbarActions([
+                self::bulkUpdatePricingAction(),
             ])
             ->defaultSort('start_time', 'asc');
     }
@@ -480,5 +484,59 @@ class ShowtimeResource extends BaseResource
             ->required()
             ->live()
             ->disabled(fn (Get $get) => ! $get('location_id'));
+    }
+
+    /**
+     * S3 — bulk-set the three seat-tier prices across the selected showtimes
+     * (e.g. a seasonal price bump). Each showtime routes through the same
+     * `ShowtimeService::update()` as the edit form: a price-only change is not
+     * structural, so it skips the booking-count guard, is row-locked, and is
+     * activity-logged. Existing bookings keep their purchased prices (snapshot
+     * on `booking_seats`); only future bookings use the new prices.
+     */
+    public static function bulkUpdatePricingAction(): BulkAction
+    {
+        return BulkAction::make('bulk_update_pricing')
+            ->label('Update pricing')
+            ->icon('heroicon-o-currency-dollar')
+            ->visible(fn (): bool => auth('admin')->user()?->can('showtimes.update') ?? false)
+            ->requiresConfirmation()
+            ->modalHeading('Update pricing for selected showtimes')
+            ->modalDescription('Sets all three seat-tier prices on every selected showtime. Existing bookings keep their purchased prices; only future bookings use the new prices.')
+            ->schema([
+                TextInput::make('price_standard')->label('Standard')->numeric()->minValue(0)->required()->suffix('¢')->helperText('Cents: $12.99 → 1299'),
+                TextInput::make('price_premium')->label('Premium')->numeric()->minValue(0)->required()->suffix('¢'),
+                TextInput::make('price_accessible')->label('Accessible')->numeric()->minValue(0)->required()->suffix('¢'),
+            ])
+            ->action(function (Collection $records, array $data): void {
+                $service = app(ShowtimeService::class);
+                $actor = auth('admin')->user();
+                $attributes = [
+                    'price_standard' => (int) $data['price_standard'],
+                    'price_premium' => (int) $data['price_premium'],
+                    'price_accessible' => (int) $data['price_accessible'],
+                ];
+
+                $updated = 0;
+                $failed = 0;
+
+                foreach ($records as $record) {
+                    try {
+                        $service->update($record, $attributes, $actor);
+                        $updated++;
+                    } catch (\Throwable) {
+                        $failed++;
+                    }
+                }
+
+                $body = "Updated {$updated}".($failed > 0 ? ", failed {$failed}" : '').' showtime(s).';
+
+                Notification::make()
+                    ->title($failed > 0 ? 'Pricing update finished with errors' : 'Pricing updated')
+                    ->body($body)
+                    ->status($failed > 0 ? 'warning' : 'success')
+                    ->send();
+            })
+            ->deselectRecordsAfterCompletion();
     }
 }

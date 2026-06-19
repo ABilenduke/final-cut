@@ -1,13 +1,26 @@
 <script setup lang="ts">
 import { usePublicLocations } from '~/composables/usePublicLocations'
+import { useContactInfo, resolveContactInfo } from '~/composables/useSiteContent'
 import type { WeekdayKey } from '~/types/location'
 
-// Venue data is admin-managed via LocationResource (hours/phone/email/address);
-// directions/parking/accessibility prose below stays editorial page copy.
+// Venue data is admin-managed via LocationResource (hours/phone/email/address).
 const { fetchLocations } = usePublicLocations()
 const { data: locationsData } = fetchLocations()
 const locations = computed(() => locationsData.value?.data ?? [])
 const primary = computed(() => locations.value[0])
+
+// Built-in "getting here" prose — also the fallback when no admin edit
+// exists yet (admin-v6 G6).
+const FALLBACK_CONTACT_INFO = {
+  byCar: 'Parking garage located directly beneath the theater. Enter via Cinema Lane. First 3 hours validated with ticket purchase.',
+  byTransit: 'Nearest subway: Cinema Station (A/C/E lines), one block east. Bus routes 14, 23, and 42 stop at Cinema Boulevard.',
+  accessibility: 'Step-free access at all entrances. Accessible parking spaces available on Level 1 of the garage, nearest to the elevator. Wheelchair-accessible seating available in every auditorium.',
+}
+
+const { data: contactInfoData } = useContactInfo()
+const contactInfo = computed(() =>
+  resolveContactInfo(contactInfoData.value?.data?.contactInfo ?? null, FALLBACK_CONTACT_INFO),
+)
 
 const DAY_LABELS: Array<[WeekdayKey, string]> = [
   ['monday', 'Monday'],
@@ -73,18 +86,18 @@ useHead(() => ({
             <div class="contact-page__directions">
               <div>
                 <h3 class="title-lg">By Car</h3>
-                <p class="body-md">Parking garage located directly beneath the theater. Enter via Cinema Lane. First 3 hours validated with ticket purchase.</p>
+                <p class="body-md">{{ contactInfo.byCar }}</p>
               </div>
               <div>
                 <h3 class="title-lg">By Transit</h3>
-                <p class="body-md">Nearest subway: Cinema Station (A/C/E lines), one block east. Bus routes 14, 23, and 42 stop at Cinema Boulevard.</p>
+                <p class="body-md">{{ contactInfo.byTransit }}</p>
               </div>
             </div>
           </section>
 
           <section class="contact-page__accessibility-info">
             <h2 class="headline-sm">Accessibility</h2>
-            <p class="body-md">Step-free access at all entrances. Accessible parking spaces available on Level 1 of the garage, nearest to the elevator. Wheelchair-accessible seating available in every auditorium.</p>
+            <p class="body-md">{{ contactInfo.accessibility }}</p>
           </section>
         </div>
 

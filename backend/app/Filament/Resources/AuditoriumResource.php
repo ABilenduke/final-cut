@@ -41,7 +41,8 @@ class AuditoriumResource extends BaseResource
 
     protected static string|UnitEnum|null $navigationGroup = 'Operations';
 
-    protected static ?int $navigationSort = 30;
+    // Distinct within Operations (was 30, colliding with User + GiftCard).
+    protected static ?int $navigationSort = 34;
 
     public static function form(Schema $schema): Schema
     {
@@ -182,6 +183,7 @@ class AuditoriumResource extends BaseResource
                     && (auth('admin')->user()?->can('seats.update') ?? false))
                 ->url(fn (Auditorium $record) => AuditoriumResource::getUrl('visual-editor', ['record' => $record])),
             self::fixSeatSectionsAction(),
+            self::manageSectionClosuresAction(),
             self::serviceDeleteAction(),
         ];
     }
@@ -278,6 +280,78 @@ class AuditoriumResource extends BaseResource
 
                 Notification::make()
                     ->title('Seat assignments updated')
+                    ->success()
+                    ->send();
+            });
+    }
+
+    /**
+     * S7 — temporarily close/reopen whole sections (e.g. for maintenance).
+     * Closed sections are removed from sale by SeatAvailabilityService and
+     * render 'taken' on the seat map; per-seat unavailable flags are untouched.
+     * Only sections whose state actually changes are written (no spurious
+     * activity rows), via AuditoriumService::closeSection / reopenSection.
+     */
+    public static function manageSectionClosuresAction(): Action
+    {
+        return Action::make('manage_section_closures')
+            ->label('Open / close sections')
+            ->icon('heroicon-o-lock-closed')
+            ->visible(fn (Auditorium $record) => $record->sections()->exists()
+                && (auth('admin')->user()?->can('auditoriums.update') ?? false))
+            ->modalHeading('Temporarily close sections')
+            ->modalDescription('Closed sections are removed from sale (their seats render as taken) until reopened. Individually-flagged seats keep their own state.')
+            ->fillForm(fn (Auditorium $record) => [
+                'sections' => $record->sections()
+                    ->orderBy('display_order')
+                    ->orderBy('name')
+                    ->get()
+                    ->map(fn ($section) => [
+                        'id' => $section->id,
+                        'name' => $section->name,
+                        'closed' => $section->closed_at !== null,
+                    ])
+                    ->all(),
+            ])
+            ->schema([
+                Repeater::make('sections')
+                    ->hiddenLabel()
+                    ->schema([
+                        Hidden::make('id'),
+                        TextInput::make('name')->label('Section')->disabled()->dehydrated(),
+                        Toggle::make('closed')->label('Closed'),
+                    ])
+                    ->columns(2)
+                    ->addable(false)
+                    ->deletable(false)
+                    ->reorderable(false)
+                    ->itemLabel(fn (array $state): string => ($state['name'] ?? '—').(($state['closed'] ?? false) ? ' — closed' : '')),
+            ])
+            ->action(function (array $data, Auditorium $record) {
+                $service = app(AuditoriumService::class);
+                $actor = auth('admin')->user();
+                $sections = $record->sections()->get()->keyBy('id');
+
+                $changed = 0;
+                foreach ($data['sections'] ?? [] as $row) {
+                    $section = $sections->get($row['id'] ?? null);
+                    if ($section === null) {
+                        continue;
+                    }
+
+                    $wantClosed = (bool) ($row['closed'] ?? false);
+                    if ($wantClosed === ($section->closed_at !== null)) {
+                        continue;
+                    }
+
+                    $wantClosed
+                        ? $service->closeSection($section, 'Closed from the admin panel', $actor)
+                        : $service->reopenSection($section, $actor);
+                    $changed++;
+                }
+
+                Notification::make()
+                    ->title($changed > 0 ? "Updated {$changed} section(s)" : 'No section changes')
                     ->success()
                     ->send();
             });

@@ -8,7 +8,7 @@ vi.mock('~/utils/api', () => ({
 }))
 
 import { useApiFetch } from '~/utils/api'
-import { useHomeContent, resolveMembershipContent, useSiteContacts, resolveSiteContacts } from '~/composables/useSiteContent'
+import { useHomeContent, resolveMembershipContent, useSiteContacts, resolveSiteContacts, useCareersContent, resolveCareersBenefits, useContactInfo, resolveContactInfo, usePrivateScreeningsCopy, resolvePrivateScreeningsCopy, useAccessibilityStatement, resolveAccessibilityStatement, useNavigation, resolveNavItems, useGiftCardsEditorial, resolveGiftCardsEditorial } from '~/composables/useSiteContent'
 import { fallbackSiteContacts } from '~/data/siteContacts'
 
 const mockUseApiFetch = vi.mocked(useApiFetch)
@@ -90,5 +90,240 @@ describe('resolveSiteContacts', () => {
   it('returns the admin-saved blob when present', () => {
     const saved = { ...fallbackSiteContacts, conciergeEmail: 'vip@finalcut.test' }
     expect(resolveSiteContacts(saved, fallbackSiteContacts)).toBe(saved)
+  })
+})
+
+describe('useCareersContent', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('fetches the careers endpoint with a dedupe key', () => {
+    mockUseApiFetch.mockReturnValue({
+      data: ref(null),
+      pending: ref(false),
+      error: ref(null),
+      refresh: vi.fn(),
+    } as any)
+
+    useCareersContent()
+
+    expect(mockUseApiFetch).toHaveBeenCalledWith(
+      '/api/site-content/careers',
+      expect.objectContaining({ key: 'site-content-careers' }),
+    )
+  })
+})
+
+describe('resolveCareersBenefits', () => {
+  const fallback = ['Free tickets', 'Discounts']
+
+  it('returns the fallback when nothing is saved', () => {
+    expect(resolveCareersBenefits(null, fallback)).toBe(fallback)
+    expect(resolveCareersBenefits(undefined, fallback)).toBe(fallback)
+  })
+
+  it('returns the fallback when the saved list is empty (never renders blank)', () => {
+    expect(resolveCareersBenefits([], fallback)).toBe(fallback)
+  })
+
+  it('returns the admin-saved benefits when present', () => {
+    const saved = ['Curated perk', 'Another perk']
+    expect(resolveCareersBenefits(saved, fallback)).toBe(saved)
+  })
+})
+
+describe('useContactInfo', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('fetches the contact-info endpoint with a dedupe key', () => {
+    mockUseApiFetch.mockReturnValue({
+      data: ref(null),
+      pending: ref(false),
+      error: ref(null),
+      refresh: vi.fn(),
+    } as any)
+
+    useContactInfo()
+
+    expect(mockUseApiFetch).toHaveBeenCalledWith(
+      '/api/site-content/contact-info',
+      expect.objectContaining({ key: 'site-content-contact-info' }),
+    )
+  })
+})
+
+describe('resolveContactInfo', () => {
+  const fallback = { byCar: 'car', byTransit: 'transit', accessibility: 'a11y' }
+
+  it('returns the fallback when nothing is saved', () => {
+    expect(resolveContactInfo(null, fallback)).toBe(fallback)
+    expect(resolveContactInfo(undefined, fallback)).toBe(fallback)
+  })
+
+  it('returns the admin-saved prose when present', () => {
+    const saved = { byCar: 'valet', byTransit: 'tram', accessibility: 'loops' }
+    expect(resolveContactInfo(saved, fallback)).toBe(saved)
+  })
+})
+
+describe('usePrivateScreeningsCopy', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('fetches the private-screenings endpoint with a dedupe key', () => {
+    mockUseApiFetch.mockReturnValue({
+      data: ref(null),
+      pending: ref(false),
+      error: ref(null),
+      refresh: vi.fn(),
+    } as any)
+
+    usePrivateScreeningsCopy()
+
+    expect(mockUseApiFetch).toHaveBeenCalledWith(
+      '/api/site-content/private-screenings',
+      expect.objectContaining({ key: 'site-content-private-screenings' }),
+    )
+  })
+})
+
+describe('resolvePrivateScreeningsCopy', () => {
+  const fallback = { title: 'Default title', intro: 'Default intro' }
+
+  it('returns the fallback when nothing is saved', () => {
+    expect(resolvePrivateScreeningsCopy(null, fallback)).toBe(fallback)
+    expect(resolvePrivateScreeningsCopy(undefined, fallback)).toBe(fallback)
+  })
+
+  it('returns the admin-saved copy when present', () => {
+    const saved = { title: 'Premiere', intro: 'Book it' }
+    expect(resolvePrivateScreeningsCopy(saved, fallback)).toBe(saved)
+  })
+})
+
+describe('useGiftCardsEditorial', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('fetches the gift-cards endpoint with a dedupe key', () => {
+    mockUseApiFetch.mockReturnValue({
+      data: ref(null),
+      pending: ref(false),
+      error: ref(null),
+      refresh: vi.fn(),
+    } as any)
+
+    useGiftCardsEditorial()
+
+    expect(mockUseApiFetch).toHaveBeenCalledWith(
+      '/api/site-content/gift-cards',
+      expect.objectContaining({ key: 'site-content-gift-cards' }),
+    )
+  })
+})
+
+describe('resolveGiftCardsEditorial', () => {
+  const fallback = { eyebrow: 'Default eyebrow', lede: 'Default lede' }
+
+  it('returns the fallback when nothing is saved', () => {
+    expect(resolveGiftCardsEditorial(null, fallback)).toBe(fallback)
+    expect(resolveGiftCardsEditorial(undefined, fallback)).toBe(fallback)
+  })
+
+  it('returns the admin-saved copy when present', () => {
+    const saved = { eyebrow: 'Holiday', lede: 'Give the dark' }
+    expect(resolveGiftCardsEditorial(saved, fallback)).toBe(saved)
+  })
+})
+
+describe('useAccessibilityStatement', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('fetches the accessibility endpoint with a dedupe key', () => {
+    mockUseApiFetch.mockReturnValue({
+      data: ref(null),
+      pending: ref(false),
+      error: ref(null),
+      refresh: vi.fn(),
+    } as any)
+
+    useAccessibilityStatement()
+
+    expect(mockUseApiFetch).toHaveBeenCalledWith(
+      '/api/site-content/accessibility',
+      expect.objectContaining({ key: 'site-content-accessibility' }),
+    )
+  })
+})
+
+describe('resolveAccessibilityStatement', () => {
+  const fallback = {
+    intro: 'i', assistedListening: 'al', wheelchairSeating: 'ws',
+    openCaption: 'oc', audioDescription: 'ad', sensoryFriendly: 'sf', serviceAnimals: 'sa',
+  }
+
+  it('returns the fallback when nothing is saved', () => {
+    expect(resolveAccessibilityStatement(null, fallback)).toBe(fallback)
+    expect(resolveAccessibilityStatement(undefined, fallback)).toBe(fallback)
+  })
+
+  it('returns the admin-saved statement when present', () => {
+    const saved = { ...fallback, intro: 'custom' }
+    expect(resolveAccessibilityStatement(saved, fallback)).toBe(saved)
+  })
+})
+
+describe('useNavigation', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('fetches the navigation endpoint with a dedupe key', () => {
+    mockUseApiFetch.mockReturnValue({
+      data: ref(null),
+      pending: ref(false),
+      error: ref(null),
+      refresh: vi.fn(),
+    } as any)
+
+    useNavigation()
+
+    expect(mockUseApiFetch).toHaveBeenCalledWith(
+      '/api/site-content/navigation',
+      expect.objectContaining({ key: 'site-content-navigation' }),
+    )
+  })
+})
+
+describe('resolveNavItems', () => {
+  const fallback = [{ label: 'Home', href: '/' }, { label: 'Movies', href: '/movies' }]
+
+  it('returns the fallback when nothing is saved', () => {
+    expect(resolveNavItems(null, fallback)).toBe(fallback)
+    expect(resolveNavItems(undefined, fallback)).toBe(fallback)
+  })
+
+  it('returns the fallback when the saved list is empty', () => {
+    expect(resolveNavItems([], fallback)).toBe(fallback)
+  })
+
+  it('returns the admin-saved items when present', () => {
+    const saved = [{ label: 'Films', href: '/movies' }]
+    expect(resolveNavItems(saved, fallback)).toEqual(saved)
+  })
+
+  it('accepts absolute http(s) hrefs', () => {
+    const saved = [{ label: 'Blog', href: 'https://blog.finalcut.test' }]
+    expect(resolveNavItems(saved, fallback)).toEqual(saved)
+  })
+
+  it('drops malformed / unsafe items, keeping the safe ones', () => {
+    const saved = [
+      { label: 'Good', href: '/movies' },
+      { label: 'XSS', href: 'javascript:alert(1)' },
+      { label: '', href: '/blank-label' },
+      { label: 'Relative', href: 'movies' },
+    ] as any
+    expect(resolveNavItems(saved, fallback)).toEqual([{ label: 'Good', href: '/movies' }])
+  })
+
+  it('falls back when every saved item is unsafe', () => {
+    const saved = [{ label: 'XSS', href: 'javascript:alert(1)' }] as any
+    expect(resolveNavItems(saved, fallback)).toBe(fallback)
   })
 })

@@ -575,4 +575,41 @@ class AuditoriumService
             'seat_label' => $seat->label,
         ]);
     }
+
+    /**
+     * Temporarily close a whole section (admin-v6 S7) — e.g. for maintenance.
+     * Every seat in the section is then treated as unavailable by
+     * `SeatAvailabilityService` and rendered 'taken' on the seat map, without
+     * touching per-seat `unavailable_at` (so individually-flagged seats keep
+     * their own state across a close/reopen cycle). Idempotent.
+     */
+    public function closeSection(AuditoriumSection $section, ?string $reason = null, ?User $actor = null): void
+    {
+        if ($section->closed_at !== null) {
+            return;
+        }
+
+        $section->forceFill(['closed_at' => now()])->save();
+
+        $this->logIfAdmin('auditorium.section_closed', $section->auditorium, $actor, [
+            'section_id' => $section->id,
+            'section_name' => $section->name,
+            'reason' => $reason,
+        ]);
+    }
+
+    /** Reopen a temporarily-closed section (admin-v6 S7). Idempotent. */
+    public function reopenSection(AuditoriumSection $section, ?User $actor = null): void
+    {
+        if ($section->closed_at === null) {
+            return;
+        }
+
+        $section->forceFill(['closed_at' => null])->save();
+
+        $this->logIfAdmin('auditorium.section_reopened', $section->auditorium, $actor, [
+            'section_id' => $section->id,
+            'section_name' => $section->name,
+        ]);
+    }
 }

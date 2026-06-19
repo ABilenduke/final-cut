@@ -15,6 +15,9 @@ return new class extends Migration
             $table->string('name');
             $table->decimal('price_multiplier', 5, 2)->default(1.00);
             $table->unsignedSmallInteger('display_order')->default(0);
+            // Temporary maintenance closure (admin-v6 S7): when set, every seat
+            // in this section is treated as unavailable for booking.
+            $table->timestamp('closed_at')->nullable();
             $table->timestamps();
 
             $table->unique(['auditorium_id', 'name']);

@@ -31,9 +31,9 @@ use Illuminate\Database\Eloquent\Model;
 use UnitEnum;
 
 /**
- * Read-focused resource: no create/edit/delete pages. The only write action
- * is `void`, which routes through `GiftCardService::void` with the admin
- * actor and dispatches a queued finance notification on success.
+ * Read-focused resource: no create/edit/delete pages. Its write actions are
+ * `adjust_balance` and `void`, each routed through `GiftCardService` with the
+ * admin actor; `void` dispatches a queued finance notification on success.
  */
 class GiftCardResource extends BaseResource
 {
@@ -48,7 +48,8 @@ class GiftCardResource extends BaseResource
 
     protected static string|UnitEnum|null $navigationGroup = 'Operations';
 
-    protected static ?int $navigationSort = 30;
+    // Distinct within Operations (was 30, colliding with User + Auditorium).
+    protected static ?int $navigationSort = 32;
 
     public static function canCreate(): bool
     {

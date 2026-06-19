@@ -44,6 +44,33 @@ test('checkAvailability returns empty array when all seats available', function 
     expect($result)->toBeEmpty();
 });
 
+test('checkAvailability flags seats in a temporarily-closed section as unavailable (S7)', function () {
+    ['auditorium' => $auditorium, 'showtime' => $showtime] = makeShowtimeFixture();
+
+    $closed = AuditoriumSection::factory()->create(['auditorium_id' => $auditorium->id, 'closed_at' => now()]);
+    $open = AuditoriumSection::factory()->create(['auditorium_id' => $auditorium->id, 'closed_at' => null]);
+
+    $closedSeat = Seat::factory()->create(['auditorium_id' => $auditorium->id, 'section_id' => $closed->id, 'type' => SeatType::Standard]);
+    $openSeat = Seat::factory()->create(['auditorium_id' => $auditorium->id, 'section_id' => $open->id, 'type' => SeatType::Standard]);
+
+    $result = app(SeatAvailabilityService::class)->checkAvailability($showtime->id, [$closedSeat->id, $openSeat->id]);
+
+    expect($result)->toContain($closedSeat->id)
+        ->and($result)->not->toContain($openSeat->id);
+});
+
+test('reserveSeats refuses a seat whose section is closed (S7)', function () {
+    ['auditorium' => $auditorium, 'showtime' => $showtime] = makeShowtimeFixture();
+
+    $closed = AuditoriumSection::factory()->create(['auditorium_id' => $auditorium->id, 'closed_at' => now()]);
+    $seat = Seat::factory()->create(['auditorium_id' => $auditorium->id, 'section_id' => $closed->id, 'type' => SeatType::Standard]);
+
+    $booking = Booking::factory()->create(['showtime_id' => $showtime->id, 'status' => BookingStatus::Confirmed]);
+
+    expect(fn () => app(SeatAvailabilityService::class)->reserveSeats($showtime, [$seat->id], $booking))
+        ->toThrow(SeatConflictException::class);
+});
+
 test('checkAvailability returns taken seat IDs for confirmed bookings', function () {
     ['auditorium' => $auditorium, 'showtime' => $showtime] = makeShowtimeFixture();
 

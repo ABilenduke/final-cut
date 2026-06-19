@@ -3,9 +3,11 @@
 namespace App\Filament\Resources;
 
 use App\Enums\BookingStatus;
+use App\Exceptions\BookingAmendmentException;
 use App\Exceptions\BookingFlagException;
 use App\Exceptions\BookingNotRefundableException;
 use App\Exceptions\BookingNotResendableException;
+use App\Exceptions\SeatConflictException;
 use App\Filament\Concerns\FormatsCurrency;
 use App\Filament\Concerns\TimestampColumns;
 use App\Filament\Resources\BookingResource\Pages;
@@ -14,16 +16,23 @@ use App\Models\Booking;
 use App\Models\BookingFoodItem;
 use App\Models\BookingSeat;
 use App\Models\Location;
+use App\Models\Seat;
 use App\Models\Showtime;
+use App\Models\User;
+use App\Services\BookingAmendmentService;
 use App\Services\BookingFlagService;
 use App\Services\BookingNotificationService;
 use App\Services\BookingRefundService;
+use App\Services\SeatAvailabilityService;
 use BackedEnum;
 use Filament\Actions\Action;
+use Filament\Actions\BulkAction;
 use Filament\Actions\ViewAction;
+use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
@@ -32,8 +41,11 @@ use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\HtmlString;
+use Illuminate\Validation\ValidationException;
+use Spatie\Activitylog\Models\Activity;
 use Stripe\Exception\ApiErrorException;
 use UnitEnum;
 
@@ -183,6 +195,9 @@ class BookingResource extends BaseResource
             ])
             ->recordActions([
                 ViewAction::make(),
+            ])
+            ->toolbarActions([
+                self::bulkRefundAction(),
             ])
             ->defaultSort('created_at', 'desc');
     }
@@ -338,7 +353,63 @@ class BookingResource extends BaseResource
                             && (bool) auth('admin')->user()?->can('bookings.resolve_refund')),
                 ])
                 ->columns(2),
+
+            // B7 — the audit trail for this booking (refunds, flags, notes,
+            // email corrections, …). Data already lives in activity_log; this
+            // just surfaces it inline so support doesn't need the separate log.
+            Section::make('History')
+                ->visible(fn (): bool => (bool) auth('admin')->user()?->can('activity.view'))
+                ->schema([
+                    Placeholder::make('activity_timeline')
+                        ->label('')
+                        ->content(function (Booking $record): HtmlString {
+                            $activities = self::recentActivityFor($record);
+
+                            if ($activities->isEmpty()) {
+                                return new HtmlString('<em>No recorded activity for this booking yet.</em>');
+                            }
+
+                            $rows = $activities->map(function (Activity $a): string {
+                                $event = str((string) $a->description)
+                                    ->replace('booking.', '')
+                                    ->headline()
+                                    ->toString();
+                                $causer = $a->causer;
+                                $who = $causer instanceof User
+                                    ? ($causer->email ?? $causer->name ?? 'system')
+                                    : 'system';
+                                $when = $a->created_at?->diffForHumans() ?? '';
+
+                                return sprintf('%s — %s · %s', e($event), e($who), e($when));
+                            })->all();
+
+                            return new HtmlString(
+                                '<ul class="list-disc pl-5 space-y-1"><li>'.implode('</li><li>', $rows).'</li></ul>'
+                            );
+                        }),
+                ]),
         ]);
+    }
+
+    /**
+     * B7 — the recent `admin` activity-log entries whose subject is this
+     * booking, newest first. Booking doesn't use the LogsActivity trait
+     * (events are written explicitly by the booking services), so this matches
+     * on the morph subject directly rather than via a relation.
+     *
+     * @return Collection<int, Activity>
+     */
+    public static function recentActivityFor(Booking $booking, int $limit = 25): Collection
+    {
+        return Activity::query()
+            ->where('subject_type', $booking->getMorphClass())
+            ->where('subject_id', $booking->getKey())
+            ->with('causer')
+            // id desc (monotonic insertion order) is a stable newest-first sort
+            // even when several events share a created_at second.
+            ->orderByDesc('id')
+            ->limit($limit)
+            ->get();
     }
 
     /**
@@ -551,5 +622,224 @@ class BookingResource extends BaseResource
                     ->success()
                     ->send();
             });
+    }
+
+    /**
+     * B2 — edit the internal booking notes. Always available to permitted
+     * admins (notes are documentation, not a state-machine field).
+     */
+    public static function editNotesAction(): Action
+    {
+        return Action::make('edit_notes')
+            ->label('Edit notes')
+            ->icon('heroicon-o-pencil-square')
+            ->color('gray')
+            ->visible(fn (): bool => auth('admin')->user()?->can('bookings.edit_notes') ?? false)
+            ->fillForm(fn (Booking $record): array => ['notes' => $record->notes])
+            ->schema([
+                Textarea::make('notes')
+                    ->label('Internal notes')
+                    ->rows(4)
+                    ->maxLength(2000)
+                    ->helperText('Support-facing only — never shown to the customer. Logged on save.'),
+            ])
+            ->action(function (Booking $record, array $data): void {
+                app(BookingAmendmentService::class)->updateNotes(
+                    $record,
+                    $data['notes'] ?? null,
+                    auth('admin')->user(),
+                );
+
+                Notification::make()
+                    ->title('Notes updated')
+                    ->success()
+                    ->send();
+            });
+    }
+
+    /**
+     * B4 — correct a mistyped guest email. Guest bookings only; a registered
+     * user's contact email lives on the User and is corrected there.
+     */
+    public static function correctGuestEmailAction(): Action
+    {
+        return Action::make('correct_guest_email')
+            ->label('Correct guest email')
+            ->icon('heroicon-o-envelope')
+            ->color('gray')
+            ->visible(fn (Booking $record): bool => (auth('admin')->user()?->can('bookings.correct_email') ?? false)
+                && $record->user_id === null)
+            ->fillForm(fn (Booking $record): array => ['email' => $record->guest_email])
+            ->schema([
+                TextInput::make('email')
+                    ->label('Guest email')
+                    ->email()
+                    ->required()
+                    ->maxLength(255)
+                    ->helperText('Where the confirmation and any future notices are sent. The change is logged.'),
+            ])
+            ->requiresConfirmation()
+            ->modalDescription('Resend the confirmation afterwards if the customer needs a fresh copy.')
+            ->action(function (Booking $record, array $data): void {
+                try {
+                    app(BookingAmendmentService::class)->correctGuestEmail(
+                        $record,
+                        $data['email'],
+                        auth('admin')->user(),
+                    );
+                } catch (BookingAmendmentException $e) {
+                    Notification::make()
+                        ->title('Cannot correct email')
+                        ->body($e->getMessage())
+                        ->danger()
+                        ->send();
+
+                    return;
+                }
+
+                Notification::make()
+                    ->title('Guest email corrected')
+                    ->success()
+                    ->send();
+            });
+    }
+
+    /**
+     * B3 — move a booking to different seats in the same showtime, money-neutral.
+     * The picker offers every seat in the auditorium that's currently selectable
+     * (available, in-service, in an open section) PLUS this booking's own current
+     * seats (so a partial move can keep some). The heavy lifting — availability
+     * re-check, occupancy-index TOCTOU guard, equal-price enforcement, and the
+     * atomic release+reserve — lives in BookingAmendmentService::reassignSeats;
+     * here we just surface its exceptions as notifications.
+     */
+    public static function reassignSeatsAction(): Action
+    {
+        return Action::make('reassign_seats')
+            ->label('Reassign seats')
+            ->icon('heroicon-o-arrows-right-left')
+            ->color('gray')
+            ->visible(fn (Booking $record): bool => (auth('admin')->user()?->can('bookings.reassign_seats') ?? false)
+                && in_array($record->status, [BookingStatus::Confirmed, BookingStatus::Held], true))
+            ->fillForm(fn (Booking $record): array => ['seat_ids' => $record->seats()->pluck('seat_id')->all()])
+            ->schema(fn (Booking $record): array => [
+                CheckboxList::make('seat_ids')
+                    ->label('Seats')
+                    ->options(static::selectableSeatOptions($record))
+                    ->required()
+                    ->columns(3)
+                    ->helperText('The new seats must cost exactly what the current seats cost — a price change needs a refund and rebooking instead. Seats taken by other bookings, flagged out of service, or in a closed section are not listed.'),
+            ])
+            ->action(function (Booking $record, array $data): void {
+                try {
+                    app(BookingAmendmentService::class)->reassignSeats(
+                        $record,
+                        array_values((array) ($data['seat_ids'] ?? [])),
+                        auth('admin')->user(),
+                    );
+                } catch (BookingAmendmentException|SeatConflictException|ValidationException $e) {
+                    Notification::make()
+                        ->title('Cannot reassign seats')
+                        ->body($e->getMessage())
+                        ->danger()
+                        ->send();
+
+                    return;
+                }
+
+                Notification::make()
+                    ->title('Seats reassigned')
+                    ->success()
+                    ->send();
+            });
+    }
+
+    /**
+     * Seats the admin may move this booking onto: every seat in the showtime's
+     * auditorium that's selectable right now, plus the booking's own current
+     * seats (which `checkAvailability` reports as taken — by this very booking).
+     * Labels carry the per-seat price so a price mismatch is self-explanatory.
+     *
+     * @return array<string, string> seat id => "A1 · $12.00 · Standard"
+     */
+    protected static function selectableSeatOptions(Booking $record): array
+    {
+        $showtime = $record->showtime;
+        $seats = Seat::with('section')
+            ->where('auditorium_id', $showtime->auditorium_id)
+            ->orderBy('row')
+            ->orderBy('number')
+            ->get();
+
+        $currentSeatIds = $record->seats()->pluck('seat_id')->all();
+        $unavailable = app(SeatAvailabilityService::class)
+            ->checkAvailability($showtime->id, $seats->pluck('id')->all());
+
+        return $seats
+            ->filter(fn ($seat): bool => ! in_array($seat->id, $unavailable, true)
+                || in_array($seat->id, $currentSeatIds, true))
+            ->mapWithKeys(function ($seat) use ($showtime): array {
+                $price = SeatAvailabilityService::priceForSeat($showtime, $seat);
+                $section = $seat->section !== null ? $seat->section->name : $seat->type->value;
+
+                return [$seat->id => $seat->label.' · $'.number_format($price / 100, 2).' · '.$section];
+            })
+            ->all();
+    }
+
+    /**
+     * B6 — refund several bookings at once (e.g. recovering a whole cancelled
+     * showtime). Each booking goes through the same row-locked, idempotent
+     * `BookingRefundService::refund()` as the single-booking action, so
+     * already-refunded / cancelled / in-flight bookings are skipped cleanly
+     * and a Stripe failure on one booking never rolls back the others. The
+     * result is reported as a refunded / skipped / failed tally.
+     */
+    public static function bulkRefundAction(): BulkAction
+    {
+        return BulkAction::make('bulk_refund')
+            ->label('Refund selected')
+            ->icon('heroicon-o-receipt-refund')
+            ->color('danger')
+            ->visible(fn (): bool => auth('admin')->user()?->can('bookings.resolve_refund') ?? false)
+            ->requiresConfirmation()
+            ->modalHeading('Refund selected bookings')
+            ->modalDescription('Each refundable booking is refunded individually; already-refunded, cancelled, or in-flight bookings are skipped. This cannot be undone.')
+            ->schema([
+                Textarea::make('reason')
+                    ->label('Refund reason')
+                    ->required()
+                    ->minLength(10)
+                    ->rows(2)
+                    ->helperText('Applied to every refunded booking and logged.'),
+            ])
+            ->action(function (\Illuminate\Support\Collection $records, array $data): void {
+                $service = app(BookingRefundService::class);
+                $actor = auth('admin')->user();
+
+                $refunded = 0;
+                $skipped = 0;
+                $failed = 0;
+
+                foreach ($records as $record) {
+                    try {
+                        $service->refund($record, $data['reason'], $actor);
+                        $refunded++;
+                    } catch (BookingNotRefundableException) {
+                        $skipped++;
+                    } catch (\Throwable) {
+                        $failed++;
+                    }
+                }
+
+                $body = "Refunded {$refunded}, skipped {$skipped}".($failed > 0 ? ", failed {$failed}" : '').'.';
+
+                Notification::make()
+                    ->title($failed > 0 ? 'Bulk refund finished with errors' : 'Bulk refund complete')
+                    ->body($body)
+                    ->status($failed > 0 ? 'warning' : 'success')
+                    ->send();
+            })
+            ->deselectRecordsAfterCompletion();
     }
 }

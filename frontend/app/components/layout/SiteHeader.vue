@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { useNavigation, resolveNavItems } from '~/composables/useSiteContent'
+
 const route = useRoute()
 const { user, isAuthenticated } = useAuth()
 const { activate, deactivate } = useFocusTrap()
@@ -6,13 +8,20 @@ const { activate, deactivate } = useFocusTrap()
 const mobileMenuOpen = ref(false)
 const mobileMenuEl = ref<HTMLElement | null>(null)
 
-const navItems = [
+// Built-in primary nav — also the fallback when no admin edit exists yet (G1).
+const FALLBACK_NAV = [
   { label: 'Movies', href: '/movies' },
   { label: "What's On", href: '/whats-on' },
   { label: 'Food & Drink', href: '/food-drink' },
   { label: 'Events', href: '/events' },
   { label: 'Gift Cards', href: '/gift-cards' },
 ]
+
+// Admin-managed primary nav (admin-v6 G1); falls back to the built-in list.
+const { data: navData } = useNavigation()
+const navItems = computed(() =>
+  resolveNavItems(navData.value?.data?.header ?? null, FALLBACK_NAV),
+)
 
 function isActive(href: string): boolean {
   if (href === '/') return route.path === '/'

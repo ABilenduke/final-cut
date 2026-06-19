@@ -26,6 +26,10 @@ function primaryGenre(movie: Movie): string {
 type Accent = { tag: string; tagKind: 'new' | 'gold' | '' }
 
 function accentFor(movie: Movie, i: number): Accent {
+  // Admin override (G9): a curated tag wins over the computed one, styled gold.
+  const override = movie.homeTeaserTag?.trim()
+  if (override) return { tag: override, tagKind: 'gold' }
+
   // Latest release gets "New"; every 3rd gets a format tag; others are "Select".
   const release = new Date(movie.releaseDate).getTime()
   const thirtyDays = 30 * 24 * 60 * 60 * 1000

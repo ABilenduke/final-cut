@@ -35,7 +35,8 @@ class LocationResource extends BaseResource
 
     protected static string|UnitEnum|null $navigationGroup = 'Operations';
 
-    protected static ?int $navigationSort = 20;
+    // Distinct within Operations (was 20, colliding with BookingResource).
+    protected static ?int $navigationSort = 22;
 
     /** Days of the week in order. Used to build the hours section. */
     public const DAYS = [

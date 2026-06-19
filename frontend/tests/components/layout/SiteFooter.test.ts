@@ -16,16 +16,14 @@ import { useApiFetch } from '~/utils/api'
 
 const mockUseApiFetch = vi.mocked(useApiFetch)
 
-function mockContacts(contacts: SiteContacts | null) {
+function tuple<T>(data: T) {
+  return { data: ref({ data }), pending: ref(false), error: ref(null), refresh: vi.fn() }
+}
+
+function mockContacts(contacts: SiteContacts | null, footerNav: Array<{ label: string, href: string }> | null = null) {
   mockUseApiFetch.mockImplementation(((path: string) => {
-    if (path === '/api/site-content/contacts') {
-      return {
-        data: ref({ data: { contacts } }),
-        pending: ref(false),
-        error: ref(null),
-        refresh: vi.fn(),
-      }
-    }
+    if (path === '/api/site-content/contacts') return tuple({ contacts })
+    if (path === '/api/site-content/navigation') return tuple({ header: null, footer: footerNav })
     throw new Error(`Unexpected fetch: ${path}`)
   }) as any)
 }
@@ -57,5 +55,26 @@ describe('SiteFooter', () => {
     const address = wrapper.find('.site-footer__address').text()
     expect(address).toContain('Final Cut Theatre')
     expect(address).toContain('123 Cinema Boulevard')
+  })
+
+  it('renders the built-in footer nav when none is admin-saved (G1)', async () => {
+    mockContacts(null, null)
+    const wrapper = await mountSuspended(SiteFooter)
+
+    const links = wrapper.findAll('.site-footer__nav-link').map(l => l.text())
+    expect(links).toContain('Our Cinemas')
+    expect(links).toContain('Private Screenings')
+  })
+
+  it('renders admin-saved footer nav over the built-in list (G1)', async () => {
+    mockContacts(null, [
+      { label: 'Visit Us', href: '/locations' },
+      { label: 'Help', href: '/faq' },
+    ])
+    const wrapper = await mountSuspended(SiteFooter)
+
+    const links = wrapper.findAll('.site-footer__nav-link').map(l => l.text())
+    expect(links).toEqual(['Visit Us', 'Help'])
+    expect(links).not.toContain('Private Screenings')
   })
 })

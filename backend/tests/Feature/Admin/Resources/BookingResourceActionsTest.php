@@ -2,11 +2,13 @@
 
 use App\Enums\BookingStatus;
 use App\Exceptions\BookingFlagException;
+use App\Filament\Resources\BookingResource;
 use App\Filament\Resources\BookingResource\Pages\ViewBooking;
 use App\Models\Booking;
 use App\Models\BookingSeat;
 use App\Models\DispatchOutbox;
 use App\Models\User;
+use App\Services\BookingAmendmentService;
 use App\Services\BookingFlagService;
 use App\Services\BookingNotificationService;
 use App\Services\SeatAvailabilityService;
@@ -197,6 +199,106 @@ test('flag actions are hidden without the bookings.flag permission', function ()
     Livewire::test(ViewBooking::class, ['record' => $booking->id])
         ->assertActionHidden('flag')
         ->assertActionHidden('unflag');
+});
+
+// ── Edit notes (B2) / correct guest email (B4) ──────────────────────────────
+
+test('admin can edit booking notes from the view page', function (): void {
+    $admin = $this->actingAsAdmin();
+    $booking = actionBookingFixture(['notes' => null]);
+
+    Livewire::test(ViewBooking::class, ['record' => $booking->id])
+        ->assertActionVisible('edit_notes')
+        ->mountAction('edit_notes')
+        ->set('mountedActions.0.data.notes', 'Customer called about a seat swap; documented.')
+        ->callMountedAction()
+        ->assertHasNoActionErrors();
+
+    expect($booking->refresh()->notes)->toBe('Customer called about a seat swap; documented.');
+
+    $activity = Activity::where('log_name', 'admin')
+        ->where('description', BookingAmendmentService::EVENT_NOTES_UPDATED)->first();
+    expect($activity)->not->toBeNull()->and($activity->causer_id)->toBe($admin->id);
+});
+
+test('edit_notes is hidden for ops (bookings stay read-only for that role)', function (): void {
+    $this->actingAsOps();
+    $booking = actionBookingFixture();
+
+    Livewire::test(ViewBooking::class, ['record' => $booking->id])
+        ->assertActionHidden('edit_notes');
+});
+
+test('admin can correct a guest booking email', function (): void {
+    $admin = $this->actingAsAdmin();
+    $booking = actionBookingFixture(['user_id' => null, 'guest_email' => 'typo@exmaple.com']);
+
+    Livewire::test(ViewBooking::class, ['record' => $booking->id])
+        ->assertActionVisible('correct_guest_email')
+        ->mountAction('correct_guest_email')
+        ->set('mountedActions.0.data.email', 'Correct@Example.com')
+        ->callMountedAction()
+        ->assertHasNoActionErrors();
+
+    expect($booking->refresh()->guest_email)->toBe('correct@example.com');
+
+    $activity = Activity::where('log_name', 'admin')
+        ->where('description', BookingAmendmentService::EVENT_GUEST_EMAIL_CORRECTED)->first();
+    expect($activity)->not->toBeNull()->and($activity->causer_id)->toBe($admin->id);
+});
+
+test('correct_guest_email is hidden for a registered-user booking', function (): void {
+    $this->actingAsAdmin();
+    $booking = actionBookingFixture(); // has a user_id
+
+    Livewire::test(ViewBooking::class, ['record' => $booking->id])
+        ->assertActionHidden('correct_guest_email');
+});
+
+test('correct_guest_email is hidden for ops', function (): void {
+    $this->actingAsOps();
+    $booking = actionBookingFixture(['user_id' => null, 'guest_email' => 'g@example.com']);
+
+    Livewire::test(ViewBooking::class, ['record' => $booking->id])
+        ->assertActionHidden('correct_guest_email');
+});
+
+test('correct_guest_email rejects a malformed email at the form layer', function (): void {
+    $this->actingAsAdmin();
+    $booking = actionBookingFixture(['user_id' => null, 'guest_email' => 'g@example.com']);
+
+    Livewire::test(ViewBooking::class, ['record' => $booking->id])
+        ->mountAction('correct_guest_email')
+        ->set('mountedActions.0.data.email', 'not-an-email')
+        ->callMountedAction()
+        ->assertHasActionErrors(['email']);
+
+    expect($booking->refresh()->guest_email)->toBe('g@example.com');
+});
+
+// ── Activity timeline on the booking view (B7) ───────────────────────────────
+
+test('recentActivityFor returns the booking activity newest-first', function (): void {
+    $this->actingAsAdmin();
+    $booking = actionBookingFixture(['user_id' => null, 'guest_email' => 'g@example.com']);
+    $actor = User::factory()->admin()->create();
+
+    app(BookingAmendmentService::class)->updateNotes($booking, 'first', $actor);
+    app(BookingAmendmentService::class)->correctGuestEmail($booking, 'second@example.com', $actor);
+
+    $activity = BookingResource::recentActivityFor($booking);
+
+    expect($activity)->toHaveCount(2)
+        ->and($activity->first()->description)->toBe(BookingAmendmentService::EVENT_GUEST_EMAIL_CORRECTED);
+});
+
+test('the booking view surfaces the activity timeline for a permitted admin', function (): void {
+    $this->actingAsAdmin();
+    $booking = actionBookingFixture(['notes' => null]);
+    app(BookingAmendmentService::class)->updateNotes($booking, 'Documented a comp', User::factory()->admin()->create());
+
+    Livewire::test(ViewBooking::class, ['record' => $booking->id])
+        ->assertSee('Notes Updated');
 });
 
 // ── BookingFlagService (service-layer guards) ───────────────────────────────
