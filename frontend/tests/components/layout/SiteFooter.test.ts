@@ -77,4 +77,23 @@ describe('SiteFooter', () => {
     expect(links).toEqual(['Visit Us', 'Help'])
     expect(links).not.toContain('Private Screenings')
   })
+
+  it('shows the required TMDB attribution: approved logo + verbatim notice', async () => {
+    mockContacts(null)
+    const wrapper = await mountSuspended(SiteFooter)
+
+    // Notice text is mandated verbatim by the TMDB API terms — do not reword.
+    expect(wrapper.find('.site-footer__tmdb-notice').text()).toBe(
+      'This product uses the TMDB API but is not endorsed or certified by TMDB.',
+    )
+
+    // Approved logo links to TMDB and is the unmodified asset in public/.
+    const link = wrapper.find('.site-footer__tmdb-link')
+    expect(link.attributes('href')).toBe('https://www.themoviedb.org')
+
+    const logo = wrapper.find('.site-footer__tmdb-logo')
+    expect(logo.exists()).toBe(true)
+    expect(logo.attributes('src')).toBe('/tmdb.svg')
+    expect(logo.attributes('alt')).toBe('The Movie Database (TMDB)')
+  })
 })
