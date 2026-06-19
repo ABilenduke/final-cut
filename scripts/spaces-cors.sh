@@ -74,10 +74,14 @@ done
 read_env() {
   local key="$1"
   [ -f "$ENV_FILE" ] || return 0
+  # A missing key is normal (optional vars like SPACES_CORS_MAX_AGE) — grep
+  # exits 1, which pipefail would propagate and `set -e` would treat as a fatal
+  # error in the `VAR="$(resolve …)"` caller. Trailing `|| true` makes "not
+  # found" an empty result, not an abort.
   grep -E "^${key}=" "$ENV_FILE" 2>/dev/null | tail -n1 | cut -d= -f2- \
     | sed -e 's/[[:space:]][[:space:]]*#.*$//' \
           -e 's/^"\(.*\)"$/\1/' -e "s/^'\(.*\)'$/\1/" \
-          -e 's/[[:space:]]*$//'
+          -e 's/[[:space:]]*$//' || true
 }
 
 # Resolve a var from the environment first, then the env file.
