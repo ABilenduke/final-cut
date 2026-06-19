@@ -1,0 +1,72 @@
+# Registry + single-droplet overlay — use ON TOP OF the prod overlay:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml \
+#     -f docker-compose.registry.yml up -d
+#   (or: make prod-deploy / prod-pull — same invocation)
+#
+# What this adds over base + prod:
+#   - Pulls the four app services from GHCR instead of building on the droplet.
+#     `image:` is the authoritative source; `docker compose pull` fetches it and
+#     `up -d` (no --build) never invokes the prod overlay's `build:` blocks.
+#   - Injects the production secret set into the containers via `env_file`. The
+#     GHCR images carry NO .env (secrets must never be baked); the base/prod
+#     `environment:` blocks only set DB/Redis/admin vars. The droplet-local
+#     ./backend/.env and ./frontend/.env (chmod 600, never committed) supply the
+#     rest. Explicit `environment:` still wins over `env_file`, so the DB/Redis
+#     wiring in the base compose stays authoritative.
+#   - Runs Redis as a container on the droplet (copied from docker-compose.stack.yml,
+#     password now fail-closed). Postgres is DigitalOcean Managed (external) — it is
+#     deliberately NOT defined here; the backend reaches it via DB_HOST + verify-full
+#     against DO's CA placed at postgres/certs/ca.pem.
+#
+# Pin the release with IMAGE_TAG (root .env or `export IMAGE_TAG=v1.0.0`).
+
+services:
+  frontend:
+    image: ghcr.io/abilenduke/final-cut-frontend:${IMAGE_TAG:-latest}
+    env_file:
+      - ./frontend/.env
+
+  backend:
+    image: ghcr.io/abilenduke/final-cut-backend:${IMAGE_TAG:-latest}
+    env_file:
+      - ./backend/.env
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  backend-worker:
+    image: ghcr.io/abilenduke/final-cut-backend:${IMAGE_TAG:-latest}
+    env_file:
+      - ./backend/.env
+
+  backend-scheduler:
+    image: ghcr.io/abilenduke/final-cut-backend:${IMAGE_TAG:-latest}
+    env_file:
+      - ./backend/.env
+
+  # ── Redis (container on the droplet) ──────────────
+  # Copied from docker-compose.stack.yml. Internal-only (no published port) —
+  # the backend reaches it via the `redis` service DNS name. TLS certs come
+  # from ./redis/certs (generated on the droplet with ./redis/certs/generate-certs.sh,
+  # NOT `make certs`, which would also overwrite the managed-Postgres CA).
+  redis:
+    build:
+      context: ./redis
+    container_name: redis
+    volumes:
+      - redis-data:/data
+      - ./redis/certs:/tls:ro
+    environment:
+      REDIS_USERNAME: ${REDIS_USERNAME:-app}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD must be set (no insecure default in the prod-facing compose)}
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli --tls --cacert /etc/redis/tls/ca.pem -a $$REDIS_PASSWORD --user $$REDIS_USERNAME ping | grep -q PONG"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    restart: unless-stopped
+
+volumes:
+  redis-data:
