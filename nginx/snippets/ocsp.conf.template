@@ -14,11 +14,15 @@
 # paths. This snippet only needs ssl_trusted_certificate pointed at the
 # chain file.
 #
-# This file is processed by envsubst via the nginx Docker entrypoint.
+# This file is processed by envsubst (rendered to /etc/nginx/snippets/ocsp.conf
+# by the nginx command) and included inside the HTTPS server block.
 # APP_DOMAIN is substituted automatically — no manual changes needed.
+#
+# NOTE: no `resolver` here on purpose. This snippet is included into a server
+# block that already declares `resolver 127.0.0.11` (Docker's embedded DNS),
+# and nginx rejects a duplicate `resolver` in the same context ([emerg]). OCSP
+# stapling uses that existing resolver to reach the CA's responder.
 
 ssl_stapling            on;
 ssl_stapling_verify     on;
 ssl_trusted_certificate /etc/letsencrypt/live/${APP_DOMAIN}/chain.pem;
-resolver                1.1.1.1 8.8.8.8 valid=300s;
-resolver_timeout        5s;
