@@ -33,7 +33,7 @@ services:
         # The default entrypoint only envsubst's /etc/nginx/templates, so render
         # this one ourselves into the snippet dir the vhost includes.
         if [ -f /etc/nginx/ocsp.conf.template ]; then
-          envsubst '$APP_DOMAIN' < /etc/nginx/ocsp.conf.template > /etc/nginx/snippets/ocsp.conf
+          envsubst '$$APP_DOMAIN' < /etc/nginx/ocsp.conf.template > /etc/nginx/snippets/ocsp.conf
         fi
         . /render-admin-allowlist.sh
         # Background loop: watch for certbot reload signal
