@@ -1,4 +1,4 @@
-.PHONY: up down build shell artisan migrate fresh test test-backend test-backend-unit test-backend-feature test-frontend certs trust-cert prod-up prod-down prod-build prod-logs local-prod-up local-prod-down local-prod-build local-prod-logs e2e ci-e2e admin-shell admin-migrate admin-test admin-create-user admin-filament-assets
+.PHONY: up down build shell artisan migrate fresh test test-backend test-backend-unit test-backend-feature test-frontend certs trust-cert prod-up prod-down prod-build prod-logs local-prod-up local-prod-down local-prod-build local-prod-logs prod-pull prod-deploy prod-registry-down prod-registry-logs prod-migrate prod-optimize e2e ci-e2e admin-shell admin-migrate admin-test admin-create-user admin-filament-assets
 
 ifeq (artisan,$(firstword $(MAKECMDGOALS)))
 ARTISAN_ARGS := $(wordlist 2,$(words $(MAKECMDGOALS)),$(MAKECMDGOALS))
@@ -100,6 +100,33 @@ local-prod-build:
 
 local-prod-logs:
 	$(LOCAL_PROD_COMPOSE) logs -f
+
+# ── Production deploy (GHCR registry, single droplet) ─────
+# Run on the droplet by .github/workflows/release.yml (and by hand). Layers
+# base + prod (Let's Encrypt/certbot) + registry (GHCR images, Redis container,
+# secret env_files). Pin the release with IMAGE_TAG, e.g. `export IMAGE_TAG=v1.0.0`.
+PROD_REGISTRY_COMPOSE = APP_ENV=production APP_DEBUG=false NODE_ENV=production docker compose -f docker-compose.yml -f docker-compose.prod.yml -f docker-compose.registry.yml
+
+# Pull only the four GHCR app images by name. `pull` (no args) would also try to
+# pull the build-only `redis` service (no registry image) and fail; nginx/certbot/
+# fail2ban are pure images and get pulled by `up` if missing; redis builds once.
+prod-pull:
+	$(PROD_REGISTRY_COMPOSE) pull frontend backend backend-worker backend-scheduler
+
+prod-deploy:
+	$(PROD_REGISTRY_COMPOSE) up -d --wait
+
+prod-registry-down:
+	$(PROD_REGISTRY_COMPOSE) down
+
+prod-registry-logs:
+	$(PROD_REGISTRY_COMPOSE) logs -f
+
+prod-migrate:
+	$(PROD_REGISTRY_COMPOSE) exec -T backend php artisan migrate --force
+
+prod-optimize:
+	$(PROD_REGISTRY_COMPOSE) exec -T backend php artisan optimize
 
 # ── Admin panel (Filament) convenience targets ─────
 # Pinned to UID 1000 so file writes land under the host's devuser mount
