@@ -15,7 +15,7 @@ class MenuItemSeeder extends Seeder
      * through AssetUrl::resolve(), so the final host/prefix comes from the
      * configured public disk rather than from seeded data.
      */
-    private const CONCESSION_IMAGE_PATH = 'concessions/';
+    private const CONCESSION_IMAGE_PATH = 'images/concessions/';
 
     public function run(): void
     {

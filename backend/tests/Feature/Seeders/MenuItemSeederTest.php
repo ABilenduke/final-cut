@@ -41,7 +41,7 @@ it('seeds every menu item with a CDN-relative concession webp image path', funct
 
     foreach ($items as $item) {
         expect($item->image_url)->toBeString()
-            ->and($item->image_url)->toStartWith('concessions/')
+            ->and($item->image_url)->toStartWith('images/concessions/')
             ->and($item->image_url)->not->toStartWith('http')
             ->and($item->image_url)->toEndWith('.webp');
     }
@@ -65,5 +65,5 @@ it('resolves seeded concession image paths through the configured public CDN on 
     expect($first)->not->toBeNull()
         ->and($first)->toHaveKey('imageUrl')
         ->and($first)->not->toHaveKey('image_url')
-        ->and($first['imageUrl'])->toStartWith('https://cdn.example.test/finalcut/concessions/');
+        ->and($first['imageUrl'])->toStartWith('https://cdn.example.test/finalcut/images/concessions/');
 });
