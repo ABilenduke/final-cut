@@ -27,6 +27,14 @@ services:
       - |
         mkdir -p /etc/nginx/snippets /var/run/certbot-reload
         touch /etc/nginx/banned/banned-ips.conf
+        # Render OCSP stapling snippet. The template is mounted at /etc/nginx
+        # (writable image fs), NOT under /etc/nginx/templates (which is a
+        # read-only bind mount — Docker can't create a nested mountpoint there).
+        # The default entrypoint only envsubst's /etc/nginx/templates, so render
+        # this one ourselves into the snippet dir the vhost includes.
+        if [ -f /etc/nginx/ocsp.conf.template ]; then
+          envsubst '$APP_DOMAIN' < /etc/nginx/ocsp.conf.template > /etc/nginx/snippets/ocsp.conf
+        fi
         . /render-admin-allowlist.sh
         # Background loop: watch for certbot reload signal
         while :; do
@@ -46,11 +54,13 @@ services:
       # Override self-signed certs with Let's Encrypt
       - letsencrypt:/etc/letsencrypt:ro
       - certbot-webroot:/var/www/certbot:ro
-      # Mount OCSP template into the envsubst templates dir so it gets
-      # processed with ${APP_DOMAIN} and output to /etc/nginx/snippets/.
-      # In dev this template is absent, so the snippets wildcard matches
-      # nothing and nginx starts without OCSP (which needs CA-signed certs).
-      - ./nginx/snippets/ocsp.conf.template:/etc/nginx/templates/snippets/ocsp.conf.template:ro
+      # OCSP stapling template. Mounted at /etc/nginx (writable image layer)
+      # rather than under the read-only /etc/nginx/templates bind mount — a
+      # nested file mount inside a read-only mount fails at container init
+      # ("read-only file system"). The nginx command above envsubst's it into
+      # /etc/nginx/snippets/ocsp.conf, which the vhost's `include` picks up.
+      # In dev this file is absent, so the render step is skipped.
+      - ./nginx/snippets/ocsp.conf.template:/etc/nginx/ocsp.conf.template:ro
       # Shared signal volume for certbot → nginx reload
       - certbot-reload:/var/run/certbot-reload
 
