@@ -40,29 +40,40 @@ A few parts went deeper than a typical demo.
 
 ## Architecture
 
-The frontend calls the Laravel API directly; there is no Nuxt BFF. Stripe and TMDB calls live in the backend, so the client bundle holds no secrets.
+The frontend calls the Laravel API directly; there is no Nuxt BFF. Stripe and TMDB calls live in the backend, so the client bundle holds no secrets. TMDB is used only as offline enrichment, never in the request path.
 
-```text
-                       ┌──────────────────────── DigitalOcean droplet ────────────────────────┐
-                       │                                                                       │
-  Browser ──── TLS ───▶│  Nginx  (reverse proxy, TLS termination, rate limiting, static)       │
-                       │    │                                        │                         │
-                       │    ▼  customer host                         ▼  admin.<host> (IP-gated) │
-                       │  Nuxt 4  ──/api──▶  Laravel 13 API  ◀────  Filament 5 admin            │
-                       │  (SSR / ISR)            │  │  │                                        │
-                       │                ┌────────┘  │  └────────┐                               │
-                       │                ▼           ▼           ▼                               │
-                       │           Queue worker  Scheduler   Redis (TLS)                        │
-                       │          (mail, jobs)   (cron,      cache, session, queue              │
-                       │                │         outbox)                                       │
-                       │         Fail2ban, Certbot sidecar                                      │
-                       └────────────────┼──────────────────────────────────────────────────---┘
-                                        │ TLS (verify-full)
-                          ┌─────────────┴─────────────┐
-                          ▼                            ▼
-                  PostgreSQL 18              Stripe, TMDB, Resend, Spaces
-                   (managed)                 (TMDB enrichment is offline only,
-                                              never in the request path)
+```mermaid
+flowchart TD
+    Browser(["Browser"])
+
+    subgraph Droplet["DigitalOcean droplet"]
+        Nginx["Nginx<br/>reverse proxy, TLS, rate limiting"]
+        Nuxt["Nuxt 4<br/>SSR / ISR"]
+        Admin["Filament 5 admin<br/>IP allowlisted"]
+        API["Laravel 13 API"]
+        Worker["Queue worker<br/>mail, jobs"]
+        Scheduler["Scheduler<br/>cron, dispatch outbox"]
+        Redis[("Redis, TLS<br/>cache, session, queue")]
+        Security["Fail2ban, Certbot"]
+    end
+
+    Postgres[("PostgreSQL 18<br/>managed, verify-full TLS")]
+    External["Stripe, TMDB, Resend, Spaces"]
+
+    Browser -->|HTTPS| Nginx
+    Nginx -->|customer host| Nuxt
+    Nginx -->|admin subdomain| Admin
+    Nuxt -->|"/api"| API
+    Admin --> API
+    API --> Redis
+    API --> Worker
+    API --> Scheduler
+    API -->|verify-full TLS| Postgres
+    Worker --> Postgres
+    API -->|payments| External
+    Worker -->|email| External
+    Scheduler -->|enrichment| External
+    Security -.->|guard, renew| Nginx
 ```
 
 A tagged push (`vX.Y.Z`) runs GitHub Actions, which builds the backend and frontend images, pushes them to GHCR, then SSHes to the droplet to pull, migrate, optimize, and health-check. See [docs/runbooks/production-deploy.md](docs/runbooks/production-deploy.md).
