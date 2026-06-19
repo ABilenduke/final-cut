@@ -138,8 +138,14 @@ jobs:
 
             # Health gate — hit the local nginx with the real Host/SNI so the
             # Let's Encrypt cert validates without an external DNS round-trip.
+            # nginx routes / to the Nuxt frontend and only /api to Laravel, so
+            # probe a public API endpoint (full nginx→backend→DB→Redis chain)
+            # rather than Laravel's /up (which isn't proxied on the customer host).
             APP_DOMAIN="$(grep -E '^APP_DOMAIN=' .env | cut -d= -f2- | tr -d '\"')"
-            curl -fsS --retry 5 --retry-delay 3 --retry-connrefused \
+            curl -fsS --retry 8 --retry-delay 4 --retry-connrefused \
               --resolve "$APP_DOMAIN:443:127.0.0.1" \
-              "https://$APP_DOMAIN/up" > /dev/null
-            echo "Deployed $IMAGE_TAG — https://$APP_DOMAIN/up healthy."
+              "https://$APP_DOMAIN/api/locations" > /dev/null
+            curl -fsS --retry 8 --retry-delay 4 --retry-connrefused \
+              --resolve "$APP_DOMAIN:443:127.0.0.1" \
+              "https://$APP_DOMAIN/" > /dev/null
+            echo "Deployed $IMAGE_TAG — $APP_DOMAIN frontend + /api healthy."
