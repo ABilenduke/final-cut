@@ -18,6 +18,7 @@ use App\Models\BookingSeat;
 use App\Models\Location;
 use App\Models\Seat;
 use App\Models\Showtime;
+use App\Models\User;
 use App\Services\BookingAmendmentService;
 use App\Services\BookingFlagService;
 use App\Services\BookingNotificationService;
@@ -373,7 +374,10 @@ class BookingResource extends BaseResource
                                     ->replace('booking.', '')
                                     ->headline()
                                     ->toString();
-                                $who = $a->causer?->email ?? $a->causer?->name ?? 'system';
+                                $causer = $a->causer;
+                                $who = $causer instanceof User
+                                    ? ($causer->email ?? $causer->name ?? 'system')
+                                    : 'system';
                                 $when = $a->created_at?->diffForHumans() ?? '';
 
                                 return sprintf('%s — %s · %s', e($event), e($who), e($when));
@@ -776,7 +780,7 @@ class BookingResource extends BaseResource
                 || in_array($seat->id, $currentSeatIds, true))
             ->mapWithKeys(function ($seat) use ($showtime): array {
                 $price = SeatAvailabilityService::priceForSeat($showtime, $seat);
-                $section = $seat->section?->name ?? $seat->type->value;
+                $section = $seat->section !== null ? $seat->section->name : $seat->type->value;
 
                 return [$seat->id => $seat->label.' · $'.number_format($price / 100, 2).' · '.$section];
             })
