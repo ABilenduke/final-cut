@@ -65,5 +65,5 @@ it('resolves seeded concession image paths through the configured public CDN on 
     expect($first)->not->toBeNull()
         ->and($first)->toHaveKey('imageUrl')
         ->and($first)->not->toHaveKey('image_url')
-        ->and($first['imageUrl'])->toStartWith('https://cdn.example.test/finalcut/concessions/');
+        ->and($first['imageUrl'])->toStartWith('https://cdn.example.test/finalcut/images/concessions/');
 });
