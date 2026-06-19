@@ -1,4 +1,4 @@
-.PHONY: up down build shell artisan migrate fresh test test-backend test-backend-unit test-backend-feature test-frontend certs trust-cert prod-up prod-down prod-build prod-logs local-prod-up local-prod-down local-prod-build local-prod-logs prod-pull prod-deploy prod-registry-down prod-registry-logs prod-migrate prod-optimize e2e ci-e2e admin-shell admin-migrate admin-test admin-create-user admin-filament-assets
+.PHONY: up down build shell artisan migrate fresh test test-backend test-backend-unit test-backend-feature test-frontend certs trust-cert prod-up prod-down prod-build prod-logs local-prod-up local-prod-down local-prod-build local-prod-logs prod-pull prod-deploy prod-registry-down prod-registry-logs prod-migrate prod-optimize e2e ci-e2e admin-shell admin-migrate admin-test admin-create-user admin-filament-assets spaces-cors spaces-cors-check
 
 ifeq (artisan,$(firstword $(MAKECMDGOALS)))
 ARTISAN_ARGS := $(wordlist 2,$(words $(MAKECMDGOALS)),$(MAKECMDGOALS))
@@ -148,6 +148,18 @@ admin-create-user:
 
 admin-filament-assets:
 	docker compose exec -u 1000 backend php artisan filament:assets
+
+# ── DigitalOcean Spaces CORS ─────
+# One-time (and after any origin/domain change): apply the bucket CORS policy
+# that lets the admin panel + customer site fetch CDN-hosted images cross-origin
+# (Filament FileUpload previews + image editor). Reads DO_SPACES_* and the
+# origins (FRONTEND_URL + ADMIN_DOMAIN) from backend/.env; env vars override.
+# Requires the `aws` CLI. See docs/runbooks/production-deploy.md § Spaces CORS.
+spaces-cors:
+	@./scripts/spaces-cors.sh
+
+spaces-cors-check:
+	@./scripts/spaces-cors.sh --check
 
 certs:
 	@./nginx/certs/generate-certs.sh
