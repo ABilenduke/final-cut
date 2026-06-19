@@ -41,7 +41,7 @@ it('seeds every menu item with a CDN-relative concession webp image path', funct
 
     foreach ($items as $item) {
         expect($item->image_url)->toBeString()
-            ->and($item->image_url)->toStartWith('concessions/')
+            ->and($item->image_url)->toStartWith('images/concessions/')
             ->and($item->image_url)->not->toStartWith('http')
             ->and($item->image_url)->toEndWith('.webp');
     }
