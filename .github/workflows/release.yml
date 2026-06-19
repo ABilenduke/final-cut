@@ -1,0 +1,145 @@
+name: Release
+
+# Cut a release by pushing a SemVer tag from a green main:
+#   git tag -a v1.0.0 -m "Final Cut v1.0.0" && git push origin v1.0.0
+#
+# Builds the backend + frontend production images, pushes them to GHCR, then
+# SSHes into the droplet and rolls the deploy forward. `workflow_dispatch` lets
+# you re-deploy an already-built tag (rollback/redeploy) without rebuilding.
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing version tag to (re)deploy, e.g. v1.0.0"
+        required: true
+        type: string
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+env:
+  # GHCR namespace is lowercase by spec; the compose registry overlay pins the
+  # same path (ghcr.io/abilenduke/final-cut-{backend,frontend}).
+  IMAGE_NAMESPACE: ghcr.io/abilenduke
+
+jobs:
+  build-push:
+    name: Build & push ${{ matrix.app }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - app: backend
+            context: ./backend
+            image: final-cut-backend
+          - app: frontend
+            context: ./frontend
+            image: final-cut-frontend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Resolve version
+        id: version
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_TAG: ${{ inputs.tag }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            VALUE="$INPUT_TAG"
+          else
+            VALUE="$REF_NAME"
+          fi
+          echo "value=$VALUE" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Image metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_NAMESPACE }}/${{ matrix.image }}
+          tags: |
+            type=raw,value=${{ steps.version.outputs.value }}
+            type=raw,value=latest,enable=${{ github.event_name == 'push' }}
+
+      - name: Build & push (production target)
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          target: production
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ matrix.app }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.app }}
+
+  deploy:
+    name: Deploy to droplet
+    needs: build-push
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Resolve version
+        id: version
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_TAG: ${{ inputs.tag }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            VALUE="$INPUT_TAG"
+          else
+            VALUE="$REF_NAME"
+          fi
+          echo "value=$VALUE" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1
+        env:
+          IMAGE_TAG: ${{ steps.version.outputs.value }}
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT || 22 }}
+          envs: IMAGE_TAG
+          script: |
+            set -euo pipefail
+            cd /opt/final-cut
+
+            # Sync compose/nginx/redis config with the released images.
+            git fetch --tags --quiet
+            git checkout --quiet "$IMAGE_TAG"
+
+            export IMAGE_TAG="$IMAGE_TAG"
+            make prod-pull
+            make prod-deploy
+            make prod-migrate
+            make prod-optimize
+
+            # Health gate — hit the local nginx with the real Host/SNI so the
+            # Let's Encrypt cert validates without an external DNS round-trip.
+            APP_DOMAIN="$(grep -E '^APP_DOMAIN=' .env | cut -d= -f2- | tr -d '\"')"
+            curl -fsS --retry 5 --retry-delay 3 --retry-connrefused \
+              --resolve "$APP_DOMAIN:443:127.0.0.1" \
+              "https://$APP_DOMAIN/up" > /dev/null
+            echo "Deployed $IMAGE_TAG — https://$APP_DOMAIN/up healthy."

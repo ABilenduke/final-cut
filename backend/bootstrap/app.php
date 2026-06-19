@@ -27,6 +27,15 @@ return Application::configure(basePath: dirname(__DIR__))
         },
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // nginx terminates TLS and forwards to PHP-FPM on :9000 over plain
+        // FastCGI, conveying the original scheme via X-Forwarded-Proto. :9000
+        // is never published outside the Docker network, so nginx is the only
+        // thing that can reach FPM — trusting all proxies is safe here. Without
+        // this, Laravel treats the FastCGI hop as insecure and, with
+        // SESSION_SECURE_COOKIE=true in production, emits http:// redirects and
+        // refuses the session cookie, looping admin/Sanctum logins behind TLS.
+        $middleware->trustProxies(at: '*');
+
         $middleware->api(prepend: [
             EnsureFrontendRequestsAreStateful::class,
         ]);
