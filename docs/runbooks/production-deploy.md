@@ -134,6 +134,51 @@ make admin-create-user   # or: ... exec -it backend php artisan admin:create-use
 
 ### 8. Verify (see checklist below), then set DNS/HSTS go-live items.
 
+### 9. Apply Spaces CORS (admin image previews) — see § below.
+
+---
+
+## DigitalOcean Spaces CORS (admin image previews)
+
+Filament's `FileUpload` fields (featured slides, calendar events, menu items,
+blog posts) render a preview of the **already-saved** image by `fetch()`ing its
+CDN URL, and `->imageEditor()` reads the bytes into a `<canvas>`. Both are
+cross-origin (`admin.<domain>` → `*.digitaloceanspaces.com`), so the **Space
+must return `Access-Control-Allow-Origin`** or the browser blocks the fetch:
+
+> Access to fetch at '…cdn.digitaloceanspaces.com/…' from origin
+> 'https://admin.&lt;domain&gt;' has been blocked by CORS policy: No
+> 'Access-Control-Allow-Origin' header is present on the requested resource.
+
+This is a **bucket-side** setting. It is **not** `backend/config/cors.php` (that
+governs the Laravel API — the failing request never reaches Laravel) and **not**
+nginx. Apply it once per Space (re-run after adding/changing an allowed origin —
+`put-bucket-cors` replaces the whole policy, so it is idempotent):
+
+```bash
+make spaces-cors          # apply from backend/.env: GET/HEAD for FRONTEND_URL + https://$ADMIN_DOMAIN
+make spaces-cors-check    # print the Space's live CORS policy (read-only)
+```
+
+`scripts/spaces-cors.sh` reads `DO_SPACES_*` plus the origins from `backend/.env`
+(env vars override). Override the allow list explicitly with
+`SPACES_CORS_ORIGINS="https://a.com,https://b.com"`. It needs the **`aws` CLI**
+on PATH (Spaces speaks S3; `DO_SPACES_KEY`/`SECRET` are used as the credentials —
+no `aws configure` needed). No CLI? Apply the same rule in the DO console: the
+Space → **Settings → CORS Configurations** (Origins = both URLs, Methods = GET +
+HEAD, Allowed Headers = `*`).
+
+> ⚠️ **Purge the CDN afterwards.** The CDN caches the object response
+> (`cache-control: max-age=3600`), so a previously-cached no-CORS response can
+> serve for up to an hour. DO console → the Space → **Settings → Purge Cache**,
+> or `doctl compute cdn flush <cdn-id> --files "*"`. Then hard-reload an admin
+> form and confirm the preview renders. Verify the header directly with:
+>
+> ```bash
+> curl -sI -H "Origin: https://admin.<domain>" "<a CDN image URL>" \
+>   | grep -i access-control-allow-origin
+> ```
+
 ---
 
 ## Ongoing deploys (automated)
@@ -179,6 +224,8 @@ GitHub secret.
   with no redirect loop** (confirms the `trustProxies` fix); Filament theme renders.
 - A Stripe payment, an admin image upload (lands in DO Spaces + serves via CDN),
   a password-reset email, and a scheduler `movies:enrich` run all succeed.
+- **Editing** an existing slide/event/menu item shows the saved image **preview**
+  (not a broken/blocked thumbnail) — confirms Spaces CORS is applied (§ above).
 
 ---
 
@@ -192,3 +239,6 @@ GitHub secret.
   would try to pull the build-only `redis` service and fail.
 - **CSP is Report-Only and HSTS `preload` is inert** until you promote the CSP to
   enforcing and submit the apex to hstspreload.org — deliberate post-launch steps.
+- **Admin image previews blocked by CORS** (`No 'Access-Control-Allow-Origin'`) —
+  the Space needs a CORS policy. Run `make spaces-cors` then purge the CDN cache
+  (§ DigitalOcean Spaces CORS). It is a bucket setting, not `config/cors.php`.
