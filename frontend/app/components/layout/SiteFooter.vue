@@ -14,6 +14,10 @@ const contacts = computed(() =>
 
 const currentYear = new Date().getFullYear()
 
+// Bound (not a static `src`) so Vue's compile-time asset transform leaves it
+// alone — it's a public/ file served verbatim at the site root at runtime.
+const tmdbLogo = '/tmdb.svg'
+
 // Built-in secondary nav — also the fallback when no admin edit exists (G1).
 const FALLBACK_NAV = [
   { label: 'Our Cinemas', href: '/locations' },
@@ -53,6 +57,35 @@ const navItems = computed(() =>
         <address class="site-footer__address">
           {{ contacts.footerVenueName }} &middot; {{ contacts.footerAddress }} &middot; {{ contacts.footerPhone }}
         </address>
+      </div>
+
+      <!--
+        TMDB attribution (required by the TMDB API terms). Movie metadata —
+        synopses, cast, posters, ratings, trailers — is enriched offline from
+        TMDB. The approved logo links to themoviedb.org and is deliberately kept
+        smaller than the Final Cut wordmark in the header (their "less prominent
+        than your primary mark" rule). The notice text is verbatim and must not
+        be reworded. Logo asset: public/tmdb.svg (TMDB primary, unmodified).
+      -->
+      <div class="site-footer__attribution">
+        <a
+          class="site-footer__tmdb-link"
+          href="https://www.themoviedb.org"
+          target="_blank"
+          rel="noopener"
+        >
+          <img
+            :src="tmdbLogo"
+            alt="The Movie Database (TMDB)"
+            class="site-footer__tmdb-logo"
+            width="185"
+            height="133"
+            loading="lazy"
+          >
+        </a>
+        <p class="site-footer__tmdb-notice">
+          This product uses the TMDB API but is not endorsed or certified by TMDB.
+        </p>
       </div>
 
       <div class="site-footer__legal">
@@ -140,6 +173,38 @@ const navItems = computed(() =>
   font-family: var(--font-body);
   font-size: var(--type-body-sm);
   font-style: normal;
+  color: var(--tertiary);
+}
+
+/* TMDB attribution */
+.site-footer__attribution {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding-top: var(--space-md);
+}
+
+.site-footer__tmdb-link {
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+.site-footer__tmdb-link:focus-visible {
+  outline: 0.125rem solid var(--secondary);
+  outline-offset: 0.25rem;
+}
+
+.site-footer__tmdb-logo {
+  height: 2rem;
+  width: auto;
+  display: block;
+}
+
+.site-footer__tmdb-notice {
+  margin: 0;
+  max-width: 32rem;
+  font-family: var(--font-body);
+  font-size: var(--type-label-md);
   color: var(--tertiary);
 }
 
