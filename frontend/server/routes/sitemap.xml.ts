@@ -16,6 +16,8 @@ const STATIC_ENTRIES: SitemapEntry[] = [
   { loc: '/gift-cards' },
   { loc: '/gift-cards/bulk' },
   { loc: '/private-screenings' },
+  { loc: '/terms' },
+  { loc: '/privacy' },
   { loc: '/blog' },
 ]
 

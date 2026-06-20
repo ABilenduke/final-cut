@@ -365,8 +365,9 @@ Admin-editable page/site copy, served from the `SiteSettingsService` keyed store
 | GET | `/api/site-content/contact-info` | Public | Local | `{ data: { contactInfo: { byCar, byTransit, accessibility } \| null } }` |
 | GET | `/api/site-content/private-screenings` | Public | Local | `{ data: { privateScreenings: { title, intro } \| null } }` |
 | GET | `/api/site-content/accessibility` | Public | Local | `{ data: { accessibility: { intro, assistedListening, wheelchairSeating, openCaption, audioDescription, sensoryFriendly, serviceAnimals } \| null } }` |
+| GET | `/api/site-content/gift-cards` | Public | Local | `{ data: { giftCards: GiftCardsContent \| null } }` — gift-cards page masthead copy |
 
-Related admin-managed content lists (own resources, same versioned-cache pattern): `GET /api/featured-slides` (home hero carousel), `GET /api/job-openings` (careers), `GET /api/faq`, `GET /api/screening-packages` (private-screenings packages), `GET /api/cinema-readout` (calendar readout).
+Related admin-managed content lists (own resources, same versioned-cache pattern): `GET /api/featured-slides` (home hero carousel), `GET /api/ticker-items` (Neural Ticker), `GET /api/job-openings` (careers), `GET /api/faq`, `GET /api/screening-packages` (private-screenings packages), `GET /api/cinema-readout` (calendar readout), and `GET /api/blog-posts` + `GET /api/blog-posts/{slug}` (blog listing + detail).
 
 ---
 
@@ -442,9 +443,9 @@ Uses Stripe's SetupIntent flow:
 - **Client (`@stripe/stripe-js`):** Stripe Elements for card input, PaymentMethod creation, 3DS handling
 - **Server (`stripe/stripe-php` SDK):** PaymentIntent creation/confirmation, Customer management, SetupIntent creation, webhook handling
 
-### Webhook (Future)
+### Stripe Webhook
 
-`POST /api/webhooks/stripe` — handles payment confirmation events for reliability. Not required for MVP (server-side confirmation is synchronous), but recommended for production to handle edge cases (network failures between payment and booking creation).
+`POST /api/webhooks/stripe` (`StripeWebhookController`) — **implemented (admin v4).** Handles Stripe payment events out-of-band for reliability, covering edge cases (network failures between payment and booking creation) on top of the synchronous server-side confirmation. The handler verifies the Stripe webhook signature before processing.
 
 ---
 

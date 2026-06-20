@@ -23,6 +23,8 @@ describe('sitemap static URL contract', () => {
     '/careers',
     '/gift-cards',
     '/private-screenings',
+    '/terms',
+    '/privacy',
     '/blog',
   ] as const
 

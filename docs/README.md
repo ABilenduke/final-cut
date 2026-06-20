@@ -36,9 +36,9 @@ Implementation plans organized by stack and version.
 - [Backend v1 Index](plans/backend/v1/00-index.md) — Plans 01-08 (all complete, 410 tests)
 - [Backend Features](plans/backend/features/) — Standalone post-v1 feature plans
   - [Cross-Location Content API (2026-05-02)](plans/backend/features/2026-05-02-cross-location-content-api.md) — `/api/food-menu`, `/api/movies/{slug}/showtimes`, `/api/featured-slides`, locations field audit
-- [Frontend v1 Index](plans/frontend/v1/00-index.md) — Plans 01-13 (Plan 13 adds the content-page refactor)
+- [Frontend v1 Index](plans/frontend/v1/00-index.md) — Plans 01-14 (01-13 complete; Plan 13 added the content-page refactor; Plan 14 — movie-first ShowtimeSelector — pending)
   - [Plan 13: Content Refactor](plans/frontend/v1/13-content-refactor.md) — Static-first cross-location content pages, hero carousel, `/locations`, geolocation defaults
-- [Admin v1 Index](plans/admin/v1/00-index.md) — Plans 01-09 (Filament admin panel)
+- [Admin v1 Index](plans/admin/v1/00-index.md) — Plans 01-09 (Filament admin panel — all complete)
 - [Admin Features](plans/admin/features/) — Standalone post-v1 admin feature plans
   - [Content Curation Admin (2026-05-02)](plans/admin/features/2026-05-02-content-curation-admin.md) — `FeaturedSlideResource`, MenuItem location-availability matrix, LocationResource hours field
 - [Admin v1 Spec](superpowers/specs/2026-04-20-admin-section-design.md) — Source-of-truth design spec for the admin panel
@@ -48,7 +48,7 @@ Implementation plans organized by stack and version.
 Execution journals tracking decisions, blockers, and file changes.
 
 - [Backend v1 Progress](progress/backend-v1.md) — Plans 01-08 execution log
-- [Frontend v1 Progress](progress/frontend-v1.md) — Plans 01-13 execution log (not yet started)
+- [Frontend v1 Progress](progress/frontend-v1.md) — Plans 01-13 execution log (complete)
 - [Admin v1 Progress](progress/admin-v1.md) — Plans 01-09 execution log
 
 ## Runbooks

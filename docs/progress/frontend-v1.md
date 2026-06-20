@@ -1,7 +1,9 @@
 # Frontend v1 Progress
 
 > **Plans:** [Frontend v1 Index](../plans/frontend/v1/00-index.md)
-> **Status:** In Progress
+> **Status:** ✅ Complete (Plans 01–13; Plan 14 — movie-first ShowtimeSelector — pending)
+>
+> **Note:** Plan 12 (E2E & Polish) has no standalone section below — that work landed incrementally across the design-port sections and Plan 13 "Task 11: Test sweep + missing e2e specs". Sections without a plan number (Movie Detail Visual Refresh, Concessions split, Storybook Removal) are ad-hoc efforts logged here for the record.
 
 ---
 
@@ -209,8 +211,9 @@
 ---
 
 ## Plan 08: Purchase Flow Domain
-**Status:** 🟡 In Progress
+**Status:** ✅ Complete
 **Started:** 2026-04-08
+**Completed:** 2026-04-18
 
 ### Design port — Seat Selection (2026-04-18)
 Ported the `Final Cut Seat Selection.html` Claude Design handoff artifact into the existing `/purchase/[showtimeId]` route. Visual-fidelity rewrite that preserves the ARIA grid + roving-tabindex keyboard navigation and the `useCart` contract.
@@ -355,8 +358,9 @@ Ported the `Final Cut Checkout.html` Claude Design handoff artifact into the exi
 ---
 
 ## Plan 06: Movie Feature Domain
-**Status:** 🟡 In Progress
+**Status:** ✅ Complete
 **Started:** 2026-04-07
+**Completed:** 2026-04-18 (movie-detail visual refresh; cross-location showtimes folded into Plan 13)
 
 ### Work Done
 - [2026-04-07] Created MovieRatingBadge — accent CvBadge, rating formatted to one decimal
@@ -578,9 +582,9 @@ Ported the `Final Cut Checkout.html` Claude Design handoff artifact into the exi
 ---
 
 ## Movie Detail Visual Refresh
-**Status:** 🟡 In Progress
+**Status:** ✅ Complete
 **Started:** 2026-04-18
-**Completed:** —
+**Completed:** 2026-04-18
 
 ### Context
 A Claude Design (`claude.ai/design`) handoff bundle landed with a richly atmospheric "Final Cut Movie Detail" prototype. The v1 page was a functional-but-minimal MovieHero + establishing-shot split with a sticky ShowtimeSelector sidebar. This refresh re-composes the page as a sequence of editorial bay sections matching the design's cinematic direction.
@@ -637,9 +641,6 @@ All sites marked `TODO(backend)` — grep `rg 'TODO\(backend\)' frontend/app/` t
 - [2026-04-18] Updated Vitest tests for refactored components (MovieDetail, MovieHero, MovieCastList, MovieTrailerEmbed, ShowtimeSelector) — old tests asserted on the V1 skeleton's DOM structure; new tests assert on the design's structure (synopsis lead/body split, credits fact rows, hero CTAs, clip sidebar, format chips, 7-day date strip). All 61 movie component tests pass.
 - [2026-04-18] Updated `e2e/responsive.spec.ts` movie detail assertions from `.establishing-shot` to `.movie-hero__inner` — the movie detail page no longer uses the establishing-shot composition (it's a sequence of bay sections instead).
 - [2026-04-18] Full Vitest suite green: 60 test files passed. No regressions outside the explicitly refactored set.
-
-**Status:** ✅ Complete
-**Completed:** 2026-04-18
 
 ---
 

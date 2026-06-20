@@ -249,6 +249,22 @@ function useGiftCards() {
 }
 ```
 
+### Content & editorial composables
+
+Each admin-managed content surface has a thin SSR-fetch composable wrapping a public `/api/*` endpoint (returns `useFetch`/`useApiFetch` results, not named methods):
+
+- `useFeaturedSlides` — home hero carousel (`/api/featured-slides`)
+- `useTickerItems` — Neural Ticker items (`/api/ticker-items`); `resolveTickerItems` applies the fallback
+- `useBlogPosts` / `useBlogPost(slug)` — blog listing + detail (`/api/blog-posts`)
+- `useFaq` — FAQ items (`/api/faq`)
+- `useJobOpenings` — careers openings (`/api/job-openings`)
+- `useScreeningPackages` — private-screening packages (`/api/screening-packages`)
+- `useSiteContent.ts` — site copy, one composable per surface (`useHomeContent`, `useSiteContacts`, `useCareersContent`, `useContactInfo`, `usePrivateScreeningsCopy`), each with a `resolve*` fallback helper (`/api/site-content/*`)
+
+### Non-data composables
+
+A few composables manage UI/interaction state instead of a data domain: `useSeo` (per-page SEO head via the `buildSeoHead` builder), `useBridgeFilters` (page-scoped `/whats-on` chip filters), `usePurchaseStep` (purchase step-indicator state), `useGiftCardComposer` (gift-card composer form + preview), `useClock` (SSR-safe live clock), and `useFocusTrap` (modal/drawer focus trap).
+
 ---
 
 ## 4. Local State
