@@ -41,6 +41,7 @@ export default defineNuxtConfig({
     '/movies': { isr: 1800 },
     '/movies/**': { isr: 600 },
     '/food-drink': { isr: 1800 },
+    '/whats-on': { isr: 900 },
     '/events': { isr: 900 },
     '/events/**': { isr: 900 },
     '/locations': { isr: 1800 },
@@ -52,6 +53,10 @@ export default defineNuxtConfig({
     '/accessibility': { isr: 1800 }, // admin-v3 Plan 02: contacts are API-served now
     '/careers': { isr: 1800 },
     '/private-screenings': { isr: 1800 },
+    // Legal pages render admin-managed contact info via useSiteContacts(),
+    // so ISR (not prerender) keeps that line fresh.
+    '/terms': { isr: 1800 },
+    '/privacy': { isr: 1800 },
     '/gift-cards': { isr: 1800 },
     '/gift-cards/bulk': { prerender: true },
     // X-Robots-Tag header keeps these out of search indices. The matching

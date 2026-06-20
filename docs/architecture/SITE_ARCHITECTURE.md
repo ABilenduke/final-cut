@@ -156,7 +156,7 @@ Each route group is assigned a rendering strategy based on how frequently its da
 | `/` | Home (admin-curated hero carousel + cross-location strips) | ISR | 30 min | Content changes infrequently, SEO important |
 | `/movies` | Now Playing / Coming Soon (optional `?location=` filter) | ISR (per-query cache key) | 30 min | Movie listings update a few times daily; each filter URL is independently cacheable |
 | `/movies/:slug` | Movie Detail (cross-location showtimes grouped by venue) | ISR | 10 min | Detail pages, SEO critical |
-| `/whats-on` | Calendar View (Bridge Console) | SSR (default) | — | **No `routeRule`** — falls back to on-demand SSR; the intended ISR 15 min is not wired (see note below the config) |
+| `/whats-on` | Calendar View (Bridge Console) | ISR | 15 min | Calendar data changes moderately |
 | `/events` | Events Listing | ISR | 15 min | Event schedule changes moderately |
 | `/events/:slug` | Event Detail | ISR | 15 min | Detail pages, SEO important |
 | `/food-drink` | Food and Drink Menu (shared, cross-location, with per-item availability arrays) | ISR | 30 min | Menu rarely changes |
@@ -171,8 +171,8 @@ Each route group is assigned a rendering strategy based on how frequently its da
 | `/accessibility` | Accessibility Statement | ISR | 30 min | Contact line is admin-managed via `/api/site-content/contacts` (admin-v3 Plan 02) |
 | `/careers` | Careers | ISR | 30 min | Openings + contact email are admin-managed (admin-v2 Plan 13 / admin-v3 Plan 02) |
 | `/private-screenings` | Private Screenings / Rentals | ISR | 30 min | Packages admin-managed via `/api/screening-packages`; intro via `/api/site-content/private-screenings` |
-| `/terms` | Terms of Service | SSR (default) | — | Static legal page; **no `routeRule`** (see note) |
-| `/privacy` | Privacy Policy | SSR (default) | — | Static legal page; **no `routeRule`** (see note) |
+| `/terms` | Terms of Service | ISR | 30 min | Mostly static legal copy; contact line is admin-managed via `/api/site-content/contacts` |
+| `/privacy` | Privacy Policy | ISR | 30 min | Mostly static legal copy; contact line is admin-managed via `/api/site-content/contacts` |
 | `/purchase/**` | Seat Selection, Checkout | Client-only | — | Real-time seat data, auth context |
 | `/account/**` | Profile, Orders, Loyalty | Client-only | — | User-specific data |
 | `/auth/**` | Login, Register, Reset | Client-only | — | Auth forms, no SEO value |
@@ -187,6 +187,7 @@ export default defineNuxtConfig({
     '/movies': { isr: 1800 },
     '/movies/**': { isr: 600 },
     '/food-drink': { isr: 1800 },
+    '/whats-on': { isr: 900 },
     '/events': { isr: 900 },
     '/events/**': { isr: 900 },
     '/locations': { isr: 1800 },
@@ -198,6 +199,8 @@ export default defineNuxtConfig({
     '/accessibility': { isr: 1800 },
     '/careers': { isr: 1800 },
     '/private-screenings': { isr: 1800 },
+    '/terms': { isr: 1800 },
+    '/privacy': { isr: 1800 },
     '/gift-cards': { isr: 1800 },
     '/gift-cards/bulk': { prerender: true },
     // X-Robots-Tag header keeps these out of search indices. The matching
@@ -210,7 +213,7 @@ export default defineNuxtConfig({
 })
 ```
 
-> **Note — routeRule gaps:** `/whats-on`, `/terms`, and `/privacy` have **no** `routeRules` entry, so they render with Nuxt's default on-demand SSR (no ISR caching). The `/whats-on` row in the table above records the *intended* ISR strategy; wiring `'/whats-on': { isr: 900 }` (and deciding the `prerender`/sitemap treatment for the two legal pages) is a tracked follow-up.
+> **Note:** `/terms` and `/privacy` use ISR (not `prerender`) because both render an admin-managed contact line via `useSiteContacts()` — prerendering would freeze it. Both are included in the sitemap.
 
 ### Location-at-Intent Contract
 
@@ -269,7 +272,7 @@ The app emits `sitemap.xml` at the root of the public domain via a **hand-rolled
 - `/events`, every event's `/events/:slug`
 - `/food-drink`
 - `/locations`, every location's `/locations/:slug`
-- `/faq`, `/contact`, `/accessibility`, `/careers`, `/gift-cards`, `/gift-cards/bulk`, `/private-screenings`
+- `/faq`, `/contact`, `/accessibility`, `/careers`, `/gift-cards`, `/gift-cards/bulk`, `/private-screenings`, `/terms`, `/privacy`
 - `/blog`, every post's `/blog/:slug`
 
 Excluded: `/purchase/**`, `/account/**`, `/auth/**` (these carry `X-Robots-Tag: noindex` from `routeRules` and `<meta name="robots" content="noindex">` in their templates). The admin subdomain has its own robots policy.

@@ -21,7 +21,9 @@ exports[`sitemap static URL contract > locks the static URL set the sitemap must
   "/gift-cards",
   "/locations",
   "/movies",
+  "/privacy",
   "/private-screenings",
+  "/terms",
   "/whats-on",
 ]
 `;

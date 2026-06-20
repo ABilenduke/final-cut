@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Wired up missing `routeRules`: `/whats-on` now uses ISR (15 min) as intended (it previously fell back to on-demand SSR with no ISR caching), and the `/terms` / `/privacy` legal pages now use ISR (30 min) — ISR rather than prerender because both render an admin-managed contact line. Added `/terms` and `/privacy` to `sitemap.xml` (and its static-URL contract test).
+
 ### Documentation
 
 - Documentation accuracy sync. Corrected stale status markers (Frontend v1 and Admin v1 are complete, not "Pending"/"not yet started"; admin stack is Filament 5, not 3) and brought the architecture/spec reference lists in line with the code: the full backend service layer, all Filament resources and pages, the content/editorial composables, the `routeRules` map (incl. `/blog`, `/private-screenings`, `/terms`, `/privacy` and the `/whats-on` routeRule gap), the API route inventory (`ticker-items`, `blog-posts`, `site-content/gift-cards`, and the now-shipped Stripe webhook), and the component catalog (the `home/` tier plus the purchase-flow, concessions, gift-card and locations redesign components).
