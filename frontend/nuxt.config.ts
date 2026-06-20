@@ -41,7 +41,9 @@ export default defineNuxtConfig({
     '/movies': { isr: 1800 },
     '/movies/**': { isr: 600 },
     '/food-drink': { isr: 1800 },
-    '/whats-on': { isr: 900 },
+    // NOTE: /whats-on is intentionally NOT ISR-cached — it derives "today"
+    // from the request-time timezone, so caching would freeze the date.
+    // Guarded by tests/architecture/whats-on-date-hydration.test.ts.
     '/events': { isr: 900 },
     '/events/**': { isr: 900 },
     '/locations': { isr: 1800 },

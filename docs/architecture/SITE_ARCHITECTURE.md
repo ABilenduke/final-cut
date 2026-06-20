@@ -156,7 +156,7 @@ Each route group is assigned a rendering strategy based on how frequently its da
 | `/` | Home (admin-curated hero carousel + cross-location strips) | ISR | 30 min | Content changes infrequently, SEO important |
 | `/movies` | Now Playing / Coming Soon (optional `?location=` filter) | ISR (per-query cache key) | 30 min | Movie listings update a few times daily; each filter URL is independently cacheable |
 | `/movies/:slug` | Movie Detail (cross-location showtimes grouped by venue) | ISR | 10 min | Detail pages, SEO critical |
-| `/whats-on` | Calendar View (Bridge Console) | ISR | 15 min | Calendar data changes moderately |
+| `/whats-on` | Calendar View (Bridge Console) | SSR (no ISR) | — | Date-sensitive ("today" from request-time TZ); ISR-caching is intentionally forbidden — pinned by `tests/architecture/whats-on-date-hydration.test.ts` (see note) |
 | `/events` | Events Listing | ISR | 15 min | Event schedule changes moderately |
 | `/events/:slug` | Event Detail | ISR | 15 min | Detail pages, SEO important |
 | `/food-drink` | Food and Drink Menu (shared, cross-location, with per-item availability arrays) | ISR | 30 min | Menu rarely changes |
@@ -187,7 +187,7 @@ export default defineNuxtConfig({
     '/movies': { isr: 1800 },
     '/movies/**': { isr: 600 },
     '/food-drink': { isr: 1800 },
-    '/whats-on': { isr: 900 },
+    // /whats-on is intentionally absent — date-sensitive, must not ISR-cache
     '/events': { isr: 900 },
     '/events/**': { isr: 900 },
     '/locations': { isr: 1800 },
@@ -213,7 +213,7 @@ export default defineNuxtConfig({
 })
 ```
 
-> **Note:** `/terms` and `/privacy` use ISR (not `prerender`) because both render an admin-managed contact line via `useSiteContacts()` — prerendering would freeze it. Both are included in the sitemap.
+> **Note:** `/whats-on` is intentionally **not** ISR-cached — it derives "today" from the request-time timezone, so caching would freeze the date; an `isr` rule on it is forbidden by `tests/architecture/whats-on-date-hydration.test.ts`. `/terms` and `/privacy` use ISR (not `prerender`) because both render an admin-managed contact line via `useSiteContacts()` — prerendering would freeze it; both are included in the sitemap.
 
 ### Location-at-Intent Contract
 

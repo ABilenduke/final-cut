@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Wired up missing `routeRules`: `/whats-on` now uses ISR (15 min) as intended (it previously fell back to on-demand SSR with no ISR caching), and the `/terms` / `/privacy` legal pages now use ISR (30 min) — ISR rather than prerender because both render an admin-managed contact line. Added `/terms` and `/privacy` to `sitemap.xml` (and its static-URL contract test).
+- Added missing `routeRules` for the `/terms` and `/privacy` legal pages (ISR 30 min — ISR rather than prerender because both render an admin-managed contact line via `useSiteContacts()`), and added them to `sitemap.xml` and its static-URL contract test. (`/whats-on` is intentionally left without an `isr` rule: it is date-sensitive and `tests/architecture/whats-on-date-hydration.test.ts` forbids ISR-caching it.)
 
 ### Documentation
 
