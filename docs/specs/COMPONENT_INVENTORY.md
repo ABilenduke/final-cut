@@ -657,6 +657,8 @@ Located in `app/components/booking/`.
 
 ### CheckoutForm
 
+> **⚠️ Removed (Plan 08 redesign).** `CheckoutForm.vue` no longer exists — its Stripe Elements logic was absorbed into `CheckoutPaymentBay`, and submit/terms moved to `CheckoutConfirmBay`. See the concise inventory at the end of this doc. The spec below is retained for historical context.
+
 **File:** `app/components/booking/CheckoutForm.vue`
 
 **Purpose:** Payment form with Stripe Elements integration.
@@ -695,6 +697,8 @@ Located in `app/components/booking/`.
 ---
 
 ### FoodPreOrderPanel
+
+> **⚠️ Replaced (Concessions redesign).** `FoodPreOrderPanel.vue` was removed — concessions moved to a dedicated `/purchase/snacks` step built from the `Concessions*` components (`ConcessionsCatalog`, `ConcessionItemCard`, …). See the concise inventory at the end of this doc.
 
 **File:** `app/components/booking/FoodPreOrderPanel.vue`
 
@@ -932,6 +936,8 @@ Located in `app/components/content/`.
 
 ### GiftCardPurchase
 
+> **⚠️ Renamed.** Now `GiftCardComposer.vue` (with `GiftCardVisual` / `GiftCardPreview` for the live preview and `GiftCardPaymentModal` for payment). See the concise inventory at the end of this doc.
+
 **File:** `app/components/content/GiftCardPurchase.vue`
 
 **Purpose:** Gift card purchase form.
@@ -945,6 +951,8 @@ Located in `app/components/content/`.
 ---
 
 ### BalanceChecker
+
+> **⚠️ Renamed.** Now `GiftCardBalanceStrip.vue`. See the concise inventory at the end of this doc.
 
 **File:** `app/components/content/BalanceChecker.vue`
 
@@ -1029,3 +1037,66 @@ Located in `app/components/content/`.
 | `event` | `CalendarEvent & { description: string; pricing: string; includes: Array<string> }` | Yes | — | Full event data |
 
 **Structure:** Title, date/time, full description, what's included list, pricing, CTA button.
+
+---
+
+## Concise inventory — components added since the original spec
+
+The detailed specs above predate several redesigns (purchase-flow / concessions / gift-cards) and the cross-location content work. This section completes the catalog so "every component" holds true. Entries here are intentionally concise (file + one-line purpose); they follow the same design-system and accessibility baselines as the rest of this doc.
+
+### Tier 1: Global Primitives — additions
+
+- `CvCheckbox` (`ui/CvCheckbox.vue`) — checkbox control (terms consent, opt-ins).
+- `ui/_internal/CvFormField.vue`, `ui/_internal/CvToastContainer.vue` — internal helpers (shared form-field wrapper; toast render host), not used directly by pages.
+
+### Tier 2: Home (`components/home/`)
+
+Page-section components composed by `pages/index.vue`:
+
+- `HomeCinemaHero` — top-of-home atmospheric hero.
+- `HomeFeaturedCarousel` — admin-curated featured-slides carousel (`GET /api/featured-slides`); WAI-ARIA carousel pattern, auto-advance with pause-on-hover/focus.
+- `HomeNowShowingReel` — cross-location now-showing strip of `MovieCard`s.
+- `HomeCalendarStrip` — "What's On This Week" preview strip.
+- `HomeFoodDrink` — editorial food & drink teaser → `/food-drink`.
+- `HomeMembership` — loyalty/membership pitch (site-content driven).
+- `HomeRetrospectiveSplit` — editorial split feature section.
+
+### Tier 2: Movie — additions (`components/movie/`)
+
+- `MovieBreadcrumb` — breadcrumb strip + share/print actions on movie detail.
+- `MoviePress` — press-quote grid + aggregate scores (stubbed editorial data).
+- `MovieRelated` — "related films" poster grid.
+- `LocationFilterChips` — `?location=` filter chips on `/movies`.
+
+### Tier 2: Booking/Purchase — additions (`components/booking/`)
+
+Seat-selection redesign (bay sections wrapping `AuditoriumGrid` on `/purchase/:showtimeId`):
+
+- `SeatSelectionHero`, `SeatSelectionControls`, `SeatAuditoriumStage`, `SeatSelectionLegend`, `SeatSelectionRail`, `SeatSelectionHouseRules`, `SeatSightlineDiagram`, `SeatProjectionistPick`, `SeatStub`.
+- `BookingLocationBanner` — "You're booking at {Location}" confirmation band.
+
+Checkout redesign (replaces `CheckoutForm`):
+
+- `CheckoutOrderCard`, `CheckoutContactBay`, `CheckoutPaymentBay` (owns Stripe Elements), `CheckoutTotalsRail` (sticky totals), `CheckoutConfirmBay` (Confirm & Pay + terms, visible on every viewport), `CheckoutHoldTimer` (session countdown).
+
+Concessions step (replaces `FoodPreOrderPanel`, dedicated `/purchase/snacks`):
+
+- `ConcessionsCatalog`, `ConcessionItemCard`, `ConcessionsAllergenNotice`, `ConcessionsCollectionInfo`.
+
+### Tier 2: Calendar (Bridge Console) — additions (`components/calendar/`)
+
+- `BridgeWeekStrip` — week-view strip (admin-v5 Week view).
+- `BridgeAgendaList` — list-view agenda (admin-v5 List view).
+- `BridgeDetailContent` — shared detail-card body composed by both the rail and the drawer.
+
+### Tier 2: Account — additions (`components/account/`)
+
+- `AddPaymentMethodModal` — Stripe SetupIntent add-card modal.
+
+### Tier 2: Content — additions / renames (`components/content/`)
+
+- `GiftCardComposer` (was `GiftCardPurchase`) — gift-card composer form.
+- `GiftCardVisual`, `GiftCardPreview` — live gift-card art / preview.
+- `GiftCardPaymentModal` — gift-card Stripe payment modal.
+- `GiftCardBalanceStrip` (was `BalanceChecker`) — balance-lookup strip.
+- `LocationCard`, `LocationHero`, `LocationDetailPanel` — `/locations` and `/locations/:slug` building blocks.
