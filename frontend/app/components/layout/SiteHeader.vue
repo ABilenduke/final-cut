@@ -232,7 +232,7 @@ function onKeydown(event: KeyboardEvent) {
 
 .site-header__logo {
   display: block;
-  height: 2.5rem;
+  height: 4rem;
   width: auto;
 }
 
