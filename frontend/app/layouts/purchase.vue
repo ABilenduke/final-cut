@@ -209,6 +209,14 @@ function handleStepNavigate(step: PurchaseStep) {
   .layout-purchase__cart {
     display: block;
     width: 20rem;
+    /* Sticky so the order total stays in view while the main column scrolls.
+       align-self: flex-start stops the flex child from stretching full-height
+       (which would defeat sticky). Offset clears the sticky header + hold-timer. */
+    position: sticky;
+    top: calc(var(--layout-header-height) + var(--layout-hold-timer-height) + var(--space-md));
+    align-self: flex-start;
+    max-height: calc(100dvh - var(--layout-header-height) - var(--layout-hold-timer-height) - var(--space-xl));
+    overflow-y: auto;
   }
 }
 

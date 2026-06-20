@@ -55,15 +55,12 @@ describe('PromoCode', () => {
     expect(wrapper.find('.promo-bay__error').text()).toBe('Please enter a promo code')
   })
 
-  it('emits update:acceptTerms when terms checkbox toggles', async () => {
+  // The terms-consent checkbox moved to CheckoutConfirmBay; the promo bay is
+  // now promo-only. Consent behavior is covered in CheckoutConfirmBay.test.ts.
+  it('no longer renders the terms checkbox', async () => {
     const wrapper = await mountSuspended(PromoCode, {
-      props: { appliedCode: null, acceptTerms: false },
+      props: { appliedCode: null },
     })
-    const [termsBox] = wrapper.findAll<HTMLInputElement>('.promo-bay__check-box')
-    await termsBox.setValue(true)
-
-    const emitted = wrapper.emitted('update:acceptTerms')
-    expect(emitted).toBeDefined()
-    expect(emitted![0][0]).toBe(true)
+    expect(wrapper.find('.promo-bay__check-box').exists()).toBe(false)
   })
 })

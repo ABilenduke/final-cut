@@ -255,10 +255,6 @@ async function handleCheckoutSubmit(payload: { paymentMethodId: string; email?: 
         :gift-card-amount="cart.giftCardAmount.value"
         :subtotal="cart.subtotal.value"
         :total="cart.total.value"
-        :time-remaining="cart.timeRemaining.value"
-        :submitting="submitting"
-        :disabled="!paymentBay?.stripeReady"
-        @submit="requestSubmit"
       />
     </template>
 
@@ -300,11 +296,19 @@ async function handleCheckoutSubmit(payload: { paymentMethodId: string; email?: 
       />
 
       <PromoCode
-        v-model:accept-terms="acceptTerms"
         :applied-code="cart.promoCode.value"
         :discount="cart.promoDiscount.value"
         @apply="handlePromoApply"
         @remove="handlePromoRemove"
+      />
+
+      <CheckoutConfirmBay
+        v-model:accept-terms="acceptTerms"
+        :total="cart.total.value"
+        :time-remaining="cart.timeRemaining.value"
+        :submitting="submitting"
+        :disabled="!paymentBay?.stripeReady || cart.seats.value.length === 0"
+        @submit="requestSubmit"
       />
     </div>
     </div>

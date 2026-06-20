@@ -1,14 +1,12 @@
 <script setup lang="ts">
-const props = defineProps<{
+defineProps<{
   appliedCode: string | null
   discount?: number
-  acceptTerms?: boolean
 }>()
 
 const emit = defineEmits<{
   apply: [code: string]
   remove: []
-  'update:acceptTerms': [value: boolean]
 }>()
 
 const codeInput = ref('')
@@ -29,13 +27,6 @@ function handleRemove() {
   error.value = ''
   emit('remove')
 }
-
-const termsModel = computed<boolean>({
-  get: () => props.acceptTerms ?? false,
-  set: (v) => emit('update:acceptTerms', v),
-})
-
-const showTerms = computed<boolean>(() => props.acceptTerms !== undefined)
 </script>
 
 <template>
@@ -43,7 +34,7 @@ const showTerms = computed<boolean>(() => props.acceptTerms !== undefined)
     <header class="bay__header promo-bay__header">
       <div>
         <div class="bay__number">§ 04</div>
-        <h2 class="bay__title">Promo &amp; <em>final consent.</em></h2>
+        <h2 class="bay__title">Promo <em>code.</em></h2>
       </div>
     </header>
 
@@ -75,17 +66,6 @@ const showTerms = computed<boolean>(() => props.acceptTerms !== undefined)
         </template>
       </span>
       <button type="button" class="promo-bay__remove" @click="handleRemove">Remove</button>
-    </div>
-
-    <div v-if="showTerms" class="promo-bay__terms">
-      <label class="promo-bay__check">
-        <input v-model="termsModel" type="checkbox" class="promo-bay__check-box">
-        <span>
-          I agree to the <a href="#" class="promo-bay__link">ticketing terms</a>
-          and the <a href="#" class="promo-bay__link">auditorium policy</a>.
-          No late entry after 10 minutes; phones silenced and stowed.
-        </span>
-      </label>
     </div>
   </section>
 </template>
@@ -201,64 +181,5 @@ const showTerms = computed<boolean>(() => props.acceptTerms !== undefined)
 .promo-bay__remove:hover,
 .promo-bay__remove:focus-visible {
   color: var(--secondary);
-}
-
-.promo-bay__terms {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-sm);
-  margin-top: var(--space-md);
-}
-
-.promo-bay__check {
-  display: flex;
-  gap: 0.75rem;
-  align-items: flex-start;
-  cursor: pointer;
-  padding: 0.55rem 0;
-  font-family: var(--font-body);
-  font-size: 0.8125rem;
-  color: var(--tertiary);
-  line-height: 1.5;
-}
-
-.promo-bay__check-box {
-  appearance: none;
-  width: 1.1rem;
-  height: 1.1rem;
-  border: var(--border-hairline) solid var(--outline);
-  border-radius: var(--radius-sm);
-  background-color: var(--surface-container-low);
-  flex-shrink: 0;
-  margin-top: 0.1rem;
-  position: relative;
-  cursor: pointer;
-}
-
-.promo-bay__check-box:checked {
-  background-color: var(--secondary);
-  border-color: var(--secondary);
-}
-
-.promo-bay__check-box:checked::after {
-  content: '';
-  position: absolute;
-  left: 0.25rem;
-  top: 0.0625rem;
-  width: 0.25rem;
-  height: 0.5rem;
-  border: solid var(--surface);
-  border-width: 0 0.125rem 0.125rem 0;
-  transform: rotate(45deg);
-}
-
-.promo-bay__link {
-  color: var(--secondary);
-  text-decoration: underline;
-  text-underline-offset: 0.125rem;
-}
-
-.promo-bay__check-muted {
-  color: var(--on-tertiary-fixed-variant);
 }
 </style>
