@@ -20,7 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Corrected SEO documentation: `SITE_ARCHITECTURE.md` and `CONTENT_ARCHITECTURE.md` now describe the hand-rolled Nitro sitemap/robots routes (the previously-claimed `@nuxtjs/sitemap` was removed earlier); added a `SEO` section and updated `PAGE_SPECS.md`.
 
-- Brand crest logo in the site header (`public/final-cut-logo.webp`), replacing the placeholder text wordmark. Source art was optimized from a 1.37 MB SVG-wrapped PNG to a 41 KB WebP (~97% smaller) to keep the per-page header asset light.
+- Brand wordmark logo in the site header (`public/final-cut-logo-wordmark.webp`), replacing the placeholder text wordmark. Source art was optimized from a 5.1 MB PNG to a 48 KB WebP (~99% smaller) to keep the per-page header asset light.
 
 ### Fixed
 

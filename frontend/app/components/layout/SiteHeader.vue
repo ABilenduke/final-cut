@@ -73,11 +73,11 @@ function onKeydown(event: KeyboardEvent) {
     <div class="site-header__inner">
       <NuxtLink to="/" class="site-header__wordmark" aria-label="Final Cut — home">
         <img
-          src="/final-cut-logo.webp"
+          src="/final-cut-logo-wordmark.webp"
           alt=""
           class="site-header__logo"
-          width="266"
-          height="256"
+          width="481"
+          height="160"
         />
       </NuxtLink>
 
@@ -232,7 +232,7 @@ function onKeydown(event: KeyboardEvent) {
 
 .site-header__logo {
   display: block;
-  height: 3rem;
+  height: 2.5rem;
   width: auto;
 }
 
