@@ -214,22 +214,24 @@ useHead({
 
             <!-- Directions CTA -->
             <div class="location-detail-page__cta-cluster">
-              <a
+              <CvButton
                 v-if="location.latitude != null && location.longitude != null"
+                variant="primary"
+                block
                 :href="`https://maps.google.com/?q=${location.latitude},${location.longitude}`"
                 target="_blank"
                 rel="noopener noreferrer"
-                class="location-detail-page__btn-primary"
                 :aria-label="`Get directions to ${location.name}`"
               >
                 Get Directions
-              </a>
-              <NuxtLink
-                :to="`/movies?location=${location.slug}`"
-                class="location-detail-page__btn-secondary"
+              </CvButton>
+              <CvButton
+                variant="secondary"
+                block
+                :href="`/movies?location=${location.slug}`"
               >
                 See All Showtimes
-              </NuxtLink>
+              </CvButton>
             </div>
 
           </aside>
@@ -368,52 +370,4 @@ useHead({
   gap: var(--space-sm);
 }
 
-.location-detail-page__btn-primary {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  height: var(--control-height);
-  padding: 0 var(--space-md);
-  background-color: var(--primary-container);
-  color: var(--secondary);
-  font-family: var(--font-body);
-  font-size: var(--type-body-sm, 0.875rem);
-  font-weight: 500;
-  text-decoration: none;
-  border-radius: var(--radius-sm);
-  transition: background-color var(--duration-micro) var(--ease-standard);
-}
-
-.location-detail-page__btn-primary:hover {
-  background-color: var(--primary-container-hover);
-}
-
-.location-detail-page__btn-primary:focus-visible {
-  outline: var(--border-thick) solid var(--secondary);
-  outline-offset: 0.125rem;
-}
-
-.location-detail-page__btn-secondary {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  height: var(--control-height);
-  padding: 0 var(--space-md);
-  background-color: var(--surface-container-high);
-  color: var(--on-surface);
-  font-family: var(--font-body);
-  font-size: var(--type-body-sm, 0.875rem);
-  text-decoration: none;
-  border-radius: var(--radius-sm);
-  transition: background-color var(--duration-micro) var(--ease-standard);
-}
-
-.location-detail-page__btn-secondary:hover {
-  background-color: var(--surface-container);
-}
-
-.location-detail-page__btn-secondary:focus-visible {
-  outline: var(--border-thick) solid var(--secondary);
-  outline-offset: 0.125rem;
-}
 </style>

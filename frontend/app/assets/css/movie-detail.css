@@ -77,65 +77,9 @@
   font-weight: 500;
 }
 
-/* ——— Buttons ——— */
-.movie-page .btn-gold,
-.movie-page .btn-ghost,
-.movie-page .btn-primary {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.625rem;
-  height: var(--control-height);
-  padding: 0 var(--space-lg);
-  border-radius: var(--radius-sm);
-  font-family: var(--font-body);
-  font-size: 1rem;
-  font-weight: 500;
-  letter-spacing: 0.01em;
-  border: none;
-  cursor: pointer;
-  text-decoration: none;
-  transition:
-    transform var(--duration-micro) var(--ease-standard),
-    background-color var(--duration-standard),
-    color var(--duration-standard),
-    border-color var(--duration-standard);
-}
-
-.movie-page .btn-primary {
-  background: var(--primary-container);
-  color: var(--primary);
-}
-
-.movie-page .btn-primary:hover {
-  background: var(--primary-container-hover);
-}
-
-.movie-page .btn-primary:active {
-  transform: scale(0.98);
-}
-
-.movie-page .btn-gold {
-  background: var(--secondary);
-  color: var(--surface);
-}
-
-.movie-page .btn-gold:hover {
-  background: var(--secondary-hover);
-}
-
-.movie-page .btn-ghost {
-  background: transparent;
-  color: var(--on-surface);
-  padding: 0 0.75rem;
-  border: var(--border-hairline) solid rgba(var(--outline-variant-rgb), 0.4);
-}
-
-.movie-page .btn-ghost:hover {
-  color: var(--secondary);
-  border-color: var(--secondary);
-}
-
+/* ——— Buttons ———
+   Filled / ghost actions now use the shared <CvButton> component.
+   Only the icon-only affordance remains bespoke here. */
 .movie-page .icon-btn {
   width: var(--control-height);
   height: var(--control-height);
@@ -174,14 +118,7 @@
 
 /* ——— Reduced motion ——— */
 @media (prefers-reduced-motion: reduce) {
-  .movie-page .btn-gold,
-  .movie-page .btn-ghost,
-  .movie-page .btn-primary,
   .movie-page .icon-btn {
     transition: none;
-  }
-
-  .movie-page .btn-primary:active {
-    transform: none;
   }
 }

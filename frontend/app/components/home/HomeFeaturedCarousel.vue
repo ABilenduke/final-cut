@@ -223,14 +223,14 @@ const ariaLive = computed<'polite' | 'off'>(() =>
           <p v-if="slide.subHeadline" class="carousel__sub">
             {{ slide.subHeadline }}
           </p>
-          <NuxtLink
+          <CvButton
             v-if="slide.ctaLabel && safeCtaHref(slide.ctaHref)"
-            :to="safeCtaHref(slide.ctaHref)"
-            class="carousel__cta"
+            variant="primary"
+            :href="safeCtaHref(slide.ctaHref)"
           >
             {{ slide.ctaLabel }}
-            <span aria-hidden="true">&nbsp;&rarr;</span>
-          </NuxtLink>
+            <template #icon-right><span aria-hidden="true">&rarr;</span></template>
+          </CvButton>
         </div>
       </div>
     </div>
@@ -409,6 +409,13 @@ const ariaLive = computed<'polite' | 'off'>(() =>
   line-height: 0.95;
   letter-spacing: -0.02em;
   color: var(--on-surface);
+  /* Legibility scrim for type over full-bleed slide imagery. Tinted with the
+     void (#0a0605 warm maroon-black), not gray — per DESIGN_SYSTEM § Elevation
+     ("a darkened tint of the background, never gray"). Tight contact layer +
+     soft bloom so the title resolves out of darkness on any still. */
+  text-shadow:
+    0 0.0625rem 0.1875rem rgb(10 6 5 / 0.6),
+    0 0.125rem 1.25rem rgb(10 6 5 / 0.45);
   text-wrap: balance;
   max-width: 20ch;
   margin: 0;
@@ -419,45 +426,13 @@ const ariaLive = computed<'polite' | 'off'>(() =>
   font-size: 1.125rem;
   line-height: 1.5;
   color: var(--tertiary);
+  text-shadow: 0 0.0625rem 0.875rem rgb(10 6 5 / 0.55);
   max-width: 48ch;
   text-wrap: pretty;
   margin: 0;
 }
 
 /* ─── CTA ────────────────────────────────────────────────────────────────────── */
-
-.carousel__cta {
-  display: inline-flex;
-  align-items: center;
-  height: var(--control-height);
-  padding-inline: var(--space-lg);
-  background-color: var(--primary-container);
-  color: var(--secondary);
-  font-family: var(--font-body);
-  font-size: 1rem;
-  font-weight: 500;
-  text-decoration: none;
-  border-radius: var(--radius-sm);
-  transition:
-    background-color var(--duration-micro) var(--ease-standard),
-    color var(--duration-micro) var(--ease-standard);
-}
-
-.carousel__cta:hover {
-  background-color: var(--primary-container-hover);
-}
-
-.carousel__cta:active {
-  background-color: var(--primary-container-active);
-}
-
-.carousel__cta:focus-visible {
-  /* Double-ring gold focus indicator per design system */
-  outline: none;
-  box-shadow:
-    0 0 0 0.125rem var(--surface),
-    0 0 0 0.25rem var(--secondary);
-}
 
 /* ─── Prev / Next buttons ────────────────────────────────────────────────────── */
 

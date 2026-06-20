@@ -117,4 +117,80 @@ describe('CvButton', () => {
     })
     expect((wrapper.element as HTMLButtonElement).disabled).toBe(true)
   })
+
+  // ——— Push-button structure (primary & gold are depressible) ———
+
+  it('renders the push structure for the default (primary) variant', async () => {
+    const wrapper = await mountSuspended(CvButton, {
+      slots: { default: 'Get tickets' },
+    })
+    expect(wrapper.find('.cv-button__shadow').exists()).toBe(true)
+    expect(wrapper.find('.cv-button__edge').exists()).toBe(true)
+    expect(wrapper.find('.cv-button__face').exists()).toBe(true)
+  })
+
+  it('places the label inside the face for pushable variants', async () => {
+    const wrapper = await mountSuspended(CvButton, {
+      slots: { default: 'Get tickets' },
+    })
+    expect(wrapper.find('.cv-button__face').text()).toContain('Get tickets')
+  })
+
+  it('renders icon-left inside the face for pushable variants', async () => {
+    const wrapper = await mountSuspended(CvButton, {
+      slots: {
+        default: 'Label',
+        'icon-left': '<span class="test-icon">★</span>',
+      },
+    })
+    expect(wrapper.find('.cv-button__face .test-icon').exists()).toBe(true)
+  })
+
+  it('applies the gold variant class and renders the push structure', async () => {
+    const wrapper = await mountSuspended(CvButton, {
+      props: { variant: 'gold' },
+      slots: { default: 'Reserve series pass' },
+    })
+    expect(wrapper.classes()).toContain('cv-button--gold')
+    expect(wrapper.find('.cv-button__edge').exists()).toBe(true)
+    expect(wrapper.find('.cv-button__face').exists()).toBe(true)
+  })
+
+  // ——— Flat variants stay flat (no socket/edge/shadow) ———
+
+  it('renders the push structure for the secondary variant (neutral push)', async () => {
+    const wrapper = await mountSuspended(CvButton, {
+      props: { variant: 'secondary' },
+      slots: { default: 'Cancel' },
+    })
+    expect(wrapper.find('.cv-button__edge').exists()).toBe(true)
+    expect(wrapper.find('.cv-button__shadow').exists()).toBe(true)
+    expect(wrapper.find('.cv-button__face').exists()).toBe(true)
+  })
+
+  it('does not render the push structure for the tertiary (ghost) variant', async () => {
+    const wrapper = await mountSuspended(CvButton, {
+      props: { variant: 'tertiary' },
+      slots: { default: 'See the schedule' },
+    })
+    expect(wrapper.find('.cv-button__edge').exists()).toBe(false)
+    expect(wrapper.find('.cv-button__shadow').exists()).toBe(false)
+  })
+
+  // ——— Block (full-width) modifier ———
+
+  it('applies the block modifier when block is set', async () => {
+    const wrapper = await mountSuspended(CvButton, {
+      props: { block: true },
+      slots: { default: 'Send the gift' },
+    })
+    expect(wrapper.classes()).toContain('cv-button--block')
+  })
+
+  it('does not apply the block modifier by default', async () => {
+    const wrapper = await mountSuspended(CvButton, {
+      slots: { default: 'Default' },
+    })
+    expect(wrapper.classes()).not.toContain('cv-button--block')
+  })
 })

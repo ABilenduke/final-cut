@@ -154,17 +154,17 @@ const trailerHref = computed(() =>
             </template>
             Get Tickets
           </CvButton>
-          <a
+          <CvButton
             v-if="trailerHref"
+            variant="tertiary"
             :href="trailerHref"
             target="_blank"
             rel="noopener noreferrer"
-            class="cinema-hero__ghost"
             :aria-label="`Watch trailer for ${movie.title} (opens in new tab)`"
           >
             Watch Trailer
-            <span aria-hidden="true">&nbsp;&rarr;</span>
-          </a>
+            <template #icon-right><span aria-hidden="true">&rarr;</span></template>
+          </CvButton>
         </div>
       </div>
 
@@ -415,6 +415,12 @@ const trailerHref = computed(() =>
   line-height: 0.92;
   letter-spacing: -0.035em;
   color: var(--on-surface);
+  /* Legibility scrim for type over the film backdrop. Void-tinted (#0a0605),
+     not gray — per DESIGN_SYSTEM § Elevation. Tight contact layer + soft bloom
+     so the title holds contrast even when the still behind it runs bright. */
+  text-shadow:
+    0 0.0625rem 0.1875rem rgb(10 6 5 / 0.6),
+    0 0.125rem 1.25rem rgb(10 6 5 / 0.45);
   text-wrap: balance;
   max-width: 16ch;
   margin: 0 0 var(--space-md);
@@ -424,6 +430,7 @@ const trailerHref = computed(() =>
   font-family: var(--font-body);
   font-size: 1.125rem;
   color: var(--tertiary);
+  text-shadow: 0 0.0625rem 0.875rem rgb(10 6 5 / 0.55);
   max-width: 42ch;
   line-height: 1.5;
   text-wrap: pretty;
@@ -468,43 +475,6 @@ const trailerHref = computed(() =>
   align-items: center;
   flex-wrap: wrap;
   animation: cinema-hero-reveal var(--duration-cinematic) var(--ease-enter) 150ms both;
-}
-
-.cinema-hero__ghost {
-  display: inline-flex;
-  align-items: center;
-  height: 3rem;
-  padding-inline: var(--space-sm);
-  font-family: var(--font-body);
-  font-size: 1rem;
-  color: var(--on-surface);
-  text-decoration: none;
-  letter-spacing: 0.01em;
-  position: relative;
-  transition: color var(--duration-standard) var(--ease-standard);
-}
-
-.cinema-hero__ghost::after {
-  content: '';
-  position: absolute;
-  left: var(--space-sm);
-  right: var(--space-sm);
-  bottom: 0.875rem;
-  height: var(--border-hairline);
-  background-color: var(--on-surface);
-  transform-origin: left;
-  transition:
-    transform var(--duration-standard) var(--ease-standard),
-    background-color var(--duration-standard) var(--ease-standard);
-}
-
-.cinema-hero__ghost:hover {
-  color: var(--secondary);
-}
-
-.cinema-hero__ghost:hover::after {
-  background-color: var(--secondary);
-  transform: scaleX(1.05);
 }
 
 /* Side panel — glass */

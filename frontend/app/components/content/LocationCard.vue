@@ -54,23 +54,23 @@ const mapsUrl = computed<string | null>(() => locationMapsUrl(props.location))
 
     <!-- Action row: outside the card link so they are independently focusable -->
     <div class="location-card__actions">
-      <NuxtLink
-        :to="`/movies?location=${location.slug}`"
-        class="location-card__cta"
+      <CvButton
+        variant="primary"
+        :href="`/movies?location=${location.slug}`"
       >
         See Showtimes
-      </NuxtLink>
+      </CvButton>
 
-      <a
+      <CvButton
         v-if="mapsUrl"
+        variant="tertiary"
         :href="mapsUrl"
         target="_blank"
         rel="noopener noreferrer"
-        class="location-card__directions"
         :aria-label="`Get directions to ${location.name}`"
       >
         Get Directions
-      </a>
+      </CvButton>
     </div>
   </article>
 </template>
@@ -211,61 +211,4 @@ const mapsUrl = computed<string | null>(() => locationMapsUrl(props.location))
   flex-wrap: wrap;
 }
 
-.location-card__cta {
-  display: inline-flex;
-  align-items: center;
-  padding: 0 var(--space-md);
-  height: var(--control-height);
-  background-color: var(--primary-container);
-  color: var(--secondary);
-  font-family: var(--font-body);
-  font-size: var(--type-body-sm, 0.875rem);
-  font-weight: 500;
-  text-decoration: none;
-  border-radius: var(--radius-sm);
-  transition:
-    background-color var(--duration-micro) var(--ease-standard),
-    color var(--duration-micro) var(--ease-standard);
-}
-
-.location-card__cta:hover {
-  background-color: var(--primary-container-hover);
-}
-
-.location-card__cta:focus-visible {
-  outline: var(--border-thick) solid var(--secondary);
-  outline-offset: 0.125rem;
-}
-
-.location-card__directions {
-  display: inline-flex;
-  align-items: center;
-  padding: 0 var(--space-md);
-  height: var(--control-height);
-  background-color: transparent;
-  color: var(--secondary);
-  font-family: var(--font-body);
-  font-size: var(--type-body-sm, 0.875rem);
-  text-decoration: underline;
-  text-underline-offset: 0.2em;
-  border-radius: var(--radius-sm);
-  transition: color var(--duration-micro) var(--ease-standard);
-}
-
-.location-card__directions:hover {
-  color: var(--secondary-hover);
-}
-
-.location-card__directions:focus-visible {
-  outline: var(--border-thick) solid var(--secondary);
-  outline-offset: 0.125rem;
-}
-
-/* Touch targets: ensure control-height minimum on mobile */
-@media (max-width: 59.999rem) {
-  .location-card__cta,
-  .location-card__directions {
-    min-height: var(--control-height);
-  }
-}
 </style>

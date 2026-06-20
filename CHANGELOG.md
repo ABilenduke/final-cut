@@ -7,8 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-06-20
+
+### Changed
+
+- **Buttons are now a tactile 3D "push button".** Rebuilt the shared `CvButton` (`frontend/app/components/ui/CvButton.vue`) around the `Final Cut · Push Button` design: `primary`, `gold`, and `secondary` render a depressible key — a 3-layer stack (ground shadow + colored side-wall + pressable face) whose face travels down into its socket on press. `primary` = maroon (highest-emphasis), new **`gold`** variant = gold face / dark label (high-emphasis accent), `secondary` = neutral graphite key (low-emphasis: Cancel, Call, RSVP, utilities). Added a **`block`** full-width prop. `tertiary` is the only flat variant — the design's serif ghost (left-origin underline, gold on hover). The push-specific gradient stops live as component-local `--push-*` custom properties; everything else reuses existing tokens.
+- **Consolidated hand-rolled buttons onto `CvButton`.** Migrated the duplicated raw action/link buttons across the app — `MovieHero`, `HomeCinemaHero`, `HomeFeaturedCarousel`, the `/locations/:slug` + `LocationCard` + `LocationDetailPanel` CTAs, the `/gift-cards` and `/gift-cards/bulk` links, the `GiftCardPreview` submit, the `PromoCode` Apply, the `BridgeDetailHero` Get Tickets, and the `SeatProjectionistPick` action — and deleted the duplicated CSS (incl. the `.movie-page .btn-*` block in `frontend/app/assets/css/movie-detail.css`). Genuinely component-internal controls (steppers, chips, view/segmented toggles, carousel nav, accordion headers, the `CheckoutContactBay` `aria-pressed` auth toggle, compact header nav-links, inline-in-paragraph and ticker-strip text links) and the two `MovieHero` icon-only buttons were intentionally left as-is.
+- **`/movies` filter console.** Grouped the status and location filter rows into a single control band closed by one editorial hairline (aligned label rail), tightening the page-top rhythm.
+
 ### Fixed
 
+- **Push button stretched into a band in flex/grid containers.** A pushable `CvButton` whose parent stretched it wider than its content (e.g. the `/events` featured hero's stretch column) exposed the absolutely-positioned side-wall/shadow as a full-width band behind a centered face. Pushable buttons now shrink-wrap (`width: fit-content`) unless explicitly `block`.
 - Added missing `routeRules` for the `/terms` and `/privacy` legal pages (ISR 30 min — ISR rather than prerender because both render an admin-managed contact line via `useSiteContacts()`), and added them to `sitemap.xml` and its static-URL contract test. (`/whats-on` is intentionally left without an `isr` rule: it is date-sensitive and `tests/architecture/whats-on-date-hydration.test.ts` forbids ISR-caching it.)
 
 ### Documentation

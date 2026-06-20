@@ -34,9 +34,9 @@ const label = computed(() => {
       Dead centre of the sweet spot. The picture fills the eye without spilling it. Best
       pair of seats in the house for tonight's run — and they're still open.
     </p>
-    <button type="button" class="pick__btn" @click="emit('take-pick')">
+    <CvButton variant="secondary" size="sm" class="pick__btn" @click="emit('take-pick')">
       Take these seats
-    </button>
+    </CvButton>
     <div class="pick__by">
       Chosen by <b>M. Varga</b> · Chief projectionist
     </div>
@@ -118,25 +118,7 @@ const label = computed(() => {
 
 .pick__btn {
   margin-top: var(--space-md);
-  padding: 0.55rem 0.9rem;
-  border: var(--border-hairline) solid rgb(var(--secondary-rgb) / 0.4);
-  background: transparent;
-  color: var(--secondary);
-  font-family: var(--font-body);
-  font-size: 0.6875rem;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  transition: background-color var(--duration-standard) var(--ease-standard),
-    color var(--duration-standard) var(--ease-standard);
   position: relative;
-}
-
-.pick__btn:hover,
-.pick__btn:focus-visible {
-  background-color: var(--secondary);
-  color: var(--surface);
 }
 
 .pick__by {

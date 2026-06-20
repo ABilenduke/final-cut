@@ -24,10 +24,11 @@ Located in `app/components/ui/`. Auto-imported globally by Nuxt. These are the d
 
 | Name | Type | Required | Default | Description |
 | ---- | ---- | -------- | ------- | ----------- |
-| `variant` | `'primary' \| 'secondary' \| 'tertiary'` | No | `'primary'` | Visual style variant |
-| `size` | `'sm' \| 'default' \| 'lg'` | No | `'default'` | Height: sm (2.25rem, pointer-fine only), default (3rem), lg (3.5rem) |
+| `variant` | `'primary' \| 'secondary' \| 'tertiary' \| 'gold'` | No | `'primary'` | Visual style variant |
+| `size` | `'sm' \| 'default' \| 'lg'` | No | `'default'` | Pushable variants (primary/gold/secondary): face height sm 2.8rem (pointer-fine), default 3.4rem, lg 3.8rem. Tertiary (flat): sm 2.25rem (pointer-fine), default 3rem, lg 3.5rem |
 | `disabled` | `boolean` | No | `false` | Disables interaction and reduces opacity |
 | `loading` | `boolean` | No | `false` | Shows loading spinner, disables interaction |
+| `block` | `boolean` | No | `false` | Full-width (`width: 100%`) — e.g. the gift-card composer submit |
 | `type` | `'button' \| 'submit' \| 'reset'` | No | `'button'` | Native button type |
 | `href` | `string` | No | — | Renders as `<NuxtLink>` instead of `<button>` |
 
@@ -35,9 +36,9 @@ Located in `app/components/ui/`. Auto-imported globally by Nuxt. These are the d
 
 **Events:** `click` (`MouseEvent`) — not emitted when disabled or loading.
 
-**Variants:** Primary: `primary-container` bg, `secondary` text, `0.125rem` radius. Secondary: `surface-container-high` bg, `on-surface` text. Tertiary: transparent, `secondary` text, animated underline from center on hover.
+**Variants:** `primary`, `gold`, and `secondary` are depressible **push buttons** — a 3-layer key (`.cv-button__shadow` ground shadow + `.cv-button__edge` colored side-wall + `.cv-button__face` pressable top). On `:hover` the face lifts and the surface warms; on `:active` the face travels down its wall into the socket (34ms) and the ground shadow tightens, reading as a real key bottoming out. `primary` = maroon face / gold label (highest-emphasis CTA); `gold` = gold face / dark label (high-emphasis accent); `secondary` = neutral graphite face / `on-surface` label (low-emphasis tactile key — Cancel, Call, RSVP, utilities). The push-specific gradient stops live as component-local `--push-*` custom properties (intentionally not global tokens) and use a 0.4375rem (7px) physical-key radius. `tertiary` is the only **flat** variant — a serif ghost: no fill, underline that draws in from the **left** and goes gold on hover. Reduced motion keeps the resting 3D look (a static transform) but snaps between states instantly.
 
-**Accessibility:** `aria-disabled="true"` when disabled. `aria-busy="true"` when loading. Loading spinner is `aria-hidden="true"`.
+**Accessibility:** `aria-disabled="true"` when disabled. `aria-busy="true"` when loading. Loading spinner is `aria-hidden="true"`. Push variants use a gold focus outline with `outline-offset: 0.25rem` so the ring clears the lifted face.
 
 ---
 

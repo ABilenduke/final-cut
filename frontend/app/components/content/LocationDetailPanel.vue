@@ -71,23 +71,23 @@ const fullAddress = computed<string>(() => {
       </address>
 
       <div class="location-detail-panel__map-cta">
-        <a
+        <CvButton
           v-if="mapsUrl"
+          variant="primary"
           :href="mapsUrl"
           target="_blank"
           rel="noopener noreferrer"
-          class="location-detail-panel__btn-primary"
           :aria-label="`Get directions to ${location.name}`"
         >
           Get Directions
-        </a>
-        <a
+        </CvButton>
+        <CvButton
           v-if="location.phone"
+          variant="secondary"
           :href="`tel:${location.phone}`"
-          class="location-detail-panel__btn-secondary"
         >
           Call
-        </a>
+        </CvButton>
       </div>
     </section>
 
@@ -239,53 +239,6 @@ const fullAddress = computed<string>(() => {
   gap: var(--space-sm);
   flex-wrap: wrap;
   margin-top: var(--space-sm);
-}
-
-.location-detail-panel__btn-primary {
-  display: inline-flex;
-  align-items: center;
-  padding: 0 var(--space-md);
-  height: var(--control-height);
-  background-color: var(--primary-container);
-  color: var(--secondary);
-  font-family: var(--font-body);
-  font-size: var(--type-body-sm, 0.875rem);
-  font-weight: 500;
-  text-decoration: none;
-  border-radius: var(--radius-sm);
-  transition: background-color var(--duration-micro) var(--ease-standard);
-}
-
-.location-detail-panel__btn-primary:hover {
-  background-color: var(--primary-container-hover);
-}
-
-.location-detail-panel__btn-primary:focus-visible {
-  outline: var(--border-thick) solid var(--secondary);
-  outline-offset: 0.125rem;
-}
-
-.location-detail-panel__btn-secondary {
-  display: inline-flex;
-  align-items: center;
-  padding: 0 var(--space-md);
-  height: var(--control-height);
-  background-color: var(--surface-container-high);
-  color: var(--on-surface);
-  font-family: var(--font-body);
-  font-size: var(--type-body-sm, 0.875rem);
-  text-decoration: none;
-  border-radius: var(--radius-sm);
-  transition: background-color var(--duration-micro) var(--ease-standard);
-}
-
-.location-detail-panel__btn-secondary:hover {
-  background-color: var(--surface-container);
-}
-
-.location-detail-panel__btn-secondary:focus-visible {
-  outline: var(--border-thick) solid var(--secondary);
-  outline-offset: 0.125rem;
 }
 
 /* ——— Hours table ——— */

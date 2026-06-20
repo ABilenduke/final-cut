@@ -110,15 +110,16 @@ async function handleSubmit(): Promise<void> {
           >.{{ totalParts.dec }}</span>
         </span>
       </div>
-      <button
-        class="gift-card-preview__btn"
-        type="button"
-        :disabled="loading"
+      <CvButton
+        variant="primary"
+        block
+        :loading="loading"
         :aria-label="`Send the gift, ${totalLabel} total`"
         @click="handleSubmit"
       >
-        Send the gift &nbsp;<span class="gift-card-preview__btn-ar">→</span>
-      </button>
+        Send the gift
+        <template #icon-right><span aria-hidden="true">→</span></template>
+      </CvButton>
       <p class="gift-card-preview__fine">
         Cards never expire and are valid at all Final Cut cinemas. By proceeding you agree to our
         <NuxtLink to="/terms">gift card terms</NuxtLink>. Need help?
@@ -281,43 +282,6 @@ async function handleSubmit(): Promise<void> {
   color: var(--tertiary);
   vertical-align: 0.4em;
   margin-left: 0.05em;
-}
-
-.gift-card-preview__btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.625rem;
-  height: 3.5rem;
-  padding: 0 1.5rem;
-  border-radius: var(--radius-sm);
-  font-family: var(--font-body);
-  font-size: 1rem;
-  font-weight: 500;
-  letter-spacing: 0.02em;
-  width: 100%;
-  background: var(--primary-container);
-  color: var(--primary);
-  border: none;
-  cursor: pointer;
-  transition: transform 150ms var(--ease-standard), background-color 200ms;
-}
-
-.gift-card-preview__btn:hover:not(:disabled) {
-  background: var(--primary-container-hover);
-}
-
-.gift-card-preview__btn:active:not(:disabled) {
-  transform: scale(0.99);
-}
-
-.gift-card-preview__btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.gift-card-preview__btn-ar {
-  font-family: var(--font-display);
 }
 
 .gift-card-preview__fine {

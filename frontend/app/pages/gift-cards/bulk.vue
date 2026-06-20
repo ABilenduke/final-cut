@@ -50,12 +50,12 @@ useHead({
       </div>
 
       <div class="bulk-page__cta">
-        <a
-          class="bulk-page__btn"
+        <CvButton
+          variant="primary"
           :href="`mailto:${contacts.conciergeEmail}?subject=Bulk%20gift%20card%20enquiry`"
         >
           Speak to our concierge →
-        </a>
+        </CvButton>
         <NuxtLink to="/gift-cards" class="bulk-page__back">← Back to gift cards</NuxtLink>
       </div>
     </div>
@@ -150,27 +150,6 @@ useHead({
   gap: var(--space-md);
   margin-top: var(--space-2xl);
   align-items: flex-start;
-}
-
-.bulk-page__btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  height: 3.5rem;
-  padding: 0 1.5rem;
-  background: var(--primary-container);
-  color: var(--primary);
-  font-family: var(--font-body);
-  font-size: 1rem;
-  font-weight: 500;
-  letter-spacing: 0.02em;
-  border-radius: var(--radius-sm);
-  text-decoration: none;
-  transition: background-color 200ms;
-}
-
-.bulk-page__btn:hover {
-  background: var(--primary-container-hover);
 }
 
 .bulk-page__back {

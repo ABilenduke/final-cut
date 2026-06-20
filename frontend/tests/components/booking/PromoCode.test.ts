@@ -28,7 +28,7 @@ describe('PromoCode', () => {
     })
     const input = wrapper.find<HTMLInputElement>('.promo-bay__input')
     await input.setValue('  DISCOUNT20  ')
-    await wrapper.find('.promo-bay__apply').trigger('click')
+    await wrapper.find('.cv-button').trigger('click')
 
     const emitted = wrapper.emitted('apply')
     expect(emitted).toBeDefined()
@@ -49,7 +49,7 @@ describe('PromoCode', () => {
     const wrapper = await mountSuspended(PromoCode, {
       props: { appliedCode: null },
     })
-    await wrapper.find('.promo-bay__apply').trigger('click')
+    await wrapper.find('.cv-button').trigger('click')
 
     expect(wrapper.emitted('apply')).toBeUndefined()
     expect(wrapper.find('.promo-bay__error').text()).toBe('Please enter a promo code')

@@ -81,7 +81,7 @@ describe('HomeFeaturedCarousel', () => {
     expect(renderedSlides).toHaveLength(1)
     expect(wrapper.html()).toContain('The Cinematic Void')
     // CTA links to /movies
-    const cta = wrapper.find('.carousel__cta')
+    const cta = wrapper.find('.cv-button')
     expect(cta.exists()).toBe(true)
     expect(cta.attributes('href')).toBe('/movies')
   })
@@ -252,7 +252,7 @@ describe('HomeFeaturedCarousel', () => {
     const wrapper = await mountSuspended(HomeFeaturedCarousel, {
       props: { slides: [makeSlide({ ctaLabel: 'Book Now', ctaHref: '/purchase' })] },
     })
-    const cta = wrapper.find('.carousel__cta')
+    const cta = wrapper.find('.cv-button')
     expect(cta.exists()).toBe(true)
     expect(cta.text()).toContain('Book Now')
   })
@@ -261,21 +261,21 @@ describe('HomeFeaturedCarousel', () => {
     const wrapper = await mountSuspended(HomeFeaturedCarousel, {
       props: { slides: [makeSlide({ ctaLabel: null, ctaHref: null })] },
     })
-    expect(wrapper.find('.carousel__cta').exists()).toBe(false)
+    expect(wrapper.find('.cv-button').exists()).toBe(false)
   })
 
   it('(g3) renders no CTA link for a javascript: URL (XSS guard)', async () => {
     const wrapper = await mountSuspended(HomeFeaturedCarousel, {
       props: { slides: [makeSlide({ ctaLabel: 'Click', ctaHref: 'javascript:alert(1)' })] },
     })
-    expect(wrapper.find('.carousel__cta').exists()).toBe(false)
+    expect(wrapper.find('.cv-button').exists()).toBe(false)
   })
 
   it('(g4) renders a CTA link for an https URL', async () => {
     const wrapper = await mountSuspended(HomeFeaturedCarousel, {
       props: { slides: [makeSlide({ ctaLabel: 'Click', ctaHref: 'https://example.com/movies' })] },
     })
-    const cta = wrapper.find('.carousel__cta')
+    const cta = wrapper.find('.cv-button')
     expect(cta.exists()).toBe(true)
     expect(cta.attributes('href')).toContain('https://example.com/movies')
   })
