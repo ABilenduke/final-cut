@@ -29,16 +29,29 @@ const showFeaturedImage = computed(
 )
 const featuredHue = computed(() => hashToHue(featuredEvent.value?.title ?? ''))
 
-// SEO
-useHead({
-  title: 'Events — Final Cut',
-  meta: [
-    { name: 'description', content: 'Special events, screenings, and experiences at Final Cut.' },
-    { property: 'og:title', content: 'Events — Final Cut' },
-    { property: 'og:description', content: 'Special events, screenings, and experiences at Final Cut.' },
-    { property: 'og:type', content: 'website' },
-  ],
-})
+// SEO — canonical + OG via the shared composable, plus an ItemList of the
+// upcoming special events so the listing is crawlable as a structured set.
+const siteUrl = String(useRuntimeConfig().public.siteUrl ?? '')
+const eventsDescription = 'Special events, screenings, and experiences at Final Cut.'
+
+useSeo(() => ({
+  title: 'Events',
+  description: eventsDescription,
+  path: '/events',
+  jsonLd: {
+    '@context': 'https://schema.org',
+    '@type': 'ItemList',
+    name: 'Special Events at Final Cut',
+    itemListElement: allEvents.value
+      .filter(e => e.slug)
+      .map((e, i) => ({
+        '@type': 'ListItem',
+        position: i + 1,
+        name: e.title,
+        ...(siteUrl ? { url: `${siteUrl}/events/${e.slug}` } : {}),
+      })),
+  },
+}))
 </script>
 
 <template>

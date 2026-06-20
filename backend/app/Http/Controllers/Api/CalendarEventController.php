@@ -98,7 +98,10 @@ class CalendarEventController extends Controller
 
     public function show(string $slug): JsonResponse
     {
-        $event = CalendarEvent::where('slug', $slug)->first();
+        // Eager-load the venue so CalendarEventResource can emit a structured
+        // `location` for the customer-side Event JSON-LD. The index path
+        // intentionally skips this — location is only needed on the detail page.
+        $event = CalendarEvent::with('location')->where('slug', $slug)->first();
 
         if (! $event) {
             return $this->errorResponse([['message' => 'Calendar event not found']], 404);
