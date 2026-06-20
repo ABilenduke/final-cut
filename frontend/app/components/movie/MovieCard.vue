@@ -51,7 +51,11 @@ const ratingLabel = computed<string>(() =>
 )
 
 const runtimeLabel = computed<string>(() => {
-  const total = Math.max(0, Math.round(props.movie.runtime))
+  // Guard against a missing/null/0 runtime (e.g. a not-yet-enriched movie, or
+  // a list payload that omits it) — otherwise this formats to "NaNh NaNm".
+  const raw = props.movie.runtime
+  if (typeof raw !== 'number' || !Number.isFinite(raw) || raw <= 0) return ''
+  const total = Math.round(raw)
   const h = Math.floor(total / 60)
   const m = total % 60
   if (h === 0) return `${m}m`
@@ -98,7 +102,7 @@ const detailHref = computed<string>(() => `/movies/${props.movie.slug}`)
       <p v-if="movie.tagline" class="movie-card__tagline">{{ movie.tagline }}</p>
 
       <div class="movie-card__meta">
-        <span class="movie-card__diet movie-card__diet--time">{{ runtimeLabel }}</span>
+        <span v-if="runtimeLabel" class="movie-card__diet movie-card__diet--time">{{ runtimeLabel }}</span>
         <span
           v-for="genre in movie.genres.slice(0, 3)"
           :key="genre.id"

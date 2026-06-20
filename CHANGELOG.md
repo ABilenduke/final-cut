@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Movie cards showed `NaNh NaNm` instead of the runtime** (home page and `/movies` listings). The list endpoint's `MovieListResource` omitted the `runtime` field, so the card formatted `undefined`. Added `runtime` to the list resource and hardened `MovieCard` to hide the runtime label for movies with no runtime (e.g. not-yet-enriched).
 - **Checkout: payment was unreachable on mobile.** The Confirm & Pay button lived in the totals rail, which is hidden below `60rem`, so phone users could not complete a booking. Moved Confirm & Pay and the terms-consent agreement ("I agree to the ticketing terms and the auditorium policy. No late entry after 10 minutes; phones silenced and stowed.") out of the rail and out of the promo bay into a dedicated `CheckoutConfirmBay` section below the inputs (visible on every viewport, with the order total on the button). The totals rail is now a sticky summary so the order total stays visible while scrolling on desktop.
 - Corrected the brand "established" year from `est. 2003` to `est. 2026` in the site header and the gift-card visual.
 

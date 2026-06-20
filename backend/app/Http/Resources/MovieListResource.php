@@ -15,6 +15,7 @@ class MovieListResource extends JsonResource
             'id' => $this->id,
             'slug' => $this->slug,
             'title' => $this->title,
+            'runtime' => $this->runtime,
             'rating' => $this->rating,
             'releaseDate' => $this->release_date instanceof \DateTimeInterface
                 ? $this->release_date->format('Y-m-d')
