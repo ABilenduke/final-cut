@@ -49,9 +49,9 @@ function handleRemove() {
         :aria-invalid="Boolean(error)"
         @keydown.enter.prevent="handleApply"
       >
-      <button type="button" class="promo-bay__apply" @click="handleApply">
+      <CvButton variant="secondary" @click="handleApply">
         Apply
-      </button>
+      </CvButton>
     </div>
     <p v-if="error" class="promo-bay__error" role="alert">{{ error }}</p>
 
@@ -114,28 +114,6 @@ function handleRemove() {
   outline: none;
   border-color: var(--secondary);
   background-color: var(--surface-container);
-}
-
-.promo-bay__apply {
-  padding: 0 1.25rem;
-  background-color: var(--surface-container-high);
-  color: var(--on-surface);
-  border: var(--border-hairline) solid rgb(var(--outline-variant-rgb) / 0.4);
-  border-radius: var(--radius-sm);
-  font-family: var(--font-body);
-  font-size: 0.8125rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  cursor: pointer;
-  transition:
-    border-color var(--duration-standard) var(--ease-standard),
-    color var(--duration-standard) var(--ease-standard);
-}
-
-.promo-bay__apply:hover,
-.promo-bay__apply:focus-visible {
-  border-color: var(--secondary);
-  color: var(--secondary);
 }
 
 .promo-bay__error {

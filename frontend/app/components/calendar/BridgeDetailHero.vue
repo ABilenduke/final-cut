@@ -107,13 +107,15 @@ function shortAuditoriumLabel(label: string): string {
           </NuxtLink>
         </div>
 
-        <NuxtLink
+        <CvButton
           v-if="heroEvent.ticketUrl"
-          :to="heroEvent.ticketUrl"
+          variant="primary"
+          size="sm"
           class="bridge-hero-card__cta"
+          :href="heroEvent.ticketUrl"
         >
           Get Tickets
-        </NuxtLink>
+        </CvButton>
       </div>
     </div>
 
@@ -310,15 +312,6 @@ function shortAuditoriumLabel(label: string): string {
 .bridge-hero-card__cta {
   align-self: flex-start;
   margin-top: 0.5rem;
-  padding: 0.5rem 0.85rem;
-  background-color: var(--primary-container);
-  color: var(--secondary);
-  text-decoration: none;
-  font-family: var(--font-body);
-  font-size: var(--type-label-md);
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  border-radius: var(--radius-sm);
 }
 
 .bridge-hero-card__empty {

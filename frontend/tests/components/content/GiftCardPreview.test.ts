@@ -62,7 +62,7 @@ describe('GiftCardPreview', () => {
 
   it('emits submit with the full composer payload when valid', async () => {
     const wrapper = await mountSuspended(GiftCardPreview)
-    await wrapper.find('.gift-card-preview__btn').trigger('click')
+    await wrapper.find('.cv-button').trigger('click')
     const emitted = wrapper.emitted('submit')
     expect(emitted).toBeTruthy()
     expect(emitted![0][0]).toMatchObject({
@@ -82,7 +82,7 @@ describe('GiftCardPreview', () => {
     composer.state.value.recipientEmail = ''
     composer.state.value.senderName = ''
     const wrapper = await mountSuspended(GiftCardPreview)
-    await wrapper.find('.gift-card-preview__btn').trigger('click')
+    await wrapper.find('.cv-button').trigger('click')
     expect(wrapper.emitted('submit')).toBeFalsy()
   })
 })

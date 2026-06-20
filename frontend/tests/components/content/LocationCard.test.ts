@@ -72,7 +72,7 @@ describe('LocationCard', () => {
     const wrapper = await mountSuspended(LocationCard, {
       props: { location: makeLocation() },
     })
-    const cta = wrapper.find('.location-card__cta')
+    const cta = wrapper.find('.cv-button--primary')
     expect(cta.exists()).toBe(true)
     expect(cta.attributes('href')).toBe('/movies?location=downtown')
     expect(cta.text()).toContain('See Showtimes')
@@ -82,7 +82,7 @@ describe('LocationCard', () => {
     const wrapper = await mountSuspended(LocationCard, {
       props: { location: makeLocation() },
     })
-    const directionsLink = wrapper.find('.location-card__directions')
+    const directionsLink = wrapper.find('.cv-button--tertiary')
     expect(directionsLink.exists()).toBe(true)
     expect(directionsLink.attributes('href')).toBe(
       'https://maps.google.com/?q=40.7128,-73.9352',
@@ -95,7 +95,7 @@ describe('LocationCard', () => {
         location: makeLocation({ latitude: null, longitude: null }),
       },
     })
-    expect(wrapper.find('.location-card__directions').exists()).toBe(false)
+    expect(wrapper.find('.cv-button--tertiary').exists()).toBe(false)
   })
 
   it('card link navigates to /locations/:slug', async () => {

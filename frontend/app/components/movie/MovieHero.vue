@@ -186,23 +186,26 @@ function handleShare() {
         </div>
 
         <div class="movie-hero__cta-row">
-          <button type="button" class="btn-primary" @click="scrollTo('showtimes')">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-              <path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19a2 2 0 002 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11z" />
-            </svg>
+          <CvButton variant="primary" @click="scrollTo('showtimes')">
+            <template #icon-left>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19a2 2 0 002 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11z" />
+              </svg>
+            </template>
             Get Tickets
-          </button>
-          <button
+          </CvButton>
+          <CvButton
             v-if="movie.trailerKey"
-            type="button"
-            class="btn-ghost"
+            variant="tertiary"
             @click="scrollTo('trailer')"
           >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-              <path d="M8 5v14l11-7z" />
-            </svg>
+            <template #icon-left>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <path d="M8 5v14l11-7z" />
+              </svg>
+            </template>
             Watch Trailer
-          </button>
+          </CvButton>
           <button type="button" class="icon-btn" aria-label="Add to watchlist">
             <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
               <path d="M17 3H7c-1.1 0-1.99.9-1.99 2L5 21l7-3 7 3V5c0-1.1-.9-2-2-2z" />
@@ -591,6 +594,7 @@ function handleShare() {
 
 .movie-hero__cta-row {
   display: flex;
+  align-items: center;
   gap: var(--space-md);
   flex-wrap: wrap;
   margin-top: var(--space-md);

@@ -176,15 +176,15 @@ function toggleFaq(index: number): void {
             production crews and press.
           </p>
           <div class="gift-cards-page__corp-actions">
-            <a
-              class="gift-cards-page__btn-ghost"
+            <CvButton
+              variant="tertiary"
               :href="`mailto:${contacts.conciergeEmail}?subject=Bulk%20gift%20card%20enquiry`"
             >
               Speak to our concierge →
-            </a>
-            <NuxtLink to="/gift-cards/bulk" class="gift-cards-page__btn-ghost">
+            </CvButton>
+            <CvButton variant="tertiary" href="/gift-cards/bulk">
               Download bulk PDF →
-            </NuxtLink>
+            </CvButton>
           </div>
           <div class="gift-cards-page__corp-stats">
             <div class="gift-cards-page__corp-stat">
@@ -407,26 +407,6 @@ function toggleFaq(index: number): void {
   align-items: center;
   margin-top: var(--space-lg);
   flex-wrap: wrap;
-}
-
-.gift-cards-page__btn-ghost {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  height: 3rem;
-  padding: 0 1rem;
-  color: var(--on-surface);
-  border-bottom: 1px solid var(--outline);
-  font-size: 0.9375rem;
-  letter-spacing: 0.02em;
-  transition: color 200ms, border-color 200ms;
-  border-radius: 0;
-  text-decoration: none;
-}
-
-.gift-cards-page__btn-ghost:hover {
-  color: var(--secondary);
-  border-bottom-color: var(--secondary);
 }
 
 .gift-cards-page__corp-stats {

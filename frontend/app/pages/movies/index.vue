@@ -148,30 +148,32 @@ useHead({
         </div>
       </header>
 
-      <!-- Status filter chips -->
-      <div class="movies-page__filter">
-        <span class="movies-page__filter-label">Browse</span>
-        <div class="movies-page__chips" role="tablist" aria-label="Filter movies by status">
-          <button
-            v-for="f in FILTERS"
-            :key="f.id"
-            type="button"
-            class="movies-page__chip"
-            :class="{ 'movies-page__chip--on': status === f.id }"
-            role="tab"
-            :aria-selected="status === f.id"
-            @click="setStatus(f.id)"
-          >
-            <span>{{ f.label }}</span>
-            <span class="movies-page__chip-count">{{ String(f.count()).padStart(2, '0') }}</span>
-          </button>
+      <!-- Filter console — status + location grouped as one control band -->
+      <div class="movies-page__controls">
+        <div class="movies-page__filter">
+          <span class="movies-page__filter-label">Browse</span>
+          <div class="movies-page__chips" role="tablist" aria-label="Filter movies by status">
+            <button
+              v-for="f in FILTERS"
+              :key="f.id"
+              type="button"
+              class="movies-page__chip"
+              :class="{ 'movies-page__chip--on': status === f.id }"
+              role="tab"
+              :aria-selected="status === f.id"
+              @click="setStatus(f.id)"
+            >
+              <span>{{ f.label }}</span>
+              <span class="movies-page__chip-count">{{ String(f.count()).padStart(2, '0') }}</span>
+            </button>
+          </div>
         </div>
-      </div>
 
-      <!-- Location filter chips (opt-in cross-location narrowing) -->
-      <div v-if="locations.length > 0" class="movies-page__location-filter">
-        <span class="movies-page__filter-label">Cinema</span>
-        <LocationFilterChips :locations="locations" />
+        <!-- Location filter chips (opt-in cross-location narrowing) -->
+        <div v-if="locations.length > 0" class="movies-page__location-filter">
+          <span class="movies-page__filter-label">Cinema</span>
+          <LocationFilterChips :locations="locations" />
+        </div>
       </div>
 
       <!-- Now Playing section -->
@@ -237,18 +239,18 @@ useHead({
 
 <style scoped>
 .movies-page {
-  padding: var(--space-3xl) 0 var(--space-4xl);
+  padding: var(--space-2xl) 0 var(--space-4xl);
 }
 
 .movies-page__container {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2xl);
+  gap: var(--space-xl);
 }
 
 /* Page top */
 .movies-page__top {
-  padding: var(--space-xl) 0 var(--space-lg);
+  padding: 0 0 var(--space-lg);
   display: flex;
   justify-content: space-between;
   align-items: flex-end;
@@ -321,22 +323,35 @@ useHead({
   margin-bottom: 0.2rem;
 }
 
-/* Filter chips */
-.movies-page__filter {
+/* Filter console — status + location rows packed as one control band,
+   closed by a single editorial rule (no per-row borders). */
+.movies-page__controls {
   display: flex;
-  align-items: center;
-  gap: var(--space-md);
-  flex-wrap: wrap;
-  padding: var(--space-md) 0;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding-bottom: var(--space-lg);
   border-bottom: var(--border-hairline) solid rgb(var(--outline-variant-rgb) / 0.2);
 }
 
+.movies-page__filter,
+.movies-page__location-filter {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+}
+
+/* Fixed-width label rail with a hairline divider — both rows align to the
+   same x so the chips read as a single instrument cluster. */
 .movies-page__filter-label {
+  flex-shrink: 0;
+  min-width: 4.5rem;
   font-family: var(--font-body);
   font-size: 0.625rem;
   letter-spacing: 0.28em;
   text-transform: uppercase;
   color: var(--on-tertiary-fixed-variant);
+  padding-top: 0.6rem; /* optical: align label with the first chip row's text */
   padding-right: var(--space-sm);
   border-right: var(--border-hairline) solid rgb(var(--outline-variant-rgb) / 0.4);
 }
@@ -392,20 +407,6 @@ useHead({
   border-left-color: rgb(var(--secondary-rgb) / 0.35);
 }
 
-/* Location filter row */
-.movies-page__location-filter {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-md);
-  flex-wrap: wrap;
-  padding: var(--space-sm) 0;
-  border-bottom: var(--border-hairline) solid rgb(var(--outline-variant-rgb) / 0.2);
-}
-
-.movies-page__location-filter .movies-page__filter-label {
-  padding-top: 0.55rem; /* optical alignment with the chip row */
-}
-
 /* Section */
 .movies-page__section {
   display: flex;
@@ -418,7 +419,6 @@ useHead({
   justify-content: space-between;
   align-items: flex-end;
   gap: var(--space-md);
-  padding-top: var(--space-md);
   padding-bottom: var(--space-md);
   border-bottom: var(--border-hairline) solid rgb(var(--outline-variant-rgb) / 0.2);
 }
