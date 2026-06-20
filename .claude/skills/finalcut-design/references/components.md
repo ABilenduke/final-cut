@@ -35,7 +35,7 @@ The Final Cut design system is implemented as Vue components in `frontend/app/co
 
 | Component | File | Purpose |
 |---|---|---|
-| `<SiteHeader>` | `SiteHeader.vue` | Fixed 4rem top bar. Wordmark (`◉ Final Cut · est. 2003`), 5-item primary nav, location switcher pill, auth controls. Mobile: hamburger with focus-trapped drawer. |
+| `<SiteHeader>` | `SiteHeader.vue` | Fixed 4rem top bar. Wordmark logo (`/final-cut-logo-wordmark.webp`, 2.5rem tall, links home), 5-item primary nav, location switcher pill, auth controls. Mobile: hamburger with focus-trapped drawer. |
 | `<SiteFooter>` | `SiteFooter.vue` | Standard footer — secondary nav, social, address, legal. `surface-container-lowest` background. |
 | `<NeuralTicker>` | `NeuralTicker.vue` | Bridge-console telemetry feed. Sticks below header at `top: 4rem`, `z-ticker`. Pulsing "On Air" reactor badge on the leading edge, scrolling label-sm content (text-uppercase, letter-spacing 0.1em), pause/play button. Reduced motion → wraps to static text. |
 | `<SidebarNav>` | `SidebarNav.vue` | Account-area side rail. Desktop: 15rem labeled. Tablet: 4rem icon-only. Mobile: collapses to MobileNav. Active item gets gold left-edge accent. |

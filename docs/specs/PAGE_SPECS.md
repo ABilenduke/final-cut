@@ -816,7 +816,7 @@ Accessibility:
 **SEO**
 
 - Title: `What's On — Final Cut`
-- Structured data: `Event` (deferred — current page emits `og:` tags only)
+- Structured data: the calendar page itself emits `og:` tags only (no `Event` JSON-LD — a month grid isn't a single event). Per-event `Event` + `Place` JSON-LD is emitted on the `/events/:slug` detail page.
 
 ---
 
@@ -869,12 +869,13 @@ Accessibility:
 
 **Data Requirements**
 
-- `GET /api/calendar/events/:slug`
+- `GET /api/calendar/events/:slug` — the detail endpoint also returns a structured `location` (venue name + address + geo) used to populate the Event's `Place`; it is `null` for venue-agnostic events.
 
-**SEO**
+**SEO** — wired through the shared `useSeo()` composable (see `SITE_ARCHITECTURE.md` § SEO).
 
-- Title: `[Event Name] -- [Theater Name]`
-- Structured data: `Event`
+- Title: `[Event Name]` (the global `titleTemplate` brands it `— Final Cut`)
+- Canonical, OG/Twitter, and og:image (event image → site-wide fallback)
+- Structured data: **`Event`** (implemented) — `name`, `startDate`/`endDate`, `description`, `image`, `url`, `eventStatus`, `eventAttendanceMode`, `organizer`, `offers` (when `ticketUrl` present), and a `Place` `location` with `PostalAddress` + `GeoCoordinates` when the event is venue-scoped (required for Google Event rich results).
 
 ---
 

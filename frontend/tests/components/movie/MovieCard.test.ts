@@ -119,6 +119,18 @@ describe('MovieCard', () => {
     expect(wrapper.find('.movie-card__diet--time').text()).toBe('45m')
   })
 
+  it('omits the runtime label (no NaN) when runtime is missing or zero', async () => {
+    // A not-yet-enriched movie can have a null/0/undefined runtime. The card
+    // must not render "NaNh NaNm".
+    for (const runtime of [undefined, null, 0]) {
+      const wrapper = await mountSuspended(MovieCard, {
+        props: { movie: makeMovie({ runtime: runtime as unknown as number }) },
+      })
+      expect(wrapper.find('.movie-card__diet--time').exists()).toBe(false)
+      expect(wrapper.text()).not.toContain('NaN')
+    }
+  })
+
   it('truncates genres to 3', async () => {
     const movie = makeMovie({
       genres: [

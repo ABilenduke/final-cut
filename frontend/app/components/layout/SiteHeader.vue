@@ -72,9 +72,13 @@ function onKeydown(event: KeyboardEvent) {
   <header class="site-header" role="banner">
     <div class="site-header__inner">
       <NuxtLink to="/" class="site-header__wordmark" aria-label="Final Cut — home">
-        <span class="site-header__mark" aria-hidden="true">◉</span>
-        <span class="site-header__wordmark-name">Final Cut</span>
-        <span class="site-header__wordmark-est" aria-hidden="true">est. 2003</span>
+        <img
+          src="/final-cut-logo-wordmark.webp"
+          alt=""
+          class="site-header__logo"
+          width="481"
+          height="160"
+        />
       </NuxtLink>
 
       <!-- Desktop Nav -->
@@ -213,34 +217,23 @@ function onKeydown(event: KeyboardEvent) {
 /* Wordmark */
 .site-header__wordmark {
   display: inline-flex;
-  align-items: baseline;
-  gap: 0.4em;
-  font-family: var(--font-display);
-  font-size: 1.25rem;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-  line-height: 1;
-  color: var(--on-surface);
+  align-items: center;
   text-decoration: none;
   flex-shrink: 0;
+  border-radius: 0.125rem;
 }
 
-.site-header__mark {
-  color: var(--primary-container);
-  font-size: 0.9em;
+/* Gold focus ring (design-system §7). Outline form, not the double-ring
+   box-shadow, since the fixed header can clip box-shadows. */
+.site-header__wordmark:focus-visible {
+  outline: 0.125rem solid var(--secondary);
+  outline-offset: 0.25rem;
 }
 
-.site-header__wordmark-name {
-  color: var(--on-surface);
-}
-
-.site-header__wordmark-est {
-  font-style: italic;
-  color: var(--tertiary);
-  font-weight: 400;
-  font-size: 0.625rem;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
+.site-header__logo {
+  display: block;
+  height: 4rem;
+  width: auto;
 }
 
 /* Desktop Nav */

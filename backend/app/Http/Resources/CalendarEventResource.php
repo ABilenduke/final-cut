@@ -37,6 +37,23 @@ class CalendarEventResource extends JsonResource
             // Stored calendar_events rows return null — the field is absent
             // from the underlying model attributes for those.
             'showtimes' => $this->showtimes ?? null,
+            // Structured venue — populated only on the detail endpoint (which
+            // eager-loads `location`). The `relationLoaded` guard keeps the
+            // month listing and synthesized showtime entries at null without
+            // triggering a per-row query. Feeds the schema.org Event/Place on
+            // the customer `/events/:slug` page.
+            'location' => $this->relationLoaded('location') && $this->location
+                ? [
+                    'name' => $this->location->name,
+                    'street' => $this->location->street,
+                    'city' => $this->location->city,
+                    'state' => $this->location->state,
+                    'postalCode' => $this->location->postal_code,
+                    'country' => $this->location->country,
+                    'latitude' => $this->location->latitude,
+                    'longitude' => $this->location->longitude,
+                ]
+                : null,
         ];
     }
 }

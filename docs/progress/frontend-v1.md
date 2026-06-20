@@ -1201,3 +1201,46 @@ Replaced the generic month-grid + filters + list-below `/whats-on` page with the
 - `docs/architecture/SITE_ARCHITECTURE.md` — component listing updated
 - `docs/architecture/STATE_MANAGEMENT.md` — calendar state row updated
 - `docs/README.md` — added the `Handoffs` section
+
+---
+
+## SEO Phase 1 — Foundation + Events + Docs
+**Status:** ✅ Complete
+**Started:** 2026-06-20
+**Completed:** 2026-06-20
+
+### Work Done
+- [2026-06-20] Audited SEO: dynamic sitemap/robots (Nitro routes) already solid; meta/JSON-LD coverage uneven because every page hand-rolled `useHead`. Closed the high-impact gaps.
+- [2026-06-20] New `app/utils/seo.ts` — pure, unit-tested builders: `absoluteUrl`, `organizationSchema`, `eventSchema`, `buildSeoHead`, `DEFAULT_OG_IMAGE`. New `app/composables/useSeo.ts` — thin reactive wrapper over `buildSeoHead` (accepts ref/getter). Same builder-vs-wrapper split as the sitemap.
+- [2026-06-20] `app/app.vue` — global SEO defaults: idempotent `titleTemplate` (brands bare titles, leaves "Final Cut"-containing titles untouched), default OG/Twitter meta, site-wide `og:image` fallback (`public/og-default.png`), and the brand `Organization` JSON-LD.
+- [2026-06-20] `/events/:slug` — replaced the title+description-only `useHead` with `useSeo()`: canonical, OG/Twitter, og:image, and a schema.org `Event` (+ `Place` when venue-scoped). `/events` index now emits canonical + an `ItemList`.
+- [2026-06-20] Backend: `CalendarEventResource` exposes a structured `location` (name/address/geo) on the detail endpoint only (controller eager-loads `location`; `relationLoaded` guard keeps the month listing + synthesized showtimes at `null`, no N+1). TS `CalendarEvent` gained `location?: EventLocation | null`.
+- [2026-06-20] Docs: corrected the stale `@nuxtjs/sitemap` claims in `SITE_ARCHITECTURE.md` + `CONTENT_ARCHITECTURE.md` (real impl is hand-rolled Nitro routes), added a `## SEO` section, and updated `PAGE_SPECS.md` (`/events/:slug` Event implemented, `/whats-on` clarified).
+
+### Decisions
+- [2026-06-20] Idempotent `titleTemplate` (function form in `app.vue`, not static `nuxt.config`) instead of mass-editing ~30 page titles — lets pages migrate to bare titles incrementally without a flag-day rename.
+- [2026-06-20] Event `location` exposed on the **detail** endpoint only (not the month listing) — Event rich-result eligibility needs it, but the listing would pay an N+1 for data the calendar grid doesn't use.
+- [2026-06-20] Logic lives in pure `seo.ts` builders (17 unit tests) with a smoke-tested composable wrapper (3 tests) — head introspection avoided, mirroring `tests/server/sitemap.test.ts`.
+
+### Tests
+- Frontend: `tests/utils/seo.test.ts` (17), `tests/composables/useSeo.test.ts` (3). Full suite green: 127 files / 1022 passed.
+- Backend: `tests/Feature/Api/CalendarEventControllerTest.php` — added detail-location present/absent + index-null (N+1 guard) cases. `--filter=CalendarEventController` green (43). PHPStan clean on changed files.
+
+### Out of scope (Phase 2)
+- Migrating the long tail of pages onto `useSeo()`; blog `Article` image/url; per-page dynamic OG image generation; BreadcrumbList everywhere.
+
+### Files Changed
+- `frontend/app/utils/seo.ts` — new (pure SEO builders)
+- `frontend/app/composables/useSeo.ts` — new (reactive wrapper)
+- `frontend/app/app.vue` — global SEO defaults + Organization JSON-LD + titleTemplate
+- `frontend/app/pages/events/[slug].vue` — useSeo + Event/Place JSON-LD
+- `frontend/app/pages/events/index.vue` — useSeo + ItemList
+- `frontend/app/types/calendar-event.ts` — `EventLocation` + `CalendarEvent.location`
+- `frontend/tests/utils/seo.test.ts`, `frontend/tests/composables/useSeo.test.ts` — new
+- `frontend/public/og-default.png` — site-wide OG fallback (user-supplied asset)
+- `backend/app/Http/Resources/CalendarEventResource.php` — structured `location` field
+- `backend/app/Http/Controllers/Api/CalendarEventController.php` — eager-load `location` in `show`
+- `backend/tests/Feature/Api/CalendarEventControllerTest.php` — location coverage
+- `docs/architecture/SITE_ARCHITECTURE.md` — Sitemap section corrected; new `## SEO` section
+- `docs/architecture/CONTENT_ARCHITECTURE.md` — sitemap impl corrected; useSeo note
+- `docs/specs/PAGE_SPECS.md` — `/events/:slug` + `/whats-on` structured-data notes

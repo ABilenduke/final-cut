@@ -2,6 +2,10 @@ import { describe, it, expect } from 'vitest'
 import { mountSuspended } from '@nuxt/test-utils/runtime'
 import CheckoutTotalsRail from '~/components/booking/CheckoutTotalsRail.vue'
 
+// The rail is now a pure totals summary — the Confirm & pay button, the
+// authorization note, and the trust badges moved to CheckoutConfirmBay (so
+// they render in the main column and stay reachable on mobile, where the rail
+// is hidden). Those behaviors are covered in CheckoutConfirmBay.test.ts.
 const baseProps = {
   seats: [
     { id: 'uuid-f7', label: 'F7', section: 'Standard', price: 1850 },
@@ -12,7 +16,6 @@ const baseProps = {
   giftCardAmount: 0,
   subtotal: 3700, // 2 × 1850 — seats only; concessions moved off the booking flow.
   total: 3700,
-  timeRemaining: 462,
 }
 
 describe('CheckoutTotalsRail', () => {
@@ -52,39 +55,9 @@ describe('CheckoutTotalsRail', () => {
     expect(wrapper.text()).toContain('Gift card')
   })
 
-  it('emits submit when the pay button is clicked', async () => {
+  it('no longer renders the pay button (moved to CheckoutConfirmBay)', async () => {
     const wrapper = await mountSuspended(CheckoutTotalsRail, { props: baseProps })
-    const payBtn = wrapper.find('.totals-rail__pay')
-    expect(payBtn.attributes('disabled')).toBeUndefined()
-    await payBtn.trigger('click')
-    expect(wrapper.emitted('submit')).toBeDefined()
-  })
-
-  it('disables the pay button when seats array is empty', async () => {
-    const wrapper = await mountSuspended(CheckoutTotalsRail, {
-      props: { ...baseProps, seats: [], subtotal: 0, total: 0 },
-    })
-    expect(wrapper.find('.totals-rail__pay').attributes('disabled')).toBeDefined()
-  })
-
-  it('disables the pay button when disabled prop is true', async () => {
-    const wrapper = await mountSuspended(CheckoutTotalsRail, {
-      props: { ...baseProps, disabled: true },
-    })
-    expect(wrapper.find('.totals-rail__pay').attributes('disabled')).toBeDefined()
-  })
-
-  it('mirrors the hold timer in the authorization note', async () => {
-    const wrapper = await mountSuspended(CheckoutTotalsRail, { props: baseProps })
-    expect(wrapper.find('.totals-rail__note').text()).toContain('07:42')
-  })
-
-  it('renders all three trust badges', async () => {
-    const wrapper = await mountSuspended(CheckoutTotalsRail, { props: baseProps })
-    const trust = wrapper.find('.totals-rail__trust').text()
-    expect(trust).toContain('TLS 1.3')
-    expect(trust).toContain('PCI-DSS')
-    expect(trust).toContain('3-D Secure')
+    expect(wrapper.find('.totals-rail__pay').exists()).toBe(false)
   })
 
   it('shows the Reel Society upsell card', async () => {

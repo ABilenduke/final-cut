@@ -189,6 +189,7 @@ test('resource includes all expected fields', function () {
                     'ticketUrl',
                     'loyaltyOnly',
                     'accessibilityTags',
+                    'location',
                 ],
             ],
         ]);
@@ -237,6 +238,65 @@ test('imageUrl is derived from image_path via the public disk url', function () 
     // The wire field name is `imageUrl`, not the underlying column
     // (`image_path`) — the customer contract is what the Nuxt app reads.
     expect($expectedUrl)->toContain('calendar-events/sample.jpg');
+});
+
+test('event detail includes structured location when the event is venue-scoped', function () {
+    $location = Location::factory()->create([
+        'name' => 'Downtown Cinema',
+        'street' => '123 Marquee Ave',
+        'city' => 'Portland',
+        'state' => 'OR',
+        'postal_code' => '97201',
+        'country' => 'US',
+        'latitude' => 45.523064,
+        'longitude' => -122.676483,
+    ]);
+
+    CalendarEvent::factory()->specialEvent()->create([
+        'slug' => 'gala-with-venue',
+        'location_id' => $location->id,
+    ]);
+
+    // The detail endpoint exposes a structured location so the customer-side
+    // `/events/:slug` page can emit a schema.org Event with a Place + address,
+    // which Google requires for Event rich results.
+    getJson('/api/calendar/events/gala-with-venue')
+        ->assertOk()
+        ->assertJsonPath('data.location.name', 'Downtown Cinema')
+        ->assertJsonPath('data.location.street', '123 Marquee Ave')
+        ->assertJsonPath('data.location.city', 'Portland')
+        ->assertJsonPath('data.location.state', 'OR')
+        ->assertJsonPath('data.location.postalCode', '97201')
+        ->assertJsonPath('data.location.country', 'US');
+});
+
+test('event detail location is null for a venue-agnostic event', function () {
+    CalendarEvent::factory()->specialEvent()->create([
+        'slug' => 'gala-no-venue',
+        'location_id' => null,
+    ]);
+
+    getJson('/api/calendar/events/gala-no-venue')
+        ->assertOk()
+        ->assertJsonPath('data.location', null);
+});
+
+test('index entries do not eager-load location (stays null to avoid N+1)', function () {
+    $location = Location::factory()->create(['slug' => 'downtown-index-loc']);
+
+    CalendarEvent::factory()->specialEvent()->create([
+        'date' => '2026-06-15',
+        'start_time' => '2026-06-15 19:00:00',
+        'location_id' => $location->id,
+    ]);
+
+    // The month listing keeps `location` null even for venue-scoped events —
+    // the structured Place is only needed on the detail page, so the index
+    // never pays the relation-load cost.
+    getJson('/api/calendar/events?month=6&year=2026')
+        ->assertOk()
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('data.0.location', null);
 });
 
 /*

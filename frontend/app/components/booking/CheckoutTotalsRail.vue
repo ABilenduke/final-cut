@@ -8,15 +8,6 @@ const props = defineProps<{
   giftCardAmount: number
   subtotal: number
   total: number
-  timeRemaining: number
-  /** Reflects the parent page's in-flight state so the CTA can show a spinner / disable. */
-  submitting?: boolean
-  /** Disables the CTA (e.g. Stripe not ready yet) without showing a spinner. */
-  disabled?: boolean
-}>()
-
-const emit = defineEmits<{
-  submit: []
 }>()
 
 const seatsTotal = computed<number>(() =>
@@ -29,12 +20,6 @@ const seatSectionLabel = computed<string>(() => {
   return sections.size === 1
     ? `${props.seats.length} × ${[...sections][0]}`
     : `${props.seats.length} × mixed sections`
-})
-
-const formattedHold = computed<string>(() => {
-  const mins = Math.floor(Math.max(0, props.timeRemaining) / 60)
-  const secs = Math.max(0, props.timeRemaining) % 60
-  return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`
 })
 </script>
 
@@ -77,36 +62,6 @@ const formattedHold = computed<string>(() => {
           <span class="totals-rail__grand-v">{{ formatCurrency(total) }}</span>
         </div>
       </dl>
-
-      <button
-        type="button"
-        class="totals-rail__pay"
-        :disabled="disabled || submitting || seats.length === 0"
-        @click="emit('submit')"
-      >
-        <span>{{ submitting ? 'Processing…' : 'Confirm & pay' }}</span>
-        <span class="totals-rail__pay-amt">{{ formatCurrency(total) }}</span>
-      </button>
-
-      <p class="totals-rail__note">
-        By paying, you authorize Final Cut Ltd. to charge your card.
-        Seats release if payment does not complete within <b>{{ formattedHold }}</b>.
-      </p>
-
-      <div class="totals-rail__trust">
-        <span>
-          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z" /></svg>
-          TLS 1.3
-        </span>
-        <span>
-          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zM9 6c0-1.66 1.34-3 3-3s3 1.34 3 3v2H9V6z" /></svg>
-          PCI-DSS
-        </span>
-        <span>
-          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M10 17l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" /></svg>
-          3-D Secure
-        </span>
-      </div>
     </section>
 
     <section class="bay totals-rail__upsell">
@@ -220,88 +175,6 @@ const formattedHold = computed<string>(() => {
   letter-spacing: -0.02em;
   font-weight: 500;
   font-variant-numeric: tabular-nums;
-}
-
-.totals-rail__pay {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  min-height: 3.5rem;
-  padding: 0 1.25rem;
-  margin-top: var(--space-md);
-  border-radius: var(--radius-sm);
-  background-color: var(--secondary);
-  color: var(--surface);
-  border: none;
-  font-family: var(--font-display);
-  font-size: 1.0625rem;
-  font-weight: 500;
-  letter-spacing: 0.01em;
-  width: 100%;
-  cursor: pointer;
-  transition:
-    background-color var(--duration-standard) var(--ease-standard),
-    transform var(--duration-micro) var(--ease-standard);
-}
-
-.totals-rail__pay:hover:not(:disabled) {
-  background-color: var(--secondary-hover);
-}
-
-.totals-rail__pay:active:not(:disabled) {
-  transform: scale(0.99);
-}
-
-.totals-rail__pay:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.totals-rail__pay-amt {
-  font-variant-numeric: tabular-nums;
-}
-
-.totals-rail__note {
-  margin: 0.75rem 0 0;
-  font-family: var(--font-body);
-  font-size: 0.6875rem;
-  line-height: 1.5;
-  color: var(--on-tertiary-fixed-variant);
-  letter-spacing: 0.04em;
-}
-
-.totals-rail__note b {
-  color: var(--secondary);
-  font-weight: 500;
-  font-variant-numeric: tabular-nums;
-}
-
-.totals-rail__trust {
-  display: flex;
-  gap: var(--space-md);
-  padding-top: var(--space-sm);
-  margin-top: var(--space-md);
-  border-top: var(--border-hairline) solid rgb(var(--outline-variant-rgb) / 0.2);
-  font-family: var(--font-body);
-  font-size: 0.625rem;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  color: var(--on-tertiary-fixed-variant);
-  align-items: center;
-  flex-wrap: wrap;
-}
-
-.totals-rail__trust span {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-}
-
-.totals-rail__trust svg {
-  width: 0.75rem;
-  height: 0.75rem;
-  color: var(--secondary);
 }
 
 .totals-rail__upsell {

@@ -251,7 +251,7 @@ Map links use raw `https://maps.google.com/?q=<lat>,<lng>` URLs constructed clie
 
 ## Sitemap
 
-The app emits `sitemap.xml` at the root of the public domain via `@nuxtjs/sitemap`. It must list every public content URL so search engines can discover the full slate without crawling derivation:
+The app emits `sitemap.xml` at the root of the public domain via a **hand-rolled Nitro route** (`frontend/server/routes/sitemap.xml.ts`) — not `@nuxtjs/sitemap`, which was removed in the 2026-05-04 CI fix because its transitive `nuxt-site-config`/`h3@2-rc` chain broke `nuxt build` on the Nuxt 4 + Nitro 2.13 baseline (see `docs/superpowers/plans/2026-05-03-pr-50-ci-fix.md`). It must list every public content URL so search engines can discover the full slate without crawling derivation:
 
 - `/`
 - `/movies`, every movie's `/movies/:slug`
@@ -264,7 +264,24 @@ The app emits `sitemap.xml` at the root of the public domain via `@nuxtjs/sitema
 
 Excluded: `/purchase/**`, `/account/**`, `/auth/**` (these carry `X-Robots-Tag: noindex` from `routeRules` and `<meta name="robots" content="noindex">` in their templates). The admin subdomain has its own robots policy.
 
-Dynamic URLs are sourced at sitemap generation time from `/api/movies`, `/api/calendar/events`, and `/api/locations`; blog posts come from `@nuxt/content`'s `queryContent`. Per-URL `lastmod` is derived from the underlying record's `updated_at`. The sitemap is regenerated on every ISR revalidation tick (`@nuxtjs/sitemap` handles this transparently when configured against dynamic sources).
+Implementation (all under `frontend/server/`):
+
+- `routes/sitemap.xml.ts` — entry point. Merges a static route list with dynamic URLs, sets a 15-minute `Cache-Control`, and serialises via the pure `utils/sitemap-builder.ts` (`buildSitemapXml`, unit-tested in `tests/server/sitemap.test.ts`). `EXCLUDED_PREFIXES` (`/purchase/`, `/account`, `/auth/`) mirrors the noindex `routeRules`.
+- `api/__sitemap__/urls.get.ts` — dynamic URL source. Fetches `/api/movies`, `/api/calendar/events` (slug'd events only), `/api/locations`, and `/api/blog-posts` from the Laravel API **in parallel via `Promise.allSettled`**, so one failing source degrades gracefully instead of emptying the map. Per-URL `lastmod` is derived from each record's `updated_at` (blog: `date`).
+- `routes/robots.txt.ts` — dynamic `robots.txt`: disallows the excluded prefixes and points `Sitemap:` at `${siteUrl}/sitemap.xml` (1-hour cache).
+
+All absolute URLs are built from `NUXT_PUBLIC_SITE_URL` (`runtimeConfig.public.siteUrl`, default `https://finalcut.test`). **This env var must be set in every deployed environment** — if it falls back to the dev default, the sitemap, robots, canonical, and OG URLs will all point at `finalcut.test`.
+
+---
+
+## SEO
+
+Customer-facing SEO is centralised so coverage doesn't drift page-by-page.
+
+- **Global defaults** live in `frontend/app/app.vue`: an idempotent `titleTemplate` (brands any bare page title with `— Final Cut`, leaves titles that already contain "Final Cut" untouched — this lets pages pass bare titles without a flag-day rename), default `og:site_name`/`og:type`/`og:locale`/`twitter:card`, a site-wide `og:image`/`twitter:image` fallback (`public/og-default.png`), and the brand-level **`Organization`** JSON-LD emitted once.
+- **Per-page SEO** goes through the **`useSeo()` composable** (`app/composables/useSeo.ts`): pass `{ title (bare), description, path?, image?, type?, jsonLd?, noindex? }` (a ref/getter is accepted so async pages update reactively). It emits the canonical `<link>`, OG/Twitter meta, og:image (with the fallback), and JSON-LD. All logic is in the pure, unit-tested `app/utils/seo.ts` builder (`buildSeoHead`, `absoluteUrl`, `organizationSchema`, `eventSchema`) — same builder-vs-wrapper split as the sitemap. JSON-LD is always serialised through `app/utils/safeJsonLd.ts` (escapes `</script>` + U+2028/9).
+- **Structured data in place:** `Organization` (site-wide), `ItemList` (home now-showing, events listing), `Movie` (`/movies/:slug`), `LocalBusiness` + `BreadcrumbList` (`/locations`, `/locations/:slug`), `FAQPage` (`/faq`), `JobPosting` (`/careers`), and `Event` + `Place` (`/events/:slug` — the venue comes from the detail endpoint's structured `location`, which the month listing omits to avoid an N+1).
+- **Canonical strategy:** each page's canonical is its own path; `/movies` self-canonicalises the `?status=`/`?location=` filter combination so distinct filtered views aren't deduped. Pre-`useSeo()` pages still hand-roll `useHead` — migrating the long tail of pages onto `useSeo()` is the tracked Phase 2 follow-up.
 
 ---
 

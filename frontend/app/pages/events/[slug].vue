@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { absoluteUrl, eventSchema } from '~/utils/seo'
+
 const route = useRoute()
 const slug = route.params.slug as string
 
@@ -7,17 +9,33 @@ const { data: eventData, error } = getEvent(slug)
 
 const event = computed(() => eventData.value?.data ?? null)
 
-// SEO
-useHead({
-  title: computed(() =>
-    event.value ? `${event.value.title} — Final Cut` : 'Event — Final Cut',
-  ),
-  meta: [
-    {
-      name: 'description',
-      content: computed(() => event.value?.description ?? 'Event details at Final Cut.'),
-    },
-  ],
+const siteUrl = String(useRuntimeConfig().public.siteUrl ?? '')
+
+// SEO — title (branded by the global titleTemplate), OG/Twitter, canonical, and
+// a schema.org Event with a Place when the event is venue-scoped. Reactive
+// getter so the tags fill in once the async fetch resolves.
+useSeo(() => {
+  const e = event.value
+  const path = `/events/${slug}`
+  return {
+    title: e?.title ?? 'Event',
+    description: e?.description || 'Event details at Final Cut.',
+    path,
+    image: e?.imageUrl,
+    jsonLd: e
+      ? eventSchema({
+          name: e.title,
+          startDate: e.startTime,
+          endDate: e.endTime,
+          description: e.description,
+          image: e.imageUrl,
+          url: absoluteUrl(path, siteUrl),
+          ticketUrl: e.ticketUrl,
+          location: e.location ?? null,
+          siteUrl,
+        })
+      : null,
+  }
 })
 </script>
 

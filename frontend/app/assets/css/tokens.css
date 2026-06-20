@@ -133,7 +133,7 @@
    * height change propagates without a hunt-and-replace. Layouts using a
    * sticky chrome wrapper (default, account) get correct flow offsets for
    * free; only fixed/nested-sticky descendants need to consume these. */
-  --layout-header-height:     4rem;    /* SiteHeader bar */
+  --layout-header-height:     5.5rem;  /* SiteHeader bar */
   --layout-ticker-height:     2rem;    /* Neural Ticker (default/account) */
   --layout-hold-timer-height: 2.5rem;  /* CheckoutHoldTimer (purchase) */
 

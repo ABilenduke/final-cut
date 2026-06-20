@@ -261,9 +261,9 @@ The existing `GET /api/locations/{location}/food-menu` endpoint stays in place f
 - `/faq`, `/contact`, `/accessibility`, `/careers`, `/gift-cards`, `/private-screenings`
 - `/blog`, every post's `/blog/:slug`
 
-`@nuxtjs/sitemap` is the implementation; sources are the same endpoints used for SSR (`/api/movies`, `/api/calendar/events`, `/api/locations`) plus `@nuxt/content` for the blog.
+A hand-rolled Nitro route (`frontend/server/routes/sitemap.xml.ts`) is the implementation — `@nuxtjs/sitemap` was removed in the 2026-05-04 CI fix. Sources are the same endpoints used for SSR (`/api/movies`, `/api/calendar/events`, `/api/locations`) plus `/api/blog-posts`, fetched in parallel via `Promise.allSettled`. See `SITE_ARCHITECTURE.md` § Sitemap / § SEO for the full contract.
 
-**Per-route meta.** Every content page sets a unique title, description, canonical URL, and Open Graph image (movie poster, event image, location photo, or brand fallback). Movie and event pages additionally emit `Movie` and `Event` JSON-LD respectively (already specified in `PAGE_SPECS.md`).
+**Per-route meta.** Every content page sets a unique title, description, canonical URL, and Open Graph image (movie poster, event image, location photo, or the site-wide `og-default.png` fallback) — wired through the shared `useSeo()` composable (`SITE_ARCHITECTURE.md` § SEO). Movie and event pages additionally emit `Movie` and `Event` JSON-LD respectively (specified in `PAGE_SPECS.md`); a site-wide `Organization` is emitted from `app.vue`.
 
 **`robots.txt`.** Allows the public content tier; disallows `/account/*`, `/auth/*`, `/purchase/*` (the latter also carries `X-Robots-Tag: noindex` from `routeRules`). The admin subdomain has its own robots policy.
 

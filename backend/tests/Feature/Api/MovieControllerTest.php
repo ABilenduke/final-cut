@@ -56,7 +56,9 @@ test('GET /api/movies returns correct JSON structure with meta', function () {
         ->assertOk()
         ->assertJsonStructure([
             'data' => [
-                '*' => ['id', 'slug', 'title', 'posterUrl', 'status'],
+                // `runtime` is needed by the customer MovieCard meta row — without
+                // it the card formats `undefined` and renders "NaNh NaNm".
+                '*' => ['id', 'slug', 'title', 'runtime', 'posterUrl', 'status'],
             ],
             'meta' => ['total', 'page'],
         ]);
