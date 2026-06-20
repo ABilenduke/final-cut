@@ -221,7 +221,7 @@ Every element has a defined size. No component should rely on content alone to d
 |---|---|---|---|---|
 | Button | 3rem (48px) | 2.25rem (36px) | 3.5rem (56px) | Small variant: **pointer-device only** (see rule below) |
 | Input field | 3rem (48px) | 2.25rem (36px) | — | Small variant: **pointer-device only** (see rule below) |
-| Nav bar | 4rem (64px) | — | — | Fixed height at all breakpoints |
+| Nav bar (SiteHeader) | 5.5rem (88px) | — | — | Fixed at all breakpoints; sourced from `--layout-header-height` |
 | Footer | auto, min 15rem (240px) | — | — | Content-driven, minimum enforced |
 | Card thumbnail | 11.25rem (180px) | 7.5rem (120px) | 15rem (240px) | Non-interactive — touch target rule does not apply |
 | Seat grid cell | 2.5rem (40px) | 3rem (48px) | — | Mobile variant is larger to meet touch target minimum |
@@ -231,6 +231,8 @@ Every element has a defined size. No component should rely on content alone to d
 | Calendar day cell | 3rem (48px) | — | — | No small variant — 3rem at all breakpoints |
 
 **Sub-3rem interactive sizing rule:** Small variants for buttons (2.25rem) and input fields (2.25rem) exist exclusively for desktop contexts where a fine pointer is available. Gate them behind `@media (pointer: fine)`. Below `screen-md`, all interactive elements are 3rem minimum regardless of variant class. No exceptions.
+
+**Layout chrome tokens:** The persistent chrome heights are tokenized in `tokens.css` as the single source of truth — `--layout-header-height` (5.5rem, SiteHeader bar), `--layout-ticker-height` (2rem, Neural Ticker), and `--layout-hold-timer-height` (2.5rem, the purchase-flow `CheckoutHoldTimer`). Sticky offsets (the ticker, the purchase rails) are computed from these via `calc()` rather than hardcoded, so a chrome-height change propagates automatically.
 
 ### Icon Sizes
 

@@ -323,9 +323,9 @@ Located in `app/components/layout/`. These form the persistent site shell.
 
 **Props:** None — reads auth state from `useAuth()`.
 
-**Structure:** Logo (links to `/`), primary nav (Movies, What's On, Food & Drink, Events, Gift Cards), auth controls (Sign In or avatar dropdown). Mobile: hamburger menu below `screen-md`.
+**Structure:** Wordmark logo image (links to `/`), primary nav (Movies, What's On, Food & Drink, Events, Gift Cards), auth controls (Sign In or avatar dropdown). Mobile: hamburger menu below `screen-md`.
 
-**Behavior:** Height: 4rem, fixed. Background: `surface-container`. At `z-sticky`. Nav links: `on-surface`, Newsreader `body-md`. Active link: `secondary` underline. Logo: Noto Serif, `headline-sm`.
+**Behavior:** Height: 5.5rem (`--layout-header-height`), fixed. Background: `surface-container`. At `z-sticky`. Nav links: `on-surface`, Newsreader `body-md`. Active link: `secondary` underline. Logo: wordmark image (`public/final-cut-logo-wordmark.webp`, 4rem tall) — the `<NuxtLink>` carries `aria-label="Final Cut — home"` and the `<img>` is decorative (`alt=""`).
 
 **Accessibility:** `<header role="banner">` with `<nav aria-label="Primary">`. Mobile menu: `aria-expanded` on toggle, focus trap when open.
 
