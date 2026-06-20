@@ -36,7 +36,7 @@ const cornerNo = computed(() => meta.value.serial)
     <div class="gift-card-visual__divider" aria-hidden="true" />
     <div class="gift-card-visual__tagline">Two hours · in the dark</div>
     <div class="gift-card-visual__foot">
-      <span class="gift-card-visual__wm">Final Cut<em>est. 2003</em></span>
+      <span class="gift-card-visual__wm">Final Cut<em>est. 2026</em></span>
       <span class="gift-card-visual__serial">{{ serial }}</span>
     </div>
   </div>
