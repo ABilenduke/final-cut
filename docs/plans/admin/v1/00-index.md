@@ -1,7 +1,7 @@
 # Admin Implementation Plans — Master Index
 
 > **Project:** Final Cut Movie Theatre — Admin Panel
-> **Stack:** Laravel 13 (existing `backend/` app), PHP 8.4, Filament 3, PostgreSQL, Redis, Pest
+> **Stack:** Laravel 13 (existing `backend/` app), PHP 8.4, Filament 5, PostgreSQL, Redis, Pest
 > **Methodology:** MoSCoW prioritization, dependency-first ordering, domain grouping, inline testing
 > **Spec:** [`docs/superpowers/specs/2026-04-20-admin-section-design.md`](../../../superpowers/specs/2026-04-20-admin-section-design.md)
 
@@ -9,7 +9,7 @@
 
 ## Architecture
 
-Filament 3 admin panel installed **inside the existing `backend/` Laravel app** and served at a dedicated subdomain (`admin.finalcut.test` in dev, `admin.finalcut.com` in prod). There is no separate Laravel app, no new Docker service, no cross-app code bridge. Admin Resources, Pages, and the panel provider live under `backend/app/Filament/` and `backend/app/Providers/Filament/`. Admin-only tables (`admin_users`, Spatie permission tables, `activity_log`, `loyalty_adjustments`) are migrated via `backend/database/migrations/` alongside customer tables.
+Filament 5 admin panel installed **inside the existing `backend/` Laravel app** and served at a dedicated subdomain (`admin.finalcut.test` in dev, `admin.finalcut.com` in prod). There is no separate Laravel app, no new Docker service, no cross-app code bridge. Admin Resources, Pages, and the panel provider live under `backend/app/Filament/` and `backend/app/Providers/Filament/`. Admin-only tables (`admin_users`, Spatie permission tables, `activity_log`, `loyalty_adjustments`) are migrated via `backend/database/migrations/` alongside customer tables.
 
 Isolation between the admin surface and the customer surface is enforced at three layers:
 
@@ -27,15 +27,15 @@ Roles: **admin** (full), **manager** (content + operations, no financial mutatio
 
 | # | Plan | MoSCoW | Complexity | Depends On | Status |
 |---|------|--------|------------|------------|--------|
-| 01 | [Admin Panel Scaffold & Nginx Vhost](01-admin-scaffold-and-docker.md) | Must Have | M | None | Pending |
-| 02 | [Auth, Roles, Permissions & Audit Log](02-auth-roles-permissions-audit.md) | Must Have | M | 01 | Pending |
-| 03 | [Base Resource Class & Loyalty Adjustments](03-shared-models-and-base-resources.md) | Must Have | S | 01, 02 | Pending |
-| 04 | [Movie Catalog Management](04-movie-catalog-management.md) | Must Have | M | 03 | Pending |
-| 05 | [Locations, Auditoriums & Seat Editor](05-locations-auditoriums-seat-editor.md) | Must Have | XL | 03 | Pending |
-| 06 | [Showtime Management](06-showtime-management.md) | Must Have | XL | 04, 05 | Pending |
-| 07 | [Bookings, Customers & Loyalty](07-bookings-customers-loyalty.md) | Should Have | M | 03, 06 | Pending |
-| 08 | [Menu, Promo Codes & Gift Cards](08-menu-promo-gift-cards.md) | Should Have | M | 05 | Pending |
-| 09 | [Calendar Events, Testing & Hardening](09-calendar-events-testing-deploy.md) | Should Have | L | 04–08 | Pending |
+| 01 | [Admin Panel Scaffold & Nginx Vhost](01-admin-scaffold-and-docker.md) | Must Have | M | None | ✅ Complete (2026-04-22) |
+| 02 | [Auth, Roles, Permissions & Audit Log](02-auth-roles-permissions-audit.md) | Must Have | M | 01 | ✅ Complete (2026-04-22) |
+| 03 | [Base Resource Class & Loyalty Adjustments](03-shared-models-and-base-resources.md) | Must Have | S | 01, 02 | ✅ Complete (2026-04-22) |
+| 04 | [Movie Catalog Management](04-movie-catalog-management.md) | Must Have | M | 03 | ✅ Complete (2026-04-23) |
+| 05 | [Locations, Auditoriums & Seat Editor](05-locations-auditoriums-seat-editor.md) | Must Have | XL | 03 | ✅ Complete (2026-04-23) |
+| 06 | [Showtime Management](06-showtime-management.md) | Must Have | XL | 04, 05 | ✅ Complete (2026-04-24) |
+| 07 | [Bookings, Customers & Loyalty](07-bookings-customers-loyalty.md) | Should Have | M | 03, 06 | ✅ Complete (2026-04-24) |
+| 08 | [Menu, Promo Codes & Gift Cards](08-menu-promo-gift-cards.md) | Should Have | M | 05 | ✅ Complete (2026-04-25) |
+| 09 | [Calendar Events, Testing & Hardening](09-calendar-events-testing-deploy.md) | Should Have | L | 04–08 | ✅ Complete (2026-04-26) |
 
 ---
 
@@ -120,6 +120,8 @@ Calendar events, full Pest suite pass, production hardening (IP allowlist, rate 
 - **Booking write operations** — cancel, refund (Stripe-integrated), seat modification. Read-only in v1; manual cancellation workflow in Plan 06 documents the interim process.
 - **Per-location manager scoping** — all roles see all locations in v1. Likely needed for the two-location operation; retrofit cost tracked in spec § 2.7.
 
+> **Post-v1 status (2026-06):** Several items below have since shipped in the admin v2–v5 rounds and are no longer deferred — booking write operations (cancel / refund / seat amendment via `BookingRefundService` + `BookingAmendmentService`), admin-managed blog posts (`BlogPostResource`), and broad CMS-managed site content. **MFA / 2FA** and **per-location manager scoping** remain the open post-v1 items.
+
 ### Won't Have (out of scope indefinitely)
 
 - Customer impersonation
@@ -139,5 +141,5 @@ Execution journal: `docs/progress/admin-v1.md` (scaffolded in Plan 01, updated p
 ## Relationship to Backend & Frontend Plans
 
 - **Backend v1** (complete, 410+ tests) provides the shared database schema, the existing service layer (`TmdbService`, `SeatAvailabilityService`, `StripeService`, `LoyaltyService`), and the Eloquent models that Filament Resources reuse directly. New services extracted for admin (`MovieService`, `ShowtimeService`, `AuditoriumService`, `GiftCardService`, `PromoCodeService`) land in `backend/app/Services/` and are available to customer API endpoints as well.
-- **Frontend v1** (in progress) is the customer-facing Nuxt app, entirely untouched by admin work.
+- **Frontend v1** (complete) is the customer-facing Nuxt app, entirely untouched by admin work.
 - **Admin v1** lives inside `backend/` but is isolated at the network edge (subdomain + route-domain scoping) so admin routes never answer on the customer domain and vice versa.
