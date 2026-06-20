@@ -86,9 +86,9 @@ Laravel 13 API. See `backend/routes/api.php` for all route definitions. Key dire
 
 - `app/Http/Controllers/` — API controllers
 - `app/Models/` — Eloquent models
-- `app/Services/` — Business logic (TmdbService, StripeService, SeatAvailabilityService, etc.)
-- `app/Filament/Resources/` — Admin panel resources (movies, showtimes, locations, auditoriums, bookings, customers, menu, promo codes, gift cards, calendar events)
-- `app/Filament/Pages/` — Admin custom pages (BookingLookup, CancelledShowtimeFollowup)
+- `app/Services/` — Business logic. The customer API and the admin panel share one service layer: `TmdbService`, `StripeService`, `SeatAvailabilityService`, `ShowtimeService`, `ShowtimeCalendarProjector`, `MovieService`, `AuditoriumService`, `LoyaltyService`, `GiftCardService`, `PromoCodeService`, `PromoRedemptionIdentity`, `WalkUpBookingService`, `BookingAmendmentService`, `BookingRefundService`, `BookingFlagService`, `BookingNotificationService`, `OutboxRetryService`, `ContactSubmissionService`, `RentalInquiryService`, `SiteSettingsService`, `AdminUserService` (plus shared traits under `Services/Concerns/`)
+- `app/Filament/Resources/` — Admin panel resources (20, on a shared `BaseResource`): Movie, Showtime, Location, Auditorium, Booking, User, MenuItem, PromoCode, GiftCard, CalendarEvent, FeaturedSlide, TickerItem, BlogPost, FaqItem, JobOpening, ScreeningPackage, RentalInquiry, ContactSubmission, AdminUser, DispatchOutbox
+- `app/Filament/Pages/` — Admin custom pages (12): BookingLookup, CancellationFollowupQueue, SchedulePlanner, ActivityLog, and the CMS content editors (HomePageContent, NavigationContent, ContactContent, SiteContacts, CareersContent, AccessibilityContent, PrivateScreeningsContent, GiftCardsContent)
 - `app/Outbox/` — Dispatch-outbox processor (`OutboxDispatcher` mapping `event_type` → queued job)
 - `app/Console/Commands/` — Artisan commands including `outbox:dispatch`, `outbox:prune`, `admin:create-user`
 - `database/migrations/` — PostgreSQL schema
@@ -156,12 +156,13 @@ Each route group is assigned a rendering strategy based on how frequently its da
 | `/` | Home (admin-curated hero carousel + cross-location strips) | ISR | 30 min | Content changes infrequently, SEO important |
 | `/movies` | Now Playing / Coming Soon (optional `?location=` filter) | ISR (per-query cache key) | 30 min | Movie listings update a few times daily; each filter URL is independently cacheable |
 | `/movies/:slug` | Movie Detail (cross-location showtimes grouped by venue) | ISR | 10 min | Detail pages, SEO critical |
-| `/whats-on` | Calendar View | ISR | 15 min | Calendar data changes moderately |
+| `/whats-on` | Calendar View (Bridge Console) | SSR (default) | — | **No `routeRule`** — falls back to on-demand SSR; the intended ISR 15 min is not wired (see note below the config) |
 | `/events` | Events Listing | ISR | 15 min | Event schedule changes moderately |
 | `/events/:slug` | Event Detail | ISR | 15 min | Detail pages, SEO important |
 | `/food-drink` | Food and Drink Menu (shared, cross-location, with per-item availability arrays) | ISR | 30 min | Menu rarely changes |
 | `/locations` | All Locations (alphabetical, geolocation re-orders post-hydration) | ISR | 30 min | Venue list rarely changes |
 | `/locations/:slug` | Location Detail (LocalBusiness JSON-LD, now-showing-here strip) | ISR | 30 min | Detail pages, local-SEO critical |
+| `/blog` | Blog Listing | ISR | 10 min | Blog index; posts are the static `app/data/blog.ts` placeholder |
 | `/blog/:slug` | Blog Post | ISR | 10 min | Content updates, SEO critical |
 | `/gift-cards` | Gift Cards (composer + live preview, balance lookup strip) | ISR | 30 min | Editorial content rarely changes; suppresses global `NeuralTicker` via `definePageMeta({ hideTicker: true })` so the balance strip can occupy the chrome slot |
 | `/gift-cards/bulk` | Bulk Gifting placeholder (corporate concierge CTA) | Prerendered | Build time | Static placeholder until the bulk-gifting form ships |
@@ -169,6 +170,9 @@ Each route group is assigned a rendering strategy based on how frequently its da
 | `/faq` | FAQ | ISR | 30 min | FAQ items are admin-managed via `/api/faq` (admin-v2 Plan 13) |
 | `/accessibility` | Accessibility Statement | ISR | 30 min | Contact line is admin-managed via `/api/site-content/contacts` (admin-v3 Plan 02) |
 | `/careers` | Careers | ISR | 30 min | Openings + contact email are admin-managed (admin-v2 Plan 13 / admin-v3 Plan 02) |
+| `/private-screenings` | Private Screenings / Rentals | ISR | 30 min | Packages admin-managed via `/api/screening-packages`; intro via `/api/site-content/private-screenings` |
+| `/terms` | Terms of Service | SSR (default) | — | Static legal page; **no `routeRule`** (see note) |
+| `/privacy` | Privacy Policy | SSR (default) | — | Static legal page; **no `routeRule`** (see note) |
 | `/purchase/**` | Seat Selection, Checkout | Client-only | — | Real-time seat data, auth context |
 | `/account/**` | Profile, Orders, Loyalty | Client-only | — | User-specific data |
 | `/auth/**` | Login, Register, Reset | Client-only | — | Auth forms, no SEO value |
@@ -179,28 +183,34 @@ All rendering strategies are configured via `routeRules` in `nuxt.config.ts`:
 ```ts
 export default defineNuxtConfig({
   routeRules: {
-    '/':                  { isr: 1800 },
-    '/movies':            { isr: 1800 },
-    '/movies/**':         { isr: 600 },
-    '/food-drink':        { isr: 1800 },
-    '/whats-on':          { isr: 900 },
-    '/events':            { isr: 900 },
-    '/events/**':         { isr: 900 },
-    '/locations':         { isr: 1800 },
-    '/locations/**':      { isr: 1800 },
-    '/blog/**':           { isr: 600 },
-    '/gift-cards':        { isr: 1800 },
-    '/gift-cards/bulk':   { prerender: true },
-    '/contact':           { isr: 1800 },
-    '/faq':               { isr: 1800 },
-    '/accessibility':     { isr: 1800 },
-    '/careers':           { isr: 1800 },
-    '/purchase/**':       { ssr: false },
-    '/account/**':        { ssr: false },
-    '/auth/**':           { ssr: false },
+    '/': { isr: 1800 },
+    '/movies': { isr: 1800 },
+    '/movies/**': { isr: 600 },
+    '/food-drink': { isr: 1800 },
+    '/events': { isr: 900 },
+    '/events/**': { isr: 900 },
+    '/locations': { isr: 1800 },
+    '/locations/**': { isr: 1800 },
+    '/blog': { isr: 600 },
+    '/blog/**': { isr: 600 },
+    '/contact': { isr: 1800 },
+    '/faq': { isr: 1800 },
+    '/accessibility': { isr: 1800 },
+    '/careers': { isr: 1800 },
+    '/private-screenings': { isr: 1800 },
+    '/gift-cards': { isr: 1800 },
+    '/gift-cards/bulk': { prerender: true },
+    // X-Robots-Tag header keeps these out of search indices. The matching
+    // sitemap opt-out lives in server/routes/sitemap.xml.ts EXCLUDED_PREFIXES.
+    '/purchase/**': { ssr: false, headers: { 'X-Robots-Tag': 'noindex' } },
+    '/account': { ssr: false, headers: { 'X-Robots-Tag': 'noindex' } },
+    '/account/**': { ssr: false, headers: { 'X-Robots-Tag': 'noindex' } },
+    '/auth/**': { ssr: false, headers: { 'X-Robots-Tag': 'noindex' } },
   },
 })
 ```
+
+> **Note — routeRule gaps:** `/whats-on`, `/terms`, and `/privacy` have **no** `routeRules` entry, so they render with Nuxt's default on-demand SSR (no ISR caching). The `/whats-on` row in the table above records the *intended* ISR strategy; wiring `'/whats-on': { isr: 900 }` (and deciding the `prerender`/sitemap treatment for the two legal pages) is a tracked follow-up.
 
 ### Location-at-Intent Contract
 
@@ -333,6 +343,12 @@ Each composable owns a specific data domain and wraps the corresponding `/api/*`
 | `useCalendarEvents` | Calendar and events | `fetchByMonth`, `fetchByDateRange` |
 | `useFoodMenu` | Food menu. **Refactored** to call `/api/food-menu` (no location segment). Returns items with `available_at: string[]`. No longer reads `useLocations.activeLocation`. | `fetchMenu` |
 | `useFeaturedSlides` | Admin-curated home hero carousel slides | `fetchSlides` |
+| `useTickerItems` | Neural Ticker items (`/api/ticker-items`); `resolveTickerItems` applies the built-in fallback | `useTickerItems()` (SSR fetch) |
+| `useSiteContent.ts` | Admin-managed editorial copy, one composable per surface — `useHomeContent`, `useSiteContacts`, `useCareersContent`, `useContactInfo`, `usePrivateScreeningsCopy` — each paired with a `resolve*` fallback helper (`/api/site-content/*`) | per-surface SSR fetch + `resolve*` |
+| `useBlogPosts` | Blog listing + detail (`/api/blog-posts`) | `useBlogPosts()`, `useBlogPost(slug)` |
+| `useFaq` | FAQ items (`/api/faq`) | `useFaq()` (SSR fetch) |
+| `useJobOpenings` | Careers openings (`/api/job-openings`) | `useJobOpenings()` (SSR fetch) |
+| `useScreeningPackages` | Private-screening packages (`/api/screening-packages`) | `useScreeningPackages()` (SSR fetch) |
 | `usePublicLocations` | Public locations catalog (used by `/locations`, `/locations/:slug`, home strip, movie detail distance captions). SSR-friendly wrapper around `/api/locations`. | `fetchLocations`, `fetchBySlug` |
 | `useLocations` | **Reduced role.** Owns `locations` catalog + `activeLocation` *preferred default* (localStorage). No longer drives content fetches; readers limited to the booking-time location picker and the `LocationPreferenceSwitcher` UI. | `setLocation`, `fetchLocations` |
 | `useGeolocation` | **New.** Browser Geolocation API wrapper. Strict opt-in. Caches granted coords in `sessionStorage`. Provides `distanceTo(location)` Haversine helper. SSR returns `status: 'idle'`. | `request`, `distanceTo` |
@@ -342,6 +358,8 @@ Each composable owns a specific data domain and wraps the corresponding `/api/*`
 | `useSeatSelection` | Auditorium seat picking | `selectSeat`, `deselectSeat`, `selectedSeats`, `totalPrice` |
 | `useGiftCards` | Gift card operations | `purchase`, `checkBalance` |
 | `useToast` | Toast notifications | `show`, `success`, `error`, `dismiss` |
+
+Some composables manage UI/interaction state rather than an `/api/*` data domain and so sit outside the table: `useSeo` (per-page canonical/OG/JSON-LD via the `buildSeoHead` builder — see § SEO), `useBridgeFilters` (page-scoped `/whats-on` chip-filter state), `usePurchaseStep` (shared purchase step-indicator state), `useGiftCardComposer` (local form + live-preview state for the `/gift-cards` composer), `useClock` (SSR-safe live clock), and `useFocusTrap` (modal/drawer focus trapping).
 
 ---
 
